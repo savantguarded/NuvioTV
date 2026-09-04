@@ -315,8 +315,105 @@ internal fun PlayerRuntimeController.resetPostPlayOverlayState(clearEpisode: Boo
     }
 }
 
+/**
+ * S5 binge lookahead: start the next episode's scrape before it is pressed.
+ *
+ * Called from [evaluatePostPlayOverlayVisibility], which the progress loop
+ * already invokes on every tick for both engines with the position and
+ * duration this needs. Sharing that call site is deliberate -- a second
+ * per-tick hook would be a second thing to keep in step.
+ *
+ * Why the trigger is near the END of the episode and not at its start:
+ * StreamPrefetchCache entries carry debrid cached-availability annotations
+ * and expire after five minutes. A prefetch fired when playback began would
+ * be forty minutes stale by the time the next-episode button is pressed.
+ *
+ * Six minutes exceeds that five-minute TTL by design (Paul's call, 26 Jul).
+ * The first fire expires with about a minute of episode left, and because
+ * [StreamPrefetchCache.prefetch] no-ops on a fresh or identical in-flight key,
+ * the very next tick after expiry re-fires it for free -- no re-arm state to
+ * hold. The second entry lands with roughly fifty seconds to spare and stays
+ * fresh for about four minutes past the episode end, which also covers
+ * dwelling on the post-play card. Cost is two scrape cycles per episode.
+ *
+ * S5 part 3: a ranker IS now supplied, so the lookahead also ranks and
+ * pre-resolves the winner. Two things follow from that, and the second is why
+ * it was promoted ahead of everything left in the segment:
+ *
+ *  - the ~873 ms debrid resolve leaves the press path entirely;
+ *  - the resolve is what REVEALS THE CDN HOST, and Patch B's prewarm hangs off
+ *    it. The 26 Jul nt3 capture caught the next episode resolving to
+ *    nexus-170 while every pooled connection was to nexus-196, so the probe
+ *    paid a full cold connect including fresh DNS (1,480 ms to headers).
+ *    OkHttp pools per host: warming the wrong node is worth nothing. Resolving
+ *    early is the only way to learn the right one.
+ *
+ * Runway note: connections idle out of the pool after three minutes, so the
+ * six-minute fire warms a node that will have gone cold by the press. The TTL
+ * re-fire about a minute before the end is the one that lands, and it
+ * re-resolves against the resolver's own 15-minute link cache, so the second
+ * pass is cheap.
+ */
+internal fun PlayerRuntimeController.maybePrefetchNextEpisodeForBinge(
+    positionMs: Long,
+    durationMs: Long
+) {
+    if (!hasRenderedFirstFrame) return
+    val type = contentType ?: return
+    val nextVideo = nextEpisodeVideo ?: return
+    if (_uiState.value.nextEpisode?.hasAired != true) return
+
+    val effectiveDuration = durationMs.takeIf { it > 0L } ?: lastKnownDuration
+    if (effectiveDuration <= 0L) return
+    val remainingMs = effectiveDuration - positionMs
+    if (remainingMs <= 0L || remainingMs > BINGE_LOOKAHEAD_TRIGGER_MS) return
+
+    com.nuvio.tv.core.stream.StreamPrefetchCache.prefetch(
+        repository = streamRepository,
+        type = type,
+        videoId = nextVideo.id,
+        season = nextVideo.season,
+        episode = nextVideo.episode,
+        source = "binge_lookahead",
+        background = true,
+        rank = { groups ->
+            // Mirror what the press SETTLES on, which is not its first
+            // attempt. PlayerRuntimeControllerStreams tries
+            // tryBingeGroupOnly opportunistically while the scrape is still
+            // arriving, but when nothing matches it falls through on timeout
+            // to trySelectStream -- a full select carrying
+            // currentStreamBingeGroup as a PREFERENCE, not a requirement.
+            //
+            // nt10 replicated only the early attempt and stopped there. The
+            // 27 Jul capture caught the consequence immediately: no stream in
+            // the next episode shared the current binge group, the lookahead
+            // returned winner=none, and the transition paid a full 1,743 ms
+            // resolve and a 2,093 ms cold probe -- worse than the
+            // quality-ranked guess it replaced. The press meanwhile settled
+            // in 343 ms with selectCalls=2, which is the fall-through in the
+            // log. Cross-episode binge-group matches are the exception, not
+            // the rule, so the fall-through is the common path and the only
+            // one worth predicting.
+            val preferBinge = playerSettingsDataStore.playerSettings.first()
+                .streamAutoPlayPreferBingeGroupForNextEpisode
+            val lookaheadBingeGroup = currentStreamBingeGroup?.takeIf { preferBinge }
+            prefetchSelectionSupplier.rankAndPreResolve(
+                groups = groups,
+                contentId = contentId,
+                season = nextVideo.season,
+                episode = nextVideo.episode,
+                bingeOverride = lookaheadBingeGroup
+            )
+        }
+    )
+}
+
+/** S5: how much of the episode may remain when the lookahead prefetch fires. */
+private const val BINGE_LOOKAHEAD_TRIGGER_MS = 6L * 60L * 1000L
+
 internal fun PlayerRuntimeController.evaluatePostPlayOverlayVisibility(positionMs: Long, durationMs: Long) {
     if (_playbackTimeline.value.isLive) return
+    maybePrefetchNextEpisodeForBinge(positionMs, durationMs)
     if (!hasRenderedFirstFrame) return
     // Short debrid/error clips must never arm next-episode auto-play (see #2819).
     val effectiveDurationEarly = durationMs.takeIf { it > 0L } ?: lastKnownDuration

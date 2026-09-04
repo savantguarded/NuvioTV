@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.screens.player
 
+import android.util.Log
+
 import android.os.SystemClock
 import androidx.media3.common.C
 import androidx.media3.common.Format
@@ -80,6 +82,7 @@ internal class PlayerPlaybackAnalyticsDiagnostics {
     private var bandwidthEstimateBps: Long? = null
     private var bandwidthTransferDurationMs: Int? = null
     private var bandwidthBytesTransferred: Long? = null
+    private var bandwidthBytesTotal: Long = 0L
 
     private var loadStartedCount: Int = 0
     private var loadCompletedCount: Int = 0
@@ -88,6 +91,13 @@ internal class PlayerPlaybackAnalyticsDiagnostics {
     private var totalBytesLoaded: Long = 0L
     private var lastLoad: PlaybackIssuePlaybackLoadInput? = null
     private var lastLoadError: PlaybackIssuePlaybackLoadErrorInput? = null
+    // nt6: last COMPLETED load of dataType MEDIA only. The HUD's Request row
+    // reads this instead of lastLoad: on progressive streams the single long
+    // read only ever ends by CANCELLATION (seek/stop/track change), and its
+    // multi-minute running duration surfaced as a bogus "Request" figure
+    // (field report: 606,014 ms = ten minutes since the last seek). The
+    // issue-report path still uses lastLoad, cancellations included.
+    private var lastCompletedMediaLoad: PlaybackIssuePlaybackLoadInput? = null
     private var traceHost: String = "unknown"
     private var traceEngine: String = "unknown"
     private var launchStartedAtElapsedMs: Long? = null
@@ -113,6 +123,57 @@ internal class PlayerPlaybackAnalyticsDiagnostics {
     fun setStartupStartPosition(positionMs: Long) {
         startPositionMs = positionMs.takeIf { it > 0L }
     }
+
+    /** Point-in-time snapshot of the fields the live playback stats HUD needs (task 2.2 / nt26). */
+    data class HudSample(
+        val videoDecoderName: String?,
+        val audioDecoderName: String?,
+        val droppedFrames: Int,
+        val bandwidthEstimateBps: Long?,
+        val bandwidthBytesTransferred: Long?,
+        val bandwidthTransferDurationMs: Int?,
+        val audioUnderrunCount: Int,
+        val totalBytesLoaded: Long,
+        val bandwidthBytesTotal: Long,
+        val loadErrorCount: Int,
+        val lastLoadDurationMs: Long?,
+        val lastLoadHost: String?,
+        val lastCompletedMediaLoadDurationMs: Long?,
+        val lastCompletedMediaLoadHost: String?,
+        val positionStallCount: Int,
+        val longestPositionStallMs: Long,
+        val frameProcessingOffsetAvgUs: Long?,
+        val startPositionMs: Long?,
+        val transferredBytesTotal: Long,
+        val transferredNetworkBytes: Long
+    )
+
+    fun hudSample(): HudSample = HudSample(
+        videoDecoderName = videoDecoderName,
+        audioDecoderName = audioDecoderName,
+        droppedFrames = droppedFrames,
+        bandwidthEstimateBps = bandwidthEstimateBps,
+        bandwidthBytesTransferred = bandwidthBytesTransferred,
+        bandwidthTransferDurationMs = bandwidthTransferDurationMs,
+        audioUnderrunCount = audioUnderrunCount,
+        totalBytesLoaded = totalBytesLoaded,
+        bandwidthBytesTotal = bandwidthBytesTotal,
+        loadErrorCount = loadErrorCount,
+        lastLoadDurationMs = lastLoad?.durationMs,
+        lastLoadHost = lastLoad?.host,
+        lastCompletedMediaLoadDurationMs = lastCompletedMediaLoad?.durationMs,
+        lastCompletedMediaLoadHost = lastCompletedMediaLoad?.host,
+        positionStallCount = positionStallCount,
+        longestPositionStallMs = longestPositionStallMs,
+        frameProcessingOffsetAvgUs = if (videoFrameProcessingOffsetCount > 0) {
+            videoFrameProcessingOffsetTotalUs / videoFrameProcessingOffsetCount
+        } else {
+            null
+        },
+        startPositionMs = startPositionMs,
+        transferredBytesTotal = PlaybackByteCounter.totalBytes,
+        transferredNetworkBytes = PlaybackByteCounter.networkBytes
+    )
 
     fun reset() {
         sessionStartedAtElapsedMs = SystemClock.elapsedRealtime()
@@ -160,6 +221,7 @@ internal class PlayerPlaybackAnalyticsDiagnostics {
         bandwidthEstimateBps = null
         bandwidthTransferDurationMs = null
         bandwidthBytesTransferred = null
+        bandwidthBytesTotal = 0L
         loadStartedCount = 0
         loadCompletedCount = 0
         loadCanceledCount = 0
@@ -167,11 +229,13 @@ internal class PlayerPlaybackAnalyticsDiagnostics {
         totalBytesLoaded = 0L
         lastLoad = null
         lastLoadError = null
+        lastCompletedMediaLoad = null
         rawEventLines.clear()
         launchStartedAtElapsedMs = null
         initializationStartedAtWallTimeMs = 0L
         startPositionMs = null
         lastHealthSnapshotAtElapsedMs = 0L
+        PlaybackByteCounter.reset()
         PlaybackConnectionEvents.clear()
         LoggingDataSource.clear()
     }
@@ -225,6 +289,7 @@ internal class PlayerPlaybackAnalyticsDiagnostics {
 
         if (lastPositionForStallMs < 0L || position > lastPositionForStallMs + POSITION_PROGRESS_EPSILON_MS) {
             if (positionStallActive) {
+                Log.i("NuvioPosFreeze", "FREEZE_END stallMs=${(now - positionLastAdvancedAtMs).coerceAtLeast(0L)} positionMs=$position")
                 record(
                     name = "position_stall_recovered",
                     eventTime = null,
@@ -246,6 +311,7 @@ internal class PlayerPlaybackAnalyticsDiagnostics {
             if (!positionStallActive) {
                 positionStallActive = true
                 positionStallCount += 1
+                Log.i("NuvioPosFreeze", "FREEZE_BEGIN stallMs=$stalledForMs positionMs=$position bufferedMs=${player.bufferedPosition.coerceAtLeast(0L)} state=${player.playbackState.playbackStateName()}")
                 record(
                     name = "position_stall",
                     eventTime = null,
@@ -550,6 +616,7 @@ internal class PlayerPlaybackAnalyticsDiagnostics {
     ) {
         bandwidthTransferDurationMs = totalLoadTimeMs.takeIf { it >= 0 }
         bandwidthBytesTransferred = totalBytesLoaded.coerceAtLeast(0L)
+        bandwidthBytesTotal += totalBytesLoaded.coerceAtLeast(0L)
         bandwidthEstimateBps = bitrateEstimate.takeIf { it > 0L }
         record(
             name = "bandwidth_estimate",
@@ -584,6 +651,9 @@ internal class PlayerPlaybackAnalyticsDiagnostics {
         loadCompletedCount += 1
         totalBytesLoaded += loadEventInfo.bytesLoaded.coerceAtLeast(0L)
         lastLoad = loadEventInfo.toPlaybackLoad(mediaLoadData)
+        if (mediaLoadData.dataType == C.DATA_TYPE_MEDIA) {
+            lastCompletedMediaLoad = lastLoad
+        }
         record(
             name = "load_completed",
             eventTime = eventTime,

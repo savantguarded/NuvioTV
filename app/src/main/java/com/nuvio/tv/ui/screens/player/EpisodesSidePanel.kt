@@ -5,7 +5,6 @@
 
 package com.nuvio.tv.ui.screens.player
 
-import android.view.KeyEvent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -46,7 +45,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -288,7 +286,7 @@ private fun EpisodeStreamsView(
             modifier = Modifier
                 .focusRequester(backButtonFocusRequester)
                 .onKeyEvent { event ->
-                    if (event.nativeKeyEvent.action == KeyEvent.ACTION_DOWN &&
+                    if (event.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN &&
                         event.key == androidx.compose.ui.input.key.Key.DirectionDown
                     ) {
                         val activeIdx = if (uiState.episodeSelectedAddonFilter == null) 1
@@ -388,7 +386,7 @@ private fun EpisodeStreamsView(
                     .fillMaxHeight()
                     .onFocusChanged { listHasFocus = it.hasFocus }
                     .onKeyEvent { event ->
-                        if (event.nativeKeyEvent.action != KeyEvent.ACTION_DOWN) return@onKeyEvent false
+                        if (event.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return@onKeyEvent false
 
                         if (event.nativeKeyEvent.repeatCount > 0) {
                             val now = android.os.SystemClock.uptimeMillis()
@@ -532,16 +530,10 @@ private fun EpisodesListView(
         }
 
         else -> {
-            val sortedSeasons = remember(uiState.episodesAvailableSeasons) {
-                val regular = uiState.episodesAvailableSeasons.filter { it > 0 }.sorted()
-                val specials = uiState.episodesAvailableSeasons.filter { it == 0 }
-                regular + specials
-            }
-
             Column(modifier = Modifier.fillMaxHeight()) {
-                if (sortedSeasons.isNotEmpty()) {
+                if (uiState.episodesAvailableSeasons.isNotEmpty()) {
                     EpisodesSeasonTabs(
-                        seasons = sortedSeasons,
+                        seasons = uiState.episodesAvailableSeasons,
                         selectedSeason = uiState.episodesSelectedSeason,
                         selectedTabFocusRequester = seasonTabFocusRequester,
                         onSeasonSelected = onSeasonSelected
@@ -580,9 +572,6 @@ private fun EpisodesListView(
                             blurUnwatched = uiState.blurUnwatchedEpisodes,
                             focusRequester = episodesFocusRequester,
                             requestInitialFocus = requestInitialFocus,
-                            availableSeasons = sortedSeasons,
-                            currentSeason = uiState.episodesSelectedSeason,
-                            onSeasonNavigate = onSeasonSelected,
                             onClick = { onEpisodeSelected(episode) }
                         )
                     }
@@ -600,24 +589,20 @@ private fun EpisodesSeasonTabs(
     selectedTabFocusRequester: FocusRequester,
     onSeasonSelected: (Int) -> Unit
 ) {
-    val seasonTabsListState = rememberLazyListState()
-
-    LaunchedEffect(selectedSeason, seasons) {
-        val targetIndex = seasons.indexOf(selectedSeason)
-        if (targetIndex >= 0) {
-            runCatching { seasonTabsListState.animateScrollToItem(targetIndex) }
-        }
+    val sortedSeasons = remember(seasons) {
+        val regular = seasons.filter { it > 0 }.sorted()
+        val specials = seasons.filter { it == 0 }
+        regular + specials
     }
 
     LazyRow(
-        state = seasonTabsListState,
         modifier = Modifier
             .fillMaxWidth()
             .focusRestorer(),
         horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
         contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xs, vertical = NuvioTheme.spacing.xs)
     ) {
-        items(seasons, key = { it }) { season ->
+        items(sortedSeasons, key = { it }) { season ->
             val isSelected = selectedSeason == season
             var isFocused by remember { mutableStateOf(false) }
 
@@ -629,7 +614,7 @@ private fun EpisodesSeasonTabs(
                 shape = CardDefaults.shape(shape = RoundedCornerShape(NuvioTheme.spacing.xl)),
                 colors = CardDefaults.colors(
                     containerColor = if (isSelected) Color(0xFFF5F5F5) else NuvioTheme.colors.BackgroundCard,
-                    focusedContainerColor = if (isSelected) Color.White else NuvioTheme.colors.Secondary
+                    focusedContainerColor = Color.White
                 ),
                 border = CardDefaults.border(
                     border = Border(
@@ -637,7 +622,7 @@ private fun EpisodesSeasonTabs(
                         shape = RoundedCornerShape(NuvioTheme.spacing.xl)
                     ),
                     focusedBorder = Border(
-                        border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
+                        border = BorderStroke(NuvioTheme.spacing.xxs, Color.White),
                         shape = RoundedCornerShape(NuvioTheme.spacing.xl)
                     )
                 ),
@@ -648,7 +633,7 @@ private fun EpisodesSeasonTabs(
                     style = MaterialTheme.typography.labelLarge,
                     color = when {
                         isSelected -> Color.Black
-                        isFocused -> NuvioTheme.colors.OnSecondary
+                        isFocused -> Color.Black
                         else -> NuvioTheme.extendedColors.textSecondary
                     },
                     modifier = Modifier.padding(vertical = 10.dp, horizontal = 20.dp)
@@ -666,13 +651,9 @@ private fun EpisodeItem(
     blurUnwatched: Boolean = false,
     focusRequester: FocusRequester,
     requestInitialFocus: Boolean,
-    availableSeasons: List<Int> = emptyList(),
-    currentSeason: Int? = null,
-    onSeasonNavigate: (Int) -> Unit = {},
     onClick: () -> Unit
 ) {
     val shouldBlur = blurUnwatched && !isWatched
-    val isRtl = androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
     val context = LocalContext.current
     val episodeTitle = episode.title.localizeEpisodeTitle(context).ifBlank { context.getString(R.string.episodes_episode) }
     val formattedDate = remember(episode.released) {
@@ -692,53 +673,14 @@ private fun EpisodeItem(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (requestInitialFocus) Modifier.focusRequester(focusRequester) else Modifier)
-            .onPreviewKeyEvent { keyEvent ->
-                if (keyEvent.nativeKeyEvent.action == KeyEvent.ACTION_DOWN) {
-                    // In RTL, DPAD_LEFT visually moves toward later items and
-                    // DPAD_RIGHT toward earlier items (mirrors the season tabs row).
-                    val isPreviousKey = if (isRtl) {
-                        keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT
-                    } else {
-                        keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_LEFT
-                    }
-                    val isNextKey = if (isRtl) {
-                        keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_LEFT
-                    } else {
-                        keyEvent.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT
-                    }
-
-                    if (isPreviousKey) {
-                        // Navigate to previous season
-                        if (currentSeason != null && availableSeasons.isNotEmpty()) {
-                            val currentIndex = availableSeasons.indexOf(currentSeason)
-                            if (currentIndex > 0) {
-                                val previousSeason = availableSeasons[currentIndex - 1]
-                                onSeasonNavigate(previousSeason)
-                                return@onPreviewKeyEvent true
-                            }
-                        }
-                    } else if (isNextKey) {
-                        // Navigate to next season
-                        if (currentSeason != null && availableSeasons.isNotEmpty()) {
-                            val currentIndex = availableSeasons.indexOf(currentSeason)
-                            if (currentIndex < availableSeasons.size - 1) {
-                                val nextSeason = availableSeasons[currentIndex + 1]
-                                onSeasonNavigate(nextSeason)
-                                return@onPreviewKeyEvent true
-                            }
-                        }
-                    }
-                }
-                false
-            },
+            .then(if (requestInitialFocus) Modifier.focusRequester(focusRequester) else Modifier),
         colors = CardDefaults.colors(
             containerColor = NuvioTheme.colors.BackgroundCard,
             focusedContainerColor = NuvioTheme.colors.FocusBackground
         ),
         border = CardDefaults.border(
             focusedBorder = Border(
-                border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
+                border = BorderStroke(NuvioTheme.spacing.xxs, Color.White),
                 shape = RoundedCornerShape(NuvioTheme.radii.xl)
             )
         ),
@@ -799,13 +741,13 @@ private fun EpisodeItem(
                             .padding(6.dp)
                             .size(22.dp)
                             .clip(RoundedCornerShape(11.dp))
-                            .background(NuvioTheme.colors.Primary),
+                            .background(Color.White),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Check,
                             contentDescription = stringResource(R.string.cd_current),
-                            tint = Color.White,
+                            tint = Color.Black,
                             modifier = Modifier.size(14.dp)
                         )
                     }

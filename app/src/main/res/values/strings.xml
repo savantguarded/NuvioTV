@@ -3169,4 +3169,20 @@
     <string name="stream_test_video_bitrate">Average Video Bitrate: %1$s</string>
     <string name="stream_test_error_connection">Connection failed. The last played stream link may have expired or is unreachable. Please play the video again and retry.</string>
 
+    <!-- Added for custom player module (from ysosrs123/NuvioTV-Fork) -->
+    <string name="cd_playback_stats">Playback stats</string>
+    <string name="panel_audio_adjustments">Delay and gain</string>
+    <string name="panel_audio_back_to_tracks">Back to tracks</string>
+    <string name="player_dead_source_failover">Source unavailable — trying next source (%1$d/%2$d)</string>
+    <string name="player_error_placeholder_stream">This stream looks like a provider error card, not the video. Try a different source.</string>
+    <string name="player_error_startup_no_stream_data">Playback did not start — the stream did not deliver data in time. The source may be slow or unavailable. Press back to try again, or pick a different stream.</string>
+    <string name="player_error_startup_timeout">Playback did not start — the video decoder may not be responding. A device restart usually clears this. Press back to return and try again, or pick a different stream.</string>
+    <string name="player_error_startup_video_track_unsupported">Playback did not start — this device cannot play the video format of this stream. Press back and pick a different stream.</string>
+    <string name="player_pill_episodes">Episodes</string>
+    <string name="player_pill_next_episode">Next episode</string>
+    <string name="player_pill_pause">Pause</string>
+    <string name="player_pill_play">Play</string>
+    <string name="player_pill_restart">Start over</string>
+    <string name="player_stats_unavailable_mpv">Stats are not available for the libmpv engine</string>
+
 </resources>

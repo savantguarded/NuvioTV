@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.media3.common.util.UnstableApi
 import com.nuvio.tv.core.debrid.DirectDebridPlayableResult
 import com.nuvio.tv.core.network.NetworkResult
+import com.nuvio.tv.core.player.AutoPlaySelection
 import com.nuvio.tv.core.player.StreamAutoPlaySelector
 import com.nuvio.tv.data.local.PlayerSettings
 import com.nuvio.tv.data.local.StreamAutoPlayMode
@@ -597,7 +598,6 @@ private fun PlayerRuntimeController.applyStreamMetadata(stream: Stream) {
     currentStreamBingeGroup = stream.behaviorHints?.bingeGroup
     currentVideoHash = stream.behaviorHints?.videoHash
     currentVideoSize = stream.behaviorHints?.videoSize
-    streamSubtitles = stream.subtitles
     currentAddonName = stream.addonName
     currentAddonLogo = stream.addonLogo
     currentStreamDescription = stream.description
@@ -814,6 +814,7 @@ internal fun PlayerRuntimeController.switchToSourceStream(
     resetErrorRetryState()
     hasRetriedCurrentStreamAfterUnexpectedNpe = false
     hasRetriedCurrentStreamAfterMediaPeriodHolderCrash = false
+    hasRetriedAfterMimeOverrideClear = false
     subtitleDisabledByPersistedPreference = false
     subtitleAddonRestoredByPersistedPreference = false
     pendingRestoredAddonSubtitle = null
@@ -837,9 +838,24 @@ internal fun PlayerRuntimeController.switchToSourceStream(
             showSourcesPanel = false,
             isLoadingSourceStreams = false,
             sourceStreamsError = null,
-            isTorrentStream = false
+            isTorrentStream = false,
+            // AFR review F2/R2: reset detection state on a source switch so the
+            // preflight for the new stream isn't a guaranteed no-op. Without
+            // this, detectedFrameRateSource stays set (the TRACK path populates
+            // it during normal playback) and the skip-guard in the preflight
+            // silently kept the previous stream's refresh rate - mixed-frame-
+            // rate series (25 fps HDTV next to 23.976 WEB-DL) never re-matched.
+            detectedFrameRate = 0f,
+            detectedFrameRateRaw = 0f,
+            detectedFrameRateSource = null
         )
     }
+    // Refresh the filename for the NEW stream before anything derives state
+    // from it (the AFR cache key below, createMediaSource's filename, media
+    // session metadata). This function never updated it, so a source switch
+    // carried the previous stream's filename forward. Same pattern as the
+    // initial-play and torrent-switch paths.
+    currentFilename = stream.behaviorHints?.filename ?: navigationArgs.filename
     showStreamSourceIndicator(stream)
     resetPostPlayOverlayState(clearEpisode = false)
 
@@ -847,12 +863,21 @@ internal fun PlayerRuntimeController.switchToSourceStream(
         scope.launch {
             try {
                 val playerSettings = playerSettingsDataStore.playerSettings.first()
-                runAfrPreflightIfEnabled(
+                // nt6 AFR option 1: this branch is ExoPlayer-only (_exoPlayer
+                // scope), so use the cache-only preflight; the new stream's
+                // track format drives the switch on a cache miss.
+                // P-F3: bump the generation so an in-flight track-AFR
+                // coroutine from the previous stream stands down.
+                afrTrackGeneration++
+                trackAfrAttemptedForCurrentStream = false
+                afrTrackSwitchInFlight = false
+                afrModeAppliedPreStart = false
+                afrSeededRateRaw = 0f
+                runAfrCachePreflightIfEnabled(
                     url = playbackUrl,
                     headers = playbackHeaders,
                     frameRateMatchingMode = playerSettings.frameRateMatchingMode,
-                    resolutionMatchingEnabled = playerSettings.resolutionMatchingEnabled,
-                    mimeType = currentStreamMimeType
+                    resolutionMatchingEnabled = playerSettings.resolutionMatchingEnabled
                 )
                 player.setMediaSource(
                     mediaSourceFactory.createMediaSource(
@@ -1339,6 +1364,39 @@ internal fun PlayerRuntimeController.switchToEpisodeStream(
     val newHeaders = PlayerMediaSourceFactory.sanitizeHeaders(
         stream.behaviorHints?.proxyHeaders?.request
     )
+
+    // nt13: the URL and headers are final here, the outgoing stream is already
+    // stopped, and the player is still ~1.3-3.1 s away from opening the
+    // datasource (measured across five transitions, 27 Jul 2026). Start chunk 0
+    // into that gap. Fresh presses deliberately do not call this, so every
+    // capture carries its own control arm.
+    //
+    // nt14: the settings push must happen first. initializePlayer does it too,
+    // but that runs after this point, so without it the pre-start keys its
+    // session on the previous stream's geometry.
+    //
+    // nt16: from the cached snapshot, synchronously. nt14 read the settings Flow
+    // here, and that Flow is cold -- every transition paid a full datastore read.
+    // Measured 27 Jul: chunk 0 started 982 and 935 ms after the URL was final,
+    // against 79 ms when this hook was synchronous. That was most of the head
+    // start the hook exists to create, spent acquiring settings that the previous
+    // initializePlayer had already resolved.
+    //
+    // A null snapshot means no playback has initialised yet, which cannot happen
+    // on a transition. Stale settings (changed mid-session, before the next
+    // initializePlayer) key the session on the wrong geometry, the player
+    // declines to adopt it, and the path falls back to opening as it always did.
+    lastAppliedPlayerSettings?.let { cachedSettings ->
+        applyMediaSourceFactorySettings(cachedSettings)
+        runCatching {
+            mediaSourceFactory.prestartChunk0(
+                url = url,
+                headers = newHeaders,
+                filename = stream.behaviorHints?.filename
+            )
+        }
+    }
+
     val targetVideo = forcedTargetVideo
         ?: _uiState.value.episodes.firstOrNull { it.id == _uiState.value.episodeStreamsForVideoId }
 
@@ -1360,8 +1418,9 @@ internal fun PlayerRuntimeController.switchToEpisodeStream(
     )
     val playbackUrl = currentStreamUrl
     val playbackHeaders = currentHeaders
-    persistSelectedStreamForReuse(stream = stream, url = playbackUrl, headers = playbackHeaders)
     persistedTrackPreference = null
+    losslessAudioDefaultAppliedForStream = false
+    persistedAudioPreferenceSeenForStream = false
     subtitleDisabledByPersistedPreference = false
     subtitleAddonRestoredByPersistedPreference = false
     pendingRestoredAddonSubtitle = null
@@ -1371,6 +1430,7 @@ internal fun PlayerRuntimeController.switchToEpisodeStream(
     currentSeason = targetVideo?.season ?: _uiState.value.episodeStreamsSeason ?: currentSeason
     currentEpisode = targetVideo?.episode ?: _uiState.value.episodeStreamsEpisode ?: currentEpisode
     currentEpisodeTitle = targetVideo?.title ?: _uiState.value.episodeStreamsTitle ?: currentEpisodeTitle
+    persistSelectedStreamForReuse(stream = stream, url = playbackUrl, headers = playbackHeaders)
     currentTraktEpisodeMapping = null
     currentTraktEpisodeMappingKey = null
     lastSavedPosition = 0L
@@ -1407,7 +1467,12 @@ internal fun PlayerRuntimeController.switchToEpisodeStream(
             postPlayMode = null,
             postPlayDismissedForCurrentEpisode = true,
             playbackEnded = false,
-            isNextEpisodeMetadataResolved = false,
+            // AFR review F2/R2: next-episode switches never re-evaluated AFR -
+            // the previous episode's TRACK detection made the preflight guard a
+            // guaranteed no-op. Reset so each episode re-matches.
+            detectedFrameRate = 0f,
+            detectedFrameRateRaw = 0f,
+            detectedFrameRateSource = null,
         )
     }
     showStreamSourceIndicator(stream)
@@ -1470,6 +1535,8 @@ private fun PlayerRuntimeController.switchToEpisodeStreamCommon(
     currentFilename = stream.behaviorHints?.filename ?: navigationArgs.filename
 
     persistedTrackPreference = null
+    losslessAudioDefaultAppliedForStream = false
+    persistedAudioPreferenceSeenForStream = false
     subtitleDisabledByPersistedPreference = false
     subtitleAddonRestoredByPersistedPreference = false
     pendingRestoredAddonSubtitle = null
@@ -1477,6 +1544,7 @@ private fun PlayerRuntimeController.switchToEpisodeStreamCommon(
     hasRetriedCurrentStreamAfter416 = false
     hasRetriedCurrentStreamAfterUnexpectedNpe = false
     hasRetriedCurrentStreamAfterMediaPeriodHolderCrash = false
+    hasRetriedAfterMimeOverrideClear = false
 
     currentVideoId = targetVideo?.id ?: _uiState.value.episodeStreamsForVideoId ?: currentVideoId
     currentSeason = targetVideo?.season ?: _uiState.value.episodeStreamsSeason ?: currentSeason
@@ -1519,7 +1587,6 @@ private fun PlayerRuntimeController.switchToEpisodeStreamCommon(
             postPlayMode = null,
             postPlayDismissedForCurrentEpisode = true,
             playbackEnded = false,
-            isNextEpisodeMetadataResolved = false,
         )
     }
     showStreamSourceIndicator(stream)
@@ -1594,6 +1661,18 @@ internal fun PlayerRuntimeController.playNextEpisode(userInitiated: Boolean = fa
     val nextVideo = nextEpisodeVideo ?: return
     val type = contentType ?: return
 
+    // Instrument (26 Jul capture gap): everything between the press and
+    // resolving_debrid was unmeasured, so the addon scrape and the bounded
+    // streamAutoPlayTimeoutSeconds wait were both invisible and the transition
+    // budget was inferred rather than read. These two lines close that.
+    // Logged under TTFF_STAGE so the existing capture tag filter is unchanged.
+    val nextEpisodePressElapsedMs = android.os.SystemClock.elapsedRealtime()
+    android.util.Log.i(
+        "TTFF_STAGE",
+        "NEXT_EPISODE_PRESS userInitiated=$userInitiated " +
+            "season=${nextVideo.season} episode=${nextVideo.episode}"
+    )
+
     val state = _uiState.value
     val nextInfo = state.nextEpisode ?: return
     if (!nextInfo.hasAired) {
@@ -1605,6 +1684,14 @@ internal fun PlayerRuntimeController.playNextEpisode(userInitiated: Boolean = fa
     ) {
         return
     }
+
+    // Follow the episode. Video.runtime is the per-episode value the next-episode
+    // resolver already holds, so no lookup and no added latency on the transition.
+    // Placed after the early returns so an aborted transition cannot mutate it.
+    // Where the addon supplies no per-episode runtime the previous value is kept:
+    // same series, so a closer approximation than dropping to null, and every
+    // downstream use treats an over-estimate as fail-safe.
+    nextVideo.runtime?.let { expectedRuntimeMinutes = it }
 
     if (type.equals("cloud", ignoreCase = true)) {
         playNextCloudLibraryFile(nextVideo = nextVideo, userInitiated = userInitiated)
@@ -1618,7 +1705,6 @@ internal fun PlayerRuntimeController.playNextEpisode(userInitiated: Boolean = fa
                 nextEpisode = episodeForMode,
                 searching = true,
             ),
-            playbackEnded = false,
         )
     }
 
@@ -1681,47 +1767,90 @@ internal fun PlayerRuntimeController.playNextEpisode(userInitiated: Boolean = fa
             var autoSelectTriggered = false
             var timeoutElapsed = false
             var lastError: NetworkResult.Error? = null
+            // nt7 (task 3): time spent ranking inside the settle window.
+            var selectionRankMs = 0L
+            var selectionRankCalls = 0
             // Completed as soon as a stream is selected or the addon search
             // finishes, so the waiting code below resumes without polling.
             val searchSettled = CompletableDeferred<Unit>()
 
-            fun trySelectStream(data: List<AddonStreams>): Stream? {
+            val debridStreamPreferences =
+                debridSettingsDataStore.settings.first().streamPreferences
+
+            fun trySelectStreamInner(data: List<AddonStreams>): Stream? {
                 val orderedStreams = StreamAutoPlaySelector.orderAddonStreams(data, installedAddonOrder)
                 val allStreams = orderedStreams.flatMap { it.streams }
-                return StreamAutoPlaySelector.selectAutoPlayStream(
+                // preferBingeGroupInSelection was passed explicitly here as the
+                // SETTING, while AutoPlaySelection derives it from
+                // preferredBingeGroup != null. Those disagree in exactly one
+                // case -- setting on, no binge group known -- and that
+                // disagreement is inert: selectAutoPlayStream gates the binge
+                // branch on targetBingeGroup.isNotEmpty(), false either way.
+                // Asserted in StreamAutoPlaySelectorTest.
+                return AutoPlaySelection.select(
                     streams = allStreams,
-                    mode = effectiveMode,
-                    regexPattern = effectiveRegex,
-                    source = effectiveSource,
-                    installedAddonNames = installedAddonOrder.toSet(),
-                    selectedAddons = effectiveSelectedAddons,
-                    selectedPlugins = effectiveSelectedPlugins,
-                    preferredBingeGroup = if (playerSettings.streamAutoPlayPreferBingeGroupForNextEpisode) {
-                        currentStreamBingeGroup
-                    } else {
-                        null
-                    },
-                    preferBingeGroupInSelection = playerSettings.streamAutoPlayPreferBingeGroupForNextEpisode,
+                    inputs = AutoPlaySelection.Inputs(
+                        mode = effectiveMode,
+                        regexPattern = effectiveRegex,
+                        source = effectiveSource,
+                        installedAddonNames = installedAddonOrder.toSet(),
+                        selectedAddons = effectiveSelectedAddons,
+                        selectedPlugins = effectiveSelectedPlugins,
+                        preferredBingeGroup = if (playerSettings.streamAutoPlayPreferBingeGroupForNextEpisode) {
+                            currentStreamBingeGroup
+                        } else {
+                            null
+                        }
+                    ),
+                    debridStreamPreferences = debridStreamPreferences,
                     bingeGroupOnly = bingeGroupOnlyManualMode
                 )
             }
 
-            fun tryBingeGroupOnly(data: List<AddonStreams>): Stream? {
+            fun tryBingeGroupOnlyInner(data: List<AddonStreams>): Stream? {
                 if (currentStreamBingeGroup == null || !playerSettings.streamAutoPlayPreferBingeGroupForNextEpisode) return null
                 val orderedStreams = StreamAutoPlaySelector.orderAddonStreams(data, installedAddonOrder)
                 val allStreams = orderedStreams.flatMap { it.streams }
-                return StreamAutoPlaySelector.selectAutoPlayStream(
+                // The guard above returns early when currentStreamBingeGroup is
+                // null, so the derived preferBingeGroupInSelection is true here
+                // exactly as the explicit argument was.
+                return AutoPlaySelection.select(
                     streams = allStreams,
-                    mode = effectiveMode,
-                    regexPattern = effectiveRegex,
-                    source = effectiveSource,
-                    installedAddonNames = installedAddonOrder.toSet(),
-                    selectedAddons = effectiveSelectedAddons,
-                    selectedPlugins = effectiveSelectedPlugins,
-                    preferredBingeGroup = currentStreamBingeGroup,
-                    preferBingeGroupInSelection = true,
+                    inputs = AutoPlaySelection.Inputs(
+                        mode = effectiveMode,
+                        regexPattern = effectiveRegex,
+                        source = effectiveSource,
+                        installedAddonNames = installedAddonOrder.toSet(),
+                        selectedAddons = effectiveSelectedAddons,
+                        selectedPlugins = effectiveSelectedPlugins,
+                        preferredBingeGroup = currentStreamBingeGroup
+                    ),
+                    debridStreamPreferences = debridStreamPreferences,
                     bingeGroupOnly = true
                 )
+            }
+
+            // nt7 (task 3): the 27 Jul capture prices ranking at ~500 ms
+            // on this device (PREFETCH rank_only ms=531/496), which would
+            // account for nearly all of nt6's one 647 ms settle against
+            // 43/48 ms siblings -- but only a measurement on the settle
+            // line itself can adjudicate re-rank vs slow-await. These
+            // wrappers keep the original names so all call sites are
+            // untouched; both local selectors funnel through them.
+            fun trySelectStream(data: List<AddonStreams>): Stream? {
+                val rankT0 = android.os.SystemClock.elapsedRealtime()
+                val result = trySelectStreamInner(data)
+                selectionRankMs += android.os.SystemClock.elapsedRealtime() - rankT0
+                selectionRankCalls++
+                return result
+            }
+
+            fun tryBingeGroupOnly(data: List<AddonStreams>): Stream? {
+                val rankT0 = android.os.SystemClock.elapsedRealtime()
+                val result = tryBingeGroupOnlyInner(data)
+                selectionRankMs += android.os.SystemClock.elapsedRealtime() - rankT0
+                selectionRankCalls++
+                return result
             }
 
             fun recordSelection(candidate: Stream) {
@@ -1733,7 +1862,23 @@ internal fun PlayerRuntimeController.playNextEpisode(userInitiated: Boolean = fa
             val timeoutSeconds = playerSettings.streamAutoPlayTimeoutSeconds
 
             val innerJob = launch {
-                streamRepository.getStreamsFromAllAddons(
+                // S5 binge lookahead (part 2): read THROUGH the prefetch cache.
+                //
+                // This call site went straight to the repository, so the
+                // lookahead above would have filled a cache the binge path never
+                // consulted. streamsFor() substitutes the flow rather than
+                // bypassing this consumer: a hit emits Loading then one Success
+                // then completes, which is indistinguishable from a very fast
+                // scrape, so the timeout/auto-select machinery below is
+                // untouched. A miss, an expired entry or a join timeout falls
+                // through to the live flow, i.e. exactly today's behaviour.
+                //
+                // The win is not only the scrape: with a hit, searchSettled
+                // completes almost immediately and the bounded
+                // streamAutoPlayTimeoutSeconds wait (3 s on Paul's device) is
+                // skipped rather than served.
+                com.nuvio.tv.core.stream.StreamPrefetchCache.streamsFor(
+                    repository = streamRepository,
                     type = type,
                     videoId = nextVideo.id,
                     season = nextVideo.season,
@@ -1776,9 +1921,15 @@ internal fun PlayerRuntimeController.playNextEpisode(userInitiated: Boolean = fa
                         // respect the timeout and stop (the caller shows the picker).
                         trySelectStream(data)?.let { recordSelection(it) }
                     } else {
-                        // No addon responded yet: keep waiting for the first usable
-                        // result, bounded so we never hang indefinitely.
-                        withTimeoutOrNull(timeoutMs) { searchSettled.await() }
+                        // No addon responded yet: keep waiting for the first
+                        // usable result up to the hard timeout, matching the
+                        // instant and unlimited branches below. searchSettled
+                        // completes when the scrape settles, so this resolves
+                        // at scrape-end (typically seconds); the cap is only a
+                        // hung-addon backstop, not a fixed wait. Without it a
+                        // slow in-flight next-episode prefetch that is about
+                        // to land was abandoned for the manual picker.
+                        withTimeoutOrNull(NEXT_EPISODE_HARD_TIMEOUT_MS) { searchSettled.await() }
                         if (!autoSelectTriggered) {
                             lastSuccessData?.let { trySelectStream(it)?.let { s -> recordSelection(s) } }
                         }
@@ -1800,24 +1951,57 @@ internal fun PlayerRuntimeController.playNextEpisode(userInitiated: Boolean = fa
                 innerJob.cancel()
             }
 
+            // Everything above is scrape + auto-select, including the bounded
+            // timeout wait. Subtracting this from the press stamp prices the
+            // block S5 part 2 targets; the resolve that follows is already
+            // priced by resolving_debrid -> resolving_debrid_done.
+            android.util.Log.i(
+                "TTFF_STAGE",
+                "NEXT_EPISODE_STREAMS_SETTLED " +
+                    "ms=${android.os.SystemClock.elapsedRealtime() - nextEpisodePressElapsedMs} " +
+                    "selected=${selectedStream != null} timeoutElapsed=$timeoutElapsed " +
+                    "selectMs=$selectionRankMs selectCalls=$selectionRankCalls"
+            )
             val streamToPlay = selectedStream?.let {
                 resolveDirectDebridStreamIfNeeded(it, nextVideo.season, nextVideo.episode)
             }
             if (streamToPlay != null) {
                 val sourceName = (streamToPlay.name?.takeIf { it.isNotBlank() } ?: streamToPlay.addonName).trim()
-                for (remaining in 3 downTo 1) {
-                    _uiState.update { current ->
-                        val episodeForMode = current.nextEpisode ?: nextInfo
-                        current.copy(
-                            postPlayMode = PostPlayMode.AutoPlay(
-                                nextEpisode = episodeForMode,
-                                searching = false,
-                                sourceName = sourceName,
-                                countdownSec = remaining,
-                            ),
-                        )
+                // The countdown exists so the decision can be cancelled.
+                //
+                // S5/B3: countdown removed on a deliberate press (26 Jul 2026).
+                // nt2 shipped it shortened to 1 s so the chosen source name
+                // stayed visible; the capture confirmed the card renders the
+                // name correctly, and Paul's call is that the second of latency
+                // is not worth the name. The loop body was pure dead time --
+                // resolveDirectDebridStreamIfNeeded() has already returned above,
+                // so the delay(1000) overlapped no work whatsoever (measured:
+                // resolving_debrid_done 16:03:21.383 -> preparing_metadata
+                // 16:03:22.447, a 1,064 ms gap).
+                //
+                // Auto-play is deliberately untouched at three seconds: an
+                // unattended transition still needs a cancellable window.
+                //
+                // Button-suppression note: countdownSec != null is what greys
+                // out SkipNext while the card is up. searching = true already
+                // covers the whole resolve above, and with the countdown gone
+                // the resolve runs straight into switchToEpisodeStream, so the
+                // unguarded window is ~0 ms.
+                if (!userInitiated) {
+                    for (remaining in 3 downTo 1) {
+                        _uiState.update { current ->
+                            val episodeForMode = current.nextEpisode ?: nextInfo
+                            current.copy(
+                                postPlayMode = PostPlayMode.AutoPlay(
+                                    nextEpisode = episodeForMode,
+                                    searching = false,
+                                    sourceName = sourceName,
+                                    countdownSec = remaining,
+                                ),
+                            )
+                        }
+                        delay(1000)
                     }
-                    delay(1000)
                 }
                 _uiState.update {
                     it.copy(

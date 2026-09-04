@@ -477,6 +477,12 @@ dependencies {
     ))
     implementation(libs.media3.ui)
 
+    // T-series seek-thumbnail engine: media3-effect + concurrent-futures for the
+    // vendored androidx.media3.transformer.ExperimentalFrameExtractor used by the
+    // custom player module (from ysosrs123/NuvioTV-Fork).
+    implementation("androidx.media3:media3-effect:1.8.0")
+    implementation("androidx.concurrent:concurrent-futures:1.2.0")
+
     // Local decoder AARs (AV1, IAMF, MPEG-H)
     implementation(files(
         "libs/lib-decoder-av1-release.aar",

@@ -216,6 +216,14 @@ object DolbyVisionBaseLayerPolicy {
         )
     }
 
+    /**
+     * DV7 F3: mode-independent P7 decoder capability, for the Diagnostics
+     * "DV7 Decoder" row. The AUTO-mode probe result is null in manual modes,
+     * which previously made the row read "not available" regardless of
+     * hardware.
+     */
+    fun queryCodecDv7Support(): Boolean = queryDvDecoderProfileSupport().dvheDtb
+
     private data class DvDecoderProfileSupport(
         val dvheDtb: Boolean,   // P7
         val dvheStn: Boolean,   // P5

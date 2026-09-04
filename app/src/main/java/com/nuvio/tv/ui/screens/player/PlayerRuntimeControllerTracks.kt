@@ -91,6 +91,10 @@ internal fun PlayerRuntimeController.updateAvailableTracks(tracks: Tracks) {
                                 )
                             }
                         }
+                        // nt6 AFR option 1: drive the display-mode switch from
+                        // the format ExoPlayer just reported (self-gating; see
+                        // PlayerRuntimeControllerAfrTrack.kt).
+                        maybeRunTrackFormatAfr(rawFps = raw, format = format)
                     }
                     // Extract video codec, resolution, and bitrate for stream info
                     currentVideoCodec = CustomDefaultTrackNameProvider.formatNameFromMime(format.sampleMimeType)
@@ -319,6 +323,7 @@ internal fun PlayerRuntimeController.updateAvailableTracks(tracks: Tracks) {
         audioTracks = audioTracks,
         subtitleTracks = subtitleTracks
     )
+    applyLosslessAudioDefaultIfUnset(audioTracks)
     if (currentStreamHasVideoTrack) {
         maybeScheduleFirstFrameWatchdog()
     } else {
@@ -933,6 +938,9 @@ internal fun PlayerRuntimeController.applyPersistedTrackPreference(
     var updatedAddonSubtitle: com.nuvio.tv.domain.model.Subtitle? = null
 
     pending.audio?.let { audioSelection ->
+        // Task 3.9: an audio preference existed for this stream (whether or not it
+        // matches a track here) — the lossless default must never run over it.
+        persistedAudioPreferenceSeenForStream = true
         if (audioTracks.isEmpty()) {
             logSwitchTrace(
                 stage = "restore-audio",

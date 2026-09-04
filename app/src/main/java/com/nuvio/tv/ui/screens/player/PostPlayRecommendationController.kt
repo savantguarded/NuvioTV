@@ -71,15 +71,13 @@ internal class PostPlayRecommendationController(
         val identity: PlaybackIdentity,
         val contentType: String?,
         val postPlayRecommendationsEnabled: Boolean,
-        val postPlayMovieThresholdPercent: Int,
         val isNextEpisodeMetadataResolved: Boolean,
         val nextEpisodeHasAired: Boolean?,
         val hasError: Boolean,
         val hasBlockingInteraction: Boolean,
         val playbackEnded: Boolean,
         val positionMs: Long,
-        val durationMs: Long,
-        val hasActiveAutoPlay: Boolean
+        val durationMs: Long
     )
 
     private data class ResolvedCandidate(
@@ -128,15 +126,13 @@ internal class PostPlayRecommendationController(
                     ),
                     contentType = playerState.contentType,
                     postPlayRecommendationsEnabled = playerSettings.postPlayRecommendationsEnabled,
-                    postPlayMovieThresholdPercent = playerSettings.postPlayMovieThresholdPercent,
                     isNextEpisodeMetadataResolved = playerState.isNextEpisodeMetadataResolved,
                     nextEpisodeHasAired = playerState.nextEpisode?.hasAired,
                     hasError = !playerState.error.isNullOrBlank(),
                     hasBlockingInteraction = playerState.blocksPostPlayRecommendation(),
                     playbackEnded = playerState.playbackEnded,
                     positionMs = timeline.currentPosition,
-                    durationMs = timeline.duration,
-                    hasActiveAutoPlay = playerState.postPlayMode is PostPlayMode.AutoPlay
+                    durationMs = timeline.duration
                 )
             }
                 .distinctUntilChanged()
@@ -229,19 +225,6 @@ internal class PostPlayRecommendationController(
     }
 
     private fun evaluate(snapshot: PlaybackSnapshot) {
-        // If the player already has an active auto-play (next episode found and queued),
-        // recommendations must not appear — clear any in-flight state and bail out.
-        if (snapshot.hasActiveAutoPlay) {
-            if (_uiState.value.recommendation != null ||
-                _uiState.value.isVisible ||
-                _uiState.value.isLoadingRecommendation ||
-                recommendationJob != null
-            ) {
-                clearRecommendationState()
-            }
-            return
-        }
-
         val shouldUseRecommendation = shouldUsePostPlayRecommendation(
             contentType = snapshot.contentType,
             isNextEpisodeMetadataResolved = snapshot.isNextEpisodeMetadataResolved,
@@ -267,29 +250,20 @@ internal class PostPlayRecommendationController(
         if (isShortPlaceholderDuration(effectiveDuration)) return
 
         if (!recommendationLoadAttempted &&
-            shouldPrefetchPostPlayRecommendation(
-                positionMs = snapshot.positionMs,
-                durationMs = effectiveDuration,
-                progressThreshold = postPlayRecommendationPrefetchProgress(
-                    contentType = snapshot.contentType,
-                    movieThresholdPercent = snapshot.postPlayMovieThresholdPercent
-                )
-            )
+            shouldPrefetchPostPlayRecommendation(snapshot.positionMs, effectiveDuration)
         ) {
             loadRecommendation()
         }
 
         var state = _uiState.value
         val recommendation = state.recommendation ?: return
-        val shouldShow = shouldShowPostPlayRecommendation(
-            contentType = snapshot.contentType,
+        val shouldShow = PlayerNextEpisodeRules.shouldShowNextEpisodeCard(
             positionMs = snapshot.positionMs,
             durationMs = effectiveDuration,
             skipIntervals = playbackController.skipIntervals,
-            movieThresholdPercent = snapshot.postPlayMovieThresholdPercent,
-            episodeThresholdMode = playbackController.nextEpisodeThresholdModeSetting,
-            episodeThresholdPercent = playbackController.nextEpisodeThresholdPercentSetting,
-            episodeThresholdMinutesBeforeEnd = playbackController.nextEpisodeThresholdMinutesBeforeEndSetting
+            thresholdMode = playbackController.nextEpisodeThresholdModeSetting,
+            thresholdPercent = playbackController.nextEpisodeThresholdPercentSetting,
+            thresholdMinutesBeforeEnd = playbackController.nextEpisodeThresholdMinutesBeforeEndSetting
         ) || snapshot.playbackEnded
 
         if (!shouldShow) return

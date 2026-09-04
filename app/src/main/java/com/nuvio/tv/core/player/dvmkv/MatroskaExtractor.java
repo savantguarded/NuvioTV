@@ -299,6 +299,15 @@ public class MatroskaExtractor implements Extractor {
   private static final int ID_TIMECODE_SCALE = 0x2AD7B1;
   private static final int ID_DURATION = 0x4489;
   private static final int ID_CLUSTER = 0x1F43B675;
+  // NuvioTV fork: malformed-container (Usenet zero-fill) recovery. Budget of
+  // resync attempts per extractor instance, and the forward byte span each
+  // resync scans looking for the next Cluster before giving up.
+  private static final int MAX_RESYNC_ATTEMPTS = 8;
+  private static final long MAX_RESYNC_SCAN_BYTES = 64L * 1024 * 1024;
+  // NuvioTV fork: in-memory search window for the malformed-container resync
+  // scan (see resyncToNextCluster). Bulk-peeked and scanned for the Cluster ID
+  // instead of walking one byte at a time - ~100x faster on device.
+  private static final int RESYNC_BLOCK_BYTES = 64 * 1024;
   private static final int ID_TIME_CODE = 0xE7;
   private static final int ID_SIMPLE_BLOCK = 0xA3;
   private static final int ID_BLOCK_GROUP = 0xA0;
@@ -557,6 +566,11 @@ public class MatroskaExtractor implements Extractor {
   private final ParsableByteArray nalStartCode;
   private final ParsableByteArray nalLength;
   private final ParsableByteArray scratch;
+  // NuvioTV fork: 4-byte peek buffer and remaining resync budget for
+  // malformed-container recovery (see read() / resyncToNextCluster()).
+  private final byte[] resyncScratch = new byte[4];
+  private final byte[] resyncBlock = new byte[RESYNC_BLOCK_BYTES];
+  private int resyncBudget = MAX_RESYNC_ATTEMPTS;
   private final ParsableByteArray vorbisNumPageSamples;
   private final ParsableByteArray seekEntryIdBytes;
   private final ParsableByteArray sampleStrippedBytes;
@@ -771,6 +785,12 @@ public class MatroskaExtractor implements Extractor {
   @CallSuper
   @Override
   public void seek(long position, long timeUs) {
+    resetParsingState();
+  }
+
+  // NuvioTV fork: extracted verbatim from the original seek() body so the
+  // malformed-container resync path can reuse the exact same clean-slate reset.
+  private void resetParsingState() {
     clusterTimecodeUs = C.TIME_UNSET;
     blockState = BLOCK_STATE_START;
     reader.reset();
@@ -792,6 +812,58 @@ public class MatroskaExtractor implements Extractor {
     }
   }
 
+  // NuvioTV fork: byte-scan forward from the current read position to the next
+  // Cluster (level-1) element, leaving the input positioned at the Cluster ID so
+  // the reader parses it fresh. Targets Cluster specifically (not any level-1 ID)
+  // because a Matroska cluster opens on a keyframe, giving the decoder a clean
+  // entry after the skipped hole. Bounded by MAX_RESYNC_SCAN_BYTES.
+  private boolean resyncToNextCluster(ExtractorInput input) throws IOException {
+    long scanned = 0;
+    while (scanned < MAX_RESYNC_SCAN_BYTES) {
+      input.resetPeekPosition();
+      int want = (int) Math.min((long) RESYNC_BLOCK_BYTES, MAX_RESYNC_SCAN_BYTES - scanned);
+      // Bulk-peek up to a full block from the current read position. peek() may
+      // return short, so loop until the block is full or the input ends.
+      int got = 0;
+      while (got < want) {
+        int r = input.peek(resyncBlock, got, want - got);
+        if (r == C.RESULT_END_OF_INPUT) {
+          break;
+        }
+        got += r;
+      }
+      if (got < 4) {
+        return false;
+      }
+      // Scan the block for the Cluster ID's canonical 4-byte encoding
+      // (0x1F 0x43 0xB6 0x75). The leading-byte compare short-circuits on the
+      // vast majority of positions, so this is far cheaper than a per-byte
+      // peekFully()/skipFully() round-trip through ExtractorInput.
+      for (int i = 0; i + 4 <= got; i++) {
+        if (resyncBlock[i] == (byte) 0x1F
+            && resyncBlock[i + 1] == (byte) 0x43
+            && resyncBlock[i + 2] == (byte) 0xB6
+            && resyncBlock[i + 3] == (byte) 0x75) {
+          // Advance the read position to the Cluster ID so the reader parses it
+          // fresh, exactly as the old byte-walk left it.
+          input.skipFully(i);
+          return true;
+        }
+      }
+      if (got < want) {
+        // Short read means we reached the input end; the whole tail was scanned
+        // above, so there is no further Cluster to find.
+        return false;
+      }
+      // Advance by (block - 3) so a Cluster ID straddling the block boundary is
+      // caught on the next pass.
+      int advance = got - 3;
+      input.skipFully(advance);
+      scanned += advance;
+    }
+    return false;
+  }
+
   @Override
   public final void release() {
     zlibSampleDecompressor.release();
@@ -802,7 +874,34 @@ public class MatroskaExtractor implements Extractor {
     haveOutputSample = false;
     boolean continueReading = true;
     while (continueReading && !haveOutputSample) {
-      continueReading = reader.read(input);
+      try {
+        continueReading = reader.read(input);
+      } catch (ParserException | IllegalStateException malformed) {
+        // NuvioTV fork: Usenet zero-fill holes corrupt an element header or size
+        // varint mid-stream, surfacing here as ParserException (3001) or a varint
+        // IllegalStateException (2000). Skip the padded region and resync to the
+        // next Cluster instead of killing playback. Gated on sentSeekMap so this
+        // only runs past the header (inside cluster data), and budgeted so a
+        // pervasively-damaged stream still fails over via the caller.
+        if (!sentSeekMap || resyncBudget <= 0) {
+          throw malformed;
+        }
+        long failPosition = input.getPosition();
+        resyncBudget--;
+        resetParsingState();
+        if (!resyncToNextCluster(input)) {
+          throw malformed;
+        }
+        Log.w(
+            TAG,
+            "MKV_RESYNC: skipped malformed data near byte "
+                + failPosition
+                + " to next cluster (budget left "
+                + resyncBudget
+                + ")");
+        continueReading = true;
+        continue;
+      }
       if (pendingFinishTracks) {
         pendingFinishTracks = false;
         // Input is positioned right after the Tracks element (typically the first cluster),
@@ -3290,6 +3389,18 @@ public class MatroskaExtractor implements Extractor {
             rotationDegrees = 180;
           } else if (Float.compare(projectionPoseRoll, -90f) == 0) {
             rotationDegrees = 270;
+          }
+        }
+        // Fork (nt2): surface the container-declared frame rate. Matroska's
+        // TrackEntry DefaultDuration is nanoseconds per frame for fixed-rate
+        // video; media3 parses it into defaultSampleDurationNs but never feeds
+        // Format.frameRate, so MKV — unlike MP4, whose BoxParser sets it —
+        // could never trigger the track-format AFR path on ExoPlayer. The
+        // bounds reject malformed values and still-image tracks.
+        if (defaultSampleDurationNs > 0) {
+          float declaredFrameRate = 1_000_000_000f / defaultSampleDurationNs;
+          if (declaredFrameRate >= 5f && declaredFrameRate <= 121f) {
+            formatBuilder.setFrameRate(declaredFrameRate);
           }
         }
         formatBuilder

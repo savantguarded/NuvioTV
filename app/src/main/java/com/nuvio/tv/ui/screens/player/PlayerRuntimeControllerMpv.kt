@@ -18,12 +18,10 @@ internal fun PlayerRuntimeController.attachMpvView(view: NuvioMpvSurfaceView?) {
     if (view == null) return
     if (!isUsingMpvEngine()) return
     if (currentStreamUrl.isBlank()) return
-    if (!mpvMediaLoadPrepared) return
     if (mpvInitializationInProgress) return
 
     runCatching {
         performPendingMpvHardRestartIfNeeded(view)
-        view.applyHi10pGnextSoftwareFallback(shouldUseMpvHi10pGnextSoftwareFallback())
         view.applyHardwareDecodeMode(mpvHardwareDecodeModeSetting)
         view.setMedia(currentStreamUrl, currentHeaders)
         view.setPlaybackSpeed(_uiState.value.playbackSpeed)
@@ -82,7 +80,6 @@ internal fun PlayerRuntimeController.initializeMpvPlayer(
     headers: Map<String, String>,
     allowEngineFailover: Boolean = true
 ) {
-    mpvMediaLoadPrepared = true
     _exoPlayer?.release()
     _exoPlayer = null
     trackSelector = null
@@ -118,7 +115,6 @@ internal fun PlayerRuntimeController.initializeMpvPlayer(
             showOverlay = true
         )
         performPendingMpvHardRestartIfNeeded(view)
-        view.applyHi10pGnextSoftwareFallback(shouldUseMpvHi10pGnextSoftwareFallback())
         view.applyHardwareDecodeMode(mpvHardwareDecodeModeSetting)
         val initialResumePosition = resolvePendingInitialResumePosition()
             .takeIf { it > 0L }
@@ -399,6 +395,7 @@ private fun PlayerRuntimeController.applyMpvTrackSnapshot(snapshot: MpvTrackSnap
         audioTracks = audioTracks,
         subtitleTracks = internalSubtitleTracks
     )
+    applyLosslessAudioDefaultIfUnset(audioTracks)
     logSwitchTrace(
         stage = "mpv-snapshot-after-restore",
         message = "uiAudioIndex=${_uiState.value.selectedAudioTrackIndex} " +
@@ -549,13 +546,24 @@ internal fun PlayerRuntimeController.seekPlaybackTo(
                     seekBufferingUiJob?.cancel()
                     _uiState.update { it.copy(isBuffering = true) }
                 }
-                NuvioExoPlayerPerformanceHelper.buildScrubbingParams()?.let { params ->
-                    isScrubbingModeActive = true
-                    player.setScrubbingModeParameters(params)
-                }
+                // Scrubbing-mode plumbing removed (seek review F4): the params it
+                // built were byte-identical to the defaults and
+                // setScrubbingModeEnabled(true) was never called anywhere, so the
+                // engine ignored them entirely - dead code that misled readers
+                // into thinking a fast-scrub path existed.
             }
             player.setSeekParameters(seekParameters)
             player.seekTo(positionMs)
+            // Seek review F1: SeekParameters is persistent player state, and this
+            // is the only place it was ever set - never restored. Five raw
+            // player.seekTo() sites (audio-track-change nudge, long-pause resume,
+            // error recovery, resume progress, stall watchdog) inherited whatever
+            // direction the user last seeked: a stale NEXT_SYNC turned the
+            // "seek back 1ms to unstick buffering" nudge into a forward jump of
+            // up to a full GOP on every audio-track change. Set/seek/reset
+            // messages are processed in order on the playback thread, so the
+            // requested seek still uses [seekParameters].
+            player.setSeekParameters(SeekParameters.DEFAULT)
         }
     }
 }

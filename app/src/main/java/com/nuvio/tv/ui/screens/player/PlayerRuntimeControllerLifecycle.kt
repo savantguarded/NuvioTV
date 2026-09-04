@@ -50,7 +50,6 @@ internal fun PlayerRuntimeController.releasePlayer(flushPlaybackState: Boolean) 
     traktMappingJob?.cancel()
     traktMappingJob = null
     delayMpvResumeSeekUntilVideoTrack = false
-    mpvMediaLoadPrepared = false
     nextEpisodeAutoPlayJob?.cancel()
     nextEpisodeAutoPlayJob = null
     debridResolveJob?.cancel()
@@ -62,18 +61,35 @@ internal fun PlayerRuntimeController.releasePlayer(flushPlaybackState: Boolean) 
     stableProgressResetJob?.cancel()
     stableProgressResetJob = null
     releaseMpvPlayer()
+    // Ordering note (main review F14): notifyAudioSessionUpdate(false) above
+    // reads _exoPlayer.audioSessionId and MUST run before _exoPlayer is nulled
+    // below, or the audio-effect close broadcast silently no-ops and the
+    // session leaks. Keep that call ahead of this block in any refactor.
     _exoPlayer?.let { player ->
+        // Main review F10/F11: pause()/clearMediaItems() dropped as redundant
+        // pre-release round trips (see disposeExoPlayerBeforeRebuild). release()
+        // itself must stay on Main — the engine enforces application-thread
+        // access — so the Main-thread block is instead capped by
+        // PLAYER_RELEASE_TIMEOUT_MS and measured here.
         runCatching { player.playWhenReady = false }
-        runCatching { player.pause() }
         runCatching { player.stop() }
-        runCatching { player.clearMediaItems() }
         runCatching { player.clearVideoSurface() }
+        val releaseStartMs = android.os.SystemClock.elapsedRealtime()
         runCatching { player.release() }
+        val releaseMs = android.os.SystemClock.elapsedRealtime() - releaseStartMs
+        android.util.Log.i(
+            PlayerRuntimeController.TAG,
+            "PLAYER_RELEASE: site=teardown exoReleaseMs=$releaseMs"
+        )
     }
     _exoPlayer = null
     ffmpegAudioRenderer = null
+    // Audio review F8: no player, no bypass.
+    isAudioOutputBypassing = false
     updateAudioControlAvailability()
     playbackSpeedAwareAudioSink = null
+    currentExoPlayerListener = null
+    currentExoAnalyticsListener = null
     resetPlaybackTimeline()
     isReleasingPlayer = false
 }

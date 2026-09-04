@@ -12,6 +12,15 @@ import kotlinx.coroutines.launch
 
 private const val MAX_STARTUP_AUTO_RETRIES = 2
 private const val MAX_AUTO_RETRIES = 2
+private const val MAX_DEAD_SOURCE_FAILOVERS = 3
+
+// nt6 fix B: ceiling on TOTAL automatic recoveries for one stream URL, across
+// every fallback ladder combined (DV modes, safe audio, PCM, timeout, NPE, 416,
+// engine failover, dead-source, auto-retry). Each ladder is individually
+// bounded, but chained they observably looped a dead decoder pipeline for
+// minutes — ~40 s per cycle on a large moov-at-tail MP4. Five covers the
+// deepest legitimate chain while bounding the pathological case.
+private const val MAX_TOTAL_AUTO_RECOVERIES_PER_STREAM = 5
 private const val RETRY_DELAY_MS = 1_500L
 private const val STABLE_PROGRESS_RESET_DELAY_MS = 5_000L
 
@@ -242,6 +251,9 @@ internal fun PlayerRuntimeController.attemptAutoRetry(
     detailedError: String
 ): Boolean {
     if (!isRetryablePlaybackError(error)) return false
+    // Dead URLs (non-media body, 404/410) never benefit from same-URL retries;
+    // they are handled by attemptDeadSourceFailover before this is reached.
+    if (isDeadSourcePlaybackError(error)) return false
     if (errorRetryCount >= MAX_AUTO_RETRIES) return false
 
     val paused = userPausedManually
@@ -305,6 +317,8 @@ internal fun PlayerRuntimeController.attemptAutoRetry(
 internal fun PlayerRuntimeController.resetErrorRetryState() {
     startupRetryCount = 0
     errorRetryCount = 0
+    deadSourceFailoverCount = 0
+    hasRetriedAfterMimeOverrideClear = false
     parsingErrorProbeAttempted = false
     pendingAudioPcmFallbackRebuild = false
     errorRetryJob?.cancel()
@@ -385,6 +399,63 @@ internal fun PlayerRuntimeController.tryAudioTrackPcmFallback(
 }
 
 /**
+ * FFmpeg-preferred rebuild for ERROR_CODE_DECODER_INIT_FAILED (4001) on an audio
+ * renderer whose failing format belongs to a policy-denied group.
+ *
+ * Root cause (F5 investigation, 5 Aug 2026): a hybrid track (e.g. DTS-HD MA in
+ * Matroska) is exposed at selection time under its base MIME (audio/vnd.dts),
+ * which the user may not have denied, so the MediaCodec audio renderer wins the
+ * mapping tie. When the sample pipeline reads the extension substream it upgrades
+ * the format mid-stream to the denied MIME (audio/vnd.dts.hd); the policy
+ * abdication then leaves the already-selected renderer with no decoder (-49999),
+ * and media3 never remaps a track mid-stream, so the generic retry rebuilds into
+ * the identical trap. Retrying with FFmpeg audio preferred (the same audio-local
+ * reorder Force AC-3 uses) makes FFmpeg win the tie for the whole family; it
+ * decodes both the base and upgraded formats.
+ *
+ * Deliberate trade-off: while active (this stream only), FFmpeg wins ties for
+ * every audio format it fully supports, so a second audio track that could have
+ * passed through decodes to PCM instead. Degraded-but-playing beats the error
+ * screen.
+ */
+@androidx.annotation.OptIn(UnstableApi::class)
+internal fun PlayerRuntimeController.tryDeniedAudioFfmpegFallback(
+    error: PlaybackException
+): Boolean {
+    if (error.errorCode != PlaybackException.ERROR_CODE_DECODER_INIT_FAILED) return false
+    if (currentStreamUrl in preferFfmpegAudioStreamUrls) return false
+    if (cachedDecoderPriority == 0) return false // No FFmpeg renderer without extensions.
+    val failingMime = (error as? androidx.media3.exoplayer.ExoPlaybackException)
+        ?.rendererFormat?.sampleMimeType
+    if (failingMime == null || !androidx.media3.common.MimeTypes.isAudio(failingMime)) return false
+    val policy = currentAudioPassthroughPolicy ?: return false
+    if (!policy.deniesPassthrough(failingMime)) return false
+
+    preferFfmpegAudioStreamUrls.add(currentStreamUrl)
+
+    val paused = userPausedManually
+    val savedPosition = _exoPlayer?.currentPosition?.takeIf { it > 0L } ?: 0L
+
+    Log.d(
+        PlayerRuntimeController.TAG,
+        "Decoder init failed (4001) on policy-denied audio $failingMime - retrying with FFmpeg audio preferred, position=${savedPosition}ms"
+    )
+
+    resetErrorRetryState()
+
+    errorRetryJob = scope.launch {
+        showRecoveryOverlay()
+
+        releasePlayer(flushPlaybackState = false)
+        if (savedPosition > 0L) {
+            _uiState.update { it.copy(pendingSeekPosition = savedPosition) }
+        }
+        initializePlayer(currentStreamUrl, currentHeaders, startPaused = paused)
+    }
+    return true
+}
+
+/**
  * DV7-to-HEVC decoder fallback for ERROR_CODE_DECODER_INIT_FAILED (4003).
  *
  * When decoderPriority == 1 (EXTENSION_RENDERER_MODE_ON) and the decoder
@@ -449,6 +520,18 @@ internal fun PlayerRuntimeController.tryParsingErrorProbeFallback(
         error.cause?.toString()?.contains("UnrecognizedInputFormatException") == true
 
     if (!isSourceOrParsingError) return false
+    // Patch 2 (Task A backstop): mid-play, the container already played for a
+    // while under a known non-HLS mimeType - re-probing the format cannot help
+    // (the data is corrupt, not the container label) and costs ~6s against the
+    // NNTP engine. Skip the probe; the dispatcher's auto-retry and the mid-play
+    // failover after the budget gate handle it. HLS (M3U8) still probes for
+    // live-window recovery.
+    if (hasRenderedFirstFrame &&
+        currentStreamMimeType != null &&
+        currentStreamMimeType != androidx.media3.common.MimeTypes.APPLICATION_M3U8
+    ) {
+        return false
+    }
     if (parsingErrorProbeAttempted) return false
     parsingErrorProbeAttempted = true
 
@@ -488,6 +571,15 @@ internal fun PlayerRuntimeController.tryParsingErrorProbeFallback(
             }
             initializePlayer(currentStreamUrl, currentHeaders, startPaused = paused)
         } else {
+            // Fork dead-source rung (community 3003 report): the probe failed to
+            // name a better container, so a sniff-failure body (HTML page behind
+            // HTTP 200, .rar/.zip payload) or HTTP 404/410 is permanent for this
+            // URL. Advance to the next source instead of burning both same-URL
+            // retries on a doomed link. Checked before the engine failover: a
+            // dead URL is dead on either engine.
+            if (isDeadSourcePlaybackError(error) && attemptDeadSourceFailover(error, detailedError)) {
+                return@launch
+            }
             if (maybeAutoSwitchInternalPlayerOnStartupError(detailedError = detailedError, allowEngineFailover = allowEngineFailover)) {
                 return@launch
             }
@@ -504,6 +596,216 @@ internal fun PlayerRuntimeController.tryParsingErrorProbeFallback(
                 )
             }
         }
+    }
+    return true
+}
+
+/** @return true if a mimeType override was present and has been cleared. */
+private fun PlayerRuntimeController.clearMimeOverrideForParsingError(error: PlaybackException): Boolean {
+    if (error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ||
+        error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED ||
+        error.errorCode == PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED ||
+        error.errorCode == PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED
+    ) {
+        if (currentStreamMimeType != null) {
+            Log.w(
+                PlayerRuntimeController.TAG,
+                "Parsing error [${error.errorCode}] detected with mimeType=$currentStreamMimeType. " +
+                        "Clearing mimeType override for fallback."
+            )
+            currentStreamMimeType = null
+            currentStreamResponseHeaders = emptyMap()
+            return true
+        }
+    }
+    return false
+}
+
+/**
+ * Dead-source classification (community 3003 report).
+ *
+ * A container-sniff failure where the content is NOT malformed media - media3's
+ * [androidx.media3.exoplayer.source.UnrecognizedInputFormatException], surfaced as
+ * ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED (3003) - means the body is not media at
+ * all: an HTML error page behind HTTP 200, or a .rar/.zip payload from a torrent.
+ * HTTP 404/410 are equally permanent for the URL. Same-URL retries only make the
+ * user sit through doomed rebuild cycles.
+ *
+ * Deliberately NOT classified dead: HTTP 429 and timeouts - auto-advancing on a
+ * debrid rate limit (TorBox parallel-connection 429s are transient) would wrongly
+ * burn perfectly good sources.
+ */
+internal fun PlayerRuntimeController.isDeadSourcePlaybackError(error: PlaybackException): Boolean {
+    if (isDeadSourceHttpError(error)) return true
+    return error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED &&
+        error.findCauseOfType<androidx.media3.exoplayer.source.UnrecognizedInputFormatException>() != null
+}
+
+/**
+ * The HTTP arm of the dead-source classification. 404/410 is certain-dead with
+ * no probe value, so callers can advance without spending the 0.8.5
+ * parsing-error probe on it.
+ */
+internal fun PlayerRuntimeController.isDeadSourceHttpError(error: PlaybackException): Boolean {
+    val http = error.findInvalidResponseCodeException()
+    return http != null && (http.responseCode == 404 || http.responseCode == 410)
+}
+
+/**
+ * Handles a dead-source error: one narrowly-scoped same-URL retry if a mimeType
+ * override was steering the extractor (the only genuinely recoverable sub-case),
+ * otherwise mark the URL dead for the session and auto-advance to the next source
+ * in the user's existing sort order. Returns false when out of options (failover
+ * cap reached or no live sources left) so the caller surfaces the error screen.
+ */
+internal fun PlayerRuntimeController.attemptDeadSourceFailover(
+    error: PlaybackException,
+    detailedError: String
+): Boolean {
+    // The override is baked into the MediaItem, so only a FULL re-init applies the
+    // clear - a bare prepare() retry cannot (which is why the old auto-retry's first
+    // attempt never fixed this case). One full retry, then the URL is treated as dead.
+    if (clearMimeOverrideForParsingError(error) && !hasRetriedAfterMimeOverrideClear) {
+        hasRetriedAfterMimeOverrideClear = true
+        val paused = userPausedManually
+        val savedPosition = _exoPlayer?.currentPosition?.takeIf { it > 0L } ?: 0L
+        Log.w(
+            PlayerRuntimeController.TAG,
+            "Dead-source check: mimeType override cleared; one full re-init for: $detailedError"
+        )
+        errorRetryJob?.cancel()
+        errorRetryJob = scope.launch {
+            _uiState.update {
+                it.copy(error = null, showLoadingOverlay = it.loadingOverlayEnabled, showPauseOverlay = false)
+            }
+            delay(RETRY_DELAY_MS)
+            releasePlayer(flushPlaybackState = false)
+            if (savedPosition > 0L) {
+                _uiState.update { it.copy(pendingSeekPosition = savedPosition) }
+            }
+            initializePlayer(currentStreamUrl, currentHeaders, startPaused = paused)
+        }
+        return true
+    }
+
+    return advanceToNextLiveSource(detailedError)
+}
+
+/**
+ * Marks the current stream URL dead for this session (greying it in the source
+ * panel), then auto-advances to the next live source in the user's existing
+ * sort order. Shared by the dead-source path and the startup-exhausted path;
+ * both draw on the same MAX_DEAD_SOURCE_FAILOVERS cap. Returns false when out
+ * of options (cap reached or no live sources left) so the caller surfaces the
+ * error screen.
+ */
+internal fun PlayerRuntimeController.advanceToNextLiveSource(detailedError: String): Boolean {
+    // Mark dead: both the resolved playback URL and, where identifiable, the
+    // original list entry (debrid resolution can make these differ) so the
+    // source panel greys it and a manual re-pick is visibly discouraged.
+    deadSourceStreamUrls.add(currentStreamUrl)
+    val state = _uiState.value
+    val streams = state.sourceAllStreams
+    val currentIdx = findCurrentStreamIndex(
+        streams = streams,
+        currentStreamInfoHash = state.currentStreamInfoHash,
+        currentStreamFileIdx = state.currentStreamFileIdx,
+        currentStreamAddonName = state.currentStreamAddonName,
+        currentStreamUrl = state.currentStreamUrl,
+        currentStreamName = state.currentStreamName
+    )
+    if (currentIdx >= 0) {
+        streams.getOrNull(currentIdx)?.getStreamUrl()?.let { deadSourceStreamUrls.add(it) }
+    }
+    _uiState.update { it.copy(deadSourceStreamUrls = deadSourceStreamUrls.toSet()) }
+
+    if (deadSourceFailoverCount >= MAX_DEAD_SOURCE_FAILOVERS) {
+        Log.w(
+            PlayerRuntimeController.TAG,
+            "Dead-source failover cap ($MAX_DEAD_SOURCE_FAILOVERS) reached; surfacing error"
+        )
+        return false
+    }
+    if (streams.isEmpty()) return false
+
+    val startIdx = if (currentIdx >= 0) currentIdx + 1 else 0
+    val next = (startIdx until streams.size).asSequence()
+        .map { streams[it] }
+        .firstOrNull { candidate ->
+            val url = candidate.getStreamUrl()
+            url == null || !deadSourceStreamUrls.contains(url)
+        } ?: run {
+        Log.w(PlayerRuntimeController.TAG, "Dead source and no live sources after index $currentIdx; surfacing error")
+        return false
+    }
+
+    deadSourceFailoverCount++
+    val attemptNo = deadSourceFailoverCount
+    Log.w(
+        PlayerRuntimeController.TAG,
+        "Dead source ($detailedError) - failing over to next source ($attemptNo/$MAX_DEAD_SOURCE_FAILOVERS): " +
+                "host=${next.getStreamUrl()?.safeHost()}"
+    )
+    val savedPosition = _exoPlayer?.currentPosition?.takeIf { it > 0L } ?: 0L
+    errorRetryJob?.cancel()
+    scope.launch {
+        _uiState.update {
+            it.copy(
+                error = null,
+                showPauseOverlay = false,
+                showLoadingOverlay = it.loadingOverlayEnabled,
+                loadingMessage = context.getString(
+                    com.nuvio.tv.R.string.player_dead_source_failover,
+                    attemptNo,
+                    MAX_DEAD_SOURCE_FAILOVERS
+                ),
+                pendingSeekPosition = if (savedPosition > 0L) savedPosition else it.pendingSeekPosition
+            )
+        }
+        switchToSourceStream(next)
+    }
+    return true
+}
+
+/**
+ * Task 1.6 (Option A): a startup-phase failure that has exhausted the fallback
+ * ladders and both same-URL auto-retries advances to the next source instead
+ * of surfacing the error screen (previously: one-shot engine failover to MPV
+ * when that toggle was enabled, else the error screen). A URL that could not
+ * produce a first frame through every recovery path is treated like a dead
+ * source for this session.
+ */
+internal fun PlayerRuntimeController.attemptStartupExhaustedSourceFailover(detailedError: String): Boolean {
+    if (hasRenderedFirstFrame) return false
+    Log.w(
+        PlayerRuntimeController.TAG,
+        "Startup recovery exhausted; attempting next-source failover for: $detailedError"
+    )
+    return advanceToNextLiveSource(detailedError)
+}
+
+/**
+ * nt6 fix B: consume one unit of the per-stream auto-recovery budget.
+ *
+ * Self-keys on the current stream URL — a genuine source switch resets the
+ * counter without any external reset call. Returns false once the budget is
+ * spent, at which point onPlayerError skips every fallback ladder and surfaces
+ * the error to the user instead of silently re-preparing again.
+ */
+internal fun PlayerRuntimeController.consumeAutoRecoveryBudget(detailedError: String): Boolean {
+    val url = currentStreamUrl
+    if (url != autoRecoveryBudgetUrl) {
+        autoRecoveryBudgetUrl = url
+        autoRecoveryCountForCurrentStream = 0
+    }
+    autoRecoveryCountForCurrentStream += 1
+    if (autoRecoveryCountForCurrentStream > MAX_TOTAL_AUTO_RECOVERIES_PER_STREAM) {
+        Log.w(
+            PlayerRuntimeController.TAG,
+            "Auto-recovery budget exhausted ($MAX_TOTAL_AUTO_RECOVERIES_PER_STREAM recoveries) " +
+                "for host=${url.safeHost()}; surfacing error instead of retrying: $detailedError"
+        )
+        return false
     }
     return true
 }

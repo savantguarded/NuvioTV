@@ -2,6 +2,7 @@ package com.nuvio.tv.core.player
 
 import android.net.Uri
 import androidx.media3.common.C
+import androidx.media3.common.ColorInfo
 import androidx.media3.common.DataReader
 import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
@@ -47,7 +48,8 @@ internal class DolbyVisionExtractorsFactory(
     private val delegate: ExtractorsFactory,
     private val config: DolbyVisionConversionConfig,
     private val stripDvRpu: Boolean = false,
-    private val stripHdr10PlusSei: Boolean = false
+    private val stripHdr10PlusSei: Boolean = false,
+    private val injectHdr10Sei: Boolean = false
 ) : ExtractorsFactory {
 
     override fun createExtractors(): Array<Extractor> =
@@ -60,21 +62,31 @@ internal class DolbyVisionExtractorsFactory(
         delegate.createExtractors(uri, responseHeaders).map(::wrap).toTypedArray()
 
     private fun wrap(extractor: Extractor): Extractor {
-        // Matroska is swapped unconditionally: the vendored extractor carries the
-        // DTS-HD MA / DTS:X first-sample sniff. Gating behind DV features meant
-        // native-DV boxes (policy OFF — most likely to bitstream) never got the
-        // sniff and negotiated core DTS for DTS-HD content. With an inactive
-        // config, shouldTransform() is false so non-DV samples pass through.
+        // Matroska is swapped unconditionally (audio review F1): the vendored
+        // extractor carries the DTS-HD MA / DTS:X first-sample sniff (mkvmerge
+        // writes A_DTS for every DTS variant; stock media3 1.8 maps that to core
+        // DTS with no inspection). Gating the swap behind DV features meant the
+        // devices most likely to bitstream HD audio - native-DV7 boxes where the
+        // policy resolves to OFF - never got the sniff and negotiated core DTS
+        // for DTS-HD content. With an inactive config the transformer's
+        // shouldTransform() returns false, so non-DV HEVC samples stream through
+        // the stock write path at no extra cost.
         if (extractor.javaClass.name == STOCK_MATROSKA_EXTRACTOR) {
-            return DvMatroskaExtractor(
+            val mkv = DvMatroskaExtractor(
                 DefaultSubtitleParserFactory(),
                 /* flags= */ 0,
                 DolbyVisionMatroskaTransformer(
                     config = if (config.active) config else DolbyVisionConversionConfig(active = false),
                     stripRpuOnly = stripDvRpu && !config.active,
                     stripHdr10PlusSei = stripHdr10PlusSei,
+                    injectHdr10Sei = injectHdr10Sei,
                 )
             )
+            // nt26: on the MKV strip path the base layer is HDR10 but its Format
+            // carries no colorInfo; wrap so the video Format is tagged HDR10 and
+            // the display switches to HDR mode. Convert path is untouched (it
+            // outputs DV, whose own decoder path signals HDR).
+            return if (stripDvRpu && !config.active) HdrColorSignalingExtractor(mkv) else mkv
         }
         if (!config.active && !stripDvRpu && !stripHdr10PlusSei) return extractor
         val nalFormat = nalFormatFor(extractor) ?: return extractor
@@ -106,14 +118,41 @@ internal enum class NalFormat { ANNEX_B, LENGTH_DELIMITED }
  */
 internal object DolbyVisionConversionStats {
     private val codecStringRewriteCount = AtomicLong(0)
+    // DV7 review F5: RPUs dropped because conversion failed (never forwarded raw).
+    private val rpuDropCount = AtomicLong(0)
     @Volatile private var lastSourceProfile: Int? = null
     @Volatile private var lastConversionMode: Int? = null
+    // DV7 F3: EL type of the current stream (DoviBridge.EL_TYPE_* / -1 / -2).
+    @Volatile private var lastElType: Int? = null
+    // Item 2: static HDR metadata read from the current stream's first RPU.
+    @Volatile private var lastRpuMetadata: DoviBridge.RpuStaticMetadata? = null
 
     fun reset() {
         codecStringRewriteCount.set(0)
+        rpuDropCount.set(0)
         lastSourceProfile = null
         lastConversionMode = null
+        lastElType = null
+        lastRpuMetadata = null
     }
+
+    fun recordElType(code: Int) {
+        lastElType = code
+    }
+
+    fun getLastElType(): Int? = lastElType
+
+    fun recordRpuMetadata(metadata: DoviBridge.RpuStaticMetadata?) {
+        if (metadata != null) lastRpuMetadata = metadata
+    }
+
+    fun getLastRpuMetadata(): DoviBridge.RpuStaticMetadata? = lastRpuMetadata
+
+    fun recordRpuDrop() {
+        rpuDropCount.incrementAndGet()
+    }
+
+    fun getRpuDropCount(): Long = rpuDropCount.get()
 
     /** Records the SOURCE DV profile (pre-conversion), e.g. 7. */
     fun recordSourceProfile(profile: Int?) {
@@ -135,14 +174,13 @@ internal object DolbyVisionConversionStats {
 
 /**
  * Drives the per-stream conversion decision. Mirrors the auto-pick used by the
- * extractor hook installer: profile-7 default = mode 1 (ToMel); profile-7 with
- * preserve-mapping = mode 5 (8.1 preserve); profile 5 = mode 3; a [forcedMode]
- * in 0..4 overrides all of it.
+ * extractor hook installer: profile-7 AUTO = mode 1 (ToMel); profile-7 manual
+ * Convert-to-DV8.1 = mode 2; profile 5 = mode 2; a [forcedMode] in 0..4
+ * overrides all of it.
  */
 internal data class DolbyVisionConversionConfig(
     val active: Boolean,
     val forcedMode: Int = -1,
-    val preserveMapping: Boolean = false,
     val dv5Enabled: Boolean = false,
     /** True when the user explicitly chose "Convert to DV8.1" (not AUTO). */
     val manualDv81: Boolean = false
@@ -169,15 +207,113 @@ internal data class DolbyVisionConversionConfig(
         }
     }
 
-    /** libdovi conversion mode to use for [profile]. */
+    /** libdovi conversion mode to use for [profile].
+     *
+     * Verified against the bundled libdovi 3.3.2 source (dolby_vision tag
+     * libdovi-3.3.2, rpu/mod.rs `From<u8> for ConversionMode`): the C API
+     * maps 0 -> Lossless, 1 -> ToMel, 2 AND 3 -> To81, 4 -> To84 (static
+     * 8.4), and anything >= 5 -> Lossless. To81 accepts source profiles 5
+     * (p5_to_p81), 7 and 8. The header's per-mode doc comment ("3 = static
+     * 8.4", "4 = 8.1 preserve-mapping") is stale and contradicts the shipped
+     * code; To81MappingPreserved is unreachable through the C API.
+     *
+     * P5 uses mode 2: mode 3 is only a legacy alias of To81 that the header
+     * documents as 8.4, so mode 2 is the one value where the documented
+     * contract and the code agree, and it stays correct if upstream libdovi
+     * ever aligns the code with its docs (which would turn 3 into 8.4).
+     *
+     * Preserve-mapping (To81MappingPreserved) is deliberately never
+     * requested. It is unreachable through the C API in every libdovi 3.x
+     * release including master, and executing modes 1/2/5 against upstream's
+     * own P7 FEL fixtures shows it retains the source composer curves --
+     * the pre-2.0 behaviour upstream moved away from in commit b45e20e,
+     * because those curves assume an enhancement layer this pipeline strips.
+     * The mode-5 shim in dovi_bridge.cpp is retained as a safety net.
+     */
     fun conversionMode(profile: Int?): Int {
         if (forcedMode in 0..4) return forcedMode
         return when {
-            (profile == 7 || profile == null) && preserveMapping -> 5
-            profile == 5 -> 3
+            profile == 5 -> 2
             manualDv81 -> 2 // manual Convert to DV8.1 prefers mode 2 (falls back to 1)
             else -> 1       // AUTO convert stays on mode 1
         }
+    }
+}
+
+// nt26: fixed HDR10 (BT.2020 / limited-range / PQ) colour signalling. Applied to
+// the stripped base layer's Format so the Android display framework switches the
+// sink into HDR mode. The stripped stream is genuine HDR10 in-band (the SPS VUI
+// is preserved by the strip), but Format.colorInfo is usually null on DV
+// containers, and some sinks (e.g. Amlogic AM9 Pro) act on the framework's
+// colorInfo, not the in-band SPS - leaving the display in SDR (PQ shown as SDR
+// reads as a purple tint) until this is set.
+@UnstableApi
+private fun hdr10ColorInfo(): ColorInfo = ColorInfo.Builder()
+    .setColorSpace(C.COLOR_SPACE_BT2020)
+    .setColorRange(C.COLOR_RANGE_LIMITED)
+    .setColorTransfer(C.COLOR_TRANSFER_ST2084)
+    .build()
+
+/** DV profile from a codec string (dvhe/dvav/dvh1/dva1.NN.*), or null. */
+private fun dvProfileOf(codecs: String?): Int? {
+    if (codecs.isNullOrBlank()) return null
+    val m = Regex("^(?:dvhe|dvav|dvh1|dva1)\\.(\\d+)\\.").find(codecs.trim().lowercase()) ?: return null
+    return m.groupValues[1].toIntOrNull()
+}
+
+/**
+ * nt26: wraps the vendored MKV extractor on the strip path to add HDR10
+ * colorInfo to the video Format. The MKV path rewrites samples via the
+ * transformer but never touches the Format, so - unlike the native path's
+ * NativeOptimizedVideoTrackOutput.format() - it needs this thin output wrapper.
+ * P7/P8.1 only; leaves an already-HDR (ST2084) Format untouched.
+ */
+@UnstableApi
+private class HdrColorSignalingExtractor(
+    private val delegate: Extractor
+) : Extractor {
+    override fun init(output: ExtractorOutput) =
+        delegate.init(HdrColorSignalingExtractorOutput(output))
+
+    @Throws(IOException::class)
+    override fun sniff(input: ExtractorInput): Boolean = delegate.sniff(input)
+
+    @Throws(IOException::class)
+    override fun read(input: ExtractorInput, seekPosition: PositionHolder): Int =
+        delegate.read(input, seekPosition)
+
+    override fun seek(position: Long, timeUs: Long) = delegate.seek(position, timeUs)
+    override fun release() = delegate.release()
+    override fun getUnderlyingImplementation(): Extractor = delegate.underlyingImplementation
+}
+
+@UnstableApi
+private class HdrColorSignalingExtractorOutput(
+    private val delegate: ExtractorOutput
+) : ExtractorOutput {
+    override fun track(id: Int, type: Int): TrackOutput {
+        val track = delegate.track(id, type)
+        return if (type == C.TRACK_TYPE_VIDEO) HdrColorSignalingTrackOutput(track) else track
+    }
+
+    override fun endTracks() = delegate.endTracks()
+    override fun seekMap(seekMap: SeekMap) = delegate.seekMap(seekMap)
+}
+
+@UnstableApi
+private class HdrColorSignalingTrackOutput(
+    private val delegate: TrackOutput
+) : TrackOutput by delegate {
+    override fun format(format: Format) {
+        val profile = dvProfileOf(format.codecs)
+        val out = if ((profile == 7 || profile == 8) &&
+            format.colorInfo?.colorTransfer != C.COLOR_TRANSFER_ST2084
+        ) {
+            format.buildUpon().setColorInfo(hdr10ColorInfo()).build()
+        } else {
+            format
+        }
+        delegate.format(out)
     }
 }
 
@@ -258,6 +394,9 @@ private class NativeOptimizedVideoTrackOutput(
     private var profile: Int? = null
     private var codecs: String? = null
     private var nalLengthFieldLength = 4
+    // Item 2: once-per-stream RPU static-metadata probe state (diagnostics only).
+    private var metadataProbed = false
+    private var metadataProbeAttempts = 0
 
     private fun ensurePendingCapacity(extra: Int) {
         val need = pendingLen + extra
@@ -292,6 +431,17 @@ private class NativeOptimizedVideoTrackOutput(
         }
         if (stripDvRpu && strippedCodecs != null) {
             outFormat = outFormat.buildUpon().setSampleMimeType(MimeTypes.VIDEO_H265).build()
+            // nt26: the stripped base layer is HDR10, but the container/DV Format
+            // rarely carries colorInfo, so on some sinks (e.g. Amlogic AM9 Pro)
+            // the Android display framework never learns the content is HDR and
+            // leaves the display in SDR - PQ shown as SDR reads as a purple tint.
+            // Populate colorInfo so the framework drives the HDR mode switch.
+            // P7/P8.1 only (P5's base is IPT-PQ, not BT.2020).
+            if ((profile == 7 || profile == 8) &&
+                outFormat.colorInfo?.colorTransfer != C.COLOR_TRANSFER_ST2084
+            ) {
+                outFormat = outFormat.buildUpon().setColorInfo(hdr10ColorInfo()).build()
+            }
         }
 
         val rewriteSamples = converting && !(profile == 5 && !config.convertDv5Rpu)
@@ -354,6 +504,48 @@ private class NativeOptimizedVideoTrackOutput(
             return
         }
 
+        // Item 2: read the RPU's static HDR metadata once per stream for
+        // Diagnostics. Covers MP4/fMP4/TS on both the convert and strip paths
+        // (both reach here with shouldProcess). Best-effort and read-only — it
+        // never alters the sample or the output below.
+        if (!metadataProbed && metadataProbeAttempts < METADATA_PROBE_ATTEMPT_LIMIT &&
+            DoviBridge.isAvailable()
+        ) {
+            metadataProbeAttempts++
+            // The extractor's declared nalFormat is not reliable for the bytes
+            // that actually reach this track output: an Mp4Extractor stream can
+            // arrive Annex-B (a leading 00 00 (00) 01 start code) rather than
+            // length-delimited, so trusting nalFormat ran the wrong walker and
+            // found no RPU. Detect the framing from the sample itself (nt20).
+            val annexB = pendingLen >= 4 &&
+                pendingBuf[0].toInt() == 0 && pendingBuf[1].toInt() == 0 &&
+                (pendingBuf[2].toInt() == 1 ||
+                    (pendingBuf[2].toInt() == 0 && pendingBuf[3].toInt() == 1))
+            if (metadataProbeAttempts == 1) {
+                val diag = if (annexB) "framing=annexB" else
+                    "framing=LD nlf=$nalLengthFieldLength nalTypes=" +
+                        HevcDvRpuStripper.listNalTypesLengthDelimited(pendingBuf, pendingLen, nalLengthFieldLength)
+                android.util.Log.i(
+                    "DVMetaProbe",
+                    "hookB entered fmt=$nalFormat pendingLen=$pendingLen $diag"
+                )
+            }
+            val rpu = if (annexB) {
+                HevcDvRpuStripper.findRpuNalAnnexB(pendingBuf, pendingLen)
+            } else {
+                HevcDvRpuStripper.findRpuNalLengthDelimited(pendingBuf, pendingLen, nalLengthFieldLength)
+            }
+            if (rpu != null) {
+                metadataProbed = true
+                val meta = DoviBridge.getRpuStaticMetadata(pendingBuf, rpu.first, rpu.second)
+                DolbyVisionConversionStats.recordRpuMetadata(meta)
+                android.util.Log.i(
+                    "DVMetaProbe",
+                    "hookB fmt=$nalFormat rpuLen=${rpu.second} meta=${meta?.toDiagnosticLine() ?: "null"}"
+                )
+            }
+        }
+
         val carrySize = offset.coerceIn(0, pendingLen)
         val sampleEnd = pendingLen - carrySize
 
@@ -388,6 +580,10 @@ private class NativeOptimizedVideoTrackOutput(
     }
 
     private companion object {
+        // Item 2: bound the diagnostics RPU probe so a mis-signalled stream that
+        // never yields an RPU can't walk NALs on every sample indefinitely.
+        const val METADATA_PROBE_ATTEMPT_LIMIT = 30
+
         fun parseDvProfile(codecs: String?): Int? {
             if (codecs.isNullOrBlank()) return null
             val m = Regex("^(?:dvhe|dvav|dvh1|dva1)\\.(\\d+)\\.")

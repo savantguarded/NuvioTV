@@ -5,6 +5,7 @@
 
 package com.nuvio.tv.ui.screens.player
 
+import com.nuvio.tv.ui.components.PanelEyebrow
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -186,23 +188,21 @@ internal fun StreamSourcesSidePanel(
 
     Box(
         modifier = modifier
-            .fillMaxHeight()
-            .width(520.dp)
+            .heightIn(max = 900.dp)
+            .width(440.dp)
             .clip(RoundedCornerShape(topStart = NuvioTheme.spacing.lg, bottomStart = NuvioTheme.spacing.lg))
-            .background(NuvioTheme.colors.BackgroundElevated)
+            .background(Color.Black.copy(alpha = 0.85f))
     ) {
-        Column(modifier = Modifier.padding(NuvioTheme.spacing.xl)) {
+        Column(modifier = Modifier.padding(NuvioTheme.spacing.lg)) {
+            PanelEyebrow(text = stringResource(R.string.sources_title))
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm, Alignment.End),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = stringResource(R.string.sources_title),
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = NuvioTheme.colors.TextPrimary
-                )
-
+                // Merge 0.8.8: reload lives on the RefreshFilterChip in the chip row
+                // (unified with StreamScreen); the header keeps only Close.
                 DialogButton(
                     text = stringResource(R.string.sources_close),
                     onClick = onClose,
@@ -222,7 +222,7 @@ internal fun StreamSourcesSidePanel(
                 )
             }
 
-            Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
+            Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
 
             // Current content info
             val context = LocalContext.current
@@ -245,13 +245,13 @@ internal fun StreamSourcesSidePanel(
             }
             Text(
                 text = contentInfoText,
-                style = MaterialTheme.typography.bodyLarge,
+                style = MaterialTheme.typography.bodyMedium,
                 color = NuvioTheme.extendedColors.textSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
 
-            Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
+            Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
 
             AnimatedVisibility(
                 visible = uiState.sourceChips.isNotEmpty() || uiState.sourceAvailableAddons.isNotEmpty(),
@@ -279,7 +279,7 @@ internal fun StreamSourcesSidePanel(
                 )
             }
 
-            Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
+            Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
 
             when {
                 uiState.isLoadingSourceStreams -> {
@@ -326,12 +326,11 @@ internal fun StreamSourcesSidePanel(
                         verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm),
                         contentPadding = PaddingValues(
                             start = NuvioTheme.spacing.sm,
-                            top = 14.dp,
+                            top = 6.dp,
                             end = NuvioTheme.spacing.sm,
                             bottom = NuvioTheme.spacing.sm
                         ),
                         modifier = Modifier
-                            .fillMaxHeight()
                             .onFocusChanged { listHasFocus = it.hasFocus }
                             .onKeyEvent { event ->
                                 if (event.nativeKeyEvent.action != KeyEvent.ACTION_DOWN) return@onKeyEvent false
@@ -398,6 +397,7 @@ internal fun StreamSourcesSidePanel(
                                 stream = stream,
                                 focusRequester = streamFocusRequesters.getValue(streamKeys[index]),
                                 isCurrentStream = index == currentStreamIndex,
+                                isDeadSource = stream.getStreamUrl()?.let { u -> uiState.deadSourceStreamUrls.contains(u) } == true,
                                 showFileSizeBadges = uiState.showFileSizeBadges,
                                 showAddonLogo = uiState.showAddonLogo,
                                 badgePlacement = uiState.streamBadgePlacement,
@@ -421,7 +421,7 @@ internal fun StreamSourcesSidePanel(
     }
 }
 
-private fun findCurrentStreamIndex(
+internal fun findCurrentStreamIndex(
     streams: List<Stream>,
     currentStreamInfoHash: String?,
     currentStreamFileIdx: Int?,

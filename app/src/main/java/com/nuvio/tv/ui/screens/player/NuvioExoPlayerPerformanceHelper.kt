@@ -7,11 +7,9 @@ import androidx.media3.common.Player
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.ScrubbingModeParameters
 import androidx.media3.exoplayer.upstream.DefaultAllocator
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter
 import com.nuvio.tv.data.local.PlayerSettings
-import com.nuvio.tv.ui.screens.settings.MemoryBudget
 
 /**
  * Centralizes all Nuvio ExoPlayer performance enhancements behind a single toggle.
@@ -39,13 +37,19 @@ object NuvioExoPlayerPerformanceHelper {
             applyEngineConfig(newValue)
         }
 
-    @Volatile
-    var sharedConnectionPool: okhttp3.ConnectionPool = okhttp3.ConnectionPool(
-        DEFAULT_NUVIO_CONNECTION_POOL_SIZE,
+    // S1g root fix (26 Jul capture, POOL_ID prewarm=44918017 vs
+    // datasource=158407223): this was a @Volatile var REPLACED whenever the
+    // computed pool size changed, so lazily-built derived clients captured
+    // different pool instances depending on construction order -- the prewarm
+    // warmed a pool the probe never read. A ConnectionPool's size is a
+    // MAX-IDLE cap, not a concurrency limit, so one fixed-size singleton is
+    // strictly safe at any connection count; making it a val enforces the
+    // sharing invariant at the type level.
+    val sharedConnectionPool: okhttp3.ConnectionPool = okhttp3.ConnectionPool(
+        NUVIO_SHARED_POOL_MAX_IDLE,
         3,
         java.util.concurrent.TimeUnit.MINUTES
     )
-        private set
 
     // ─── Constants ────────────────────────────────────────────────────────────
     const val DEFAULT_NUVIO_ALLOCATOR_SEGMENT_SIZE = 64 * 1024        // 64 KB
@@ -55,6 +59,24 @@ object NuvioExoPlayerPerformanceHelper {
     const val DEFAULT_NUVIO_BACK_BUFFER_MS = 1_500
     const val DEFAULT_NUVIO_INITIAL_BITRATE_ESTIMATE = 50_000_000L     // 50 Mbps
     const val DEFAULT_NUVIO_CONNECTION_POOL_SIZE = 8
+
+    /**
+     * Max IDLE connections retained by [sharedConnectionPool].
+     *
+     * Regression fix. Before the S1g root fix the pool was rebuilt at
+     * parallelConnectionCount * 2 (12 at six connections); making it a fixed
+     * singleton pinned it at DEFAULT_NUVIO_CONNECTION_POOL_SIZE = 8, BELOW the
+     * concurrent chunk demand. A ConnectionPool's size caps idle retention
+     * rather than concurrency, so nothing blocked -- but every connection past
+     * the eighth was evicted as soon as it went idle and the next burst
+     * reopened it cold. Both captures show that: 4 of ~12 concurrent chunk
+     * opens cold mid-playback in nt3, 3 in nt2.
+     *
+     * Set well above any reachable parallel setting. An idle pooled connection
+     * is a socket and a few KB, and the three-minute idle timeout still reaps
+     * them.
+     */
+    const val NUVIO_SHARED_POOL_MAX_IDLE = 32
 
     // ─── Customization Variables ──────────────────────────────────────────────
     @Volatile
@@ -74,9 +96,6 @@ object NuvioExoPlayerPerformanceHelper {
 
     @Volatile
     var targetBufferSizeMb: Int = 250
-
-    @Volatile
-    var calculatedMemoryUsageMb: Int = 0
 
     @Volatile
     var connectionPoolSize: Int = DEFAULT_NUVIO_CONNECTION_POOL_SIZE
@@ -110,44 +129,19 @@ object NuvioExoPlayerPerformanceHelper {
             safeLimitMb
         }
 
-        val effectiveBufferMb = when {
-            settings.nuvioPerformanceModeEnabled -> {
-                if (customBuffers && !settings.bufferBudgetManaged) {
-                    MemoryBudget.effectiveBufferMb(bufferSettings.targetBufferSizeMb)
-                } else {
-                    safeLimitMb
-                }
-            }
-            customBuffers -> {
-                if (settings.bufferBudgetManaged) MemoryBudget.budgetMb
-                else MemoryBudget.effectiveBufferMb(bufferSettings.targetBufferSizeMb)
-            }
-            else -> MemoryBudget.defaultBufferSizeMb
-        }
-        calculatedMemoryUsageMb = MemoryBudget.totalUsageMb(
-            effectiveBufferMb,
-            settings.parallelConnectionCount,
-            Math.ceil(settings.parallelChunkSizeKb / 1024.0).toInt(),
-            settings.useParallelConnections && settings.parallelNetworkEnabled
-        )
-
-        val oldPoolSize = connectionPoolSize
         val customNetwork = settings.parallelNetworkEnabled
         connectionPoolSize = if (customNetwork && settings.useParallelConnections) {
             settings.parallelConnectionCount * 2
         } else {
             DEFAULT_NUVIO_CONNECTION_POOL_SIZE
         }
-        if (connectionPoolSize != oldPoolSize) {
-            sharedConnectionPool = okhttp3.ConnectionPool(
-                connectionPoolSize,
-                3,
-                java.util.concurrent.TimeUnit.MINUTES
-            )
-        }
+        // S1g root fix: the pool is never replaced. The old swap here (resize
+        // on the first updateSettings, i.e. every player init) is what made
+        // pool capture ordering-dependent; the derived count above is kept
+        // only as visible state. Idle connections above the working set cost
+        // nothing -- the singleton's fixed cap covers every supported setting.
     }
 
-    private const val SEEK_BACK_BUFFER_THRESHOLD_MS = 10_000L
     private const val SEEK_BACKWARD_TOLERANCE_MS = 2_000L
     const val SEEK_SUPPRESS_TIMEOUT_MS = 800L
 
@@ -327,32 +321,24 @@ object NuvioExoPlayerPerformanceHelper {
     // ─── Seek / Scrubbing ─────────────────────────────────────────────────────
 
     /**
-     * Returns [ScrubbingModeParameters] that disable audio/metadata decoding and
-     * boost codec operating rate for the fastest possible seek, or `null` when
-     * performance mode is off.
-     */
-    fun buildScrubbingParams(): ScrubbingModeParameters? {
-        if (!enabled) return null
-        return ScrubbingModeParameters.Builder()
-            .setDisabledTrackTypes(setOf(C.TRACK_TYPE_AUDIO, C.TRACK_TYPE_METADATA))
-            .setShouldIncreaseCodecOperatingRate(true)
-            .setAllowSkippingMediaCodecFlush(true)
-            .setShouldEnableDynamicScheduling(true)
-            .build()
-    }
-
-    /**
      * Returns `true` when the seek target [positionMs] falls within the player's
      * already-buffered window (forward into [Player.getBufferedPosition] or
      * backward into the retained back-buffer).
      *
      * Only meaningful when performance mode is enabled; returns `false` otherwise.
+     *
+     * Seek F5b: the back window is derived from the *configured* [backBufferMs]
+     * (the same value handed to `setBackBuffer`), not a hardcoded 10 s - with
+     * the 1 s default back buffer the old constant over-claimed retention by
+     * ~9 s. The tolerance absorbs keyframe-boundary trimming slack. Note the
+     * sole caller currently gates on forward seeks, so this branch is latent
+     * until backward in-buffer seeks are enabled.
      */
     fun isSeekInBuffer(player: ExoPlayer, positionMs: Long): Boolean {
         if (!enabled) return false
         val bufferedPos = player.bufferedPosition
         val currentPos = player.currentPosition
-        val backBufferStart = (currentPos - SEEK_BACK_BUFFER_THRESHOLD_MS - SEEK_BACKWARD_TOLERANCE_MS)
+        val backBufferStart = (currentPos - backBufferMs.toLong() - SEEK_BACKWARD_TOLERANCE_MS)
             .coerceAtLeast(0L)
         return positionMs in backBufferStart..bufferedPos
     }

@@ -78,6 +78,7 @@ data class PlayerUiState(
     val showControls: Boolean = true,
     val showSeekOverlay: Boolean = false,
     val pendingPreviewSeekPosition: Long? = null,
+    val previewThumbPositionMs: Long? = null,
     val playbackSpeed: Float = 1f,
     val loadingOverlayEnabled: Boolean = true,
     val showPlayerLoadingStatus: Boolean = false,
@@ -87,10 +88,8 @@ data class PlayerUiState(
     val loadingProgress: Float? = null,
     val loadingIssueReportVisible: Boolean = false,
     val loadingIssueElapsedMs: Long = 0L,
-    val pauseOverlayEnabled: Boolean = true,
+    val pauseOverlayEnabled: Boolean = false,
     val osdClockEnabled: Boolean = true,
-    val playerStatsHudEnabled: Boolean = false,
-    val playerStatsHudButtonAvailable: Boolean = false,
     val showPauseOverlay: Boolean = false,
     val audioTracks: List<TrackInfo> = emptyList(),
     val subtitleTracks: List<TrackInfo> = emptyList(),
@@ -156,6 +155,8 @@ data class PlayerUiState(
     val isLoadingSourceStreams: Boolean = false,
     val sourceStreamsError: String? = null,
     val sourceAllStreams: List<Stream> = emptyList(),
+    // URLs proven dead this session (non-media body / 404 / 410); greyed in the panel.
+    val deadSourceStreamUrls: Set<String> = emptySet(),
     val sourceSelectedAddonFilter: String? = null, // null means "All"
     val sourceFilteredStreams: List<Stream> = emptyList(),
     val sourceAvailableAddons: List<String> = emptyList(),
@@ -208,6 +209,8 @@ data class PlayerUiState(
     // Stream info overlay
     val showStreamInfoOverlay: Boolean = false,
     val streamInfoData: StreamInfoData? = null,
+    // Live playback stats overlay (task 2.2)
+    val showPlaybackStatsOverlay: Boolean = false,
     // Torrent streaming state
     val isTorrentStream: Boolean = false,
     val torrentDownloadSpeed: Long = 0L,
@@ -340,8 +343,8 @@ sealed class PlayerEvent {
     data object OnSwitchInternalPlayerEngine : PlayerEvent()
     data object OnShowStreamInfo : PlayerEvent()
     data object OnDismissStreamInfo : PlayerEvent()
-    data object OnTogglePlayerStatsHud : PlayerEvent()
     data object OnToggleTorrentStats : PlayerEvent()
+    data object OnTogglePlaybackStats : PlayerEvent()
 }
 
 data class ParentalWarning(
@@ -378,7 +381,6 @@ data class StreamInfoData(
     val videoHeight: Int? = null,
     val videoFrameRate: Float? = null,
     val videoBitrate: Int? = null,
-    val fileBitrate: Int? = null,
     // Audio
     val audioCodec: String? = null,
     val audioChannels: String? = null,

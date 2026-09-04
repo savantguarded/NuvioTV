@@ -1,5 +1,6 @@
 package com.nuvio.tv.ui.screens.player
 
+import com.nuvio.tv.core.util.TtffTrace
 import android.net.Uri
 import android.util.Log
 import androidx.media3.common.Player
@@ -22,6 +23,8 @@ import com.nuvio.tv.domain.model.WatchProgress
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
+import com.nuvio.tv.core.player.PlaceholderStreamPolicy
+import com.nuvio.tv.core.player.thumbnail.SeekThumbnails
 import kotlinx.coroutines.launch
 
 internal const val AUDIO_AMPLIFICATION_MIN_DB = 0
@@ -32,6 +35,21 @@ internal const val AUDIO_DELAY_MIN_MS = -3000
 internal const val AUDIO_DELAY_MAX_MS = 3000
 internal const val AUDIO_DELAY_STEP_MS = 25
 internal const val WATCH_PROGRESS_SAVE_INTERVAL_MS = 90_000L
+
+// nt15: after this long with no storm-recovery seek, the per-playback recovery
+// attempt budget resets, so a distinct later storm cluster gets a fresh 2 attempts
+// instead of being starved by a cap the earlier cold-start cluster already spent.
+// Chosen > the D >=3s spacing so a normal 2-attempt cluster cannot self-reset
+// mid-cluster; < the gap that separated the run-2 clusters (~10.7s).
+internal const val TRUEHD_STORM_ATTEMPT_RESET_MS = 6_000L
+// nt11 (0.8.2): shadow lock-snap classifier -- minimum one-tick forward stride
+// treated as a snap suspect (10x a normal ~500 ms tick's advance).
+internal const val SNAP_SHADOW_MIN_STRIDE_MS = 5_000L
+
+// nt12 (0.8.2): a pending snap-recovery latch older than this is dropped --
+// covers the 6 s budget reset plus spacing with margin, while guaranteeing a
+// long-blocked recovery can never fire as a surprise rollback much later.
+internal const val SNAP_RECOVERY_PENDING_TTL_MS = 15_000L
 
 internal fun PlayerRuntimeController.applyAudioDelay(
     delayMs: Int,
@@ -67,7 +85,11 @@ internal fun PlayerRuntimeController.skipInterval(interval: SkipInterval): Boole
 
 internal fun PlayerRuntimeController.applyAudioAmplification(db: Int) {
     val clampedDb = db.coerceIn(AUDIO_AMPLIFICATION_MIN_DB, AUDIO_AMPLIFICATION_MAX_DB)
-    val isAudioAmplificationAvailable = isUsingMpvEngine() || _exoPlayer != null
+    // Audio review F8: gain is a PCM processor — during bitstream bypass it is
+    // a silent no-op, so the control reports unavailable instead of offering a
+    // dead slider. MPV always decodes, so bypass only applies on ExoPlayer.
+    val isAudioAmplificationAvailable =
+        isUsingMpvEngine() || (_exoPlayer != null && !isAudioOutputBypassing)
     val wasActive = gainAudioProcessor.isGainEnabled()
     gainAudioProcessor.setGainDb(if (isAudioAmplificationAvailable) clampedDb else AUDIO_AMPLIFICATION_MIN_DB)
     val isActiveNow = gainAudioProcessor.isGainEnabled()
@@ -103,7 +125,9 @@ internal fun PlayerRuntimeController.updateAudioControlAvailability(
     selectedAudioIndex: Int = _uiState.value.selectedAudioTrackIndex
 ) {
     val selectedTrack = audioTracks.getOrNull(selectedAudioIndex)
-    val isAudioAmplificationAvailable = isUsingMpvEngine() || _exoPlayer != null
+    // Audio review F8: see applyAudioAmplification.
+    val isAudioAmplificationAvailable =
+        isUsingMpvEngine() || (_exoPlayer != null && !isAudioOutputBypassing)
     val isCenterMixAvailable =
         ffmpegAudioRenderer?.isCenterMixActive() == true && (selectedTrack?.channelCount ?: 0) > 2
     val clampedDb = _uiState.value.audioAmplificationDb
@@ -172,6 +196,15 @@ internal fun shouldTreatAsNaturalPlaybackCompletion(
     return true
 }
 
+/**
+ * 5c note: this 2:01 threshold is intentionally NOT aligned with
+ * [com.nuvio.tv.core.player.PlaceholderStreamPolicy.MIN_PLAUSIBLE_DURATION_MS] (3:00).
+ * This guard is duration-only and suppresses watch-state side-effects (progress,
+ * mark-watched, next-episode) for junk clips. Raising it to 3:00 would wrongly
+ * suppress those for legitimately short real content; the policy avoids that only
+ * because its 3:00 threshold is ANDed with a <33%-of-runtime ratio this guard has
+ * no runtime to apply. The two serve different jobs and must stay separate.
+ */
 /** Streams shorter than ~2:01 are treated as error/placeholder clips, not real episodes. */
 internal fun isShortPlaceholderDuration(duration: Long): Boolean = duration in 1..120_999L
 
@@ -179,6 +212,18 @@ internal fun PlayerRuntimeController.startProgressUpdates() {
     progressJob?.cancel()
     progressJob = scope.launch {
         while (isActive) {
+            // nt32: the MAT wrapper engages AFTER isPlaying flips true under AFR
+            // (the play-before-configure ordering, third confirmed instance), so the
+            // one-shot analytics writers evaluate isMatActive() while it is still
+            // false and never re-fire. Lazily fill on the tick instead - ordering-
+            // immune, lands within one tick of engagement, and the null guard keeps
+            // any earlier writer authoritative.
+            if (currentAudioPathDescription == null &&
+                matRoutingAudioSink?.isMatActive() == true
+            ) {
+                currentAudioPathDescription =
+                    "TrueHD \u2192 MAT passthrough, app-packed (IEC61937 192 kHz, 8ch)"
+            }
             if (isUsingMpvEngine()) {
                 val view = mpvView
                 if (view != null) {
@@ -201,12 +246,13 @@ internal fun PlayerRuntimeController.startProgressUpdates() {
                                     ?: -1L
                                 val initToFirstFrameMs = (System.currentTimeMillis() - playerInitializationStartedAtMs)
                                     .coerceAtLeast(0L)
-                                playbackAnalyticsDiagnostics.recordRawEventLine(
+                                val mpvStartupLine =
                                     "PLAYBACK_STARTUP: clickToFirstFrameMs=$clickToFirstFrameMs " +
                                         "initToFirstFrameMs=$initToFirstFrameMs playbackSpeed=${_uiState.value.playbackSpeed} " +
                                         "currentPositionMs=$pos durationMs=$playerDuration engine=MPV " +
                                         "host=${currentStreamUrl.safePlaybackEventsHost()}"
-                                )
+                                playbackAnalyticsDiagnostics.recordRawEventLine(mpvStartupLine)
+                                TtffTrace.mirror(mpvStartupLine)
                                 finishLoadingDiagnostics("mpv_first_frame_ready")
                                 if (_uiState.value.postPlayDismissedForCurrentEpisode) {
                                     _uiState.update { it.copy(postPlayDismissedForCurrentEpisode = false) }
@@ -227,8 +273,7 @@ internal fun PlayerRuntimeController.startProgressUpdates() {
                         isPlaying = playingForWatchClock
                     )
                     val nearEnd = playerDuration > 0L && pos >= (playerDuration - 500L)
-                    val mpvEofReached = view.isEofReached()
-                    val naturalEnded = !view.isLiveStreamNow() && (nearEnd || mpvEofReached) && shouldTreatAsNaturalPlaybackCompletion(
+                    val naturalEnded = !view.isLiveStreamNow() && nearEnd && shouldTreatAsNaturalPlaybackCompletion(
                         hasRenderedFirstFrame = firstFrameReady,
                         hasFatalError = !_uiState.value.error.isNullOrBlank(),
                         durationMs = playerDuration
@@ -237,7 +282,7 @@ internal fun PlayerRuntimeController.startProgressUpdates() {
                     _uiState.update { state ->
                         state.copy(
                             isPlaying = playingNow,
-                            isBuffering = if (naturalEnded) false else (!firstFrameReady || cacheBuffering),
+                            isBuffering = !firstFrameReady || cacheBuffering,
                             showLoadingOverlay = if (state.loadingOverlayEnabled) !firstFrameReady else false,
                             // Snap the loading-logo fill to 100% once playback is
                             // ready so the logo finishes filling on dismissal.
@@ -269,7 +314,221 @@ internal fun PlayerRuntimeController.startProgressUpdates() {
                 if (playerDuration > lastKnownDuration) {
                     lastKnownDuration = playerDuration
                 }
+                // 5c: duration backstop. Content-length was cleared at READY (2a);
+                // here the decoded duration is trustworthy. Guarded on a blank error so
+                // it fires once -- the reject sets error, and every later tick short-circuits.
+                if (hasRenderedFirstFrame && _uiState.value.error.isNullOrBlank()) {
+                    val placeholderDurationVerdict = PlaceholderStreamPolicy.evaluate(
+                        contentLengthBytes = null,
+                        durationMs = getEffectiveDuration(pos),
+                        expectedRuntimeMs = expectedRuntimeMinutes?.let { it * 60_000L }
+                    )
+                    if (placeholderDurationVerdict is PlaceholderStreamPolicy.Verdict.Reject &&
+                        placeholderDurationVerdict.reason == PlaceholderStreamPolicy.Reason.ImplausibleDuration
+                    ) {
+                        rejectPlaceholderStream(placeholderDurationVerdict)
+                    }
+                }
+
+                // nt8: TrueHD startup-storm auto-recovery. The Amlogic MS12 TrueHD
+                // bypass parser can start misaligned after a display-mode switch and
+                // then hunts for a major sync indefinitely, consuming buffered audio
+                // 3-4x faster than real time (the racing master clock is the visible
+                // position jump). The proven cure is an in-place seek: it recreates
+                // the AudioTrack on the settled system (reuse-on-flush is disabled),
+                // after which MS12 locks instantly -- measured on device. Roll back by
+                // the burned lead so the viewer resumes roughly where the storm began.
+                // nt11: latch the player-timeline position on the FIRST tick that
+                // observes an un-consumed storm (<=500ms after onset). D's spacing
+                // gate can defer the actual recovery by ~3s, during which the racing
+                // clock moves `pos` ~10s past onset; latching here captures onset
+                // before that drift. Non-consuming peek -- the flag is cleared only
+                // by consumeTruehdStormRecoverySignal() below.
+                if (truehdStormOnsetPosMs < 0L &&
+                    playbackSpeedAwareAudioSink?.isTruehdStormDetected() == true
+                ) {
+                    truehdStormOnsetPosMs = pos
+                }
+                // nt15: reset the spent per-playback budget after a clean interval,
+                // so a distinct later storm cluster is not starved by the earlier
+                // cluster's spent cap. Only acts when already capped; never touches
+                // lastRecoveryAtMs (the >=3s spacing gate) or the onset latch.
+                if (truehdStormRecoveryAttempts >= 2 &&
+                    truehdStormLastRecoveryAtMs != 0L &&
+                    android.os.SystemClock.elapsedRealtime() - truehdStormLastRecoveryAtMs >= TRUEHD_STORM_ATTEMPT_RESET_MS
+                ) {
+                    truehdStormRecoveryAttempts = 0
+                }
+                // nt14: corroborated early budget reset. SNAP_GATE proved the
+                // spent cap was the only constraint holding back a cure in the
+                // R2 warm-switch capture while both instruments already agreed
+                // the failure was live. When the sink holds a preserved
+                // detection AND the timeline classifier flagged a suspect
+                // within 5 s AND the budget is spent, open the budget now
+                // instead of waiting out the 6 s reset. Bounds: once per 15 s,
+                // stand-down after 8 total recoveries this playback; the >=3 s
+                // D-spacing still applies to the consume itself.
+                // nt15: a LATCHED snap verdict (snapRecoveryPendingPosMs >= 0)
+                // with a fresh suspect also opens the budget -- the undetected-
+                // snap class queued 2.0 s behind the spent cap in the nt14
+                // acceptance capture (SNAP_GATE, four consecutive ticks), and
+                // the classifier's five-capture zero-false-positive record plus
+                // the bounded consume make single-instrument opening safe.
+                if (truehdStormRecoveryAttempts >= 2 &&
+                    (playbackSpeedAwareAudioSink?.isTruehdStormDetected() == true ||
+                        snapRecoveryPendingPosMs >= 0L) &&
+                    android.os.SystemClock.elapsedRealtime() - snapLastSuspectWallMs <= 5_000L &&
+                    android.os.SystemClock.elapsedRealtime() - snapEarlyResetLastAtMs >= 15_000L &&
+                    stormRecoveryTotalThisPlayback < 8
+                ) {
+                    truehdStormRecoveryAttempts = 0
+                    snapEarlyResetLastAtMs = android.os.SystemClock.elapsedRealtime()
+                    Log.w(
+                        PlayerRuntimeController.TAG,
+                        "SNAP_EARLY_RESET corroborated: " +
+                            "sinceSuspectMs=${android.os.SystemClock.elapsedRealtime() - snapLastSuspectWallMs} " +
+                            "detected=${playbackSpeedAwareAudioSink?.isTruehdStormDetected() == true} " +
+                            "snapPendMs=$snapRecoveryPendingPosMs " +
+                            "total=$stormRecoveryTotalThisPlayback"
+                    )
+                }
+                if (_uiState.value.error.isNullOrBlank() && truehdStormRecoveryAttempts < 2 &&
+                    android.os.SystemClock.elapsedRealtime() - truehdStormLastRecoveryAtMs >= 3_000L
+                ) {
+                    playbackSpeedAwareAudioSink?.consumeTruehdStormRecoverySignal()?.let { leadMs ->
+                        truehdStormRecoveryAttempts += 1
+                        stormRecoveryTotalThisPlayback += 1
+                        truehdStormLastRecoveryAtMs = android.os.SystemClock.elapsedRealtime()
+                        // nt15: a storm rollback supersedes any pending snap latch --
+                        // stale pre-rollback timeline evidence must not fire a second
+                        // rollback for the same event. Fresh events re-flag (proven
+                        // across five captures).
+                        snapRecoveryPendingPosMs = -1L
+                        // nt11: roll back to the latched storm onset, not the raced
+                        // consume-time pos. leadMs retained in the log for continuity.
+                        val onsetPos = if (truehdStormOnsetPosMs >= 0L) truehdStormOnsetPosMs else pos
+                        val target = (onsetPos - 500L).coerceAtLeast(0L)
+                        Log.w(
+                            PlayerRuntimeController.TAG,
+                            "TRUEHD_STORM_RECOVERY: attempt=$truehdStormRecoveryAttempts " +
+                                "leadMs=$leadMs onsetPos=${onsetPos}ms pos=${pos}ms seekTo=${target}ms"
+                        )
+                        player.seekTo(target)
+                        // nt11: clear the latch so a second storm latches its own onset.
+                        truehdStormOnsetPosMs = -1L
+                    }
+                }
                 val displayPosition = pendingPreviewSeekPosition ?: pos
+                // nt11 (0.8.2): SHADOW lock-snap classifier -- log-only, acts on
+                // nothing. A class-3 MS12 lock-snap steps the player timeline
+                // forward in one stride with NO discontinuity event (media3 is
+                // following the poisoned master clock); every legitimate jump
+                // (seek, scrub, auto-transition) announces itself via
+                // onPositionDiscontinuity first. Wiring to the existing recovery
+                // machinery is a later build, gated on this shadow's capture.
+                run {
+                    val snapNowWall = android.os.SystemClock.elapsedRealtime()
+                    val snapLastPos = snapShadowLastTickPosMs
+                    val snapLastWall = snapShadowLastTickWallMs
+                    if (snapLastPos >= 0L && snapLastWall != 0L) {
+                        val strideMs = pos - snapLastPos
+                        val wallMs = snapNowWall - snapLastWall
+                        val discExplained = snapShadowLastDiscontinuityWallMs >= snapLastWall
+                        if (strideMs >= SNAP_SHADOW_MIN_STRIDE_MS &&
+                            wallMs in 50L..5_000L &&
+                            !discExplained &&
+                            _uiState.value.playbackSpeed == 1.0f
+                        ) {
+                            Log.w(
+                                PlayerRuntimeController.TAG,
+                                "SNAP_TRACE SUSPECT pos=${pos}ms last=${snapLastPos}ms " +
+                                    "strideMs=$strideMs wallMs=$wallMs " +
+                                    "sinceDiscMs=${snapNowWall - snapShadowLastDiscontinuityWallMs} " +
+                                    "buffering=${_uiState.value.isBuffering}"
+                            )
+                            // nt14: stamp every suspect verdict (any disposition)
+                            // -- the early-reset corroboration window reads this.
+                            snapLastSuspectWallMs = snapNowWall
+                            // nt12: latch the pre-snap position for recovery, gated
+                            // to the TrueHD passthrough context and deferring to the
+                            // sink detector whenever its signal is live. First flag
+                            // wins; consumed below through the shared budget.
+                            // nt13: claim an ORPHANED onset latch -- onset >= 0 with
+                            // the detection flag false means the storm path can never
+                            // consume (its signal was wiped); roll back to the onset,
+                            // which is earlier than the tick latch and so safer.
+                            if (snapRecoveryPendingPosMs < 0L &&
+                                playbackSpeedAwareAudioSink?.isTruehdStormDetected() != true &&
+                                playbackSpeedAwareAudioSink?.isTruehdPassthroughActive() == true
+                            ) {
+                                if (truehdStormOnsetPosMs >= 0L) {
+                                    snapRecoveryPendingPosMs = truehdStormOnsetPosMs
+                                    truehdStormOnsetPosMs = -1L
+                                    Log.w(
+                                        PlayerRuntimeController.TAG,
+                                        "SNAP_ORPHAN_CLAIM onsetPos=${snapRecoveryPendingPosMs}ms"
+                                    )
+                                } else {
+                                    snapRecoveryPendingPosMs = snapLastPos
+                                }
+                                snapRecoveryPendingAtWallMs = snapNowWall
+                            }
+                        }
+                    }
+                    snapShadowLastTickPosMs = pos
+                    snapShadowLastTickWallMs = snapNowWall
+                }
+
+                // nt13: consume-gate visibility while anything is pending --
+                // names the blocker on any future stall instead of leaving it
+                // inferred. Strip with the rest of the diagnostics.
+                run {
+                    val snapDetectedNow = playbackSpeedAwareAudioSink?.isTruehdStormDetected() == true
+                    if (snapDetectedNow || truehdStormOnsetPosMs >= 0L || snapRecoveryPendingPosMs >= 0L) {
+                        Log.w(
+                            PlayerRuntimeController.TAG,
+                            "SNAP_GATE attempts=$truehdStormRecoveryAttempts " +
+                                "sinceRecMs=${android.os.SystemClock.elapsedRealtime() - truehdStormLastRecoveryAtMs} " +
+                                "errBlank=${_uiState.value.error.isNullOrBlank()} " +
+                                "detected=$snapDetectedNow onsetMs=$truehdStormOnsetPosMs " +
+                                "snapPendMs=$snapRecoveryPendingPosMs pos=${pos}ms"
+                        )
+                    }
+                }
+                // nt12 (0.8.2): drop a stale pending latch before consuming.
+                if (snapRecoveryPendingPosMs >= 0L &&
+                    android.os.SystemClock.elapsedRealtime() - snapRecoveryPendingAtWallMs > SNAP_RECOVERY_PENDING_TTL_MS
+                ) {
+                    Log.w(
+                        PlayerRuntimeController.TAG,
+                        "SNAP_RECOVERY_EXPIRED latchedPos=${snapRecoveryPendingPosMs}ms"
+                    )
+                    snapRecoveryPendingPosMs = -1L
+                }
+                // nt12 (0.8.2): consume a pending snap-recovery latch through the
+                // SHARED storm budget -- same cap (2), same nt15 6 s reset (already
+                // applied earlier this tick), same >=3 s spacing, same rollback
+                // shape. The recovery seek is the proven cure (in-place seek,
+                // AudioTrack recreated, MS12 locks instantly), and its
+                // discontinuity stamps the classifier token, so the rollback
+                // itself can never re-flag.
+                if (snapRecoveryPendingPosMs >= 0L &&
+                    _uiState.value.error.isNullOrBlank() &&
+                    truehdStormRecoveryAttempts < 2 &&
+                    android.os.SystemClock.elapsedRealtime() - truehdStormLastRecoveryAtMs >= 3_000L
+                ) {
+                    truehdStormRecoveryAttempts += 1
+                    stormRecoveryTotalThisPlayback += 1
+                    truehdStormLastRecoveryAtMs = android.os.SystemClock.elapsedRealtime()
+                    val snapTarget = (snapRecoveryPendingPosMs - 500L).coerceAtLeast(0L)
+                    Log.w(
+                        PlayerRuntimeController.TAG,
+                        "SNAP_RECOVERY: attempt=$truehdStormRecoveryAttempts " +
+                            "latchedPos=${snapRecoveryPendingPosMs}ms pos=${pos}ms seekTo=${snapTarget}ms"
+                    )
+                    snapRecoveryPendingPosMs = -1L
+                    player.seekTo(snapTarget)
+                }
                 publishPlaybackTimeline(
                     currentPosition = displayPosition,
                     duration = playerDuration.coerceAtLeast(0L),
@@ -522,7 +781,6 @@ private fun PlayerRuntimeController.buildPlaybackIssuePlaybackSettingsInput(): P
         showPlayerLoadingStatus = settings.showPlayerLoadingStatus,
         playbackIssueReportsEnabled = settings.playbackIssueReportsEnabled,
         dv5ToDv81Enabled = settings.dv5ToDv81Enabled,
-        dv7ToDv81PreserveMappingEnabled = settings.dv7ToDv81PreserveMappingEnabled,
         dv7HandlingMode = settings.dv7HandlingMode.name,
         dv7LibdoviModeOverride = settings.dv7LibdoviModeOverride,
         stripHdr10PlusSei = settings.stripHdr10PlusSei,
@@ -539,7 +797,11 @@ private fun PlayerRuntimeController.buildPlaybackIssuePlaybackSettingsInput(): P
         targetBufferSizeMb = settings.bufferSettings.targetBufferSizeMb,
         backBufferDurationMs = settings.bufferSettings.backBufferDurationMs,
         effectiveBackBufferDurationMs = effectiveBackBufferDurationMs,
-        retainBackBufferFromKeyframe = settings.bufferSettings.retainBackBufferFromKeyframe,
+        // Report what the engine actually runs, not the stored setting. Every
+        // LoadControl branch constructs with retainBackBufferFromKeyframe = true; the
+        // stored flag is not wired to the engine, so reporting it made every issue
+        // report understate back-buffer retention.
+        retainBackBufferFromKeyframe = PlayerRuntimeController.ENGINE_RETAIN_BACK_BUFFER_FROM_KEYFRAME,
         parallelNetworkEnabled = settings.parallelNetworkEnabled,
         bufferBudgetManaged = settings.bufferBudgetManaged,
         allowLargeTargetBuffer = settings.allowLargeTargetBuffer,
@@ -989,7 +1251,7 @@ internal fun PlayerRuntimeController.scheduleProgressSyncAfterSeek() {
 fun PlayerRuntimeController.scheduleHideControls() {
     hideControlsJob?.cancel()
     hideControlsJob = scope.launch {
-        delay(3000)
+        delay(8000)
         if (_uiState.value.isPlaying && !_uiState.value.showAudioOverlay &&
             !_uiState.value.showSubtitleOverlay && !_uiState.value.showSubtitleStylePanel &&
             !_uiState.value.showSpeedDialog && !_uiState.value.showMoreDialog &&
@@ -1159,6 +1421,9 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
                         userPausedManually = true
                         player.pause()
                         schedulePauseOverlay()
+                        // nt6: a parked auto-restore subtitle attaches here,
+                        // while paused, so the reload lands invisibly.
+                        maybeAttachDeferredAddonSubtitle()
                     } else {
                         userPausedManually = false
                         cancelPauseOverlay()
@@ -1179,6 +1444,7 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
         is PlayerEvent.OnSeekBy -> {
             if (_playbackTimeline.value.isLive) return
             pendingPreviewSeekPosition = null
+            _uiState.update { it.copy(pendingPreviewSeekPosition = null, previewThumbPositionMs = null) }
             val current = currentPlaybackPositionMs() ?: 0L
             val maxDuration = currentPlaybackDurationMs().takeIf { it >= 0 } ?: Long.MAX_VALUE
             val target = (current + event.deltaMs)
@@ -1206,6 +1472,10 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
                 .coerceAtLeast(0L)
                 .coerceAtMost(maxDuration)
             pendingPreviewSeekPosition = target
+            _uiState.update { it.copy(pendingPreviewSeekPosition = target, previewThumbPositionMs = target) }
+            // Build 12b (Lever 1): tell the thumbnail worker to prioritise this bucket.
+            SeekThumbnails.notePriority(target)
+            schedulePendingPreviewSeekExpiry()
             updatePlaybackTimeline(currentPosition = target)
             if (_uiState.value.showControls) {
                 showControlsTemporarily()
@@ -1217,9 +1487,11 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
             if (_playbackTimeline.value.isLive) return
             val target = pendingPreviewSeekPosition
             if (target != null) {
+                pendingPreviewSeekExpiryJob?.cancel()
                 seekPlaybackTo(target, SeekParameters.CLOSEST_SYNC)
                 updatePlaybackTimeline(currentPosition = target)
                 pendingPreviewSeekPosition = null
+                _uiState.update { it.copy(pendingPreviewSeekPosition = null, previewThumbPositionMs = target) }
                 scheduleProgressSyncAfterSeek()
                 if (_uiState.value.showControls) {
                     showControlsTemporarily()
@@ -1231,6 +1503,7 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
         is PlayerEvent.OnSeekTo -> {
             if (_playbackTimeline.value.isLive) return
             pendingPreviewSeekPosition = null
+            _uiState.update { it.copy(pendingPreviewSeekPosition = null, previewThumbPositionMs = null) }
             seekPlaybackTo(event.position, SeekParameters.CLOSEST_SYNC)
             updatePlaybackTimeline(currentPosition = event.position)
             scheduleProgressSyncAfterSeek()
@@ -1246,7 +1519,12 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
                 message = "index=${event.index}"
             )
             rememberAudioSelection(event.index)
-            selectAudioTrack(event.index)
+            // Tunnelled playback: in-place AudioTrack recreation inside a live
+            // tunnel latches bad frame pacing on some vendor HALs (Prism+
+            // report). Rebuild at position instead; no-op when tunneling off.
+            if (!maybeRebuildForTunneledAudioSwitch(event.index)) {
+                selectAudioTrack(event.index)
+            }
             _uiState.update {
                 it.copy(
                     showAudioOverlay = false,
@@ -1746,14 +2024,8 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
         PlayerEvent.OnDismissStreamInfo -> {
             _uiState.update { it.copy(showStreamInfoOverlay = false) }
         }
-        PlayerEvent.OnTogglePlayerStatsHud -> {
-            val currentState = _uiState.value
-            if (currentState.playerStatsHudButtonAvailable) {
-                val newActive = !currentState.playerStatsHudEnabled
-                scope.launch {
-                    deviceLocalPlayerPreferences.setPlayerStatsHudActive(newActive)
-                }
-            }
+        PlayerEvent.OnTogglePlaybackStats -> {
+            _uiState.update { it.copy(showPlaybackStatsOverlay = !it.showPlaybackStatsOverlay) }
         }
     }
 }
@@ -1781,6 +2053,16 @@ internal fun PlayerRuntimeController.buildStreamInfoData(): StreamInfoData {
             ?: CustomDefaultTrackNameProvider.formatNameFromMime(format.codecs)
     } ?: currentVideoCodec
 
+    // Prefer the renderer's live format for the audio codec label: the dvmkv extractor
+    // publishes a provisional core-DTS mime and may refine it to DTS-HD only after the
+    // TrackGroup snapshot freezes, so the track-list value can understate the stream.
+    // The live format carries the refinement; the track-list value stays as fallback
+    // (and is the only value on the mpv engine, where the Exo player handle is null).
+    val liveAudioCodec = _exoPlayer?.audioFormat?.let { format ->
+        CustomDefaultTrackNameProvider.formatNameFromMime(format.sampleMimeType)
+            ?: CustomDefaultTrackNameProvider.formatNameFromMime(format.codecs)
+    }
+
     return StreamInfoData(
         addonName = currentAddonName,
         addonLogo = currentAddonLogo,
@@ -1793,11 +2075,7 @@ internal fun PlayerRuntimeController.buildStreamInfoData(): StreamInfoData {
         videoHeight = videoHeight,
         videoFrameRate = state.detectedFrameRate.takeIf { it > 0f },
         videoBitrate = videoBitrate,
-        fileBitrate = PlayerBitrateEstimator.fileBitrateBps(
-            currentVideoSize,
-            playbackTimeline.value.duration
-        ),
-        audioCodec = selectedAudio?.codec,
+        audioCodec = liveAudioCodec ?: selectedAudio?.codec,
         audioChannels = selectedAudio?.channelCount?.let {
             CustomDefaultTrackNameProvider.getChannelLayoutName(it)
         },
@@ -1830,5 +2108,22 @@ private fun formatTorrentSpeed(context: android.content.Context, bytesPerSec: Lo
         bytesPerSec >= 1_048_576 -> context.getString(R.string.unit_speed_mb_s, String.format("%.1f", bytesPerSec / 1_048_576.0))
         bytesPerSec >= 1_024 -> context.getString(R.string.unit_speed_kb_s, String.format("%.0f", bytesPerSec / 1_024.0))
         else -> context.getString(R.string.unit_speed_b_s, bytesPerSec)
+    }
+}
+
+/**
+ * Seek review F3: expire an uncommitted preview position ~3 s after the last
+ * preview event, snapping the timeline back to the real position. Covers commits
+ * swallowed by panels opening mid-gesture and controls-visibility changes.
+ */
+internal fun PlayerRuntimeController.schedulePendingPreviewSeekExpiry() {
+    pendingPreviewSeekExpiryJob?.cancel()
+    pendingPreviewSeekExpiryJob = scope.launch {
+        kotlinx.coroutines.delay(3_000L)
+        if (pendingPreviewSeekPosition != null) {
+            pendingPreviewSeekPosition = null
+            _uiState.update { it.copy(pendingPreviewSeekPosition = null, previewThumbPositionMs = null) }
+            currentPlaybackPositionMs()?.let { updatePlaybackTimeline(currentPosition = it) }
+        }
     }
 }
