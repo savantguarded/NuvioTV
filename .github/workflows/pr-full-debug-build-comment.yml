@@ -72,7 +72,7 @@ jobs:
                 `Artifact: \`${artifactName}\``,
                 `Download: ${artifactUrl}`,
                 "",
-                "GitHub downloads Actions artifacts as a zip. The zip contains the universal debug APK."
+                "GitHub downloads Actions artifacts as a zip. The zip contains two APKs: app-full-armeabi-v7a-debug.apk and app-full-arm64-v8a-debug.apk. Install whichever matches your device's CPU."
               ].join("\n");
             } else {
               body = [
