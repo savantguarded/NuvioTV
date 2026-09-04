@@ -271,10 +271,14 @@ android {
 
     splits {
         abi {
+            // Per-ABI APKs instead of one large universal APK, matching this
+            // fork's real target hardware (armeabi-v7a / arm64-v8a Android TV
+            // boxes). Drops the universal APK and x86/x86_64 (emulator-only,
+            // not real TV hardware).
             isEnable = !buildingAppBundle
             reset()
-            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
-            isUniversalApk = true
+            include("armeabi-v7a", "arm64-v8a")
+            isUniversalApk = false
         }
     }
 
