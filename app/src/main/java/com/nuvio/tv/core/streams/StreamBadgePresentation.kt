@@ -25,6 +25,13 @@ class StreamBadgePresentation @Inject constructor(
         }
     }
 
+    suspend fun badgesFor(stream: Stream): List<StreamBadge> {
+        val rules = dataStore.settings.first().rules
+        val filters = getBadgeFilters(rules)
+        if (filters.isEmpty()) return emptyList()
+        return StreamBadgeMatcher.matchedBadges(stream, filters)
+    }
+
     fun apply(groups: List<AddonStreams>, rules: StreamBadgeRules): List<AddonStreams> {
         val filters = getBadgeFilters(rules)
         if (filters.isEmpty()) return groups
