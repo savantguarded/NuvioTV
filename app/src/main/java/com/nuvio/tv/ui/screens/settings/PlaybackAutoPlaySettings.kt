@@ -25,6 +25,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Language
@@ -93,6 +94,7 @@ internal fun LazyListScope.autoPlaySettingsItems(
     onSetNextEpisodeThresholdPercent: (Float) -> Unit,
     onSetNextEpisodeThresholdMinutesBeforeEnd: (Float) -> Unit,
     onSetStreamAutoPlayTimeoutSeconds: (Int) -> Unit,
+    onSetStreamAutoPlayEagerReadyEnabled: (Boolean) -> Unit,
     onSetReuseLastLinkEnabled: (Boolean) -> Unit,
     onSetStillWatchingEnabled: (Boolean) -> Unit,
     onSetStillWatchingEpisodeThreshold: (Int) -> Unit,
@@ -135,6 +137,7 @@ internal fun LazyListScope.autoPlaySettingsItems(
             StreamAutoPlayMode.MANUAL -> stringResource(R.string.autoplay_mode_manual)
             StreamAutoPlayMode.FIRST_STREAM -> stringResource(R.string.autoplay_mode_first)
             StreamAutoPlayMode.REGEX_MATCH -> stringResource(R.string.autoplay_mode_regex)
+            StreamAutoPlayMode.QUALITY_RANK -> stringResource(R.string.autoplay_mode_quality)
         }
         NavigationSettingsItem(
             icon = Icons.Default.PlayArrow,
@@ -161,6 +164,17 @@ internal fun LazyListScope.autoPlaySettingsItems(
             selected = timeoutSec,
             valueText = valueText,
             onValueChange = { onSetStreamAutoPlayTimeoutSeconds(it) },
+            onFocused = onItemFocused
+        )
+    }
+
+    item(key = "autoplay_eager_ready") {
+        ToggleSettingsItem(
+            icon = Icons.Default.Bolt,
+            title = stringResource(R.string.autoplay_eager_ready_title),
+            subtitle = stringResource(R.string.autoplay_eager_ready_sub),
+            isChecked = playerSettings.streamAutoPlayEagerReadyEnabled,
+            onCheckedChange = onSetStreamAutoPlayEagerReadyEnabled,
             onFocused = onItemFocused
         )
     }
@@ -565,7 +579,8 @@ private fun StreamAutoPlayModeDialog(
     val options = listOf(
         SettingsPickerOption(StreamAutoPlayMode.MANUAL, stringResource(R.string.autoplay_mode_manual), stringResource(R.string.autoplay_mode_manual_desc)),
         SettingsPickerOption(StreamAutoPlayMode.FIRST_STREAM, stringResource(R.string.autoplay_mode_first), stringResource(R.string.autoplay_mode_first_desc)),
-        SettingsPickerOption(StreamAutoPlayMode.REGEX_MATCH, stringResource(R.string.autoplay_mode_regex), stringResource(R.string.autoplay_mode_regex_desc))
+        SettingsPickerOption(StreamAutoPlayMode.REGEX_MATCH, stringResource(R.string.autoplay_mode_regex), stringResource(R.string.autoplay_mode_regex_desc)),
+        SettingsPickerOption(StreamAutoPlayMode.QUALITY_RANK, stringResource(R.string.autoplay_mode_quality), stringResource(R.string.autoplay_mode_quality_desc))
     )
 
     SettingsSingleChoiceDialog(

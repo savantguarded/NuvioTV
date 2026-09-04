@@ -281,6 +281,7 @@ data class PlayerSettings(
     // Dolby Vision settings (libdovi conversion). dv7HandlingMode == HDR10_BASE_LAYER
     // replaces the legacy mapDV7ToHevc boolean (strip DV7, play HEVC base layer).
     val dv5ToDv81Enabled: Boolean = false,
+    val dv7ToDv81PreserveMappingEnabled: Boolean = false,
     val dv7HandlingMode: Dv7HandlingMode = Dv7HandlingMode.AUTO,
     // Experimental libdovi conversion-mode override. -1 = auto (use the
     // profile-driven auto-pick); 0..4 = force that exact libdovi mode
@@ -292,6 +293,7 @@ data class PlayerSettings(
     // derived from the source RPU so non-DV HDR10 sinks tone-map correctly.
     // Default off; only affects P7/P8.1 strip output.
     val injectHdr10MetadataOnStrip: Boolean = false,
+    val mpvHi10pGnextSoftwareFallbackEnabled: Boolean = false,
     val mpvHardwareDecodeMode: MpvHardwareDecodeMode = MpvHardwareDecodeMode.AUTO_SAFE,
     // Display settings
     val frameRateMatchingMode: FrameRateMatchingMode = FrameRateMatchingMode.OFF,
@@ -304,6 +306,7 @@ data class PlayerSettings(
     val streamAutoPlayRegex: String = "",
     // Fork: default OFF until validated against the passthrough audio lifecycle.
     val postPlayRecommendationsEnabled: Boolean = false,
+    val postPlayMovieThresholdPercent: Int = DEFAULT_POST_PLAY_MOVIE_THRESHOLD_PERCENT,
     val streamAutoPlayNextEpisodeEnabled: Boolean = false,
     val streamAutoPlayNextEpisodeFallbackEnabled: Boolean = true,
     val streamAutoPlayPreferBingeGroupForNextEpisode: Boolean = true,
@@ -390,6 +393,9 @@ data class PlayerSettings(
         get() = tunnelingEnabled && isTunnelingCompatible
 
     companion object {
+        const val DEFAULT_POST_PLAY_MOVIE_THRESHOLD_PERCENT = 90
+        const val MIN_POST_PLAY_MOVIE_THRESHOLD_PERCENT = 80
+        const val MAX_POST_PLAY_MOVIE_THRESHOLD_PERCENT = 100
         const val DEFAULT_STILL_WATCHING_EPISODE_THRESHOLD = 3
         const val MIN_STILL_WATCHING_EPISODE_THRESHOLD = 2
         const val MAX_STILL_WATCHING_EPISODE_THRESHOLD = 6
@@ -608,12 +614,15 @@ class PlayerSettingsDataStore @Inject constructor(
     // from older versions don't lose their saved DV5/preserve-mapping toggle state. Only
     // the Kotlin var names here and the PlayerSettings field names were de-experimentalized.
     private val dv5ToDv81EnabledKey = booleanPreferencesKey("experimental_dv5_to_dv81_enabled")
+    private val dv7ToDv81PreserveMappingEnabledKey = booleanPreferencesKey("experimental_dv7_to_dv81_preserve_mapping_enabled")
     private val dv7HandlingModeKey = stringPreferencesKey("dv7_handling_mode")
     // Legacy "DV7 - HEVC" boolean, read only to migrate existing users to HDR10_BASE_LAYER.
     private val legacyMapDv7ToHevcKey = booleanPreferencesKey("map_dv7_to_hevc")
     private val dv7LibdoviModeOverrideKey = intPreferencesKey("dv7_libdovi_mode_override")
     private val stripHdr10PlusSeiKey = booleanPreferencesKey("strip_hdr10plus_sei")
     private val injectHdr10MetadataOnStripKey = booleanPreferencesKey("inject_hdr10_metadata_on_strip")
+    private val mpvHi10pGnextSoftwareFallbackEnabledKey =
+        booleanPreferencesKey("mpv_hi10p_gnext_software_fallback_enabled")
     private val mpvHardwareDecodeModeKey = stringPreferencesKey("mpv_hardware_decode_mode")
     private val frameRateMatchingKey = booleanPreferencesKey("frame_rate_matching")
     private val frameRateMatchingModeKey = stringPreferencesKey("frame_rate_matching_mode")
@@ -624,6 +633,7 @@ class PlayerSettingsDataStore @Inject constructor(
     private val streamAutoPlaySelectedPluginsKey = stringSetPreferencesKey("stream_auto_play_selected_plugins")
     private val streamAutoPlayRegexKey = stringPreferencesKey("stream_auto_play_regex")
     private val postPlayRecommendationsEnabledKey = booleanPreferencesKey("post_play_recommendations_enabled")
+    private val postPlayMovieThresholdPercentKey = intPreferencesKey("post_play_movie_threshold_percent")
     private val streamAutoPlayNextEpisodeEnabledKey = booleanPreferencesKey("stream_auto_play_next_episode_enabled")
     private val streamAutoPlayNextEpisodeFallbackEnabledKey = booleanPreferencesKey("stream_auto_play_next_episode_fallback_enabled")
     private val streamAutoPlayPreferBingeGroupForNextEpisodeKey = booleanPreferencesKey("stream_auto_play_prefer_bingegroup_next_episode")
@@ -986,6 +996,7 @@ class PlayerSettingsDataStore @Inject constructor(
                     ?.toSet()
                     ?: emptySet(),
                 dv5ToDv81Enabled = prefs[dv5ToDv81EnabledKey] ?: false,
+                dv7ToDv81PreserveMappingEnabled = prefs[dv7ToDv81PreserveMappingEnabledKey] ?: false,
                 dv7HandlingMode = when {
                     prefs[dv7HandlingModeKey] != null ->
                         Dv7HandlingMode.fromStoredString(prefs[dv7HandlingModeKey])
@@ -995,6 +1006,8 @@ class PlayerSettingsDataStore @Inject constructor(
                 dv7LibdoviModeOverride = (prefs[dv7LibdoviModeOverrideKey] ?: -1).coerceIn(-1, 4),
                 stripHdr10PlusSei = prefs[stripHdr10PlusSeiKey] ?: false,
                 injectHdr10MetadataOnStrip = prefs[injectHdr10MetadataOnStripKey] ?: false,
+                mpvHi10pGnextSoftwareFallbackEnabled =
+                    prefs[mpvHi10pGnextSoftwareFallbackEnabledKey] ?: false,
                 mpvHardwareDecodeMode = parseMpvHardwareDecodeMode(prefs[mpvHardwareDecodeModeKey]),
                 frameRateMatchingMode = prefs[frameRateMatchingModeKey]?.let {
                     runCatching { FrameRateMatchingMode.valueOf(it) }.getOrNull()
@@ -1010,6 +1023,11 @@ class PlayerSettingsDataStore @Inject constructor(
                 streamAutoPlaySelectedPlugins = prefs[streamAutoPlaySelectedPluginsKey] ?: emptySet(),
                 streamAutoPlayRegex = prefs[streamAutoPlayRegexKey] ?: "",
                 postPlayRecommendationsEnabled = prefs[postPlayRecommendationsEnabledKey] ?: false,
+                postPlayMovieThresholdPercent = (prefs[postPlayMovieThresholdPercentKey]
+                    ?: PlayerSettings.DEFAULT_POST_PLAY_MOVIE_THRESHOLD_PERCENT).coerceIn(
+                    PlayerSettings.MIN_POST_PLAY_MOVIE_THRESHOLD_PERCENT,
+                    PlayerSettings.MAX_POST_PLAY_MOVIE_THRESHOLD_PERCENT
+                ),
                 streamAutoPlayNextEpisodeEnabled = prefs[streamAutoPlayNextEpisodeEnabledKey] ?: false,
                 streamAutoPlayNextEpisodeFallbackEnabled = prefs[streamAutoPlayNextEpisodeFallbackEnabledKey] ?: true,
                 streamAutoPlayPreferBingeGroupForNextEpisode =
@@ -1430,6 +1448,15 @@ class PlayerSettingsDataStore @Inject constructor(
         }
     }
 
+    suspend fun setPostPlayMovieThresholdPercent(percent: Int) {
+        store().edit { prefs ->
+            prefs[postPlayMovieThresholdPercentKey] = percent.coerceIn(
+                PlayerSettings.MIN_POST_PLAY_MOVIE_THRESHOLD_PERCENT,
+                PlayerSettings.MAX_POST_PLAY_MOVIE_THRESHOLD_PERCENT
+            )
+        }
+    }
+
     suspend fun setStreamAutoPlayNextEpisodeEnabled(enabled: Boolean) {
         store().edit { prefs ->
             prefs[streamAutoPlayNextEpisodeEnabledKey] = enabled
@@ -1669,11 +1696,13 @@ class PlayerSettingsDataStore @Inject constructor(
 
     // Dolby Vision setters (libdovi conversion)
     suspend fun setDv5ToDv81Enabled(enabled: Boolean) { store().edit { it[dv5ToDv81EnabledKey] = enabled } }
+    suspend fun setDv7ToDv81PreserveMappingEnabled(enabled: Boolean) { store().edit { it[dv7ToDv81PreserveMappingEnabledKey] = enabled } }
     suspend fun setDv7HandlingMode(mode: Dv7HandlingMode) { store().edit { it[dv7HandlingModeKey] = mode.name } }
     suspend fun setDeniedCodecHandling(mode: DeniedCodecHandling) { store().edit { it[deniedCodecHandlingKey] = mode.name } }
     suspend fun setDv7LibdoviModeOverride(mode: Int) { store().edit { it[dv7LibdoviModeOverrideKey] = mode.coerceIn(-1, 4) } }
     suspend fun setStripHdr10PlusSei(enabled: Boolean) { store().edit { it[stripHdr10PlusSeiKey] = enabled } }
     suspend fun setInjectHdr10MetadataOnStrip(enabled: Boolean) { store().edit { it[injectHdr10MetadataOnStripKey] = enabled } }
+    suspend fun setMpvHi10pGnextSoftwareFallbackEnabled(enabled: Boolean) { store().edit { it[mpvHi10pGnextSoftwareFallbackEnabledKey] = enabled } }
 
     // Subtitle styles
     suspend fun setSubtitlePreferredLanguage(language: String) { store().edit { it[subtitlePreferredLanguageKey] = normalizeSelectableLanguageCode(language.ifBlank { SubtitleLanguageOption.DEVICE }) } }

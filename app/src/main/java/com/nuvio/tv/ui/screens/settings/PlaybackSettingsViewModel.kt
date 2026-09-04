@@ -126,6 +126,34 @@ class PlaybackSettingsViewModel @Inject constructor(
         playerSettingsDataStore.setForceOpticalPassthrough(enabled)
     }
 
+    suspend fun setAllowAc3Passthrough(allowed: Boolean) {
+        playerSettingsDataStore.setAllowAc3Passthrough(allowed)
+    }
+
+    suspend fun setAllowEac3Passthrough(allowed: Boolean) {
+        playerSettingsDataStore.setAllowEac3Passthrough(allowed)
+    }
+
+    suspend fun setAllowTrueHdPassthrough(allowed: Boolean) {
+        playerSettingsDataStore.setAllowTrueHdPassthrough(allowed)
+    }
+
+    suspend fun setAllowDtsPassthrough(allowed: Boolean) {
+        playerSettingsDataStore.setAllowDtsPassthrough(allowed)
+    }
+
+    suspend fun setAllowDtsHdPassthrough(allowed: Boolean) {
+        playerSettingsDataStore.setAllowDtsHdPassthrough(allowed)
+    }
+
+    suspend fun setMatPassthroughEnabled(enabled: Boolean) {
+        playerSettingsDataStore.setMatPassthroughEnabled(enabled)
+    }
+
+    suspend fun setDeniedCodecHandling(mode: com.nuvio.tv.data.local.DeniedCodecHandling) {
+        playerSettingsDataStore.setDeniedCodecHandling(mode)
+    }
+
     suspend fun setSkipSilence(enabled: Boolean) {
         playerSettingsDataStore.setSkipSilence(enabled)
     }
@@ -490,6 +518,10 @@ class PlaybackSettingsViewModel @Inject constructor(
 
     suspend fun setStreamAutoPlayTimeoutSeconds(seconds: Int) {
         playerSettingsDataStore.setStreamAutoPlayTimeoutSeconds(seconds)
+    }
+
+    suspend fun setStreamAutoPlayEagerReadyEnabled(enabled: Boolean) {
+        playerSettingsDataStore.setStreamAutoPlayEagerReadyEnabled(enabled)
     }
 
     suspend fun setStillWatchingEnabled(enabled: Boolean) {

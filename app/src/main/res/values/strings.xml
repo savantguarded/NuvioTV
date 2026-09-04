@@ -482,6 +482,7 @@
     <string name="stream_auto_play_first_stream">First stream</string>
     <string name="stream_auto_play_manual_short">Manual</string>
     <string name="stream_auto_play_smart_match">Smart match</string>
+    <string name="stream_auto_play_quality_rank">Best quality</string>
     <string name="essential_subtitle_language">Subtitle language</string>
     <string name="essential_audio_language">Audio language</string>
     <string name="audio_lang_media_default">Media default</string>
@@ -776,6 +777,31 @@
     <string name="audio_tunneled_sub">Hardware-level audio/video sync. May improve playback on some Android TV devices</string>
     <string name="audio_force_optical_passthrough">Force AC-3 Transcoding (Optical/SPDIF)</string>
     <string name="audio_force_optical_passthrough_sub">Transcodes multichannel formats (TrueHD, DTS, AAC, etc.) to Dolby Digital 5.1 in real-time for Optical/SPDIF connections.</string>
+    <!-- Added for custom player module (from ysosrs123/NuvioTV-Fork): per-format audio passthrough -->
+    <string name="audio_mat_passthrough">TrueHD MAT passthrough (experimental)</string>
+    <string name="audio_mat_passthrough_sub">Packs TrueHD into MAT/IEC61937 in-app (Kodi-style), bypassing the vendor decode path. Requires a receiver that decodes Dolby MAT.</string>
+    <string name="audio_passthrough_ac3">Dolby Digital (AC-3) capable receiver</string>
+    <string name="audio_passthrough_ac3_sub">Off decodes AC-3 to PCM in the app. Turn off only if your receiver or TV cannot decode AC-3.</string>
+    <string name="audio_passthrough_eac3">Dolby Digital Plus (E-AC-3) capable receiver</string>
+    <string name="audio_passthrough_eac3_sub">Covers DD+ and DD+ Atmos. Off decodes to PCM. Turn off only if your receiver cannot decode Dolby Digital Plus.</string>
+    <string name="audio_passthrough_truehd">Dolby TrueHD capable receiver</string>
+    <string name="audio_passthrough_truehd_sub">Covers TrueHD and TrueHD Atmos. Off decodes to PCM and loses Atmos. Turn off only if your receiver cannot decode TrueHD.</string>
+    <string name="audio_passthrough_dts">DTS capable receiver</string>
+    <string name="audio_passthrough_dts_sub">Off decodes DTS to PCM. Turn off if your receiver or TV cannot decode DTS - some TVs no longer license it.</string>
+    <string name="audio_passthrough_dtshd">DTS-HD capable receiver</string>
+    <string name="audio_passthrough_dtshd_sub">Covers DTS-HD MA, HRA and DTS:X. Off decodes to PCM and loses DTS:X. Turn off if your receiver handles DTS but not DTS-HD.</string>
+    <string name="denied_handling_title">Denied Codec Handling</string>
+    <string name="denied_handling_dialog_subtitle">How formats switched off above are played.</string>
+    <string name="denied_mode_pcm">Decode to PCM</string>
+    <string name="denied_mode_pcm_desc">Decode on the box and output lossless multichannel PCM. Best when your receiver accepts multichannel LPCM.</string>
+    <string name="denied_mode_ac3">Transcode to AC-3</string>
+    <string name="denied_mode_ac3_desc">Re-encode to 5.1 AC-3 (lossy). Only for receivers that cannot take multichannel PCM, such as 2-channel soundbars.</string>
+    <string name="autoplay_quality_rules_title">Quality rules</string>
+    <string name="autoplay_quality_rules_subtitle">Filters, sorting and release-group tiers in Connected Services.</string>
+    <string name="autoplay_eager_ready_title">Ready faster on slow sources</string>
+    <string name="autoplay_eager_ready_sub">Prepare playback as soon as the selection timeout is reached, instead of waiting for the slowest add-on. Applies to the details page and Continue Watching.</string>
+    <string name="autoplay_mode_quality">Best quality</string>
+    <string name="autoplay_mode_quality_desc">Rank sources by resolution, HDR, source type, audio (lossless first) and container, then play the top pick.</string>
     <!-- DV7 Handling Mode -->
     <string name="dv7_handling_title">Dolby Vision Handling</string>
     <string name="dv7_handling_dialog_subtitle">Choose how DV streams are processed at playback time.</string>

@@ -54,6 +54,7 @@ import androidx.tv.material3.Text
 import com.nuvio.tv.data.local.AVAILABLE_SUBTITLE_LANGUAGES
 import com.nuvio.tv.data.local.AudioLanguageOption
 import com.nuvio.tv.data.local.AudioOutputChannels
+import com.nuvio.tv.data.local.DeniedCodecHandling
 import com.nuvio.tv.data.local.Dv7HandlingMode
 import com.nuvio.tv.data.local.InternalPlayerEngine
 import com.nuvio.tv.data.local.MpvHardwareDecodeMode
@@ -75,6 +76,13 @@ internal fun LazyListScope.trailerAndAudioSettingsItems(
     onSetRememberAudioDelayPerDevice: (Boolean) -> Unit,
     onSetTunnelingEnabled: (Boolean) -> Unit,
     onSetForceOpticalPassthrough: (Boolean) -> Unit,
+    onSetAllowAc3Passthrough: (Boolean) -> Unit,
+    onSetAllowEac3Passthrough: (Boolean) -> Unit,
+    onSetAllowTrueHdPassthrough: (Boolean) -> Unit,
+    onSetMatPassthroughEnabled: (Boolean) -> Unit,
+    onSetAllowDtsPassthrough: (Boolean) -> Unit,
+    onSetAllowDtsHdPassthrough: (Boolean) -> Unit,
+    onShowDeniedHandlingDialog: () -> Unit,
     onSetDv5ToDv81Enabled: (Boolean) -> Unit,
     onSetDv7ToDv81PreserveMappingEnabled: (Boolean) -> Unit,
     onSetStripHdr10PlusSei: (Boolean) -> Unit,
@@ -280,6 +288,111 @@ internal fun LazyListScope.trailerAndAudioSettingsItems(
         }
     }
 
+    if (isExoEngine) {
+        item(key = "audio_passthrough_ac3") {
+            ToggleSettingsItem(
+                icon = Icons.Default.VolumeUp,
+                title = stringResource(R.string.audio_passthrough_ac3),
+                subtitle = stringResource(R.string.audio_passthrough_ac3_sub),
+                isChecked = playerSettings.allowAc3Passthrough,
+                onCheckedChange = onSetAllowAc3Passthrough,
+                onFocused = onItemFocused,
+                enabled = enabled
+            )
+        }
+    }
+
+    if (isExoEngine) {
+        item(key = "audio_passthrough_eac3") {
+            ToggleSettingsItem(
+                icon = Icons.Default.VolumeUp,
+                title = stringResource(R.string.audio_passthrough_eac3),
+                subtitle = stringResource(R.string.audio_passthrough_eac3_sub),
+                isChecked = playerSettings.allowEac3Passthrough,
+                onCheckedChange = onSetAllowEac3Passthrough,
+                onFocused = onItemFocused,
+                enabled = enabled
+            )
+        }
+    }
+
+    if (isExoEngine) {
+        item(key = "audio_passthrough_truehd") {
+            ToggleSettingsItem(
+                icon = Icons.Default.VolumeUp,
+                title = stringResource(R.string.audio_passthrough_truehd),
+                subtitle = stringResource(R.string.audio_passthrough_truehd_sub),
+                isChecked = playerSettings.allowTrueHdPassthrough,
+                onCheckedChange = onSetAllowTrueHdPassthrough,
+                onFocused = onItemFocused,
+                enabled = enabled
+            )
+        }
+    }
+
+    // MAT lives directly under the TrueHD switch it depends on, and only shows
+    // while that switch is on: with per-format TrueHD off (or F3-learned denial)
+    // the renderer decodes upstream and the MAT wrapper never sees the format,
+    // so surfacing the toggle in that state would advertise a dead control.
+    if (isExoEngine && playerSettings.allowTrueHdPassthrough) {
+        item(key = "mat_passthrough") {
+            ToggleSettingsItem(
+                icon = Icons.Default.VolumeUp,
+                title = stringResource(R.string.audio_mat_passthrough),
+                subtitle = stringResource(R.string.audio_mat_passthrough_sub),
+                isChecked = playerSettings.matPassthroughEnabled,
+                onCheckedChange = onSetMatPassthroughEnabled,
+                onFocused = onItemFocused,
+                enabled = enabled
+            )
+        }
+    }
+
+    if (isExoEngine) {
+        item(key = "audio_passthrough_dts") {
+            ToggleSettingsItem(
+                icon = Icons.Default.VolumeUp,
+                title = stringResource(R.string.audio_passthrough_dts),
+                subtitle = stringResource(R.string.audio_passthrough_dts_sub),
+                isChecked = playerSettings.allowDtsPassthrough,
+                onCheckedChange = onSetAllowDtsPassthrough,
+                onFocused = onItemFocused,
+                enabled = enabled
+            )
+        }
+    }
+
+    if (isExoEngine) {
+        item(key = "audio_passthrough_dtshd") {
+            ToggleSettingsItem(
+                icon = Icons.Default.VolumeUp,
+                title = stringResource(R.string.audio_passthrough_dtshd),
+                subtitle = stringResource(R.string.audio_passthrough_dtshd_sub),
+                isChecked = playerSettings.allowDtsHdPassthrough,
+                onCheckedChange = onSetAllowDtsHdPassthrough,
+                onFocused = onItemFocused,
+                enabled = enabled
+            )
+        }
+    }
+
+    if (isExoEngine) {
+        item(key = "audio_denied_handling") {
+            val deniedModeName = when (playerSettings.deniedCodecHandling) {
+                DeniedCodecHandling.DECODE_PCM -> stringResource(R.string.denied_mode_pcm)
+                DeniedCodecHandling.TRANSCODE_AC3 -> stringResource(R.string.denied_mode_ac3)
+            }
+            NavigationSettingsItem(
+                icon = Icons.Default.VolumeUp,
+                title = stringResource(R.string.denied_handling_title),
+                subtitle = deniedModeName,
+                onClick = onShowDeniedHandlingDialog,
+                onFocused = onItemFocused,
+                enabled = enabled
+            )
+        }
+    }
+
     // ── Video & DV Settings ──
     item(key = "video_header") {
         Text(
@@ -393,24 +506,28 @@ internal fun AudioSettingsDialogs(
     showDecoderPriorityDialog: Boolean,
     showMpvHardwareDecodeModeDialog: Boolean,
     showDv7HandlingModeDialog: Boolean,
+    showDeniedHandlingDialog: Boolean,
     selectedLanguage: String,
     selectedSecondaryLanguage: String?,
     selectedAudioOutputChannels: AudioOutputChannels,
     selectedPriority: Int,
     selectedMpvHardwareDecodeMode: MpvHardwareDecodeMode,
     selectedDv7HandlingMode: Dv7HandlingMode,
+    selectedDeniedHandling: DeniedCodecHandling,
     onSetPreferredAudioLanguage: (String) -> Unit,
     onSetSecondaryPreferredAudioLanguage: (String?) -> Unit,
     onSetAudioOutputChannels: (AudioOutputChannels) -> Unit,
     onSetDecoderPriority: (Int) -> Unit,
     onSetMpvHardwareDecodeMode: (MpvHardwareDecodeMode) -> Unit,
     onSetDv7HandlingMode: (Dv7HandlingMode) -> Unit,
+    onSetDeniedHandling: (DeniedCodecHandling) -> Unit,
     onDismissAudioLanguageDialog: () -> Unit,
     onDismissSecondaryAudioLanguageDialog: () -> Unit,
     onDismissAudioOutputChannelsDialog: () -> Unit,
     onDismissDecoderPriorityDialog: () -> Unit,
     onDismissMpvHardwareDecodeModeDialog: () -> Unit,
-    onDismissDv7HandlingModeDialog: () -> Unit
+    onDismissDv7HandlingModeDialog: () -> Unit,
+    onDismissDeniedHandlingDialog: () -> Unit
 ) {
     if (showAudioLanguageDialog) {
         AudioLanguageSelectionDialog(
@@ -480,6 +597,17 @@ internal fun AudioSettingsDialogs(
                 onDismissDv7HandlingModeDialog()
             },
             onDismiss = onDismissDv7HandlingModeDialog
+        )
+    }
+
+    if (showDeniedHandlingDialog) {
+        DeniedHandlingDialog(
+            selectedMode = selectedDeniedHandling,
+            onModeSelected = {
+                onSetDeniedHandling(it)
+                onDismissDeniedHandlingDialog()
+            },
+            onDismiss = onDismissDeniedHandlingDialog
         )
     }
 }
@@ -643,6 +771,101 @@ private fun MpvHardwareDecodeModeDialog(
         maxHeight = 360.dp
     )
 }
+@Composable
+private fun DeniedHandlingDialog(
+    selectedMode: DeniedCodecHandling,
+    onModeSelected: (DeniedCodecHandling) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val focusRequester = remember { FocusRequester() }
+    val options = listOf(
+        Triple(
+            DeniedCodecHandling.DECODE_PCM,
+            stringResource(R.string.denied_mode_pcm),
+            stringResource(R.string.denied_mode_pcm_desc)
+        ),
+        Triple(
+            DeniedCodecHandling.TRANSCODE_AC3,
+            stringResource(R.string.denied_mode_ac3),
+            stringResource(R.string.denied_mode_ac3_desc)
+        )
+    )
+
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+
+    NuvioDialog(
+        onDismiss = onDismiss,
+        title = stringResource(R.string.denied_handling_title),
+        subtitle = stringResource(R.string.denied_handling_dialog_subtitle),
+        width = 460.dp,
+        suppressFirstKeyUp = false
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 360.dp)
+        ) {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = NuvioTheme.spacing.xs)
+            ) {
+                items(
+                    count = options.size,
+                    key = { index -> options[index].first.name }
+                ) { index ->
+                    val (mode, title, description) = options[index]
+                    val isSelected = mode == selectedMode
+
+                    Card(
+                        onClick = { onModeSelected(mode) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .then(if (index == 0) Modifier.focusRequester(focusRequester) else Modifier),
+                        colors = CardDefaults.colors(
+                            containerColor = if (isSelected) NuvioTheme.colors.FocusBackground else NuvioTheme.colors.BackgroundCard,
+                            focusedContainerColor = NuvioTheme.colors.FocusBackground
+                        ),
+                        shape = CardDefaults.shape(shape = RoundedCornerShape(10.dp)),
+                        scale = CardDefaults.scale(focusedScale = 1f)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(NuvioTheme.spacing.lg),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = title,
+                                    color = if (isSelected) NuvioTheme.colors.Primary else NuvioTheme.colors.TextPrimary,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                Spacer(modifier = Modifier.height(NuvioTheme.spacing.xs))
+                                Text(
+                                    text = description,
+                                    color = NuvioTheme.colors.TextSecondary,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            if (isSelected) {
+                                Spacer(modifier = Modifier.width(NuvioTheme.spacing.md))
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = stringResource(R.string.cd_selected),
+                                    tint = NuvioTheme.colors.Primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun Dv7HandlingModeDialog(
     selectedMode: Dv7HandlingMode,
