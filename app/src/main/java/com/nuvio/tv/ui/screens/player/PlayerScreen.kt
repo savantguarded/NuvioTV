@@ -81,6 +81,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -122,6 +124,10 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.rememberAsyncImagePainter
 import coil3.request.ImageRequest
+import coil3.compose.AsyncImage
+import coil3.request.crossfade
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.res.stringResource
 import com.nuvio.tv.R
 import com.nuvio.tv.core.player.PlayerWindowBackdrop
@@ -2203,7 +2209,7 @@ private fun PlayerControlsOverlay(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
+                .height(260.dp) // [fork] was 200.dp
                 .align(Alignment.BottomCenter)
                 .background(
                     Brush.verticalGradient(
@@ -2235,13 +2241,39 @@ private fun PlayerControlsOverlay(
                         uiState.title
                     }
 
-                    Text(
-                        text = displayName,
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = Color.White,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    // [fork] ClearLogo in OSD: show the title's logo instead of the text title.
+                    // Reuses uiState.logo (already loaded by LoadingOverlay/PauseOverlay, so it
+                    // comes from Coil's cache). Falls back to the original text when absent/failed.
+                    val osdLogo = uiState.logo?.takeIf { it.isNotBlank() }
+                    var osdLogoFailed by remember(osdLogo) { mutableStateOf(false) }
+                    if (osdLogo != null && !osdLogoFailed) {
+                        val osdContext = LocalContext.current
+                        val osdLogoRequest = remember(osdContext, osdLogo) {
+                            ImageRequest.Builder(osdContext)
+                                .data(osdLogo)
+                                .crossfade(true)
+                                .build()
+                        }
+                        AsyncImage(
+                            model = osdLogoRequest,
+                            contentDescription = displayName,
+                            contentScale = ContentScale.Fit,
+                            alignment = Alignment.BottomStart,
+                            modifier = Modifier
+                                .height(72.dp)
+                                .widthIn(max = 420.dp),
+                            onError = { osdLogoFailed = true }
+                        )
+                        Spacer(modifier = Modifier.height(NuvioTheme.spacing.xs))
+                    } else {
+                        Text(
+                            text = displayName,
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
 
                     if (uiState.currentSeason != null && uiState.currentEpisode != null) {
                         val seasonEpisodeCode = stringResource(
@@ -2267,8 +2299,9 @@ private fun PlayerControlsOverlay(
                         )
                     }
 
-                    val hasYear = !uiState.releaseYear.isNullOrBlank()
-                    val showVia = !uiState.isPlaying && !uiState.currentStreamName.isNullOrBlank()
+                    val hasYear = !uiState.releaseYear.isNullOrBlank() &&
+                        !(uiState.currentSeason != null && uiState.currentEpisode != null) // [fork] no year for series
+                    val showVia = false // [fork] "via" line hidden; source is still in Stream info
                     val yearText = uiState.releaseYear.orEmpty()
 
                     if (hasYear || showVia) {
@@ -2712,7 +2745,7 @@ private fun ProgressBar(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .height(if (isFocused) NuvioTheme.spacing.md else NuvioTheme.spacing.sm)
+            .height(if (isFocused) 6.dp else 4.dp) // [fork] was spacing.md / spacing.sm
             .then(
                 if (focusRequester != null) Modifier.focusRequester(focusRequester)
                 else Modifier
@@ -2796,11 +2829,22 @@ private fun ProgressBar(
                     false
                 }
             }
+            // [fork] focus-only thumb, drawn outside the clipped track
+            .drawWithContent {
+                drawContent()
+                if (isFocused) {
+                    val thumbCenter = Offset(size.width * animatedProgress, size.height / 2f)
+                    drawCircle(Color.Black.copy(alpha = 0.4f), radius = 8.dp.toPx(), center = thumbCenter)
+                    drawCircle(Color.White, radius = 7.dp.toPx(), center = thumbCenter)
+                }
+            }
             .clip(RoundedCornerShape(3.dp))
             .background(
-                if (isFocused) Color.White.copy(alpha = 0.45f)
-                else Color.White.copy(alpha = 0.3f)
+                if (isFocused) Color.White.copy(alpha = 0.5f)
+                else Color.White.copy(alpha = 0.35f)
             )
+            // [fork] thin dark edge so the bar reads on bright scenes
+            .border(1.dp, Color.Black.copy(alpha = 0.4f), RoundedCornerShape(3.dp))
     ) {
         val trackWidth = maxWidth
 
