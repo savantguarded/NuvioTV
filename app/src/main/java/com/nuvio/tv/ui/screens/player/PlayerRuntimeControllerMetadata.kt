@@ -72,6 +72,9 @@ internal fun PlayerRuntimeController.applyMetaDetails(meta: Meta) {
         state.copy(
             description = description ?: state.description,
             castMembers = if (meta.castMembers.isNotEmpty()) meta.castMembers else state.castMembers,
+            // [fork] Continue Watching launches pass no year; backfill it from the meta
+            releaseYear = state.releaseYear?.takeIf { it.isNotBlank() }
+                ?: meta.releaseInfo?.substringBefore("-")?.trim()?.takeIf { it.isNotBlank() },
             isNextEpisodeMetadataResolved = true
         )
     }
