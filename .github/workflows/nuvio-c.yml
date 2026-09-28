@@ -1,0 +1,207 @@
+# Nuvio C: official NuvioTV + the OSD commit on this branch, rebuilt nightly.
+#
+# Each run:
+#   1. fetches NuvioMedia/NuvioTV `dev`
+#   2. replays this branch's own commits on top of it (locally, nothing is pushed)
+#   3. applies build-time branding (name "Nuvio C", separate package id, updater off)
+#   4. builds a signed armeabi-v7a release APK and publishes it as a GitHub release
+#
+# A run is skipped when upstream hasn't moved since the last release (unless forced).
+# You get a GitHub notification (an issue on this repo) when:
+#   - upstream changed any of the OSD code this fork modifies (build still runs), or
+#   - upstream conflicts with the fork's changes (build stops; last good APK stays).
+
+name: Nuvio C build
+
+on:
+  schedule:
+    - cron: "17 3 * * *" # 04:17 Lagos time, daily
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Build even if upstream has not changed
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: nuvio-c-build
+  cancel-in-progress: false
+
+env:
+  UPSTREAM_REPO: https://github.com/NuvioMedia/NuvioTV.git
+  UPSTREAM_BRANCH: dev
+  APP_NAME: Nuvio C
+  APP_ID: com.nuvio.tv.c
+  ABI: armeabi-v7a
+  # Code the fork changes. Upstream edits here trigger a heads-up issue.
+  OSD_FILES: >-
+    app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerScreen.kt
+    app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerRuntimeControllerMetadata.kt
+  OSD_FUNCTIONS: PlayerControlsOverlay|ProgressBar|SeekOverlay|PlayerControlsProgressBarHost|applyMetaDetails
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      LOCAL_PROPERTIES: ${{ secrets.LOCAL_PROPERTIES }}
+      KEYSTORE_BASE64: ${{ secrets.NUVIO_C_KEYSTORE_BASE64 }}
+      KEY_ALIAS: ${{ secrets.NUVIO_C_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.NUVIO_C_KEY_PASSWORD }}
+      STORE_PASSWORD: ${{ secrets.NUVIO_C_STORE_PASSWORD }}
+
+    steps:
+      - name: Check out this branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch upstream and decide whether to build
+        id: plan
+        run: |
+          git remote add upstream "$UPSTREAM_REPO"
+          git fetch --no-tags upstream "$UPSTREAM_BRANCH"
+          upstream_sha="$(git rev-parse --short=7 FETCH_HEAD)"
+          echo "upstream_sha=$upstream_sha" >> "$GITHUB_OUTPUT"
+          tag="c-${upstream_sha}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if gh release view "$tag" >/dev/null 2>&1 && [ "${{ inputs.force }}" != "true" ]; then
+            echo "Already built for upstream $upstream_sha. Nothing to do."
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check whether upstream touched the OSD code
+        id: osd
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          last_tag="$(gh release list --limit 50 --json tagName,createdAt \
+            --jq '[.[] | select(.tagName | startswith("c-"))] | sort_by(.createdAt) | last | .tagName // ""')"
+          last_sha="${last_tag#c-}"
+          if [ -z "$last_sha" ] || ! git cat-file -e "${last_sha}^{commit}" 2>/dev/null; then
+            echo "No previous build to compare against."
+            exit 0
+          fi
+          hits="$(git diff -U0 "$last_sha" FETCH_HEAD -- $OSD_FILES | grep -E '^@@' | grep -E "$OSD_FUNCTIONS" || true)"
+          if [ -n "$hits" ]; then
+            {
+              echo "Upstream changed OSD code that Nuvio C also modifies, between \`$last_sha\` and \`${{ steps.plan.outputs.upstream_sha }}\`."
+              echo
+              echo "The build still ran. Check the new APK's player screen looks right."
+              echo
+              echo "Upstream changes: https://github.com/NuvioMedia/NuvioTV/compare/${last_sha}...${{ steps.plan.outputs.upstream_sha }}"
+              echo
+              echo '```'
+              echo "$hits"
+              echo '```'
+            } > osd-notice.md
+            echo "notice=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Replay Nuvio C commits onto latest upstream
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          git config user.name "nuvio-c-bot"
+          git config user.email "nuvio-c-bot@users.noreply.github.com"
+          base="$(git merge-base HEAD upstream/$UPSTREAM_BRANCH)"
+          echo "Nuvio C commits being replayed:"
+          git log --oneline "$base..HEAD"
+          if ! git rebase --onto "upstream/$UPSTREAM_BRANCH" "$base" HEAD; then
+            git rebase --abort || true
+            gh issue create --title "Nuvio C: upstream conflicts with the OSD changes (${{ steps.plan.outputs.upstream_sha }})" \
+              --body "Upstream edited the same lines as the Nuvio C commits, so tonight's build stopped. The last good APK is still in Releases. The patch needs refreshing." || true
+            echo "::error::Upstream changed the same code as the Nuvio C commits. The patch needs a manual refresh."
+            exit 1
+          fi
+
+      - name: Check secrets
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          missing=()
+          for s in LOCAL_PROPERTIES KEYSTORE_BASE64 KEY_ALIAS KEY_PASSWORD STORE_PASSWORD; do
+            [ -n "${!s}" ] || missing+=("$s")
+          done
+          if (( ${#missing[@]} )); then
+            echo "::error::Missing secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Apply Nuvio C branding (build-time only)
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          set -euo pipefail
+          # Launcher name in every locale
+          find app/src -path '*/res/values*/*.xml' -print0 \
+            | xargs -0 sed -i -E "s#<string name=\"app_name\">[^<]*</string>#<string name=\"app_name\">${APP_NAME}</string>#"
+          # Separate package id so it installs alongside the official app
+          grep -q 'applicationId = "com.nuvio.tv"' app/build.gradle.kts
+          sed -i -E "s#applicationId = \"com.nuvio.tv\"#applicationId = \"${APP_ID}\"#" app/build.gradle.kts
+          # In-app updater would offer the official APK; turn it off for this build
+          sed -i -E 's#("FEATURE_IN_APP_UPDATES_ENABLED", )"true"#\1"false"#' app/build.gradle.kts
+          # Only the ABI the TV needs, no universal APK
+          sed -i -E "s#include\(\"armeabi-v7a\"[^)]*\)#include(\"${ABI}\")#" app/build.gradle.kts
+          sed -i -E 's#isUniversalApk = true#isUniversalApk = false#' app/build.gradle.kts
+          echo "Branding diff:"; git --no-pager diff --stat
+
+      - name: Prepare local.properties and signing
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$LOCAL_PROPERTIES" > local.properties
+          touch local.dev.properties
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/nuvio-c.jks"
+          {
+            echo "NUVIO_RELEASE_STORE_FILE=$RUNNER_TEMP/nuvio-c.jks"
+            echo "NUVIO_RELEASE_KEY_ALIAS=$KEY_ALIAS"
+            echo "NUVIO_RELEASE_KEY_PASSWORD=$KEY_PASSWORD"
+            echo "NUVIO_RELEASE_STORE_PASSWORD=$STORE_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Set up Java
+        if: steps.plan.outputs.build == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        if: steps.plan.outputs.build == 'true'
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build release APK
+        if: steps.plan.outputs.build == 'true'
+        run: ./gradlew :app:assembleFullRelease --stacktrace
+
+      - name: Publish release
+        if: steps.plan.outputs.build == 'true'
+        run: |
+          set -euo pipefail
+          apk="$(find app/build/outputs/apk/full/release -name "*${ABI}*.apk" | head -1)"
+          [ -n "$apk" ] || { echo "::error::No ${ABI} APK produced"; exit 1; }
+          version="$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)"
+          out="NuvioC-${version}-${ABI}.apk"
+          cp "$apk" "$out"
+          tag="${{ steps.plan.outputs.tag }}"
+          gh release delete "$tag" --yes --cleanup-tag >/dev/null 2>&1 || true
+          notes="Nuvio C, based on NuvioMedia/NuvioTV \`${UPSTREAM_BRANCH}\` at ${{ steps.plan.outputs.upstream_sha }} (upstream version ${version})."
+          gh release create "$tag" "$out" --target "$GITHUB_SHA" \
+            --title "Nuvio C ${version} (${{ steps.plan.outputs.upstream_sha }})" \
+            --notes "$notes" --latest
+          # Keep the 5 newest Nuvio C releases
+          gh release list --limit 100 --json tagName,createdAt \
+            --jq '[.[] | select(.tagName | startswith("c-"))] | sort_by(.createdAt) | reverse | .[5:] | .[].tagName' \
+            | xargs -r -I{} gh release delete {} --yes --cleanup-tag
+
+      - name: Send OSD heads-up
+        if: steps.osd.outputs.notice == 'true'
+        run: |
+          if ! gh issue create --title "Nuvio C: upstream changed OSD code (${{ steps.plan.outputs.upstream_sha }})" --body-file osd-notice.md; then
+            cat osd-notice.md
+            echo "::error::Could not open the heads-up issue (are Issues enabled on this repo?)."
+            exit 1
+          fi
