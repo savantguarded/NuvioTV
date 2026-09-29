@@ -48,6 +48,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
+      # gh must target this fork, never the upstream remote added below
+      GH_REPO: ${{ github.repository }}
       LOCAL_PROPERTIES: ${{ secrets.LOCAL_PROPERTIES || secrets.LOCAL_PROPERTIES_BASE64 }}
       KEYSTORE_BASE64: ${{ secrets.NUVIO_C_KEYSTORE_BASE64 }}
       KEY_ALIAS: ${{ secrets.NUVIO_C_KEY_ALIAS }}
@@ -158,7 +160,9 @@ jobs:
           else
             printf '%s' "$LOCAL_PROPERTIES" | tr -d '[:space:]' | base64 --decode > local.properties
           fi
-          # Sanity check without printing any values
+          # Sanity check without printing any values (key names only)
+          echo "Key names found in the secret:"
+          grep -oE '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*=' local.properties | tr -d ' =' | sed 's/^/  /' || true
           for k in NUVIO_SUPABASE_URL NUVIO_SUPABASE_ANON_KEY TRAKT_CLIENT_ID TRAKT_CLIENT_SECRET SIMKL_CLIENT_ID TMDB_API_KEY; do
             if grep -qE "^[[:space:]]*${k}[[:space:]]*=[[:space:]]*[^[:space:]]" local.properties; then
               echo "local.properties: $k set"
