@@ -1,12 +1,13 @@
-# Nuvio C: official NuvioTV + the OSD commit on this branch, rebuilt nightly.
+# Nuvio C: official NuvioTV releases + the OSD commit on this branch.
 #
-# Each run:
-#   1. fetches NuvioMedia/NuvioTV `dev`
+# Every hour it asks: has NuvioMedia/NuvioTV published a new release (betas included)?
+# If not, it stops in seconds. If yes:
+#   1. fetches the code of exactly that official release
 #   2. replays this branch's own commits on top of it (locally, nothing is pushed)
 #   3. applies build-time branding (name "Nuvio C", separate package id, updater off)
 #   4. builds a signed armeabi-v7a release APK and publishes it as a GitHub release
 #
-# A run is skipped when upstream hasn't moved since the last release (unless forced).
+# A run is skipped when that release was already built (unless forced).
 # You get a GitHub notification (an issue on this repo) when:
 #   - upstream changed any of the OSD code this fork modifies (build still runs), or
 #   - upstream conflicts with the fork's changes (build stops; last good APK stays).
@@ -15,11 +16,11 @@ name: Nuvio C build
 
 on:
   schedule:
-    - cron: "17 3 * * *" # 04:17 Lagos time, daily
+    - cron: "23 * * * *" # hourly, at :23 past (avoids the busy top of the hour)
   workflow_dispatch:
     inputs:
       force:
-        description: Build even if upstream has not changed
+        description: Build even if this official release was already built
         type: boolean
         default: false
 
@@ -32,7 +33,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  UPSTREAM_SLUG: NuvioMedia/NuvioTV
   UPSTREAM_REPO: https://github.com/NuvioMedia/NuvioTV.git
+  # Branch the Nuvio C commits were written on top of; used only to find them.
   UPSTREAM_BRANCH: dev
   APP_NAME: Nuvio C
   APP_ID: com.nuvio.tv.c
@@ -65,18 +68,29 @@ jobs:
       - name: Fetch upstream and decide whether to build
         id: plan
         run: |
-          git remote add upstream "$UPSTREAM_REPO"
-          git fetch --no-tags upstream "$UPSTREAM_BRANCH"
-          upstream_sha="$(git rev-parse --short=7 FETCH_HEAD)"
-          echo "upstream_sha=$upstream_sha" >> "$GITHUB_OUTPUT"
-          tag="c-${upstream_sha}"
+          set -euo pipefail
+          # Newest published official release, pre-releases included (drafts never are public)
+          release="$(gh api "repos/${UPSTREAM_SLUG}/releases?per_page=20" \
+            --jq '[.[] | select(.draft | not)] | sort_by(.published_at) | last | .tag_name // ""')"
+          if [ -z "$release" ]; then
+            echo "::error::Could not read the official release list."
+            exit 1
+          fi
+          echo "Newest official release: $release"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+          tag="c-${release}"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           if gh release view "$tag" >/dev/null 2>&1 && [ "${{ inputs.force }}" != "true" ]; then
-            echo "Already built for upstream $upstream_sha. Nothing to do."
+            echo "Already built for $release. Nothing to do."
             echo "build=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          echo "build=true" >> "$GITHUB_OUTPUT"
+          git remote add upstream "$UPSTREAM_REPO"
+          git fetch --no-tags upstream "$UPSTREAM_BRANCH"
+          git fetch --no-tags upstream "refs/tags/${release}:refs/nuvio/release"
+          upstream_sha="$(git rev-parse --short=7 'refs/nuvio/release^{commit}')"
+          echo "upstream_sha=$upstream_sha" >> "$GITHUB_OUTPUT"
 
       - name: Check whether upstream touched the OSD code
         id: osd
@@ -84,15 +98,24 @@ jobs:
         run: |
           last_tag="$(gh release list --limit 50 --json tagName,createdAt \
             --jq '[.[] | select(.tagName | startswith("c-"))] | sort_by(.createdAt) | last | .tagName // ""')"
-          last_sha="${last_tag#c-}"
-          if [ -z "$last_sha" ] || ! git cat-file -e "${last_sha}^{commit}" 2>/dev/null; then
+          last_ref="${last_tag#c-}"
+          last_sha=""
+          if [ -n "$last_ref" ]; then
+            # Older builds were tagged by commit, newer ones by official release tag
+            if git fetch --no-tags upstream "refs/tags/${last_ref}:refs/nuvio/previous" 2>/dev/null; then
+              last_sha="$(git rev-parse --short=7 'refs/nuvio/previous^{commit}')"
+            elif git cat-file -e "${last_ref}^{commit}" 2>/dev/null; then
+              last_sha="$last_ref"
+            fi
+          fi
+          if [ -z "$last_sha" ]; then
             echo "No previous build to compare against."
             exit 0
           fi
-          hits="$(git diff -U0 "$last_sha" FETCH_HEAD -- $OSD_FILES | grep -E '^@@' | grep -E "$OSD_FUNCTIONS" || true)"
+          hits="$(git diff -U0 "$last_sha" refs/nuvio/release -- $OSD_FILES | grep -E '^@@' | grep -E "$OSD_FUNCTIONS" || true)"
           if [ -n "$hits" ]; then
             {
-              echo "Upstream changed OSD code that Nuvio C also modifies, between \`$last_sha\` and \`${{ steps.plan.outputs.upstream_sha }}\`."
+              echo "Upstream changed OSD code that Nuvio C also modifies, between \`${last_ref}\` and \`${{ steps.plan.outputs.release }}\`."
               echo
               echo "The build still ran. Check the new APK's player screen looks right."
               echo
@@ -105,18 +128,22 @@ jobs:
             echo "notice=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Replay Nuvio C commits onto latest upstream
+      - name: Replay Nuvio C commits onto the official release
         if: steps.plan.outputs.build == 'true'
         run: |
           git config user.name "nuvio-c-bot"
           git config user.email "nuvio-c-bot@users.noreply.github.com"
+          # Our changes = this branch vs the upstream dev commit it sits on, as one combined patch
           base="$(git merge-base HEAD upstream/$UPSTREAM_BRANCH)"
-          echo "Nuvio C commits being replayed:"
+          echo "Nuvio C commits (applied as one patch onto ${{ steps.plan.outputs.release }}):"
           git log --oneline "$base..HEAD"
-          if ! git rebase --onto "upstream/$UPSTREAM_BRANCH" "$base" HEAD; then
-            git rebase --abort || true
-            gh issue create --title "Nuvio C: upstream conflicts with the OSD changes (${{ steps.plan.outputs.upstream_sha }})" \
-              --body "Upstream edited the same lines as the Nuvio C commits, so tonight's build stopped. The last good APK is still in Releases. The patch needs refreshing." || true
+          git diff --binary "$base" HEAD > "$RUNNER_TEMP/nuvio-c.patch"
+          git diff --stat "$base" HEAD
+          git checkout -q --detach refs/nuvio/release
+          if ! git apply --3way --index "$RUNNER_TEMP/nuvio-c.patch"; then
+            git reset -q --hard
+            gh issue create --title "Nuvio C: official ${{ steps.plan.outputs.release }} conflicts with the OSD changes" \
+              --body "Official release ${{ steps.plan.outputs.release }} edited the same lines as the Nuvio C commits, so this build stopped. The last good APK is still in Releases. The patch needs refreshing." || true
             echo "::error::Upstream changed the same code as the Nuvio C commits. The patch needs a manual refresh."
             exit 1
           fi
@@ -205,9 +232,10 @@ jobs:
           cp "$apk" "$out"
           tag="${{ steps.plan.outputs.tag }}"
           gh release delete "$tag" --yes --cleanup-tag >/dev/null 2>&1 || true
-          notes="Nuvio C, based on NuvioMedia/NuvioTV \`${UPSTREAM_BRANCH}\` at ${{ steps.plan.outputs.upstream_sha }} (upstream version ${version})."
+          rel="${{ steps.plan.outputs.release }}"
+          notes="Nuvio C, built from official NuvioTV release [${rel}](https://github.com/${UPSTREAM_SLUG}/releases/tag/${rel}) (commit ${{ steps.plan.outputs.upstream_sha }}) plus the Nuvio C player tweaks."
           gh release create "$tag" "$out" --target "$GITHUB_SHA" \
-            --title "Nuvio C ${version} (${{ steps.plan.outputs.upstream_sha }})" \
+            --title "Nuvio C ${rel}" \
             --notes "$notes" --latest
           # Keep the 5 newest Nuvio C releases
           gh release list --limit 100 --json tagName,createdAt \
@@ -217,7 +245,7 @@ jobs:
       - name: Send OSD heads-up
         if: steps.osd.outputs.notice == 'true'
         run: |
-          if ! gh issue create --title "Nuvio C: upstream changed OSD code (${{ steps.plan.outputs.upstream_sha }})" --body-file osd-notice.md; then
+          if ! gh issue create --title "Nuvio C: official ${{ steps.plan.outputs.release }} changed player code" --body-file osd-notice.md; then
             cat osd-notice.md
             echo "::error::Could not open the heads-up issue (are Issues enabled on this repo?)."
             exit 1
