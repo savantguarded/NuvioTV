@@ -5,6 +5,12 @@
 
 package com.nuvio.tv.ui.screens.player
 
+// Nuvio C imports
+import coil3.compose.AsyncImage
+import coil3.request.crossfade
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.layout.widthIn
+
 import com.nuvio.tv.ui.theme.NuvioMotion
 
 import com.nuvio.tv.ui.theme.NuvioTheme
@@ -124,10 +130,6 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.rememberAsyncImagePainter
 import coil3.request.ImageRequest
-import coil3.compose.AsyncImage
-import coil3.request.crossfade
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.res.stringResource
 import com.nuvio.tv.R
 import com.nuvio.tv.core.player.PlayerWindowBackdrop
