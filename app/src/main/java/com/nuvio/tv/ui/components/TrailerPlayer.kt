@@ -55,6 +55,7 @@ fun TrailerPlayer(
     onRemoteKey: (keyCode: Int, action: Int, repeatCount: Int) -> Boolean = { _, _, _ -> false },
     cropToFill: Boolean = false,
     overscanZoom: Float = 1f,
+    autoFitBars: Boolean = false, // [fork] zoom only as far as burned-in letterbox bars need
     modifier: Modifier = Modifier,
     enter: EnterTransition = fadeIn(animationSpec = tween(800)),
     exit: ExitTransition = fadeOut(animationSpec = tween(500)),
@@ -70,13 +71,29 @@ fun TrailerPlayer(
     val currentOnFirstFrameRendered by rememberUpdatedState(onFirstFrameRendered)
     val currentOnProgressChanged by rememberUpdatedState(onProgressChanged)
     val currentOnRemoteKey by rememberUpdatedState(onRemoteKey)
-    val zoomScale = if (cropToFill) overscanZoom.coerceAtLeast(1f) else 1f
+    // [fork] autoFitBars: overscanZoom becomes the cap, the real zoom comes from the bars found
+    var nuvioCBarZoom by remember(trailerUrl) { mutableStateOf(1f) }
+    var nuvioCBarsChecked by remember(trailerUrl) { mutableStateOf(false) }
+    val nuvioCViewRef = remember { arrayOfNulls<PlayerView>(1) }
+    val nuvioCAnimatedBarZoom by animateFloatAsState(nuvioCBarZoom, tween(900), label = "nuvioCBarZoom")
+    val zoomScale = if (cropToFill) {
+        if (autoFitBars) nuvioCAnimatedBarZoom else overscanZoom.coerceAtLeast(1f)
+    } else 1f
     var hasRenderedFirstFrame by remember(trailerUrl) { mutableStateOf(false) }
     val playerAlphaState = animateFloatAsState(
         targetValue = if (isPlaying && hasRenderedFirstFrame) 1f else 0f,
         animationSpec = tween(durationMillis = 300),
         label = "trailerFirstFrameAlpha"
     )
+
+    // [fork] check the playing trailer for letterbox bars once per trailer
+    LaunchedEffect(trailerUrl, autoFitBars, cropToFill, hasRenderedFirstFrame) {
+        if (!autoFitBars || !cropToFill || !hasRenderedFirstFrame || nuvioCBarsChecked) return@LaunchedEffect
+        detectTrailerLetterboxZoom({ nuvioCViewRef[0] }, overscanZoom.coerceAtLeast(1f)) { zoom ->
+            nuvioCBarZoom = zoom
+        }
+        nuvioCBarsChecked = true
+    }
 
     // Resolve pool: explicit parameter > CompositionLocal
     val resolvedPool = trailerPlayerPool ?: LocalTrailerPlayerPool.current
@@ -95,7 +112,7 @@ fun TrailerPlayer(
     // Configure player settings when acquired
     LaunchedEffect(trailerPlayer, muted, cropToFill) {
         val player = trailerPlayer ?: return@LaunchedEffect
-        player.volume = if (muted) 0f else 1f
+        if (muted || !player.isPlaying) player.volume = if (muted) 0f else 1f // [fork] unmute mid-play fades in below
         player.videoScalingMode = if (cropToFill) {
             C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
         } else {
@@ -103,7 +120,18 @@ fun TrailerPlayer(
         }
     }
 
-    LaunchedEffect(isPlaying, trailerUrl, trailerAudioUrl, muted, trailerPlayer) {
+    // [fork] fade the sound in when a playing trailer is unmuted (trailer button on a muted background trailer)
+    LaunchedEffect(trailerPlayer, muted) {
+        val player = trailerPlayer ?: return@LaunchedEffect
+        if (muted || !player.isPlaying) return@LaunchedEffect
+        val start = player.volume
+        for (step in 1..10) {
+            player.volume = start + (1f - start) * step / 10f
+            delay(100)
+        }
+    }
+
+    LaunchedEffect(isPlaying, trailerUrl, trailerAudioUrl, trailerPlayer) { // [fork] no `muted` key: unmuting must not reload
         val player = trailerPlayer ?: return@LaunchedEffect
         player.volume = if (muted) 0f else 1f
         if (isPlaying && trailerUrl != null) {
@@ -228,6 +256,7 @@ fun TrailerPlayer(
                 factory = { ctx ->
                     (LayoutInflater.from(ctx).inflate(R.layout.trailer_player_view, null) as PlayerView).apply {
                         player = trailerPlayer
+                        nuvioCViewRef[0] = this // [fork] letterbox check reads frames from this view
                         isFocusable = focusable
                         isFocusableInTouchMode = focusable
                         setOnKeyListener { _, keyCode, event ->
@@ -255,6 +284,7 @@ fun TrailerPlayer(
                     }
                 },
                 onRelease = { view ->
+                    if (nuvioCViewRef[0] === view) nuvioCViewRef[0] = null // [fork]
                     view.player = null
                     view.keepScreenOn = false
                 },

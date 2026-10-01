@@ -40,6 +40,7 @@ data class MetaDetailsUiState(
     val trailerAudioUrl: String? = null,
     val isTrailerPlaying: Boolean = false,
     val backgroundTrailerEnabled: Boolean = false,
+    val nuvioCBackgroundIdle: Boolean = false, // [fork] page text faded behind a muted background trailer
     val isTrailerLoading: Boolean = false,
     val showTrailerControls: Boolean = false,
     val hideLogoDuringTrailer: Boolean = false,

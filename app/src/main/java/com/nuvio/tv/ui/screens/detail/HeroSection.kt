@@ -117,6 +117,7 @@ fun HeroContentSection(
     showFullReleaseDate: Boolean = true,
     isTrailerPlaying: Boolean = false,
     isBackgroundTrailerPlaying: Boolean = false,
+    nuvioCTrailerIdle: Boolean = false, // [fork] fade the page behind a muted background trailer
     playButtonFocusRequester: FocusRequester? = null,
     restorePlayFocusToken: Int = 0,
     onHeroActionFocused: () -> Unit = {},
@@ -127,7 +128,7 @@ fun HeroContentSection(
     val context = LocalContext.current
     var isSynopsisFocused by remember(meta.id) { mutableStateOf(false) }
     val detailTextAlpha = animateFloatAsState(
-        targetValue = if (isBackgroundTrailerPlaying && !isSynopsisFocused) 0.85f else 1f,
+        targetValue = 1f, // [fork] full-brightness text over the trailer (PR dimmed it to 0.85f)
         animationSpec = tween(300),
         label = "backgroundTrailerDetailTextAlpha"
     )
@@ -185,6 +186,12 @@ fun HeroContentSection(
         targetValue = if (isTrailerPlaying) 0.25f else 0.4f,
         animationSpec = tween(600),
         label = "logoWidth"
+    )
+    // [fork] Apple TV-style idle fade: buttons and text fade out, the logo stays
+    val nuvioCIdleAlpha by animateFloatAsState(
+        targetValue = if (nuvioCTrailerIdle) 0f else 1f,
+        animationSpec = tween(if (nuvioCTrailerIdle) 800 else 250),
+        label = "nuvioCIdleAlpha"
     )
     val heroActionsAlpha by animateFloatAsState(
         targetValue = if (isTrailerPlaying && hideLogoDuringTrailer) 0f else 1f,
@@ -257,7 +264,7 @@ fun HeroContentSection(
                 exit = fadeOut(tween(NuvioMotion.tokens.durations.overlay)),
                 modifier = Modifier.alpha(heroActionsAlpha)
             ) {
-                Column {
+                Column(modifier = Modifier.graphicsLayer { alpha = nuvioCIdleAlpha }) { // [fork]
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
                         verticalAlignment = Alignment.CenterVertically
