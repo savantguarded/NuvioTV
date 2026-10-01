@@ -20,7 +20,14 @@ class OkHttpSimklEngine(private val client: OkHttpClient) : SimklHttpEngine {
     ): SimklRawHttpResponse = withContext(Dispatchers.IO) {
         val builder = Request.Builder().url(url)
         headers.forEach(builder::header)
-        val requestBody = body.toRequestBody(JSON_MEDIA_TYPE)
+        // [fork] form-encoded bodies for AUTH V2; everything else stays JSON as official.
+        val mediaType = headers.entries
+            .firstOrNull { it.key.equals("Content-Type", ignoreCase = true) }
+            ?.value
+            ?.takeIf { it.startsWith(SIMKL_FORM_CONTENT_TYPE) }
+            ?.toMediaType()
+            ?: JSON_MEDIA_TYPE
+        val requestBody = body.toRequestBody(mediaType)
         when (method) {
             SimklHttpMethod.GET.name -> builder.get()
             SimklHttpMethod.POST.name -> builder.post(requestBody)

@@ -33,6 +33,7 @@ data class SimklSettingsUiState(
     val username: String? = null,
     val userCode: String? = null,
     val verificationUri: String? = null,
+    val qrUri: String? = null, // [fork] AUTH V2: approval link with the code pre-filled
     val expiresAtEpochMs: Long? = null,
     val pollIntervalSeconds: Int = 5,
     val statusMessage: String? = null,
@@ -64,6 +65,7 @@ class SimklSettingsViewModel @Inject constructor(
                         username = state.username,
                         userCode = state.pinSession?.userCode,
                         verificationUri = state.pinSession?.verificationUri,
+                        qrUri = state.pinSession?.qrUri,
                         expiresAtEpochMs = state.pinSession?.expiresAtEpochMs,
                         pollIntervalSeconds = state.pinSession?.intervalSeconds ?: 5,
                         errorMessage = state.error?.message()

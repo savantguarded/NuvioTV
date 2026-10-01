@@ -23,7 +23,10 @@ data class SimklPinSession(
     val userCode: String,
     val verificationUri: String,
     val expiresAtEpochMs: Long,
-    val intervalSeconds: Int
+    val intervalSeconds: Int,
+    // [fork] Simkl AUTH V2 device flow: set only for V2 sessions (V1 PIN sessions leave them null).
+    val deviceCode: String? = null,
+    val qrUri: String? = null
 )
 
 data class SimklAuthState(
@@ -58,7 +61,8 @@ internal data class SimklStoredAuthMetadata(
     val accountId: Long? = null,
     val hasFetchedUserSettings: Boolean = false,
     val settingsActivityWatermark: String? = null,
-    val pinSession: SimklPinSession? = null
+    val pinSession: SimklPinSession? = null,
+    val accessTokenExpiresAtEpochMs: Long? = null // [fork] AUTH V2 token expiry
 )
 
 internal enum class SimklSettingsRefreshAction {
@@ -103,3 +107,21 @@ internal data class SimklUser(val name: String? = null)
 
 @Serializable
 internal data class SimklAccount(val id: Long? = null)
+
+// [fork] Simkl AUTH V2 (device flow + refresh tokens) response models.
+@Serializable
+internal data class SimklDeviceCodeResponse(
+    @SerialName("device_code") val deviceCode: String? = null,
+    @SerialName("user_code") val userCode: String? = null,
+    @SerialName("verification_uri") val verificationUri: String? = null,
+    @SerialName("verification_uri_complete") val verificationUriComplete: String? = null,
+    @SerialName("expires_in") val expiresIn: Long? = null,
+    val interval: Int? = null
+)
+
+@Serializable
+internal data class SimklTokenResponse(
+    @SerialName("access_token") val accessToken: String? = null,
+    @SerialName("refresh_token") val refreshToken: String? = null,
+    @SerialName("expires_in") val expiresIn: Long? = null
+)
