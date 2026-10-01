@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- [fork] Nuvio C: strings for background trailers (from upstream PR #3730). Kept in their own
+     file so upstream edits to strings.xml never conflict with them. -->
+<resources>
+    <string name="audio_trailer_background">Background trailers</string>
+    <string name="audio_trailer_background_sub">Plays the trailer muted behind the page. Press the trailer button for sound.</string>
+</resources>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- [fork] Nuvio C: background trailer strings (from upstream PR #3730). -->
+<resources>
+    <string name="audio_trailer_background">Bandes-annonces en arrière-plan</string>
+    <string name="audio_trailer_background_sub">Lit la bande-annonce sans le son derrière la page. Appuyez sur le bouton bande-annonce pour le son.</string>
+</resources>
