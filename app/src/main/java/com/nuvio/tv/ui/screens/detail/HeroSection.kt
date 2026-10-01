@@ -132,6 +132,12 @@ fun HeroContentSection(
         animationSpec = tween(300),
         label = "backgroundTrailerDetailTextAlpha"
     )
+    // [fork] Apple TV-style idle fade: buttons and text fade out, the logo stays
+    val nuvioCIdleAlpha by animateFloatAsState(
+        targetValue = if (nuvioCTrailerIdle) 0f else 1f,
+        animationSpec = tween(if (nuvioCTrailerIdle) 800 else 250),
+        label = "nuvioCIdleAlpha"
+    )
     val isSeriesApi = remember(meta.apiType) {
         meta.apiType.equals("series", ignoreCase = true) || meta.apiType.equals("tv", ignoreCase = true)
     }
@@ -186,12 +192,6 @@ fun HeroContentSection(
         targetValue = if (isTrailerPlaying) 0.25f else 0.4f,
         animationSpec = tween(600),
         label = "logoWidth"
-    )
-    // [fork] Apple TV-style idle fade: buttons and text fade out, the logo stays
-    val nuvioCIdleAlpha by animateFloatAsState(
-        targetValue = if (nuvioCTrailerIdle) 0f else 1f,
-        animationSpec = tween(if (nuvioCTrailerIdle) 800 else 250),
-        label = "nuvioCIdleAlpha"
     )
     val heroActionsAlpha by animateFloatAsState(
         targetValue = if (isTrailerPlaying && hideLogoDuringTrailer) 0f else 1f,
