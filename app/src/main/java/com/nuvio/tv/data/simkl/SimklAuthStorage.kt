@@ -9,7 +9,17 @@ data class SimklAuthScope(
 
 data class SimklAuthorization(
     val scope: SimklAuthScope,
-    val accessToken: String
+    val accessToken: String,
+    // [fork] AUTH V2 only; V1 tokens never expire and have no refresh token.
+    val refreshToken: String? = null,
+    val expiresAtEpochMs: Long? = null
+)
+
+// [fork] AUTH V2 token set (access token lasts ~7 days, refresh token ~180 days and rotates on use).
+data class SimklTokenSet(
+    val accessToken: String,
+    val refreshToken: String,
+    val expiresAtEpochMs: Long
 )
 
 interface SimklAuthStorage {
@@ -25,6 +35,10 @@ interface SimklAuthStorage {
         scope: SimklAuthScope = currentScope()
     ): Boolean
     fun completePinAuthorization(token: String, scope: SimklAuthScope): Boolean
+    // [fork] AUTH V2: save a fresh login, and swap in refreshed tokens (only if the refresh token still matches).
+    fun completeDeviceAuthorization(tokens: SimklTokenSet, scope: SimklAuthScope): Boolean =
+        completePinAuthorization(tokens.accessToken, scope)
+    fun updateTokens(tokens: SimklTokenSet, scope: SimklAuthScope, expectedRefreshToken: String): Boolean = false
     fun saveIdentity(
         username: String?,
         accountId: Long?,
