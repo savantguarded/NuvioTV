@@ -2193,6 +2193,33 @@ private fun PlayerControlsOverlay(
                 )
         )
 
+        // [fork] ClearLogo, top-left of the OSD. Bottom-left keeps the official text title.
+        // Reuses uiState.logo (already cached by Coil from the loading/pause overlays).
+        // Nothing is drawn if there is no logo or it fails to load.
+        val osdLogo = uiState.logo?.takeIf { it.isNotBlank() }
+        var osdLogoFailed by remember(osdLogo) { mutableStateOf(false) }
+        if (osdLogo != null && !osdLogoFailed) {
+            val osdContext = LocalContext.current
+            val osdLogoRequest = remember(osdContext, osdLogo) {
+                ImageRequest.Builder(osdContext)
+                    .data(osdLogo)
+                    .crossfade(true)
+                    .build()
+            }
+            AsyncImage(
+                model = osdLogoRequest,
+                contentDescription = uiState.contentName ?: uiState.title,
+                contentScale = ContentScale.Fit,
+                alignment = Alignment.TopStart,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = NuvioTheme.spacing.xxl, top = NuvioTheme.spacing.xl)
+                    .height(72.dp)
+                    .widthIn(max = 360.dp),
+                onError = { osdLogoFailed = true }
+            )
+        }
+
         // Bottom gradient
         Box(
             modifier = Modifier
@@ -2229,39 +2256,13 @@ private fun PlayerControlsOverlay(
                         uiState.title
                     }
 
-                    // [fork] ClearLogo in OSD: show the title's logo instead of the text title.
-                    // Reuses uiState.logo (already loaded by LoadingOverlay/PauseOverlay, so it
-                    // comes from Coil's cache). Falls back to the original text when absent/failed.
-                    val osdLogo = uiState.logo?.takeIf { it.isNotBlank() }
-                    var osdLogoFailed by remember(osdLogo) { mutableStateOf(false) }
-                    if (osdLogo != null && !osdLogoFailed) {
-                        val osdContext = LocalContext.current
-                        val osdLogoRequest = remember(osdContext, osdLogo) {
-                            ImageRequest.Builder(osdContext)
-                                .data(osdLogo)
-                                .crossfade(true)
-                                .build()
-                        }
-                        AsyncImage(
-                            model = osdLogoRequest,
-                            contentDescription = displayName,
-                            contentScale = ContentScale.Fit,
-                            alignment = Alignment.BottomStart,
-                            modifier = Modifier
-                                .height(72.dp)
-                                .widthIn(max = 420.dp),
-                            onError = { osdLogoFailed = true }
-                        )
-                        Spacer(modifier = Modifier.height(NuvioTheme.spacing.xs))
-                    } else {
-                        Text(
-                            text = displayName,
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = Color.White,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                    Text(
+                        text = displayName,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
 
                     if (uiState.currentSeason != null && uiState.currentEpisode != null) {
                         val seasonEpisodeCode = stringResource(
@@ -2287,8 +2288,7 @@ private fun PlayerControlsOverlay(
                         )
                     }
 
-                    val hasYear = !uiState.releaseYear.isNullOrBlank() &&
-                        !(uiState.currentSeason != null && uiState.currentEpisode != null) // [fork] no year for series
+                    val hasYear = !uiState.releaseYear.isNullOrBlank()
                     val showVia = false // [fork] "via" line hidden; source is still in Stream info
                     val yearText = uiState.releaseYear.orEmpty()
 
