@@ -1279,6 +1279,21 @@ fun PlayerScreen(
                 .zIndex(2.2f)
         )
 
+        // [fork] Top-left logo waits a few seconds after a title/episode starts, and while the
+        // parental guide or display-mode (Dolby Vision/HDR) popups are up, so it never clashes
+        // with them or with the TV's own HDR/Dolby Vision badge.
+        val osdLogoKey = Triple(uiState.title, uiState.currentSeason, uiState.currentEpisode)
+        var osdLogoDelayDone by remember(osdLogoKey) { mutableStateOf(false) }
+        LaunchedEffect(osdLogoKey, uiState.showLoadingOverlay) {
+            if (!osdLogoDelayDone && !uiState.showLoadingOverlay) {
+                delay(OSD_LOGO_START_DELAY_MS)
+                osdLogoDelayDone = true
+            }
+        }
+        val osdLogoAllowed = osdLogoDelayDone &&
+            !uiState.showParentalGuide &&
+            !uiState.showDisplayModeInfo
+
         val showClockOverlay = uiState.showControls &&
             uiState.osdClockEnabled &&
             uiState.error == null &&
@@ -1328,6 +1343,7 @@ fun PlayerScreen(
         ) {
             val context = LocalContext.current
             PlayerControlsOverlay(
+                osdLogoAllowed = osdLogoAllowed, // [fork]
                 uiState = uiState,
                 viewModel = viewModel,
                 playPauseFocusRequester = playPauseFocusRequester,
@@ -2147,6 +2163,7 @@ private fun PlayerView.setAssOverlayVisibility(visibility: Int) {
 
 @Composable
 private fun PlayerControlsOverlay(
+    osdLogoAllowed: Boolean, // [fork] top-left logo timing
     uiState: PlayerUiState,
     viewModel: PlayerViewModel,
     playPauseFocusRequester: FocusRequester,
@@ -2212,26 +2229,32 @@ private fun PlayerControlsOverlay(
         // Nothing is drawn if there is no logo or it fails to load.
         val osdLogo = uiState.logo?.takeIf { it.isNotBlank() }
         var osdLogoFailed by remember(osdLogo) { mutableStateOf(false) }
-        if (osdLogo != null && !osdLogoFailed) {
-            val osdContext = LocalContext.current
-            val osdLogoRequest = remember(osdContext, osdLogo) {
-                ImageRequest.Builder(osdContext)
-                    .data(osdLogo)
-                    .crossfade(true)
-                    .build()
+        AnimatedVisibility(
+            visible = osdLogo != null && !osdLogoFailed && osdLogoAllowed,
+            enter = fadeIn(animationSpec = tween(250)),
+            exit = fadeOut(animationSpec = tween(150)),
+            modifier = Modifier.align(Alignment.TopStart)
+        ) {
+            if (osdLogo != null) {
+                val osdContext = LocalContext.current
+                val osdLogoRequest = remember(osdContext, osdLogo) {
+                    ImageRequest.Builder(osdContext)
+                        .data(osdLogo)
+                        .crossfade(true)
+                        .build()
+                }
+                AsyncImage(
+                    model = osdLogoRequest,
+                    contentDescription = uiState.contentName ?: uiState.title,
+                    contentScale = ContentScale.Fit,
+                    alignment = Alignment.TopStart,
+                    modifier = Modifier
+                        .padding(start = NuvioTheme.spacing.xxl, top = NuvioTheme.spacing.xl)
+                        .height(72.dp)
+                        .widthIn(max = 360.dp),
+                    onError = { osdLogoFailed = true }
+                )
             }
-            AsyncImage(
-                model = osdLogoRequest,
-                contentDescription = uiState.contentName ?: uiState.title,
-                contentScale = ContentScale.Fit,
-                alignment = Alignment.TopStart,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(start = NuvioTheme.spacing.xxl, top = NuvioTheme.spacing.xl)
-                    .height(72.dp)
-                    .widthIn(max = 360.dp),
-                onError = { osdLogoFailed = true }
-            )
         }
 
         // Bottom gradient
@@ -3853,3 +3876,5 @@ private fun PlayerBufferingIndicator(
         }
     }
 }
+
+private const val OSD_LOGO_START_DELAY_MS = 6_000L // [fork]
