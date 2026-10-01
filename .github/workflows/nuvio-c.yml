@@ -1,4 +1,4 @@
-# Nuvio C: official NuvioTV releases + the OSD commit on this branch.
+# Nuvio C: official NuvioTV releases + the Nuvio C commits on this branch.
 #
 # Every hour it asks: has NuvioMedia/NuvioTV published a new release (betas included)?
 # If not, it stops in seconds. If yes:
@@ -10,7 +10,9 @@
 # A run is skipped when that release was already built (unless forced).
 # You get a GitHub notification (an issue on this repo) when:
 #   - upstream changed any of the OSD code this fork modifies (build still runs), or
-#   - upstream conflicts with the fork's changes (build stops; last good APK stays).
+#   - upstream conflicts with the core changes (OSD/Simkl: build stops; last good APK stays), or
+#   - upstream conflicts with, or breaks, the optional background-trailer patch (the APK is
+#     still built and published, just without background trailers).
 
 name: Nuvio C build
 
@@ -45,6 +47,18 @@ env:
     app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerScreen.kt
     app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerRuntimeControllerMetadata.kt
   OSD_FUNCTIONS: PlayerControlsOverlay|ProgressBar|SeekOverlay|PlayerControlsProgressBarHost|applyMetaDetails
+  # Background trailers (upstream PR #3730 + Nuvio C layer). Applied as a separate, optional patch:
+  # if an official release conflicts with it, or the app won't compile with it, the build carries
+  # on without it (official trailer behaviour) and opens an issue. Everything else is the core patch.
+  TRAILER_PATHS: >-
+    app/src/main/java/com/nuvio/tv/ui/screens/detail
+    app/src/main/java/com/nuvio/tv/ui/components/TrailerPlayer.kt
+    app/src/main/java/com/nuvio/tv/ui/components/NuvioCTrailerFraming.kt
+    app/src/main/java/com/nuvio/tv/data/local/TrailerSettingsDataStore.kt
+    app/src/main/java/com/nuvio/tv/ui/screens/settings/LayoutDetailSettings.kt
+    app/src/main/java/com/nuvio/tv/ui/screens/settings/LayoutSettingsViewModel.kt
+    app/src/main/res/values/strings_nuvio_c_trailer.xml
+    app/src/main/res/values-fr/strings_nuvio_c_trailer.xml
 
 jobs:
   build:
@@ -129,16 +143,22 @@ jobs:
           fi
 
       - name: Replay Nuvio C commits onto the official release
+        id: replay
         if: steps.plan.outputs.build == 'true'
         run: |
           git config user.name "nuvio-c-bot"
           git config user.email "nuvio-c-bot@users.noreply.github.com"
-          # Our changes = this branch vs the upstream dev commit it sits on, as one combined patch
+          read -ra trailer_paths <<< "$TRAILER_PATHS"
+          exclude=()
+          for p in "${trailer_paths[@]}"; do exclude+=(":(exclude)$p"); done
+          # Our changes = this branch vs the upstream commit it sits on, split into core + trailer
           base="$(git merge-base HEAD upstream/$UPSTREAM_BRANCH)"
-          echo "Nuvio C commits (applied as one patch onto ${{ steps.plan.outputs.release }}):"
+          echo "Nuvio C commits (applied onto ${{ steps.plan.outputs.release }}):"
           git log --oneline "$base..HEAD"
-          git diff --binary "$base" HEAD > "$RUNNER_TEMP/nuvio-c.patch"
-          git diff --stat "$base" HEAD
+          git diff --binary "$base" HEAD -- . "${exclude[@]}" > "$RUNNER_TEMP/nuvio-c.patch"
+          git diff --binary "$base" HEAD -- "${trailer_paths[@]}" > "$RUNNER_TEMP/nuvio-c-trailer.patch"
+          echo "Core patch:"; git diff --stat "$base" HEAD -- . "${exclude[@]}"
+          echo "Trailer patch:"; git diff --stat "$base" HEAD -- "${trailer_paths[@]}"
           git checkout -q --detach refs/nuvio/release
           if ! git apply --3way --index "$RUNNER_TEMP/nuvio-c.patch"; then
             git reset -q --hard
@@ -147,6 +167,35 @@ jobs:
             echo "::error::Upstream changed the same code as the Nuvio C commits. The patch needs a manual refresh."
             exit 1
           fi
+          git commit -q --no-verify -m "Nuvio C core"
+          # Optional trailer patch: a conflict only drops the feature, never the update
+          trailer="skipped"
+          if [ ! -s "$RUNNER_TEMP/nuvio-c-trailer.patch" ]; then
+            trailer="none"
+          elif git apply --3way --index "$RUNNER_TEMP/nuvio-c-trailer.patch"; then
+            git commit -q --no-verify -m "Nuvio C background trailers"
+            git diff --binary HEAD~1 HEAD > "$RUNNER_TEMP/nuvio-c-trailer-applied.patch"
+            trailer="applied"
+            changed="$(git diff --name-only "$base" refs/nuvio/release -- "${trailer_paths[@]}" || true)"
+            if [ -n "$changed" ]; then
+              {
+                echo "Official ${{ steps.plan.outputs.release }} changed files the background-trailer feature also edits. It still merged and built, but check the detail page on the TV."
+                echo
+                echo '```'
+                echo "$changed"
+                echo '```'
+              } > trailer-notice.md
+            fi
+          else
+            git reset -q --hard
+            {
+              echo "Official ${{ steps.plan.outputs.release }} conflicts with the background-trailer patch, so this build was made **without** background trailers (official trailer behaviour). Everything else is in."
+              echo
+              echo "The trailer patch needs refreshing. If official has merged PR #3730, the fork's copy can be removed instead."
+            } > trailer-notice.md
+          fi
+          echo "Background trailers: $trailer"
+          echo "trailer=$trailer" >> "$GITHUB_OUTPUT"
 
       - name: Check secrets
         if: steps.plan.outputs.build == 'true'
@@ -218,8 +267,25 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build release APK
+        id: apk
         if: steps.plan.outputs.build == 'true'
-        run: ./gradlew :app:assembleFullRelease --stacktrace
+        run: |
+          trailer="${{ steps.replay.outputs.trailer }}"
+          if ./gradlew :app:assembleFullRelease --stacktrace; then
+            echo "trailer=$trailer" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          [ "$trailer" = "applied" ] || exit 1
+          # The trailer patch merged but no longer compiles against this release: drop it and retry
+          echo "::warning::Build failed with background trailers; retrying without them."
+          git apply -R "$RUNNER_TEMP/nuvio-c-trailer-applied.patch"
+          {
+            echo "Official ${{ steps.plan.outputs.release }} merged with the background-trailer patch but the app didn't compile with it, so this build was made **without** background trailers (official trailer behaviour). Everything else is in."
+            echo
+            echo "See the failed first attempt in the build log. The trailer patch needs refreshing."
+          } > trailer-notice.md
+          ./gradlew :app:assembleFullRelease --stacktrace
+          echo "trailer=build-failed" >> "$GITHUB_OUTPUT"
 
       - name: Publish release
         if: steps.plan.outputs.build == 'true'
@@ -234,6 +300,11 @@ jobs:
           gh release delete "$tag" --yes --cleanup-tag >/dev/null 2>&1 || true
           rel="${{ steps.plan.outputs.release }}"
           notes="Nuvio C, built from official NuvioTV release [${rel}](https://github.com/${UPSTREAM_SLUG}/releases/tag/${rel}) (commit ${{ steps.plan.outputs.upstream_sha }}) plus the Nuvio C player tweaks."
+          if [ "${{ steps.apk.outputs.trailer }}" = "applied" ]; then
+            notes="${notes} Background trailers included."
+          else
+            notes="${notes} Background trailers NOT included in this build (see issues)."
+          fi
           gh release create "$tag" "$out" --target "$GITHUB_SHA" \
             --title "Nuvio C ${rel}" \
             --notes "$notes" --latest
@@ -250,3 +321,13 @@ jobs:
             echo "::error::Could not open the heads-up issue (are Issues enabled on this repo?)."
             exit 1
           fi
+
+      - name: Send background-trailer notice
+        if: success() && steps.plan.outputs.build == 'true' && hashFiles('trailer-notice.md') != ''
+        run: |
+          if [ "${{ steps.apk.outputs.trailer }}" = "applied" ]; then
+            title="Nuvio C: official ${{ steps.plan.outputs.release }} changed detail-page code (background trailers still in)"
+          else
+            title="Nuvio C: ${{ steps.plan.outputs.release }} built without background trailers"
+          fi
+          gh issue create --title "$title" --body-file trailer-notice.md || cat trailer-notice.md
