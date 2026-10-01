@@ -249,7 +249,7 @@ internal fun SimklAccountDialog(
                 instruction = stringResource(R.string.simkl_awaiting_instruction),
                 userCode = state.userCode,
                 displayUrl = state.verificationUri,
-                qrUrl = state.verificationUri,
+                qrUrl = state.qrUri ?: state.verificationUri, // [fork] AUTH V2 pre-filled QR
                 expiresAtEpochMs = state.expiresAtEpochMs,
                 isLoading = state.isLoading,
                 isPolling = state.isPolling,
