@@ -138,6 +138,12 @@ fun HeroContentSection(
         animationSpec = tween(NuvioMotion.tokens.durations.overlay),
         label = "nuvioCLogoAlpha"
     )
+    // [fork] description dimmer than the rest over a background trailer (Apple TV grey), full when focused
+    val nuvioCDescriptionAlpha by animateFloatAsState(
+        targetValue = if (isBackgroundTrailerPlaying && !isSynopsisFocused) NUVIO_C_DESCRIPTION_ALPHA else 1f,
+        animationSpec = tween(300),
+        label = "nuvioCDescriptionAlpha"
+    )
     val isSeriesApi = remember(meta.apiType) {
         meta.apiType.equals("series", ignoreCase = true) || meta.apiType.equals("tv", ignoreCase = true)
     }
@@ -194,7 +200,7 @@ fun HeroContentSection(
         label = "logoWidth"
     )
     val heroActionsAlpha by animateFloatAsState(
-        targetValue = if (isTrailerPlaying && hideLogoDuringTrailer) 0f else 1f,
+        targetValue = if (isTrailerPlaying && (hideLogoDuringTrailer || nuvioCFadeLogo)) 0f else 1f, // [fork]
         animationSpec = tween(NuvioMotion.tokens.durations.overlay),
         label = "heroActionsTrailerAlpha"
     )
@@ -208,8 +214,9 @@ fun HeroContentSection(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .animateContentSize(
-                    animationSpec = tween(600)
+                .then( // [fork] same size animation without clipping the logo or the focused buttons
+                    if (nuvioCFadeLogo) Modifier.nuvioCAnimateHeightNoClip(tween(600))
+                    else Modifier.animateContentSize(animationSpec = tween(600))
                 )
                 .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl, bottom = NuvioTheme.spacing.lg),
             verticalArrangement = Arrangement.Bottom
@@ -264,9 +271,10 @@ fun HeroContentSection(
             // Everything below the logo fades out during trailer
             AnimatedVisibility(
                 visible = !isTrailerPlaying || hideLogoDuringTrailer,
-                enter = fadeIn(tween(NuvioMotion.tokens.durations.overlay)),
+                // [fork] fade via heroActionsAlpha on a non-clipping layer, so the focused Play button's ring is never cut
+                enter = if (nuvioCFadeLogo) androidx.compose.animation.EnterTransition.None else fadeIn(tween(NuvioMotion.tokens.durations.overlay)),
                 exit = fadeOut(tween(NuvioMotion.tokens.durations.overlay)),
-                modifier = Modifier.alpha(heroActionsAlpha)
+                modifier = if (nuvioCFadeLogo) Modifier.nuvioCFade(heroActionsAlpha) else Modifier.alpha(heroActionsAlpha)
             ) {
                 Column {
                     Row(
@@ -371,6 +379,7 @@ fun HeroContentSection(
                                 onFocused = onHeroActionFocused,
                                 onTruncationChanged = onTruncationChanged,
                                 modifier = Modifier
+                                    .nuvioCFade(nuvioCDescriptionAlpha) // [fork]
                                     .onFocusChanged { isSynopsisFocused = it.hasFocus }
                                     .fillMaxWidth(0.6f)
                                     .padding(bottom = NuvioTheme.spacing.md)

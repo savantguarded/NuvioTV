@@ -3,5 +3,5 @@
      file so upstream edits to strings.xml never conflict with them. -->
 <resources>
     <string name="audio_trailer_background">Background trailers</string>
-    <string name="audio_trailer_background_sub">Plays the trailer muted behind the page only</string>
+    <string name="audio_trailer_background_sub">Plays the trailer muted behind the page.</string>
 </resources>

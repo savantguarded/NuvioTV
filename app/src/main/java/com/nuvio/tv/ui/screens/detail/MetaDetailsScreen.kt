@@ -3259,8 +3259,8 @@ private fun BackdropLayer(
             isPlaying = isTrailerPlaying,
             isPaused = isTrailerPaused || (isBackgroundTrailerPlaying && nuvioCTrailer.overlayOpen), // [fork]
             focusable = !isBackgroundTrailerPlaying,
-            // [fork] keep the framing when the trailer button adds sound, so the picture never jumps
-            cropToFill = nuvioCTrailer.keepFraming,
+            // [fork] fill the screen only while muted in the background; the trailer button eases back to normal framing
+            cropToFill = nuvioCTrailer.keepFraming && isBackgroundTrailerPlaying,
             overscanZoom = if (nuvioCTrailer.keepFraming) BACKGROUND_TRAILER_OVERSCAN_ZOOM else 1f,
             autoFitBars = nuvioCTrailer.keepFraming, // [fork] zoom only as far as the letterbox needs
             muted = isBackgroundTrailerPlaying, // [fork] background trailers are silent; trailer button = sound

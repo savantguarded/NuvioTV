@@ -76,10 +76,13 @@ fun TrailerPlayer(
     var nuvioCBarZoom by remember(trailerUrl) { mutableStateOf(1f) }
     var nuvioCBarsChecked by remember(trailerUrl) { mutableStateOf(false) }
     val nuvioCViewRef = remember { arrayOfNulls<PlayerView>(1) }
-    val nuvioCAnimatedBarZoom by animateFloatAsState(nuvioCBarZoom, tween(900), label = "nuvioCBarZoom")
-    val zoomScale = if (cropToFill) {
-        if (autoFitBars) nuvioCAnimatedBarZoom else overscanZoom.coerceAtLeast(1f)
-    } else 1f
+    // [fork] the zoom eases back to 1x when cropToFill turns off (trailer button = normal framing)
+    val nuvioCAnimatedBarZoom by animateFloatAsState(
+        if (cropToFill) minOf(nuvioCBarZoom, overscanZoom.coerceAtLeast(1f)) else 1f,
+        tween(900),
+        label = "nuvioCBarZoom"
+    )
+    val zoomScale = if (autoFitBars) nuvioCAnimatedBarZoom else if (cropToFill) overscanZoom.coerceAtLeast(1f) else 1f
     var hasRenderedFirstFrame by remember(trailerUrl) { mutableStateOf(false) }
     val playerAlphaState = animateFloatAsState(
         targetValue = if (isPlaying && hasRenderedFirstFrame) 1f else 0f,
