@@ -2852,8 +2852,11 @@ private fun ProgressBar(
                 }
             }
             .clip(RoundedCornerShape(3.dp))
-            // [fork] YouTube-style track: brighter, no outline
-            .background(Color.White.copy(alpha = if (isFocused) 0.4f else 0.3f))
+            .background(
+                if (isFocused) Color.White.copy(alpha = 0.5f)
+                else Color.White.copy(alpha = 0.35f)
+            )
+            // [fork] no outline (YouTube style)
     ) {
         val trackWidth = maxWidth
 
@@ -2865,7 +2868,7 @@ private fun ProgressBar(
                     .fillMaxHeight()
                     .width(trackWidth * animatedBufferedProgress)
                     .clip(RoundedCornerShape(3.dp))
-                    .background(Color.White.copy(alpha = 0.45f)) // [fork] YouTube-style light grey buffer
+                    .background(Color.White.copy(alpha = 0.4f)) // [fork] YouTube-style light grey buffer
             )
         }
         // Played fill.
