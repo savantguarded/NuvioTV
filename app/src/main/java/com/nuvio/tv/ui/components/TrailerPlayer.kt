@@ -56,6 +56,7 @@ fun TrailerPlayer(
     cropToFill: Boolean = false,
     overscanZoom: Float = 1f,
     autoFitBars: Boolean = false, // [fork] zoom only as far as burned-in letterbox bars need
+    playOnce: Boolean = false, // [fork] end after one pass even if the stream wraps or stalls at its end
     modifier: Modifier = Modifier,
     enter: EnterTransition = fadeIn(animationSpec = tween(800)),
     exit: ExitTransition = fadeOut(animationSpec = tween(500)),
@@ -117,6 +118,27 @@ fun TrailerPlayer(
             C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
         } else {
             C.VIDEO_SCALING_MODE_SCALE_TO_FIT
+        }
+    }
+
+    // [fork] playOnce: treat reaching the end, or the playhead jumping back to the start without a
+    // seek, as the end of the trailer, so a background trailer can never loop.
+    LaunchedEffect(trailerPlayer, isPlaying, playOnce) {
+        val player = trailerPlayer ?: return@LaunchedEffect
+        if (!isPlaying || !playOnce) return@LaunchedEffect
+        var furthest = 0L
+        while (true) {
+            delay(500)
+            val duration = player.duration.takeIf { it > 0 } ?: continue
+            val position = player.currentPosition
+            val atEnd = position >= duration - 300
+            val wrapped = furthest >= duration - 3_000 && position < furthest - 5_000
+            if (atEnd || wrapped) {
+                player.playWhenReady = false
+                currentOnEnded()
+                break
+            }
+            furthest = maxOf(furthest, position)
         }
     }
 

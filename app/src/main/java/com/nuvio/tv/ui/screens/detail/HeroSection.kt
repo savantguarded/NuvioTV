@@ -117,7 +117,7 @@ fun HeroContentSection(
     showFullReleaseDate: Boolean = true,
     isTrailerPlaying: Boolean = false,
     isBackgroundTrailerPlaying: Boolean = false,
-    nuvioCTrailerIdle: Boolean = false, // [fork] fade the page behind a muted background trailer
+    nuvioCFadeLogo: Boolean = false, // [fork] fade the logo in/out with the trailer instead of removing it
     playButtonFocusRequester: FocusRequester? = null,
     restorePlayFocusToken: Int = 0,
     onHeroActionFocused: () -> Unit = {},
@@ -128,15 +128,15 @@ fun HeroContentSection(
     val context = LocalContext.current
     var isSynopsisFocused by remember(meta.id) { mutableStateOf(false) }
     val detailTextAlpha = animateFloatAsState(
-        targetValue = 1f, // [fork] full-brightness text over the trailer (PR dimmed it to 0.85f)
+        targetValue = if (isBackgroundTrailerPlaying && !isSynopsisFocused) 0.85f else 1f,
         animationSpec = tween(300),
         label = "backgroundTrailerDetailTextAlpha"
     )
-    // [fork] Apple TV-style idle fade: buttons and text fade out, the logo stays
-    val nuvioCIdleAlpha by animateFloatAsState(
-        targetValue = if (nuvioCTrailerIdle) 0f else 1f,
-        animationSpec = tween(if (nuvioCTrailerIdle) 800 else 250),
-        label = "nuvioCIdleAlpha"
+    // [fork] Logo stays composed and fades with the trailer, so it never pops, reloads or crops mid-move
+    val nuvioCLogoAlpha by animateFloatAsState(
+        targetValue = if (isTrailerPlaying && hideLogoDuringTrailer) 0f else 1f,
+        animationSpec = tween(NuvioMotion.tokens.durations.overlay),
+        label = "nuvioCLogoAlpha"
     )
     val isSeriesApi = remember(meta.apiType) {
         meta.apiType.equals("series", ignoreCase = true) || meta.apiType.equals("tv", ignoreCase = true)
@@ -153,7 +153,7 @@ fun HeroContentSection(
     val shouldShowLogo =
         !meta.logo.isNullOrBlank() &&
             !logoLoadFailed &&
-            !(isTrailerPlaying && hideLogoDuringTrailer)
+            !(isTrailerPlaying && hideLogoDuringTrailer && !nuvioCFadeLogo) // [fork]
     val libraryAddPainter = rememberRawSvgPainter(
         context = context,
         rawRes = com.nuvio.tv.R.raw.library_add_plus
@@ -221,6 +221,10 @@ fun HeroContentSection(
                     contentDescription = meta.name,
                     onError = { logoLoadFailed = true },
                     modifier = Modifier
+                        .graphicsLayer { // [fork] alpha without an offscreen layer, so nothing gets clipped
+                            alpha = if (nuvioCFadeLogo) nuvioCLogoAlpha else 1f
+                            compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
+                        }
                         .height(logoHeight)
                         .fillMaxWidth(logoMaxWidth)
                         .padding(bottom = logoBottomPadding),
@@ -264,7 +268,7 @@ fun HeroContentSection(
                 exit = fadeOut(tween(NuvioMotion.tokens.durations.overlay)),
                 modifier = Modifier.alpha(heroActionsAlpha)
             ) {
-                Column(modifier = Modifier.graphicsLayer { alpha = nuvioCIdleAlpha }) { // [fork]
+                Column {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
                         verticalAlignment = Alignment.CenterVertically

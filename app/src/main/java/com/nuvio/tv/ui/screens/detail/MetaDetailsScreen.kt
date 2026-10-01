@@ -513,8 +513,6 @@ fun MetaDetailsScreen(
     val currentIsTrailerPlaying by rememberUpdatedState(uiState.isTrailerPlaying)
     val currentShowTrailerControls by rememberUpdatedState(uiState.showTrailerControls)
     val currentBackgroundTrailerPlaying by rememberUpdatedState(uiState.isBackgroundTrailerPlaying)
-    val currentNuvioCIdle by rememberUpdatedState(uiState.nuvioCTrailerUi.idle) // [fork]
-    var nuvioCSwallowKeyUp by remember { mutableStateOf(false) } // [fork]
 
     LaunchedEffect(childOverlayVisible) {
         if (childOverlayVisible) viewModel.onEvent(MetaDetailsEvent.OnLifecyclePause)
@@ -572,20 +570,6 @@ fun MetaDetailsScreen(
             .fillMaxSize()
             .background(NuvioTheme.colors.Background)
             .onPreviewKeyEvent { keyEvent ->
-                // [fork] Nuvio C: while the page text is faded behind a background trailer, the first
-                // press only wakes it, so nothing invisible gets activated. Back still works as usual.
-                val nuvioCKey = keyEvent.nativeKeyEvent
-                if (nuvioCKey.keyCode != KeyEvent.KEYCODE_BACK && nuvioCKey.keyCode != KeyEvent.KEYCODE_ESCAPE) {
-                    if (nuvioCKey.action == KeyEvent.ACTION_DOWN && currentNuvioCIdle) {
-                        nuvioCSwallowKeyUp = true
-                        viewModel.onEvent(MetaDetailsEvent.OnUserInteraction)
-                        return@onPreviewKeyEvent true
-                    }
-                    if (nuvioCKey.action == KeyEvent.ACTION_UP && nuvioCSwallowKeyUp) {
-                        nuvioCSwallowKeyUp = false
-                        return@onPreviewKeyEvent true
-                    }
-                }
                 if (currentIsTrailerPlaying && !currentBackgroundTrailerPlaying) {
                     if (currentShowTrailerControls) {
                         if (keyEvent.nativeKeyEvent.action != KeyEvent.ACTION_DOWN) {
@@ -2304,7 +2288,10 @@ private fun MetaDetailsContent(
             trailerAudioUrl = trailerAudioUrl,
             isTrailerPlaying = isTrailerPlaying,
             isBackgroundTrailerPlaying = isBackgroundTrailerPlaying,
-            nuvioCTrailer = nuvioCTrailer, // [fork]
+            nuvioCTrailer = nuvioCTrailer.copy( // [fork] in-page overlays pause the background trailer
+                overlayOpen = nuvioCTrailer.overlayOpen || selectedComment != null || showSynopsisOverlay ||
+                    showHeroPlayOptionsDialog || showRandomEpisodeOverlay || seasonOptionsDialogSeason != null
+            ),
             isTrailerPaused = isTrailerPaused,
             showTrailerControls = showTrailerControls,
             trailerSeekToken = trailerSeekToken,
@@ -2510,7 +2497,7 @@ private fun MetaDetailsContent(
                         hideLogoDuringTrailer = hideLogoDuringTrailer,
                         isTrailerPlaying = isTrailerPlaying && !isBackgroundTrailerPlaying,
                         isBackgroundTrailerPlaying = isBackgroundTrailerPlaying,
-                        nuvioCTrailerIdle = nuvioCTrailer.idle, // [fork]
+                        nuvioCFadeLogo = nuvioCTrailer.featureOn, // [fork]
                         playButtonFocusRequester = heroPlayButtonFocusRequester,
                         onHeroActionFocused = {
                             if (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0) {
@@ -3232,7 +3219,7 @@ private fun BackdropLayer(
     val gradientAlphaState = animateFloatAsState(
         targetValue = when {
             (isTrailerPlaying && !isBackgroundTrailerPlaying) || isScrolledPastHero -> 0f
-            isBackgroundTrailerPlaying -> 1f // [fork] full official scrim keeps the text readable (PR: 0.85f)
+            isBackgroundTrailerPlaying -> 0.75f // [fork] lighter scrim, Apple TV style (PR: 0.85f)
             else -> 1f
         },
         animationSpec = tween(durationMillis = if (isScrolledPastHero) 300 else 800),
@@ -3270,14 +3257,14 @@ private fun BackdropLayer(
             trailerUrl = trailerUrl,
             trailerAudioUrl = trailerAudioUrl,
             isPlaying = isTrailerPlaying,
-            // [fork] pause the background trailer while browsing rows below the hero
-            isPaused = isTrailerPaused || (isBackgroundTrailerPlaying && isScrolledPastHero),
+            isPaused = isTrailerPaused || (isBackgroundTrailerPlaying && nuvioCTrailer.overlayOpen), // [fork]
             focusable = !isBackgroundTrailerPlaying,
             // [fork] keep the framing when the trailer button adds sound, so the picture never jumps
             cropToFill = nuvioCTrailer.keepFraming,
             overscanZoom = if (nuvioCTrailer.keepFraming) BACKGROUND_TRAILER_OVERSCAN_ZOOM else 1f,
             autoFitBars = nuvioCTrailer.keepFraming, // [fork] zoom only as far as the letterbox needs
             muted = isBackgroundTrailerPlaying, // [fork] background trailers are silent; trailer button = sound
+            playOnce = isBackgroundTrailerPlaying, // [fork] one pass, never loops
             seekRequestToken = if (showTrailerControls) trailerSeekToken else 0,
             seekDeltaMs = if (showTrailerControls) trailerSeekDeltaMs else 0L,
             onRemoteKey = onTrailerControlKey,

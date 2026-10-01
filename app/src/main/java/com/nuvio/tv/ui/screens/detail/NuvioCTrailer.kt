@@ -6,17 +6,17 @@ package com.nuvio.tv.ui.screens.detail
 
 /** Detail-page trailer state the fork threads from the screen down to the hero and backdrop. */
 data class NuvioCTrailerUi(
-    /** "Background trailers" is on and a trailer is playing: keep the fill-the-screen framing. */
+    /** "Background trailers" is on: keep the fill-the-screen framing and fade the logo, never pop it. */
+    val featureOn: Boolean = false,
+    /** A trailer is playing with the feature on: keep the framing when the trailer button adds sound. */
     val keepFraming: Boolean = false,
-    /** Muted background trailer has had no remote input for a while: fade the page text. */
-    val idle: Boolean = false
+    /** An in-page overlay (comments, synopsis, dialogs) covers the page: pause the background trailer. */
+    val overlayOpen: Boolean = false
 )
 
 internal val MetaDetailsUiState.nuvioCTrailerUi: NuvioCTrailerUi
     get() = NuvioCTrailerUi(
+        featureOn = backgroundTrailerEnabled,
         keepFraming = backgroundTrailerEnabled && isTrailerPlaying,
-        idle = nuvioCBackgroundIdle && isBackgroundTrailerPlaying
+        overlayOpen = showListPicker || removalConfirmations.isNotEmpty()
     )
-
-/** Seconds of no remote input before the page text fades behind a muted background trailer. */
-internal const val NUVIO_C_BACKGROUND_IDLE_MS = 6_000L

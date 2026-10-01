@@ -163,7 +163,6 @@ class MetaDetailsViewModel @Inject constructor(
         posterOptions.bind(viewModelScope)
         observeMetaViewSettings()
         observeTrailerAutoplaySettings()
-        observeNuvioCBackgroundIdle() // [fork]
         observeTraktCommentsAvailability()
         observeLibraryState()
         observeWatchProgress()
@@ -2896,6 +2895,7 @@ class MetaDetailsViewModel @Inject constructor(
 
         idleTimerJob = viewModelScope.launch {
             delay(trailerDelayMs)
+            if (_uiState.value.backgroundTrailerEnabled) trailerHasPlayed = true // [fork] background trailer: one and done
             setTrailerPlaybackState(
                 isPlaying = true,
                 showControls = false,
@@ -2911,7 +2911,6 @@ class MetaDetailsViewModel @Inject constructor(
     }
 
     private fun handleUserInteraction() {
-        restartNuvioCIdleTimer() // [fork] any remote input wakes the page behind a background trailer
         val state = _uiState.value
         val shouldStopAutoTrailer = state.isTrailerPlaying &&
             !state.showTrailerControls && !state.isBackgroundTrailerPlaying
@@ -3085,37 +3084,6 @@ class MetaDetailsViewModel @Inject constructor(
         incoming.forEach { trailer -> merged.putIfAbsent(keyOf(trailer), trailer) }
         return merged.values.toList()
     }
-
-    // [fork] ---- Nuvio C: fade the page text after a while of no input behind a muted background trailer ----
-    private var nuvioCIdleJob: Job? = null
-
-    private fun observeNuvioCBackgroundIdle() {
-        viewModelScope.launch {
-            _uiState.map { it.isBackgroundTrailerPlaying }.distinctUntilChanged().collect { playing ->
-                if (playing) {
-                    restartNuvioCIdleTimer()
-                } else {
-                    nuvioCIdleJob?.cancel()
-                    setNuvioCIdle(false)
-                }
-            }
-        }
-    }
-
-    private fun restartNuvioCIdleTimer() {
-        nuvioCIdleJob?.cancel()
-        setNuvioCIdle(false)
-        if (!_uiState.value.isBackgroundTrailerPlaying) return
-        nuvioCIdleJob = viewModelScope.launch {
-            delay(NUVIO_C_BACKGROUND_IDLE_MS)
-            setNuvioCIdle(true)
-        }
-    }
-
-    private fun setNuvioCIdle(idle: Boolean) {
-        _uiState.update { if (it.nuvioCBackgroundIdle == idle) it else it.copy(nuvioCBackgroundIdle = idle) }
-    }
-    // [fork] ---- end Nuvio C ----
 
     override fun onCleared() {
         super.onCleared()
