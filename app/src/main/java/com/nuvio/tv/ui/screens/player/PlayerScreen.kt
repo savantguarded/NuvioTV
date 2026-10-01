@@ -1322,7 +1322,8 @@ fun PlayerScreen(
         }
         val osdLogoAllowed = osdLogoDelayDone &&
             !uiState.showParentalGuide &&
-            !uiState.showDisplayModeInfo
+            !uiState.showDisplayModeInfo &&
+            !(uiState.playerStatsHudEnabled && uiState.playerStatsHudButtonAvailable) // [fork] stats HUD sits top-left
 
         val showClockOverlay = uiState.showControls &&
             uiState.osdClockEnabled &&
@@ -2359,7 +2360,8 @@ private fun PlayerControlsOverlay(
                         )
                     }
 
-                    val hasYear = !uiState.releaseYear.isNullOrBlank()
+                    val isEpisodePlayback = uiState.currentSeason != null && uiState.currentEpisode != null
+                    val hasYear = !uiState.releaseYear.isNullOrBlank() && !isEpisodePlayback // [fork] no year for series
                     val showVia = false // [fork] "via" line hidden; source is still in Stream info
                     val yearText = uiState.releaseYear.orEmpty()
 
@@ -2912,9 +2914,9 @@ private fun ProgressBar(
             .drawWithContent {
                 drawContent()
                 if (isFocused) {
+                    // [fork] YouTube-style thumb: same colour as the played fill, no halo
                     val thumbCenter = Offset(size.width * animatedProgress, size.height / 2f)
-                    drawCircle(Color.Black.copy(alpha = 0.4f), radius = 8.dp.toPx(), center = thumbCenter)
-                    drawCircle(Color.White, radius = 7.dp.toPx(), center = thumbCenter)
+                    drawCircle(brush = accentBrush, radius = 7.dp.toPx(), center = thumbCenter)
                 }
             }
             .clip(RoundedCornerShape(3.dp))
