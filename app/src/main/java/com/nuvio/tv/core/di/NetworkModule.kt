@@ -221,18 +221,24 @@ object NetworkModule {
         @Named("simkl") okHttpClient: OkHttpClient,
         configuration: SimklApiConfiguration,
         storage: SimklAuthStorage
-    ): SimklApiClient = SimklApiClient(
-        engine = OkHttpSimklEngine(okHttpClient),
-        configuration = configuration,
-        authorization = storage::authorization,
-        onUnauthorized = { authorization ->
-            storage.clearAuth(
-                error = SimklAuthError.AUTHORIZATION_REVOKED,
-                scope = authorization.scope,
-                expectedAccessToken = authorization.accessToken
-            )
-        }
-    )
+    ): SimklApiClient {
+        val engine = OkHttpSimklEngine(okHttpClient)
+        // [fork] Simkl AUTH V2 automatic token renewal.
+        val tokenRefresher = com.nuvio.tv.data.simkl.SimklTokenRefresher(engine, configuration, storage)
+        return SimklApiClient(
+            engine = engine,
+            configuration = configuration,
+            authorization = storage::authorization,
+            onUnauthorized = { authorization ->
+                storage.clearAuth(
+                    error = SimklAuthError.AUTHORIZATION_REVOKED,
+                    scope = authorization.scope,
+                    expectedAccessToken = authorization.accessToken
+                )
+            },
+            refreshAuthorization = tokenRefresher::refresh
+        )
+    }
 
     @Provides
     @Singleton

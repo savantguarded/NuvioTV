@@ -31,8 +31,16 @@ data class SimklApiRequest(
     val body: String = "",
     val requiresAuthentication: Boolean = true,
     val retryPolicy: SimklRetryPolicy = SimklRetryPolicy.TRANSIENT_FAILURES,
-    val scrobbleStopConflictIsSuccess: Boolean = false
+    val scrobbleStopConflictIsSuccess: Boolean = false,
+    val formEncoded: Boolean = false // [fork] AUTH V2 OAuth endpoints
 )
+
+// [fork] Result of trying to renew a Simkl AUTH V2 access token.
+sealed interface SimklRefreshOutcome {
+    data class Refreshed(val authorization: SimklAuthorization) : SimklRefreshOutcome
+    data object Rejected : SimklRefreshOutcome // refresh token no longer valid: log out
+    data object Unavailable : SimklRefreshOutcome // network/server trouble: keep the login, try later
+}
 
 data class SimklRawHttpResponse(
     val status: Int,
@@ -70,7 +78,9 @@ class SimklApiClient(
     private val onUnauthorized: (SimklAuthorization) -> Unit,
     private val nowEpochMs: () -> Long = System::currentTimeMillis,
     private val sleep: suspend (Long) -> Unit = { delay(it) },
-    private val retryJitterMs: () -> Long = { Random.nextLong(RETRY_JITTER_BOUND_MS + 1L) }
+    private val retryJitterMs: () -> Long = { Random.nextLong(RETRY_JITTER_BOUND_MS + 1L) },
+    // [fork] AUTH V2 automatic token renewal; null keeps the official V1 behaviour.
+    private val refreshAuthorization: (suspend (SimklAuthorization) -> SimklRefreshOutcome)? = null
 ) {
     private val requestMutex = Mutex()
     private val json = Json { ignoreUnknownKeys = true }
@@ -96,7 +106,7 @@ class SimklApiClient(
                         (nowEpochMs() - queuedAtEpochMs).coerceAtLeast(0L)
                 )
             }
-            val requestAuthorization = if (request.requiresAuthentication) {
+            var requestAuthorization = if (request.requiresAuthentication) {
                 authorization()?.takeIf { it.accessToken.isNotBlank() }
                     ?.also { current ->
                         if (expectedAuthScope != null && current.scope != expectedAuthScope) {
@@ -111,8 +121,28 @@ class SimklApiClient(
             } else {
                 null
             }
-            val token = requestAuthorization?.accessToken
-            val maxAttempts = if (request.retryPolicy == SimklRetryPolicy.NEVER) 1 else MAX_ATTEMPTS
+            // [fork] AUTH V2: renew the access token shortly before it expires.
+            val refresher = refreshAuthorization
+            requestAuthorization?.let { current ->
+                val expiresAt = current.expiresAtEpochMs
+                if (refresher != null && current.refreshToken != null && expiresAt != null &&
+                    expiresAt - nowEpochMs() <= TOKEN_REFRESH_MARGIN_MS
+                ) {
+                    when (val outcome = refresher(current)) {
+                        is SimklRefreshOutcome.Refreshed -> requestAuthorization = outcome.authorization
+                        SimklRefreshOutcome.Rejected -> if (expiresAt <= nowEpochMs()) {
+                            onUnauthorized(current)
+                            throw SimklApiException(401, "authentication_required", "Simkl authentication expired")
+                        }
+                        SimklRefreshOutcome.Unavailable -> Unit
+                    }
+                }
+            }
+            var token = requestAuthorization?.accessToken
+            var canRefreshOnUnauthorized = refresher != null && requestAuthorization?.refreshToken != null
+            val baseMaxAttempts = if (request.retryPolicy == SimklRetryPolicy.NEVER) 1 else MAX_ATTEMPTS
+            val maxAttempts = baseMaxAttempts + (if (canRefreshOnUnauthorized) 1 else 0)
+            var refreshRetries = 0 // the extra attempt is only for renew-and-retry
             var syncWriteLockRetried = false
             repeat(maxAttempts) { attempt ->
                 val response = try {
@@ -123,7 +153,8 @@ class SimklApiClient(
                             headers = simklRequestHeaders(
                                 configuration = configuration,
                                 accessToken = token,
-                                contentTypeJson = request.method != SimklHttpMethod.GET
+                                contentTypeJson = request.method != SimklHttpMethod.GET,
+                                formEncoded = request.formEncoded
                             ),
                             body = request.body
                         )
@@ -131,7 +162,7 @@ class SimklApiClient(
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Throwable) {
-                    if (attempt == maxAttempts - 1) {
+                    if (attempt >= baseMaxAttempts - 1 + refreshRetries) {
                         throw SimklApiException(null, "transport_failure", "Simkl request failed", error)
                     }
                     sleep(retryDelayMs(attempt, null, retryJitterMs()))
@@ -150,7 +181,7 @@ class SimklApiClient(
                     response.status == 400 &&
                     !syncWriteLockRetried &&
                     response.errorCode(json) == "rate_limit" &&
-                    attempt < maxAttempts - 1
+                    attempt < baseMaxAttempts - 1 + refreshRetries
                 ) {
                     syncWriteLockRetried = true
                     sleep(SYNC_WRITE_LOCK_RETRY_DELAY_MS)
@@ -161,12 +192,27 @@ class SimklApiClient(
                     SimklResponseAction.SUCCESS -> return@withLock response.toApiResponse()
                     SimklResponseAction.SOFT_SUCCESS -> return@withLock response.toApiResponse(true)
                     SimklResponseAction.REAUTHENTICATE -> {
-                        requestAuthorization?.let(onUnauthorized)
+                        // [fork] AUTH V2: on a rejected token, renew it once and retry before logging out.
+                        val current = requestAuthorization
+                        if (canRefreshOnUnauthorized && current != null && refresher != null) {
+                            canRefreshOnUnauthorized = false
+                            when (val outcome = refresher(current)) {
+                                is SimklRefreshOutcome.Refreshed -> {
+                                    requestAuthorization = outcome.authorization
+                                    token = outcome.authorization.accessToken
+                                    refreshRetries = 1
+                                    return@repeat
+                                }
+                                SimklRefreshOutcome.Unavailable -> throw response.toApiException(json)
+                                SimklRefreshOutcome.Rejected -> Unit
+                            }
+                        }
+                        current?.let(onUnauthorized)
                         throw response.toApiException(json)
                     }
                     SimklResponseAction.FAIL -> throw response.toApiException(json)
                     SimklResponseAction.RETRY -> {
-                        if (attempt == maxAttempts - 1) throw response.toApiException(json)
+                        if (attempt >= baseMaxAttempts - 1 + refreshRetries) throw response.toApiException(json)
                         sleep(
                             retryDelayMs(
                                 attempt,
@@ -226,6 +272,7 @@ class SimklApiClient(
         const val MAX_ATTEMPTS = 5
         const val SYNC_WRITE_LOCK_RETRY_DELAY_MS = 3_000L
         const val RETRY_JITTER_BOUND_MS = 1_000L
+        const val TOKEN_REFRESH_MARGIN_MS = 24L * 60L * 60L * 1_000L // [fork] renew within a day of expiry
     }
 }
 
