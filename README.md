@@ -11,12 +11,18 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - Year shown for movies only, not series.
 - Thinner, brighter seek bar (YouTube style) and a taller bottom shadow. The "via" source line is hidden.
 
+<img src="nuvio-c-screenshots/player-logo.jpg" alt="Player controls with the title logo top-left" width="720" />
+
 **Details page: background trailers** (optional, off by default)
 - Turn on in Settings > Layout > Background trailers.
 - The trailer plays muted and full-screen behind the page, once per visit, with letterbox bars zoomed away.
 - It starts after your autoplay delay wherever you are on the page, and pauses while comments, menus or cast pages are open.
 - Press the trailer button for sound. Press Back to stop it.
 - With the setting off, the page works exactly like official.
+
+<img src="nuvio-c-screenshots/background-trailer.jpg" alt="Details page with a trailer playing behind it" width="720" />
+
+<img src="nuvio-c-screenshots/background-trailers-setting.jpg" alt="Background trailers setting in Layout Settings" width="720" />
 
 ## How it's kept up to date
 
