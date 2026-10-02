@@ -4,7 +4,7 @@
 # If not, it stops in seconds. If yes:
 #   1. fetches the code of exactly that official release
 #   2. replays this branch's own commits on top of it (locally, nothing is pushed)
-#   3. applies build-time branding (name "Nuvio C", separate package id, updater off)
+#   3. applies build-time branding (name "Nuvio C", separate package id, updater reads this repo)
 #   4. builds a signed armeabi-v7a release APK and publishes it as a GitHub release
 #
 # A run is skipped when that release was already built (unless forced).
@@ -92,7 +92,9 @@ jobs:
           fi
           echo "Newest official release: $release"
           echo "release=$release" >> "$GITHUB_OUTPUT"
-          tag="c-${release}"
+          # "+nuvioc" is semver build metadata: the in-app updater reads it as the official version
+          # (so it can compare), and it never clashes with the official tags this fork carries.
+          tag="${release}+nuvioc"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           if gh release view "$tag" >/dev/null 2>&1 && [ "${{ inputs.force }}" != "true" ]; then
             echo "Already built for $release. Nothing to do."
@@ -111,8 +113,8 @@ jobs:
         if: steps.plan.outputs.build == 'true'
         run: |
           last_tag="$(gh release list --limit 50 --json tagName,createdAt \
-            --jq '[.[] | select(.tagName | startswith("c-"))] | sort_by(.createdAt) | last | .tagName // ""')"
-          last_ref="${last_tag#c-}"
+            --jq '[.[] | select((.tagName | startswith("c-")) or (.tagName | endswith("+nuvioc")))] | sort_by(.createdAt) | last | .tagName // ""')"
+          last_ref="${last_tag#c-}"; last_ref="${last_ref%+nuvioc}"
           last_sha=""
           if [ -n "$last_ref" ]; then
             # Older builds were tagged by commit, newer ones by official release tag
@@ -219,8 +221,11 @@ jobs:
           # Separate package id so it installs alongside the official app
           grep -q 'applicationId = "com.nuvio.tv"' app/build.gradle.kts
           sed -i -E "s#applicationId = \"com.nuvio.tv\"#applicationId = \"${APP_ID}\"#" app/build.gradle.kts
-          # In-app updater would offer the official APK; turn it off for this build
-          sed -i -E 's#("FEATURE_IN_APP_UPDATES_ENABLED", )"true"#\1"false"#' app/build.gradle.kts
+          # In-app updater checks this repo's releases (Nuvio C APKs), not the official ones
+          grep -q '"GITHUB_OWNER", "\\"NuvioMedia\\""' app/build.gradle.kts
+          sed -i -E "s#(\"GITHUB_OWNER\", \"\\\\\")[^\\\\]*#\\1${GITHUB_REPOSITORY%%/*}#" app/build.gradle.kts
+          sed -i -E "s#(\"GITHUB_REPO\", \"\\\\\")[^\\\\]*#\\1${GITHUB_REPOSITORY#*/}#" app/build.gradle.kts
+          grep -n 'GITHUB_OWNER\|GITHUB_REPO' app/build.gradle.kts
           # Only the ABI the TV needs, no universal APK
           sed -i -E "s#include\(\"armeabi-v7a\"[^)]*\)#include(\"${ABI}\")#" app/build.gradle.kts
           sed -i -E 's#isUniversalApk = true#isUniversalApk = false#' app/build.gradle.kts
@@ -310,7 +315,7 @@ jobs:
             --notes "$notes" --latest
           # Keep the 5 newest Nuvio C releases
           gh release list --limit 100 --json tagName,createdAt \
-            --jq '[.[] | select(.tagName | startswith("c-"))] | sort_by(.createdAt) | reverse | .[5:] | .[].tagName' \
+            --jq '[.[] | select((.tagName | startswith("c-")) or (.tagName | endswith("+nuvioc")))] | sort_by(.createdAt) | reverse | .[5:] | .[].tagName' \
             | xargs -r -I{} gh release delete {} --yes --cleanup-tag
 
       - name: Send OSD heads-up
