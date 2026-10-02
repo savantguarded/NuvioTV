@@ -4,11 +4,11 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 
 **Download:** [latest Nuvio C release](https://github.com/savantguarded/NuvioTV/releases/latest)
 
-## What's different from official
+## What's new or different
 
 **Player**
 - The title's logo shows top-left on the player controls, appearing a few seconds after playback starts so it doesn't clash with the parental guide, HDR/Dolby Vision popups or the stats screen.
-- Year shown for movies only, not series. Fixes the missing year on titles opened from Continue Watching.
+- Year shown for movies only, not series.
 - Thinner, brighter seek bar (YouTube style) and a taller bottom shadow. The "via" source line is hidden.
 
 **Details page: background trailers** (optional, off by default)
@@ -18,15 +18,11 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - Press the trailer button for sound. Press Back to stop it.
 - With the setting off, the page works exactly like official.
 
-**Accounts and updates**
-- Simkl sign-in uses Simkl's newer login, so it stays signed in on its own.
-- Settings > About > Check for updates gets new Nuvio C releases from this repo.
-
 ## How it's kept up to date
 
 A build runs automatically every hour. When Nuvio publishes a new release, the same changes are applied on top and a new Nuvio C APK is posted to Releases. If an official update clashes with the background trailers, the APK is still built, just without them.
 
-Everything else (sync, Trakt, MDBList, TorBox, add-ons) is the official app, unchanged.
+Everything else works like the official app.
 
 ---
 
