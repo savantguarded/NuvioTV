@@ -79,7 +79,7 @@ fun TrailerPlayer(
     // [fork] the zoom eases back to 1x when cropToFill turns off (trailer button = normal framing)
     val nuvioCAnimatedBarZoom by animateFloatAsState(
         if (cropToFill) minOf(nuvioCBarZoom, overscanZoom.coerceAtLeast(1f)) else 1f,
-        tween(900),
+        tween(if (cropToFill) 450 else 900), // [fork] quick zoom-in once bars are found, gentle ease-back
         label = "nuvioCBarZoom"
     )
     val zoomScale = if (autoFitBars) nuvioCAnimatedBarZoom else if (cropToFill) overscanZoom.coerceAtLeast(1f) else 1f

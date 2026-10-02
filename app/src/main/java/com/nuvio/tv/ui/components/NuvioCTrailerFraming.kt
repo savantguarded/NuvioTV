@@ -17,8 +17,12 @@ private const val BRIGHT_LUMA = 28          // 0..255; anything above counts as 
 private const val MAX_BRIGHT_IN_BLACK_ROW = 2
 private const val AGREE_TOLERANCE = 0.03f
 
-/** Times (ms after the first frame) at which a frame is checked for bars. */
-private val SAMPLE_TIMES_MS = longArrayOf(1_500, 3_500, 6_000, 9_000, 13_000)
+/** First check soon after the first frame, then every [SAMPLE_INTERVAL_MS] until [GIVE_UP_MS]. */
+private const val FIRST_SAMPLE_MS = 150L
+private const val SAMPLE_INTERVAL_MS = 250L
+private const val GIVE_UP_MS = 13_000L
+/** Two agreeing samples must be at least this far apart, so they come from different moments. */
+private const val MIN_AGREE_SPAN_MS = 600L
 
 /**
  * Samples the playing trailer a few times and reports the zoom that hides its letterbox bars.
@@ -30,21 +34,26 @@ internal suspend fun detectTrailerLetterboxZoom(
     maxZoom: Float,
     onZoom: (Float) -> Unit
 ) {
-    val samples = mutableListOf<Float>()
-    var elapsed = 0L
-    for (at in SAMPLE_TIMES_MS) {
-        delay(at - elapsed)
-        elapsed = at
-        val zoom = measureLetterboxZoom(view(), maxZoom) ?: continue
-        val agreeing = samples.firstOrNull { abs(it - zoom) <= AGREE_TOLERANCE }
-        if (agreeing != null) {
-            onZoom(minOf(agreeing, zoom))
-            return
+    val samples = mutableListOf<Pair<Long, Float>>() // (time, zoom)
+    var at = FIRST_SAMPLE_MS
+    delay(FIRST_SAMPLE_MS)
+    while (at <= GIVE_UP_MS) {
+        val zoom = measureLetterboxZoom(view(), maxZoom)
+        if (zoom != null) {
+            val agreeing = samples.firstOrNull { (time, z) ->
+                abs(z - zoom) <= AGREE_TOLERANCE && at - time >= MIN_AGREE_SPAN_MS
+            }
+            if (agreeing != null) {
+                onZoom(minOf(agreeing.second, zoom))
+                return
+            }
+            samples += at to zoom
         }
-        samples += zoom
+        delay(SAMPLE_INTERVAL_MS)
+        at += SAMPLE_INTERVAL_MS
     }
     // No two samples agreed: take the most conservative one we saw, if any.
-    samples.minOrNull()?.let(onZoom)
+    samples.minOfOrNull { it.second }?.let(onZoom)
 }
 
 /** One frame: zoom needed to hide its top/bottom bars, or null if the frame can't be judged. */
