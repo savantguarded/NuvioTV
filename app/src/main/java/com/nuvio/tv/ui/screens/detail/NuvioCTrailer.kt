@@ -26,7 +26,9 @@ data class NuvioCTrailerUi(
     /** A trailer is playing with the feature on: keep the framing when the trailer button adds sound. */
     val keepFraming: Boolean = false,
     /** An in-page overlay (comments, synopsis, dialogs) covers the page: pause the background trailer. */
-    val overlayOpen: Boolean = false
+    val overlayOpen: Boolean = false,
+    /** Page-level countdown for background mode (see NuvioCTrailerAutostart.kt). */
+    val autostart: NuvioCTrailerAutostart? = null
 )
 
 internal val MetaDetailsUiState.nuvioCTrailerUi: NuvioCTrailerUi

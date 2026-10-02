@@ -564,6 +564,7 @@ fun MetaDetailsScreen(
             viewModel.onEvent(MetaDetailsEvent.OnLifecyclePause)
         }
     }
+    NuvioCTrailerAutostartEffect(viewModel.nuvioCAutostart, childOverlayVisible) // [fork] background-trailer countdown
 
     Box(
         modifier = Modifier
@@ -979,7 +980,7 @@ fun MetaDetailsScreen(
                     trailerAudioUrl = uiState.trailerAudioUrl,
                     isTrailerPlaying = uiState.isTrailerPlaying,
                     isBackgroundTrailerPlaying = uiState.isBackgroundTrailerPlaying,
-                    nuvioCTrailer = uiState.nuvioCTrailerUi, // [fork]
+                    nuvioCTrailer = uiState.nuvioCTrailerUi.copy(autostart = viewModel.nuvioCAutostart), // [fork]
                     isTrailerPaused = isTrailerPaused,
                     showTrailerControls = uiState.showTrailerControls,
                     hideLogoDuringTrailer = uiState.hideLogoDuringTrailer,
@@ -2280,6 +2281,14 @@ private fun MetaDetailsContent(
             .background(backgroundColor)
             .onPreviewKeyEvent { randomEpisodePlaybackPending }
     ) {
+        // [fork] in-page overlays pause the background trailer and its countdown (same list for both)
+        val nuvioCOverlayOpen = nuvioCTrailer.overlayOpen || selectedComment != null || showSynopsisOverlay ||
+            showHeroPlayOptionsDialog || showRandomEpisodeOverlay || seasonOptionsDialogSeason != null
+        NuvioCTrailerAutostartInputs( // [fork]
+            nuvioCTrailer,
+            overlayOpen = nuvioCOverlayOpen || isSharedTrailerOverlayVisible,
+            scrolling = listState.isScrollInProgress
+        )
         // Sticky background — backdrop or trailer
         BackdropLayer(
             backdropRequest = backdropRequest,
@@ -2288,10 +2297,7 @@ private fun MetaDetailsContent(
             trailerAudioUrl = trailerAudioUrl,
             isTrailerPlaying = isTrailerPlaying,
             isBackgroundTrailerPlaying = isBackgroundTrailerPlaying,
-            nuvioCTrailer = nuvioCTrailer.copy( // [fork] in-page overlays pause the background trailer
-                overlayOpen = nuvioCTrailer.overlayOpen || selectedComment != null || showSynopsisOverlay ||
-                    showHeroPlayOptionsDialog || showRandomEpisodeOverlay || seasonOptionsDialogSeason != null
-            ),
+            nuvioCTrailer = nuvioCTrailer.copy(overlayOpen = nuvioCOverlayOpen), // [fork]
             isTrailerPaused = isTrailerPaused,
             showTrailerControls = showTrailerControls,
             trailerSeekToken = trailerSeekToken,

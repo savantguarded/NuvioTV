@@ -59,6 +59,7 @@ env:
     app/src/main/java/com/nuvio/tv/ui/screens/settings/LayoutSettingsViewModel.kt
     app/src/main/res/values/strings_nuvio_c_trailer.xml
     app/src/main/res/values-fr/strings_nuvio_c_trailer.xml
+    app/src/test/java/com/nuvio/tv/ui/screens/detail/NuvioCTrailerAutostartTest.kt
 
 jobs:
   build:

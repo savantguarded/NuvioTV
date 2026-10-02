@@ -2880,7 +2880,20 @@ class MetaDetailsViewModel @Inject constructor(
             if (url != null && isPlayButtonFocused && AppFeaturePolicy.inAppTrailerPlaybackEnabled) {
                 startIdleTimer()
             }
+            if (url != null && _uiState.value.backgroundTrailerEnabled) startIdleTimer() // [fork] background: no Play focus needed
         }
+    }
+
+    // [fork] Nuvio C background-trailer autostart: countdown for the whole page, see NuvioCTrailerAutostart.kt
+    internal val nuvioCAutostart = NuvioCTrailerAutostart(viewModelScope, delayMs = { trailerDelayMs }) {
+        val state = _uiState.value
+        val canStart = state.trailerUrl != null && !state.isTrailerPlaying && !trailerHasPlayed &&
+            state.backgroundTrailerEnabled && trailerAutoplayEnabled
+        if (canStart) {
+            trailerHasPlayed = true
+            setTrailerPlaybackState(isPlaying = true, showControls = false, hideLogo = false)
+        }
+        canStart
     }
 
     private fun startIdleTimer() {
@@ -2891,6 +2904,7 @@ class MetaDetailsViewModel @Inject constructor(
         if (state.trailerUrl == null || state.isTrailerPlaying) return
         if (!trailerAutoplayEnabled) return
         if (trailerHasPlayed) return
+        if (state.backgroundTrailerEnabled) { nuvioCAutostart.arm(); return } // [fork] page-level countdown
         if (!isPlayButtonFocused) return
 
         idleTimerJob = viewModelScope.launch {
