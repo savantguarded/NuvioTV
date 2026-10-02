@@ -154,7 +154,7 @@ jobs:
           read -ra trailer_paths <<< "$TRAILER_PATHS"
           exclude=()
           for p in "${trailer_paths[@]}"; do exclude+=(":(exclude)$p"); done
-          exclude+=(":(exclude)README.md") # the fork's readme is for GitHub only; never let it block a build
+          exclude+=(":(exclude)README.md" ":(exclude)nuvio-c-screenshots") # GitHub page only, not part of the app
           # Our changes = this branch vs the upstream commit it sits on, split into core + trailer
           base="$(git merge-base HEAD upstream/$UPSTREAM_BRANCH)"
           echo "Nuvio C commits (applied onto ${{ steps.plan.outputs.release }}):"
