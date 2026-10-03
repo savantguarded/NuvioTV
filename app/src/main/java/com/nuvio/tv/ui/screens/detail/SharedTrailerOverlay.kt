@@ -1,6 +1,7 @@
 package com.nuvio.tv.ui.screens.detail
 
 import com.nuvio.tv.ui.theme.NuvioTheme
+import com.nuvio.tv.ui.theme.accentBrush // [fork]
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -297,19 +298,36 @@ fun TrailerSeekOverlay(
                 .fillMaxWidth()
                 .padding(horizontal = NuvioTheme.spacing.xxl, vertical = NuvioTheme.spacing.xl)
         ) {
-            Box(
+            // [fork] Nuvio C: same bar as the player OSD (4dp, no outline, light grey track,
+            // accent fill, round thumb at the playhead). Drawn, so the thumb is never clipped.
+            val nuvioCAccent = NuvioTheme.palette.accentBrush()
+            androidx.compose.foundation.Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(Color.White.copy(alpha = 0.3f))
+                    .height(14.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(animatedProgress)
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(NuvioTheme.colors.Secondary)
+                val track = 4.dp.toPx()
+                val top = (size.height - track) / 2f
+                val radius = androidx.compose.ui.geometry.CornerRadius(track / 2f)
+                drawRoundRect(
+                    color = Color.White.copy(alpha = 0.35f),
+                    topLeft = androidx.compose.ui.geometry.Offset(0f, top),
+                    size = androidx.compose.ui.geometry.Size(size.width, track),
+                    cornerRadius = radius
+                )
+                val playedWidth = size.width * animatedProgress
+                if (playedWidth > 0f) {
+                    drawRoundRect(
+                        brush = nuvioCAccent,
+                        topLeft = androidx.compose.ui.geometry.Offset(0f, top),
+                        size = androidx.compose.ui.geometry.Size(playedWidth, track),
+                        cornerRadius = radius
+                    )
+                }
+                drawCircle(
+                    brush = nuvioCAccent,
+                    radius = 7.dp.toPx(),
+                    center = androidx.compose.ui.geometry.Offset(playedWidth, size.height / 2f)
                 )
             }
     
