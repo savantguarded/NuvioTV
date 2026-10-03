@@ -26,6 +26,10 @@ on:
         description: Build even if this official release was already built
         type: boolean
         default: false
+      off:
+        description: "Feature switches to turn off for this build only, comma list (e.g. osd_badges,subtitle_lift). Blank = repo variable NUVIO_C_OFF"
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -275,6 +279,31 @@ jobs:
           sed -i -E 's#isUniversalApk = true#isUniversalApk = false#' app/build.gradle.kts
           echo "Branding diff:"; git --no-pager diff --stat
 
+      - name: Apply feature switches
+        id: switches
+        if: steps.plan.outputs.build == 'true'
+        env:
+          OFF_INPUT: ${{ inputs.off }}
+          OFF_VAR: ${{ vars.NUVIO_C_OFF }}
+        run: |
+          set -euo pipefail
+          # One switch per tweak in NuvioCFeatures.kt; listed ones become false (= official behaviour)
+          f=app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt
+          list="${OFF_INPUT:-$OFF_VAR}"
+          off=""
+          for raw in ${list//,/ }; do
+            name="$(echo "$raw" | tr '[:lower:]-' '[:upper:]_' | tr -cd 'A-Z0-9_')"
+            [ -n "$name" ] || continue
+            if ! grep -q "const val ${name} = " "$f"; then
+              echo "::error::Unknown Nuvio C switch '${raw}'. Valid: $(grep -oP 'const val \K[A-Z0-9_]+' "$f" | tr 'A-Z' 'a-z' | paste -sd, -)"
+              exit 1
+            fi
+            sed -i -E "s/const val ${name} = (true|false)/const val ${name} = false/" "$f"
+            off="${off:+$off, }$(echo "$name" | tr 'A-Z' 'a-z')"
+          done
+          echo "Switched off: ${off:-none}"
+          echo "off=${off}" >> "$GITHUB_OUTPUT"
+
       - name: Prepare local.properties and signing
         if: steps.plan.outputs.build == 'true'
         run: |
@@ -372,6 +401,9 @@ jobs:
             notes="${notes} IMDb trailer backup included."
           else
             notes="${notes} IMDb trailer backup NOT included in this build (see issues)."
+          fi
+          if [ -n "${{ steps.switches.outputs.off }}" ]; then
+            notes="${notes} Switched off in this build: ${{ steps.switches.outputs.off }}."
           fi
           gh release create "$tag" "$out" --target "$GITHUB_SHA" \
             --title "Nuvio C ${rel}" \

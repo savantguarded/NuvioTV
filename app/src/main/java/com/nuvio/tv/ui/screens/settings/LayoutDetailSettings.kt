@@ -56,7 +56,7 @@ internal fun LayoutDetailPageSection(
             }
         )
         if (uiState.detailPageTrailerAutoplayEnabled) {
-            SettingsToggleRow(
+            if (com.nuvio.tv.NuvioCFeatures.BACKGROUND_TRAILERS) SettingsToggleRow( // [fork] switch
                 title = stringResource(R.string.audio_trailer_background),
                 subtitle = stringResource(R.string.audio_trailer_background_sub),
                 checked = uiState.detailPageTrailerBackgroundEnabled,

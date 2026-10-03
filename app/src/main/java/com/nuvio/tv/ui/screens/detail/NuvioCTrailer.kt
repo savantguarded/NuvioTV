@@ -97,6 +97,7 @@ internal fun NuvioCTrailerScreenLogo(
     visible: Boolean,
     modifier: Modifier = Modifier
 ) {
+    if (!com.nuvio.tv.NuvioCFeatures.TRAILER_SCREEN_LOGO) return
     val url = logo?.takeIf { it.isNotBlank() } ?: return
     var failed by remember(url) { mutableStateOf(false) }
     val alpha by animateFloatAsState(

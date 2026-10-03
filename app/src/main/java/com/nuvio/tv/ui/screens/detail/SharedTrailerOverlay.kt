@@ -292,7 +292,24 @@ fun TrailerSeekOverlay(
             // [fork] Nuvio C: same bar as the player OSD (4dp, no outline, light grey track,
             // accent fill, round thumb at the playhead). Drawn, so the thumb is never clipped.
             val nuvioCAccent = NuvioTheme.palette.accentBrush()
-            androidx.compose.foundation.Canvas(
+            if (!com.nuvio.tv.NuvioCFeatures.TRAILER_SCREEN_BAR) {
+                // official bar
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(Color.White.copy(alpha = 0.3f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(animatedProgress)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(NuvioTheme.colors.Secondary)
+                    )
+                }
+            } else androidx.compose.foundation.Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(14.dp)

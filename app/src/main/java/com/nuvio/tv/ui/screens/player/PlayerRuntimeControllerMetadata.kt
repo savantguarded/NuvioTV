@@ -73,7 +73,7 @@ internal fun PlayerRuntimeController.applyMetaDetails(meta: Meta) {
             description = description ?: state.description,
             castMembers = if (meta.castMembers.isNotEmpty()) meta.castMembers else state.castMembers,
             // [fork] Continue Watching launches pass no year; backfill it from the meta
-            releaseYear = state.releaseYear?.takeIf { it.isNotBlank() }
+            releaseYear = if (!com.nuvio.tv.NuvioCFeatures.YEAR_BACKFILL) state.releaseYear else state.releaseYear?.takeIf { it.isNotBlank() }
                 ?: meta.releaseInfo?.substringBefore("-")?.trim()?.takeIf { it.isNotBlank() },
             isNextEpisodeMetadataResolved = true
         )

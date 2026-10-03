@@ -321,7 +321,7 @@ class MetaDetailsViewModel @Inject constructor(
             trailerSettingsDataStore.settings.collectLatest { settings ->
                 trailerAutoplayEnabled = settings.enabled
                 trailerDelayMs = settings.delaySeconds * 1000L
-                _uiState.update { it.copy(backgroundTrailerEnabled = settings.backgroundPlaybackEnabled) }
+                _uiState.update { it.copy(backgroundTrailerEnabled = settings.backgroundPlaybackEnabled && com.nuvio.tv.NuvioCFeatures.BACKGROUND_TRAILERS) } // [fork] switch
                 if (!settings.enabled) {
                     idleTimerJob?.cancel()
                     if (_uiState.value.isTrailerPlaying && !_uiState.value.showTrailerControls) {
