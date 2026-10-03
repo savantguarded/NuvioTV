@@ -7,8 +7,11 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 ## What's new or different
 
 **Player**
-- The title's logo shows top-left on the player controls, appearing a few seconds after playback starts so it doesn't clash with the parental guide, HDR/Dolby Vision popups or the stats screen.
-- Year shown for movies only, not series.
+- The title's logo shows top-left on the player controls, inside a fixed box so wide and square logos look balanced and are never cropped. It appears a few seconds after playback starts so it doesn't clash with the parental guide, HDR/Dolby Vision popups or the stats screen.
+- Badges bottom-right, beside the title: resolution, picture format (DV, HDR10, HDR10+, HLG, SDR), audio format and file size, as thin outlined chips (e.g. `4K` `DV` `E-AC-3 ATMOS` `18.4 GB`). The picture format is what the TV is actually being sent.
+- Subtitles move up while the controls are open, so they never sit behind the title, seek bar or buttons, then drop back when the controls close. Your subtitle settings are not changed.
+- Close a panel (subtitles, audio, sources, episodes, speed…) and focus lands back on the button that opened it, not on Play/Pause.
+- Year shown for movies only, not series. Titles opened from Continue Watching get their year back.
 - Thinner, brighter seek bar (YouTube style) and a taller bottom shadow. The "via" source line is hidden.
 
 <img src="nuvio-c-screenshots/player-logo.jpg" alt="Player controls with the title logo top-left" width="720" />
@@ -24,9 +27,45 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 
 <img src="nuvio-c-screenshots/background-trailers-setting.jpg" alt="Background trailers setting in Layout Settings" width="720" />
 
+**Trailers**
+- The trailer screen (trailer button, trailers row) uses the same seek bar as the player.
+- While a trailer plays with sound, a small title logo shows bottom-left, just above the seek bar.
+- When YouTube rate-limits and trailers drop to low quality, the IMDb trailer for the title is used instead (720p or better). YouTube stays the main source.
+
+**Accounts**
+- Simkl logs in with its newer device login (QR code on the TV) and renews itself, so you stay signed in.
+
+## Switching a tweak off
+
+Every tweak has its own switch. Switched off, that part of the app behaves exactly like official Nuvio.
+
+1. On GitHub: **Settings > Secrets and variables > Actions > Variables**, add or edit `NUVIO_C_OFF`.
+2. Put the switch names in it, separated by commas, e.g. `osd_badges,subtitle_lift`.
+3. **Actions > Nuvio C build > Run workflow**, tick "Build even if this official release was already built". To try a switch for one build only, type the names in the "off" box there instead.
+
+The release notes list what was switched off. Clear the variable to turn everything back on.
+
+| Switch | What it turns off |
+|---|---|
+| `osd_logo` | Title logo top-left on the player controls |
+| `osd_badges` | Resolution / picture / audio / size badges |
+| `subtitle_lift` | Subtitles moving up while the controls are open |
+| `focus_return` | Focus going back to the button that opened a panel |
+| `seek_bar_style` | YouTube-style seek bar and taller bottom shadow |
+| `series_no_year` | Hiding the year for series |
+| `hide_via` | Hiding the "via" source line |
+| `year_backfill` | Year for titles opened from Continue Watching |
+| `simkl_v2` | Simkl's newer device login (back to the PIN login) |
+| `background_trailers` | The Background trailers setting |
+| `trailer_screen_bar` | Player-style seek bar on the trailer screen |
+| `trailer_screen_logo` | Small logo on the trailer screen |
+| `imdb_trailer_backup` | IMDb trailers when YouTube rate-limits |
+
+The switches live in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt`. To remove a tweak's code for good rather than switch it off, its commits can be reverted; each tweak is in its own commits (listed in the project notes).
+
 ## How it's kept up to date
 
-A build runs automatically every hour. When Nuvio publishes a new release, the same changes are applied on top and a new Nuvio C APK is posted to Releases. If an official update clashes with the background trailers, the APK is still built, just without them.
+A build runs automatically every hour. When Nuvio publishes a new release, the same changes are applied on top and a new Nuvio C APK is posted to Releases. If an official update clashes with the background trailers or the IMDb backup, the APK is still built, just without that feature.
 
 Everything else works like the official app.
 
