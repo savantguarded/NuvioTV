@@ -9,7 +9,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 **Player**
 - The title's logo shows top-left on the player controls, inside a fixed box so wide and square logos look balanced and are never cropped. It appears a few seconds after playback starts so it doesn't clash with the parental guide, HDR/Dolby Vision popups or the stats screen.
 - Badges bottom-right, beside the title: resolution, picture format (DV, HDR10, HDR10+, HLG, SDR), audio format and file size, as thin outlined chips (e.g. `4K` `DV` `E-AC-3 ATMOS` `18.4 GB`). The picture format is what the TV is actually being sent.
-- Subtitles move up while the controls are open, so they never sit behind the title, seek bar or buttons, then drop back when the controls close. Your subtitle settings are not changed.
+- Bottom subtitles move up while the controls are open, so they never sit behind the title, seek bar or buttons, then drop back when the controls close. Subtitles at the top of the screen stay where they are. Your subtitle settings are not changed.
 - Close a panel (subtitles, audio, sources, episodes, speed…) and focus lands back on the button that opened it, not on Play/Pause.
 - Year shown for movies only, not series. Titles opened from Continue Watching get their year back.
 - Thinner, brighter seek bar (YouTube style) and a taller bottom shadow. The "via" source line is hidden.
@@ -49,7 +49,7 @@ The release notes list what was switched off. Clear the variable to turn everyth
 |---|---|
 | `osd_logo` | Title logo top-left on the player controls |
 | `osd_badges` | Resolution / picture / audio / size badges |
-| `subtitle_lift` | Subtitles moving up while the controls are open |
+| `subtitle_lift` | Bottom subtitles moving up while the controls are open |
 | `focus_return` | Focus going back to the button that opened a panel |
 | `seek_bar_style` | YouTube-style seek bar and taller bottom shadow |
 | `series_no_year` | Hiding the year for series |

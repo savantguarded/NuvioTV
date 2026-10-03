@@ -441,6 +441,7 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
 
     // [fork] Nuvio C subtitle lift while the OSD is open. bottomFraction = how far up the screen
     // (0..1) the subtitle bottom should sit; null puts the saved style back. ASS is left alone.
+    // Top-aligned lines ({\an8}) never move.
     private var nuvioCLifted = false
     fun nuvioCSetSubtitleLift(bottomFraction: Double?, style: SubtitleStyleSettings) {
         if (!initialized) return
@@ -465,8 +466,10 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
                 }
                 return
             }
-            mpv.setPropertyInt("sub-margin-y", 0)
-            mpv.setPropertyDouble("sub-pos", (MPV_SUB_POS_AT_BOTTOM - bottomFraction * 100.0).coerceIn(0.0, 150.0))
+            // sub-pos only moves bottom-aligned lines; sub-margin-y (also the top margin) is left as
+            // saved so top subtitles stay exactly where they are.
+            val pos = MPV_SUB_POS_AT_BOTTOM - (bottomFraction - savedMargin / 720.0) * 100.0
+            mpv.setPropertyDouble("sub-pos", pos.coerceIn(0.0, 150.0))
             nuvioCLifted = true
         }.onFailure {
             Log.w(TAG, "Nuvio C subtitle lift failed: ${it.message}")
