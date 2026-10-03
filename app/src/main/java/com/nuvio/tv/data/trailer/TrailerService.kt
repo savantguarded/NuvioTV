@@ -74,7 +74,7 @@ class TrailerService(
         year: String? = null
     ): TrailerPlaybackSource? {
         val official: suspend () -> TrailerPlaybackSource? = { nuvioCOfficialFromYouTubeUrl(youtubeUrl, title, year) }
-        if (!::nuvioCBackup.isInitialized) return official()
+        if (!com.nuvio.tv.NuvioCFeatures.IMDB_TRAILER_BACKUP || !::nuvioCBackup.isInitialized) return official()
         // A full-quality link we already have stays in use, even during a back-off.
         extractYouTubeVideoId(youtubeUrl)?.let { key -> getValidCachedYoutubeSource(key)?.let { return it } }
         val ids = title?.let { nuvioCIds["$it|$year"] }
