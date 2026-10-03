@@ -1373,8 +1373,11 @@ fun PlayerScreen(
             exit = fadeOut(animationSpec = tween(200))
         ) {
             val context = LocalContext.current
+            val nuvioCOsd = remember { NuvioCOsdState() } // [fork] badges + subtitle lift
+            NuvioCSubtitleLiftEffect(viewModel, transition.targetState == androidx.compose.animation.EnterExitState.Visible, nuvioCOsd, uiState.subtitleStyle) // [fork]
             PlayerControlsOverlay(
                 osdLogoAllowed = osdLogoAllowed, // [fork]
+                nuvioCOsd = nuvioCOsd, // [fork]
                 uiState = uiState,
                 viewModel = viewModel,
                 playPauseFocusRequester = playPauseFocusRequester,
@@ -2199,6 +2202,7 @@ private fun PlayerView.setAssOverlayVisibility(visibility: Int) {
 @Composable
 private fun PlayerControlsOverlay(
     osdLogoAllowed: Boolean, // [fork] top-left logo timing
+    nuvioCOsd: NuvioCOsdState, // [fork] badges + subtitle lift
     uiState: PlayerUiState,
     viewModel: PlayerViewModel,
     playPauseFocusRequester: FocusRequester,
@@ -2314,6 +2318,7 @@ private fun PlayerControlsOverlay(
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = NuvioTheme.spacing.xxl, vertical = NuvioTheme.spacing.xl)
+                .nuvioCOsdBottomBlock(nuvioCOsd) // [fork]
         ) {
             val skipIntroVisible = uiState.activeSkipInterval != null
 
@@ -2322,7 +2327,7 @@ private fun PlayerControlsOverlay(
                 enter = fadeIn(animationSpec = tween(NuvioMotion.tokens.durations.fast)),
                 exit = fadeOut(animationSpec = tween(NuvioMotion.tokens.durations.fast))
             ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.fillMaxWidth().nuvioCOsdTitleBlock(nuvioCOsd)) { // [fork]
                     val displayName = if (uiState.currentSeason != null && uiState.currentEpisode != null) {
                         uiState.contentName ?: uiState.title
                     } else {
@@ -2602,6 +2607,8 @@ private fun PlayerControlsOverlay(
             }
             }
         }
+
+        NuvioCOsdBadges(viewModel, uiState, nuvioCOsd, endPadding = NuvioTheme.spacing.xxl) // [fork]
     }
 }
 

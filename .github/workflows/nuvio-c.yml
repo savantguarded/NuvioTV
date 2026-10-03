@@ -47,7 +47,9 @@ env:
   OSD_FILES: >-
     app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerScreen.kt
     app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerRuntimeControllerMetadata.kt
-  OSD_FUNCTIONS: PlayerControlsOverlay|ProgressBar|SeekOverlay|PlayerControlsProgressBarHost|applyMetaDetails
+    app/src/main/java/com/nuvio/tv/ui/screens/player/NuvioMpvSurfaceView.kt
+    app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerSidecarSubtitles.kt
+  OSD_FUNCTIONS: PlayerControlsOverlay|ProgressBar|SeekOverlay|PlayerControlsProgressBarHost|applyMetaDetails|applySubtitleStyle|applySubtitleStyleIfNeeded|syncLibassOverlay
   # Background trailers (upstream PR #3730 + Nuvio C layer). Applied as a separate, optional patch:
   # if an official release conflicts with it, or the app won't compile with it, the build carries
   # on without it (official trailer behaviour) and opens an issue. Everything else is the core patch.
