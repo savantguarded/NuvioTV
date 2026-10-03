@@ -99,11 +99,18 @@ class NuvioCTrailerBackup @Inject constructor(
     ): TrailerPlaybackSource? = choose(youtube = youtube, imdb = { imdbFor(tmdbId, type) })
 
     private suspend fun imdbFor(tmdbId: String?, type: String?): TrailerPlaybackSource? {
-        val numericId = tmdbId?.toIntOrNull() ?: return null
+        val numericId = tmdbId?.toIntOrNull() ?: run {
+            Log.i(TAG, "No TMDB id for this trailer, can't look it up on IMDb")
+            return null
+        }
         val imdbId = runCatching { tmdbService.tmdbToImdb(numericId, type ?: "movie") }
             .getOrNull()
             ?.takeIf { it.startsWith("tt") }
-            ?: return null
+            ?: run {
+                Log.i(TAG, "No IMDb id for TMDB $numericId")
+                return null
+            }
+        Log.i(TAG, "Looking up $imdbId on IMDb")
         cached(imdbId)?.let { return it.source }
         return imdbMutex.withLock {
             cached(imdbId)?.let { return@withLock it.source }
