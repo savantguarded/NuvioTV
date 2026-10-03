@@ -2230,6 +2230,8 @@ private fun PlayerControlsOverlay(
                         .crossfade(true)
                         .build()
                 }
+                // Fixed 280x64 box, logo fitted inside it: wide logos hit the width, square/tall
+                // ones the height. Fit scales the whole image down, so nothing is ever cropped.
                 AsyncImage(
                     model = osdLogoRequest,
                     contentDescription = uiState.contentName ?: uiState.title,
@@ -2237,8 +2239,7 @@ private fun PlayerControlsOverlay(
                     alignment = Alignment.TopStart,
                     modifier = Modifier
                         .padding(start = NuvioTheme.spacing.xxl, top = NuvioTheme.spacing.xl)
-                        .height(72.dp)
-                        .widthIn(max = 360.dp),
+                        .size(width = 280.dp, height = 64.dp),
                     onError = { osdLogoFailed = true }
                 )
             }
