@@ -2269,7 +2269,7 @@ private fun PlayerControlsOverlay(
         val osdLogo = uiState.logo?.takeIf { it.isNotBlank() }
         var osdLogoFailed by remember(osdLogo) { mutableStateOf(false) }
         AnimatedVisibility(
-            visible = osdLogo != null && !osdLogoFailed && osdLogoAllowed,
+            visible = com.nuvio.tv.NuvioCFeatures.OSD_LOGO && osdLogo != null && !osdLogoFailed && osdLogoAllowed,
             enter = fadeIn(animationSpec = tween(250)),
             exit = fadeOut(animationSpec = tween(150)),
             modifier = Modifier.align(Alignment.TopStart)
@@ -2301,7 +2301,7 @@ private fun PlayerControlsOverlay(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(260.dp) // [fork] was 200.dp
+                .height(if (com.nuvio.tv.NuvioCFeatures.SEEK_BAR_STYLE) 260.dp else 200.dp) // [fork] was 200.dp
                 .align(Alignment.BottomCenter)
                 .background(
                     Brush.verticalGradient(
@@ -2367,8 +2367,8 @@ private fun PlayerControlsOverlay(
                     }
 
                     val isEpisodePlayback = uiState.currentSeason != null && uiState.currentEpisode != null
-                    val hasYear = !uiState.releaseYear.isNullOrBlank() && !isEpisodePlayback // [fork] no year for series
-                    val showVia = false // [fork] "via" line hidden; source is still in Stream info
+                    val hasYear = !uiState.releaseYear.isNullOrBlank() && !(com.nuvio.tv.NuvioCFeatures.SERIES_NO_YEAR && isEpisodePlayback) // [fork] no year for series
+                    val showVia = !com.nuvio.tv.NuvioCFeatures.HIDE_VIA && !uiState.isPlaying && !uiState.currentStreamName.isNullOrBlank() // [fork] "via" line hidden; source is still in Stream info
                     val yearText = uiState.releaseYear.orEmpty()
 
                     if (hasYear || showVia) {
@@ -2818,7 +2818,7 @@ private fun ProgressBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(if (isFocused) 6.dp else 4.dp) // [fork] was spacing.md / spacing.sm
+            .height(if (com.nuvio.tv.NuvioCFeatures.SEEK_BAR_STYLE) (if (isFocused) 6.dp else 4.dp) else (if (isFocused) NuvioTheme.spacing.md else NuvioTheme.spacing.sm)) // [fork] was spacing.md / spacing.sm
             .then(
                 if (focusRequester != null) Modifier.focusRequester(focusRequester)
                 else Modifier
@@ -2921,7 +2921,7 @@ private fun ProgressBar(
             // [fork] focus-only thumb, drawn outside the clipped track
             .drawWithContent {
                 drawContent()
-                if (isFocused) {
+                if (isFocused && com.nuvio.tv.NuvioCFeatures.SEEK_BAR_STYLE) {
                     // [fork] YouTube-style thumb: same colour as the played fill, no halo
                     val thumbCenter = Offset(size.width * animatedProgress, size.height / 2f)
                     drawCircle(brush = accentBrush, radius = 7.dp.toPx(), center = thumbCenter)
@@ -2929,8 +2929,9 @@ private fun ProgressBar(
             }
             .clip(RoundedCornerShape(3.dp))
             .background(
-                if (isFocused) Color.White.copy(alpha = 0.5f)
-                else Color.White.copy(alpha = 0.35f)
+                if (com.nuvio.tv.NuvioCFeatures.SEEK_BAR_STYLE) { if (isFocused) Color.White.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.35f) } // [fork]
+                else if (isFocused) Color.White.copy(alpha = 0.45f)
+                else Color.White.copy(alpha = 0.3f)
             )
             .playerProgressFill(
                 progress = { animatedProgress },

@@ -43,7 +43,7 @@ internal object NuvioCYouTubeHealth {
 
     /** The YouTube watch page failed; a 429 starts (or restarts) the back-off. */
     fun onWatchPageFailed(status: Int) {
-        if (status != 429) return
+        if (!com.nuvio.tv.NuvioCFeatures.IMDB_TRAILER_BACKUP || status != 429) return
         backoffUntil = now() + BACKOFF_MS
         Log.w(TAG, "YouTube rate limit (429): backing off YouTube for 15 min, IMDb goes first")
     }
@@ -54,6 +54,7 @@ internal object NuvioCYouTubeHealth {
 
     /** The extractor fell back to the progressive (~360p) stream for this link. */
     fun markDegraded(source: TrailerPlaybackSource) {
+        if (!com.nuvio.tv.NuvioCFeatures.IMDB_TRAILER_BACKUP) return
         remember(degradedUrls, source.videoUrl)
         remember(uncacheableUrls, source.videoUrl)
     }
