@@ -53,6 +53,12 @@ class TrailerService(
     // Time-bound cache: youtubeVideoId -> resolved playback source (success-only)
     private val youtubeSourceCache = ConcurrentHashMap<String, CachedTrailerPlaybackSource>()
 
+    // [fork] Nuvio C: IMDb backup when YouTube rate-limits (NuvioCTrailerBackup.kt). Field-injected so
+    // the constructors stay official; unit tests that build this class directly skip the backup.
+    @Inject lateinit var nuvioCBackup: NuvioCTrailerBackup
+    private suspend fun nuvioCPick(tmdbId: String?, type: String?, youtube: suspend () -> TrailerPlaybackSource?) =
+        if (::nuvioCBackup.isInitialized) nuvioCBackup.pick(tmdbId, type, youtube) else youtube()
+
     /**
      * Search for a trailer by title, year, tmdbId, and type.
      * Returns the trailer playback source (video URL + optional separate audio URL) or null.
@@ -92,15 +98,15 @@ class TrailerService(
 
             // TMDB-first path. Gated on `useTrailers` above so the
             // user's toggle in TMDB enrichment settings is honored.
-            val tmdbSource = getTrailerPlaybackSourceFromTmdbId(
+            val tmdbSource = nuvioCPick(tmdbId, type) { getTrailerPlaybackSourceFromTmdbId( // [fork] Nuvio C
                 tmdbId = tmdbId,
                 type = type,
                 title = title,
                 year = year,
                 languageOverride = tmdbLanguage
-            )
+            ) } // [fork] Nuvio C
             if (tmdbSource != null) {
-                cache[cacheKey] = tmdbSource
+                if (NuvioCYouTubeHealth.cacheable(tmdbSource)) cache[cacheKey] = tmdbSource // [fork] Nuvio C: never pin 360p/IMDb links
                 return@withContext tmdbSource
             }
             Log.w(TAG, "TMDB path exhausted; no YouTube trailer key resolved for backend /trailer fallback")
@@ -243,7 +249,7 @@ class TrailerService(
             Log.d(TAG, "Attempting in-app YouTube extraction for ${summarizeUrl(youtubeUrl)}")
             val localSource = inAppYouTubeExtractor.extractPlaybackSource(youtubeUrl)
             if (localSource != null) {
-                if (!youtubeKey.isNullOrBlank()) {
+                if (!youtubeKey.isNullOrBlank() && NuvioCYouTubeHealth.cacheable(localSource)) { // [fork] Nuvio C: don't cache the 360p fallback
                     youtubeSourceCache[youtubeKey] = CachedTrailerPlaybackSource(
                         playbackSource = localSource,
                         cachedAt = Instant.now(clock),

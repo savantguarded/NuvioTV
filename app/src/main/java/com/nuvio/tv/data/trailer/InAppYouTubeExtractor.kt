@@ -203,6 +203,8 @@ class InAppYouTubeExtractor @Inject constructor() {
                     return@withLock current
                 }
             }
+            // [fork] Nuvio C: while YouTube is rate-limiting, don't ask its website again (see NuvioCTrailerBackup.kt)
+            if (NuvioCYouTubeHealth.backingOff()) return@withLock cachedConfig.get() ?: CachedConfig(apiKey = FALLBACK_API_KEY, visitorData = null)
 
             Log.d(TAG, "Fetching watch page for visitor_data (forceRefresh=$forceRefresh)")
             val watchUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ&hl=en"
@@ -212,6 +214,7 @@ class InAppYouTubeExtractor @Inject constructor() {
                 headers = DEFAULT_HEADERS
             )
             if (!watchResponse.ok) {
+                NuvioCYouTubeHealth.onWatchPageFailed(watchResponse.status) // [fork] Nuvio C: a 429 starts the back-off
                 // If we have a stale config, prefer it over failing
                 val stale = cachedConfig.get()
                 if (stale != null) {
@@ -497,6 +500,7 @@ class InAppYouTubeExtractor @Inject constructor() {
                 PlaybackSourceKind.PROGRESSIVE ->
                     bestProgressive?.url?.let { resolveReachableUrl(it) }
                         ?.let { TrailerPlaybackSource(videoUrl = it, audioUrl = null) }
+                        ?.also(NuvioCYouTubeHealth::markDegraded) // [fork] Nuvio C: ~360p fallback, IMDb may do better
             }
             if (source != null) return source
         }
