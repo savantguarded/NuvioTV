@@ -6,6 +6,7 @@
 package com.nuvio.tv.ui.screens.player
 
 // Nuvio C imports
+import androidx.compose.runtime.SideEffect
 import coil3.compose.AsyncImage
 import coil3.request.crossfade
 import androidx.compose.ui.layout.ContentScale
@@ -192,6 +193,8 @@ fun PlayerScreen(
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val containerFocusRequester = remember { FocusRequester() }
     val playPauseFocusRequester = remember { FocusRequester() }
+    val nuvioCFocus = remember { NuvioCFocusMemory() } // [fork] focus returns to the button that opened a panel
+    SideEffect { nuvioCFocus.moreRowOpen = uiState.showMoreDialog } // [fork]
     val progressBarFocusRequester = remember { FocusRequester() }
     val episodesFocusRequester = remember { FocusRequester() }
     val streamsFocusRequester = remember { FocusRequester() }
@@ -517,11 +520,12 @@ fun PlayerScreen(
             // Wait for AnimatedVisibility animation to complete before focusing play/pause button
             kotlinx.coroutines.delay(250)
             try {
-                playPauseFocusRequester.requestFocus()
+                nuvioCFocus.restore(playPauseFocusRequester) { viewModel.onEvent(PlayerEvent.OnShowMoreDialog) } // [fork] was playPauseFocusRequester.requestFocus()
             } catch (e: Exception) {
                 // Focus requester may not be ready yet
             }
         } else if (!uiState.showControls) {
+            nuvioCFocus.forget() // [fork] controls closed on their own: next open starts on Play/Pause
             // When controls are hidden, let skip intro button take focus if visible
             val skipVisible = uiState.activeSkipInterval != null && !uiState.skipIntervalDismissed
             val nextEpisodeVisible = uiState.postPlayMode is PostPlayMode.AutoPlay
@@ -1345,6 +1349,7 @@ fun PlayerScreen(
             val context = LocalContext.current
             val nuvioCOsd = remember { NuvioCOsdState() } // [fork] badges + subtitle lift
             NuvioCSubtitleLiftEffect(viewModel, transition.targetState == androidx.compose.animation.EnterExitState.Visible, nuvioCOsd, uiState.subtitleStyle) // [fork]
+            CompositionLocalProvider(LocalNuvioCFocusMemory provides nuvioCFocus) { // [fork]
             PlayerControlsOverlay(
                 osdLogoAllowed = osdLogoAllowed, // [fork]
                 nuvioCOsd = nuvioCOsd, // [fork]
@@ -1417,6 +1422,7 @@ fun PlayerScreen(
                 onBack = { exitPlayer() },
                 skipButtonVisible = skipButtonActuallyVisible
             )
+            } // [fork] LocalNuvioCFocusMemory
         }
 
         // Aspect ratio indicator (floating pill)
@@ -2676,14 +2682,16 @@ private fun ControlButton(
     onFocused: (() -> Unit)? = null
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val nuvioCFocus = LocalNuvioCFocusMemory.current // [fork] focus returns here after its panel closes
+    val nuvioCRequester = nuvioCFocus?.requester(contentDescription, focusRequester) ?: focusRequester // [fork]
 
     IconButton(
-        onClick = onClick,
+        onClick = { nuvioCFocus?.onClick(contentDescription); onClick() }, // [fork] was onClick
         enabled = enabled,
         modifier = Modifier
             .size(NuvioTheme.spacing.xxxl)
             .then(
-                if (focusRequester != null) Modifier.focusRequester(focusRequester)
+                if (nuvioCRequester != null) Modifier.focusRequester(nuvioCRequester) // [fork] was focusRequester
                 else Modifier
             )
             .then(
