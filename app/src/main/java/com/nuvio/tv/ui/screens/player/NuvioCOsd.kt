@@ -7,6 +7,13 @@ package com.nuvio.tv.ui.screens.player
 //    subtitle settings, cue parsing and libass rendering are never touched.
 
 import android.view.View
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.nuvio.tv.NuvioCFeatures
 import androidx.annotation.VisibleForTesting
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -36,7 +43,6 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.C
@@ -92,7 +98,8 @@ internal fun Modifier.nuvioCOsdTitleBlock(state: NuvioCOsdState): Modifier {
 
 /**
  * Badges, bottom-right of the OSD, sharing a baseline with the last line of the title block.
- * Refreshed each time the OSD opens and whenever the audio track or stream changes.
+ * Outline chips (Apple TV style): thin border, small caps, drawn once per OSD open (no blur,
+ * no animation while playing). Refreshed when the audio track or stream changes.
  */
 @Composable
 internal fun NuvioCOsdBadges(
@@ -101,10 +108,11 @@ internal fun NuvioCOsdBadges(
     state: NuvioCOsdState,
     endPadding: Dp
 ) {
-    val text = remember(uiState.audioTracks, uiState.currentStreamName, uiState.isBuffering, uiState.internalPlayerEngine) {
-        runCatching { buildBadgeText(viewModel.controller, uiState) }.getOrNull()
+    if (!NuvioCFeatures.OSD_BADGES) return
+    val parts = remember(uiState.audioTracks, uiState.currentStreamName, uiState.isBuffering, uiState.internalPlayerEngine) {
+        runCatching { buildBadgeParts(viewModel.controller, uiState) }.getOrNull().orEmpty()
     }
-    if (text.isNullOrBlank()) {
+    if (parts.isEmpty()) {
         SideEffect { state.badgesWidthPx = 0 }
         return
     }
@@ -120,12 +128,9 @@ internal fun NuvioCOsdBadges(
             .fillMaxSize()
             .onGloballyPositioned { originY = it.positionInWindow().y }
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = Color.White.copy(alpha = 0.68f),
-            maxLines = 1,
-            overflow = TextOverflow.Clip,
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(end = endPadding)
@@ -133,18 +138,35 @@ internal fun NuvioCOsdBadges(
                 .layout { measurable, constraints ->
                     val placeable = measurable.measure(constraints)
                     val target = state.titleLastBaseline
-                    val textBaseline = placeable[LastBaseline].takeIf { it != AlignmentLine.Unspecified }
+                    val rowBaseline = placeable[LastBaseline].takeIf { it != AlignmentLine.Unspecified }
                         ?: placeable.height
-                    val y = if (target.isNaN()) 0 else (target - originY - textBaseline).roundToInt()
+                    val y = if (target.isNaN()) 0 else (target - originY - rowBaseline).roundToInt()
                     layout(placeable.width, placeable.height) { placeable.place(0, y) }
                 }
                 .graphicsLayer { this.alpha = alpha }
-        )
+        ) {
+            parts.forEach { part ->
+                Text(
+                    text = part.uppercase(Locale.ROOT),
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.5.sp
+                    ),
+                    color = Color.White.copy(alpha = 0.9f),
+                    maxLines = 1,
+                    modifier = Modifier
+                        .border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp)
+                )
+            }
+        }
     }
     DisposableEffect(state) { onDispose { state.badgesWidthPx = 0 } }
 }
 
-private fun buildBadgeText(controller: PlayerRuntimeController, uiState: PlayerUiState): String? {
+private fun buildBadgeParts(controller: PlayerRuntimeController, uiState: PlayerUiState): List<String> {
     val exoFormat = if (controller.currentInternalPlayerEngine == InternalPlayerEngine.MVP_PLAYER) null
     else controller._exoPlayer?.videoFormat
     val names = listOfNotNull(
@@ -170,7 +192,7 @@ private fun buildBadgeText(controller: PlayerRuntimeController, uiState: PlayerU
         names = names
     )
     val audio = uiState.audioTracks.firstOrNull { it.isSelected }
-    return NuvioCOsdBadges.join(
+    return NuvioCOsdBadges.parts(
         NuvioCOsdBadges.resolutionLabel(width, height) ?: NuvioCOsdBadges.resolutionFromName(names),
         visual,
         NuvioCOsdBadges.audioLabel(audio?.codec, audio?.channelCount),
@@ -182,8 +204,10 @@ private fun buildBadgeText(controller: PlayerRuntimeController, uiState: PlayerU
 @VisibleForTesting
 internal object NuvioCOsdBadges {
 
+    fun parts(vararg parts: String?): List<String> = parts.filterNotNull().filter { it.isNotBlank() }
+
     fun join(vararg parts: String?): String? =
-        parts.filterNot { it.isNullOrBlank() }.joinToString(" · ").takeIf { it.isNotEmpty() }
+        parts(*parts).joinToString(" · ").takeIf { it.isNotEmpty() }
 
     /** Uses the width first so cropped scope films (3840x1600, 1920x800) keep their class. */
     fun resolutionLabel(width: Int?, height: Int?): String? {
@@ -298,6 +322,7 @@ internal fun NuvioCSubtitleLiftEffect(
     state: NuvioCOsdState,
     subtitleStyle: SubtitleStyleSettings
 ) {
+    if (!NuvioCFeatures.SUBTITLE_LIFT) return
     val controller = viewModel.controller
     val gapPx = with(LocalDensity.current) { SUBTITLE_OSD_GAP.toPx() }
     val progress = animateFloatAsState(
