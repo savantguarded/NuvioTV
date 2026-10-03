@@ -2,9 +2,9 @@ package com.nuvio.tv.ui.screens.player
 
 // [fork] Nuvio C player OSD additions, kept in this file so PlayerScreen.kt only gets a few hook lines:
 //  - badges bottom-right: resolution · visual tag · audio · file size (plain text, year-line style)
-//  - subtitle lift: while the OSD is open, subtitles move up so they clear the whole bottom block
-//    (title, episode line, seek bar, buttons). Only the finished subtitle layer moves; saved
-//    subtitle settings, cue parsing and libass rendering are never touched.
+//  - subtitle lift: while the OSD is open, bottom subtitles move up so they clear the whole bottom
+//    block (title, episode line, seek bar, buttons); top subtitles stay put. Only the finished
+//    subtitle picture moves; saved subtitle settings, cue parsing and libass rendering are untouched.
 
 import android.view.View
 import androidx.compose.foundation.border
@@ -311,9 +311,10 @@ internal object NuvioCOsdBadges {
 }
 
 /**
- * Moves subtitles above the OSD's bottom block while it is open (animated with the OSD fade),
- * then back. ExoPlayer: the subtitle view and the libass overlay are translated as finished
- * layers. mpv: plain-text subtitles get a temporary sub-pos; ASS on mpv is left alone.
+ * Moves bottom subtitles above the OSD's bottom block while it is open (animated with the OSD fade),
+ * then back. Top subtitles never move. ExoPlayer: the lower half of the finished subtitle view and
+ * libass overlay is drawn moved up (NuvioCSubtitleLiftLayout). mpv: plain-text subtitles get a
+ * temporary sub-pos, which only moves bottom-aligned lines; ASS on mpv is left alone.
  */
 @Composable
 internal fun NuvioCSubtitleLiftEffect(
@@ -375,25 +376,38 @@ private fun PlayerView.nuvioCApplySubtitleLift(
     fun View.windowTop(): Float {
         val loc = IntArray(2)
         getLocationInWindow(loc)
-        return loc[1] - translationY // where it sits without our lift
+        return loc[1] - translationY
     }
+    val off = progress <= 0f || osdTop.isNaN()
 
+    // Only the bottom half of each subtitle layer moves (NuvioCSubtitleLiftLayout); the top half,
+    // with top-positioned subtitles and signs, stays where it is.
     subtitleView?.let { sv ->
-        sv.translationY = if (progress <= 0f || osdTop.isNaN() || sv.height <= 0) 0f else {
-            // Same maths as media3's SubtitleView: bottom padding, then the bottom fraction
-            val fraction = (0.06f + (style.verticalOffset / 250f)).coerceIn(0f, 0.4f)
-            val usable = sv.height - sv.paddingTop - sv.paddingBottom
-            val subsBottom = sv.windowTop() + sv.height - sv.paddingBottom - usable * fraction
-            -(subsBottom - limit).coerceAtLeast(0f) * progress
+        sv.translationY = 0f // older builds moved the whole view
+        val frame = sv.parent as? NuvioCSubtitleLiftLayout ?: return@let
+        if (off || sv.height <= 0) {
+            frame.setSubtitleLift(0f, 0f)
+            return@let
         }
+        // Same maths as media3's SubtitleView: bottom padding, then the bottom fraction
+        val fraction = (0.06f + (style.verticalOffset / 250f)).coerceIn(0f, 0.4f)
+        val usable = sv.height - sv.paddingTop - sv.paddingBottom
+        val subsBottom = sv.windowTop() + sv.height - sv.paddingBottom - usable * fraction
+        val lift = (subsBottom - limit).coerceAtLeast(0f) * progress
+        frame.setSubtitleLift(lift, sv.top + sv.paddingTop + usable / 2f)
     }
 
     for (id in intArrayOf(R.id.libass_overlay_container, R.id.libass_overlay_container_gl)) {
         val container = findViewById<android.widget.FrameLayout>(id) ?: continue
-        container.translationY = if (progress <= 0f || osdTop.isNaN() || container.height <= 0) 0f else {
-            // ASS dialogue usually sits ~4.5% of the frame above its bottom edge
-            val subsBottom = container.windowTop() + container.height * (1f - 0.045f)
-            -(subsBottom - limit).coerceAtLeast(0f) * progress
+        container.translationY = 0f
+        val frame = container as? NuvioCSubtitleLiftLayout ?: continue
+        if (off || container.height <= 0) {
+            frame.setSubtitleLift(0f, 0f)
+            continue
         }
+        // ASS dialogue usually sits ~4.5% of the frame above its bottom edge
+        val subsBottom = container.windowTop() + container.height * (1f - 0.045f)
+        val lift = (subsBottom - limit).coerceAtLeast(0f) * progress
+        frame.setSubtitleLift(lift, container.height / 2f)
     }
 }
