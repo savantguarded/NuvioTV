@@ -33,7 +33,7 @@ class SimklAuthRepository(
         val authScope = storage.currentScope()
         if (!hasRequiredCredentials()) throw SimklAuthException(SimklAuthError.MISSING_CLIENT_ID)
         // [fork] Simkl AUTH V2 device flow first; V1 client IDs are refused there and fall back to the PIN login.
-        startDeviceAuthV2(authScope)?.let { return@withLock it }
+        if (com.nuvio.tv.NuvioCFeatures.SIMKL_V2) startDeviceAuthV2(authScope)?.let { return@withLock it }
         val response = executeAuthRequest(SimklApiRequest(SimklHttpMethod.GET, "/oauth/pin", requiresAuthentication = false))
         val payload = decodePinResponse(response.body)
         val userCode = payload.userCode?.trim()?.takeIf(String::isNotBlank)
