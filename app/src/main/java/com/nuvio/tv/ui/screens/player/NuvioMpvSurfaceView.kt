@@ -451,6 +451,40 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
         }
     }
 
+    // [fork] Nuvio C subtitle lift while the OSD is open. bottomFraction = how far up the screen
+    // (0..1) the subtitle bottom should sit; null puts the saved style back. ASS is left alone.
+    private var nuvioCLifted = false
+    fun nuvioCSetSubtitleLift(bottomFraction: Double?, style: SubtitleStyleSettings) {
+        if (!initialized) return
+        runCatching {
+            if (bottomFraction == null || isAssOrSsaSubtitleSelectedNow()) {
+                if (nuvioCLifted) {
+                    nuvioCLifted = false
+                    applySubtitleStyle(style)
+                }
+                return
+            }
+            val offset = style.verticalOffset.coerceIn(SUBTITLE_VERTICAL_OFFSET_MIN, SUBTITLE_VERTICAL_OFFSET_MAX)
+            val norm = (offset - SUBTITLE_VERTICAL_OFFSET_MIN).toDouble() /
+                (SUBTITLE_VERTICAL_OFFSET_MAX - SUBTITLE_VERTICAL_OFFSET_MIN).toDouble()
+            val savedPos = MPV_SUB_POS_AT_BOTTOM - (norm * (MPV_SUB_POS_AT_BOTTOM - MPV_SUB_POS_AT_TOP))
+            val savedMargin = MPV_SUB_MARGIN_Y_MIN + (norm * (MPV_SUB_MARGIN_Y_MAX - MPV_SUB_MARGIN_Y_MIN))
+            val savedBottom = (MPV_SUB_POS_AT_BOTTOM - savedPos) / 100.0 + savedMargin / 720.0
+            if (bottomFraction <= savedBottom) {
+                if (nuvioCLifted) {
+                    nuvioCLifted = false
+                    applySubtitleStyle(style)
+                }
+                return
+            }
+            mpv.setPropertyInt("sub-margin-y", 0)
+            mpv.setPropertyDouble("sub-pos", (MPV_SUB_POS_AT_BOTTOM - bottomFraction * 100.0).coerceIn(0.0, 150.0))
+            nuvioCLifted = true
+        }.onFailure {
+            Log.w(TAG, "Nuvio C subtitle lift failed: ${it.message}")
+        }
+    }
+
     private fun isAssOrSsaSubtitleSelectedNow(): Boolean {
         if (!initialized) return false
         val trackCount = mpv.getPropertyInt("track-list/count") ?: return false
