@@ -11,8 +11,8 @@
 # You get a GitHub notification (an issue on this repo) when:
 #   - upstream changed any of the OSD code this fork modifies (build still runs), or
 #   - upstream conflicts with the core changes (OSD/Simkl: build stops; last good APK stays), or
-#   - upstream conflicts with, or breaks, the optional background-trailer patch (the APK is
-#     still built and published, just without background trailers), or
+#   - upstream conflicts with, or breaks, the optional trailer patch (the APK is still built and
+#     published, just with official background trailers as shipped instead of the Nuvio C layer), or
 #   - the same happens to the optional IMDb trailer backup patch (built without that feature).
 
 name: Nuvio C build
@@ -54,18 +54,14 @@ env:
     app/src/main/java/com/nuvio/tv/ui/screens/player/NuvioMpvSurfaceView.kt
     app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerSidecarSubtitles.kt
   OSD_FUNCTIONS: PlayerControlsOverlay|ProgressBar|SeekOverlay|PlayerControlsProgressBarHost|applyMetaDetails|applySubtitleStyle|applySubtitleStyleIfNeeded|syncLibassOverlay
-  # Background trailers (upstream PR #3730 + Nuvio C layer). Applied as a separate, optional patch:
-  # if an official release conflicts with it, or the app won't compile with it, the build carries
-  # on without it (official trailer behaviour) and opens an issue. Everything else is the core patch.
+  # Background trailers (Nuvio C layer on official's "Play in Background") and the trailer screen
+  # tweaks. Applied as a separate, optional patch: if an official release conflicts with it, or the
+  # app won't compile with it, the build carries on without it (official trailer behaviour) and
+  # opens an issue. Everything else is the core patch.
   TRAILER_PATHS: >-
     app/src/main/java/com/nuvio/tv/ui/screens/detail
     app/src/main/java/com/nuvio/tv/ui/components/TrailerPlayer.kt
-    app/src/main/java/com/nuvio/tv/ui/components/NuvioCTrailerFraming.kt
-    app/src/main/java/com/nuvio/tv/data/local/TrailerSettingsDataStore.kt
-    app/src/main/java/com/nuvio/tv/ui/screens/settings/LayoutDetailSettings.kt
-    app/src/main/java/com/nuvio/tv/ui/screens/settings/LayoutSettingsViewModel.kt
-    app/src/main/res/values/strings_nuvio_c_trailer.xml
-    app/src/main/res/values-fr/strings_nuvio_c_trailer.xml
+    app/src/main/java/com/nuvio/tv/ui/components/NuvioCTrailerHold.kt
     app/src/test/java/com/nuvio/tv/ui/screens/detail/NuvioCTrailerAutostartTest.kt
   # IMDb trailer backup when YouTube rate-limits. Its own optional patch, handled like the trailer
   # patch: a conflict or compile failure drops only this feature (official YouTube-only trailers).
@@ -211,9 +207,9 @@ jobs:
           else
             git reset -q --hard
             {
-              echo "Official ${{ steps.plan.outputs.release }} conflicts with the background-trailer patch, so this build was made **without** background trailers (official trailer behaviour). Everything else is in."
+              echo "Official ${{ steps.plan.outputs.release }} conflicts with the background-trailer patch, so this build was made **without** the Nuvio C trailer layer (official background trailers as shipped, and official trailer screen). Everything else is in."
               echo
-              echo "The trailer patch needs refreshing. If official has merged PR #3730, the fork's copy can be removed instead."
+              echo "The trailer patch needs refreshing against the new official detail-page code."
             } > trailer-notice.md
           fi
           echo "Background trailers: $trailer"
@@ -371,7 +367,7 @@ jobs:
           git apply -R "$RUNNER_TEMP/nuvio-c-trailer-applied.patch"
           trailer="build-failed"
           {
-            echo "Official ${{ steps.plan.outputs.release }} merged with the background-trailer patch but the app didn't compile with it, so this build was made **without** background trailers (official trailer behaviour). Everything else is in."
+            echo "Official ${{ steps.plan.outputs.release }} merged with the background-trailer patch but the app didn't compile with it, so this build was made **without** the Nuvio C trailer layer (official background trailers as shipped, and official trailer screen). Everything else is in."
             echo
             echo "See the failed first attempt in the build log. The trailer patch needs refreshing."
           } > trailer-notice.md
@@ -393,9 +389,9 @@ jobs:
           rel="${{ steps.plan.outputs.release }}"
           notes="Nuvio C, built from official NuvioTV release [${rel}](https://github.com/${UPSTREAM_SLUG}/releases/tag/${rel}) (commit ${{ steps.plan.outputs.upstream_sha }}) plus the Nuvio C player tweaks."
           if [ "${{ steps.apk.outputs.trailer }}" = "applied" ]; then
-            notes="${notes} Background trailers included."
+            notes="${notes} Nuvio C trailer layer included."
           else
-            notes="${notes} Background trailers NOT included in this build (see issues)."
+            notes="${notes} Nuvio C trailer layer NOT included in this build (official background trailers, see issues)."
           fi
           if [ "${{ steps.apk.outputs.imdb }}" = "applied" ]; then
             notes="${notes} IMDb trailer backup included."
@@ -426,9 +422,9 @@ jobs:
         if: success() && steps.plan.outputs.build == 'true' && hashFiles('trailer-notice.md') != ''
         run: |
           if [ "${{ steps.apk.outputs.trailer }}" = "applied" ]; then
-            title="Nuvio C: official ${{ steps.plan.outputs.release }} changed detail-page code (background trailers still in)"
+            title="Nuvio C: official ${{ steps.plan.outputs.release }} changed detail-page code (Nuvio C trailer layer still in)"
           else
-            title="Nuvio C: ${{ steps.plan.outputs.release }} built without background trailers"
+            title="Nuvio C: ${{ steps.plan.outputs.release }} built without the Nuvio C trailer layer"
           fi
           gh issue create --title "$title" --body-file trailer-notice.md || cat trailer-notice.md
 
