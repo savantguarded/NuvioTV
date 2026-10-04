@@ -90,3 +90,44 @@ internal fun Modifier.nuvioCAnimateHeightNoClip(spec: AnimationSpec<Float>): Mod
         layout(placeable.width, shown) { placeable.place(0, 0) }
     }
 }
+
+/**
+ * Small clearlogo bottom-left while the trailer plays with sound (trailer button), at official's
+ * trailer-logo size: 60dp tall, at most a quarter of the width. It sits on an invisible copy of
+ * the trailer seek bar, so it lines up exactly above the real bar and never moves when the bar
+ * appears. Fixed box + Fit + alpha without an offscreen layer: the logo is never cropped.
+ */
+@Composable
+internal fun NuvioCTrailerScreenLogo(
+    logo: String?,
+    contentDescription: String?,
+    visible: Boolean,
+    modifier: Modifier = Modifier
+) {
+    if (!com.nuvio.tv.NuvioCFeatures.TRAILER_SCREEN_LOGO) return
+    val url = logo?.takeIf { it.isNotBlank() } ?: return
+    var failed by remember(url) { mutableStateOf(false) }
+    val alpha by animateFloatAsState(
+        targetValue = if (visible && !failed) 1f else 0f,
+        animationSpec = tween(NuvioMotion.tokens.durations.overlay),
+        label = "nuvioCTrailerScreenLogo"
+    )
+    if (!visible && alpha <= 0f) return
+    Column(modifier = modifier.fillMaxWidth()) {
+        AsyncImage(
+            model = url,
+            contentDescription = contentDescription,
+            contentScale = ContentScale.Fit,
+            alignment = Alignment.BottomStart,
+            onError = { failed = true },
+            modifier = Modifier
+                .padding(start = NuvioTheme.spacing.xxl)
+                .fillMaxWidth(0.25f)
+                .height(60.dp)
+                .nuvioCFade(alpha)
+        )
+        Box(modifier = Modifier.nuvioCFade(0f)) {
+            TrailerSeekOverlay(currentPosition = 0L, duration = 0L)
+        }
+    }
+}
