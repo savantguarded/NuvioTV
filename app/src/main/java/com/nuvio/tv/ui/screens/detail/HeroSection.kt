@@ -114,6 +114,8 @@ fun HeroContentSection(
     tmdbRating: Float? = null,
     showFullReleaseDate: Boolean = true,
     isTrailerPlaying: Boolean = false,
+    nuvioCBackgroundTrailer: Boolean = false, // [fork] muted background trailer behind the page: dim the text
+    nuvioCFadeLogo: Boolean = false, // [fork] fade the logo with the trailer instead of removing it
     playButtonFocusRequester: FocusRequester? = null,
     restorePlayFocusToken: Int = 0,
     onHeroActionFocused: () -> Unit = {},
@@ -122,6 +124,30 @@ fun HeroContentSection(
     onTruncationChanged: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
+    // [fork] Nuvio C dimming over a background trailer (Apple TV look), full brightness when the synopsis is focused
+    var nuvioCSynopsisFocused by remember(meta.id) { mutableStateOf(false) }
+    val nuvioCTextAlpha by animateFloatAsState(
+        targetValue = if (nuvioCBackgroundTrailer && !nuvioCSynopsisFocused) NUVIO_C_DETAIL_TEXT_ALPHA else 1f,
+        animationSpec = tween(300),
+        label = "nuvioCTextAlpha"
+    )
+    val nuvioCDescriptionAlpha by animateFloatAsState(
+        targetValue = if (nuvioCBackgroundTrailer && !nuvioCSynopsisFocused) NUVIO_C_DESCRIPTION_ALPHA else 1f,
+        animationSpec = tween(300),
+        label = "nuvioCDescriptionAlpha"
+    )
+    // [fork] logo stays composed and fades with the trailer, so it never pops, reloads or crops mid-move
+    val nuvioCLogoAlpha by animateFloatAsState(
+        targetValue = if (isTrailerPlaying && hideLogoDuringTrailer) 0f else 1f,
+        animationSpec = tween(NuvioMotion.tokens.durations.overlay),
+        label = "nuvioCLogoAlpha"
+    )
+    // [fork] fade for the actions block, drawn by nuvioCFade (official dropped its heroActionsAlpha in beta.5)
+    val nuvioCActionsAlpha by animateFloatAsState(
+        targetValue = if (isTrailerPlaying) 0f else 1f,
+        animationSpec = tween(NuvioMotion.tokens.durations.overlay),
+        label = "nuvioCActionsAlpha"
+    )
     val isSeriesApi = remember(meta.apiType) {
         meta.apiType.equals("series", ignoreCase = true) || meta.apiType.equals("tv", ignoreCase = true)
     }
@@ -137,7 +163,7 @@ fun HeroContentSection(
     val shouldShowLogo =
         !meta.logo.isNullOrBlank() &&
             !logoLoadFailed &&
-            !(isTrailerPlaying && hideLogoDuringTrailer)
+            !(isTrailerPlaying && hideLogoDuringTrailer && !nuvioCFadeLogo) // [fork]
     val libraryAddPainter = rememberRawSvgPainter(
         context = context,
         rawRes = com.nuvio.tv.R.raw.library_add_plus
@@ -186,8 +212,9 @@ fun HeroContentSection(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .animateContentSize(
-                    animationSpec = tween(600)
+                .then( // [fork] same size animation without clipping the logo or the focused buttons
+                    if (nuvioCFadeLogo) Modifier.nuvioCAnimateHeightNoClip(tween(600))
+                    else Modifier.animateContentSize(animationSpec = tween(600))
                 )
                 .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl, bottom = NuvioTheme.spacing.lg),
             verticalArrangement = Arrangement.Bottom
@@ -199,6 +226,7 @@ fun HeroContentSection(
                     contentDescription = meta.name,
                     onError = { logoLoadFailed = true },
                     modifier = Modifier
+                        .nuvioCFade(if (nuvioCFadeLogo) nuvioCLogoAlpha else 1f) // [fork] no offscreen layer, nothing clipped
                         .height(logoHeight)
                         .fillMaxWidth(logoMaxWidth)
                         .padding(bottom = logoBottomPadding),
@@ -238,8 +266,10 @@ fun HeroContentSection(
             // Everything below the logo fades out during trailer
             AnimatedVisibility(
                 visible = !isTrailerPlaying,
-                enter = fadeIn(tween(NuvioMotion.tokens.durations.overlay)),
-                exit = fadeOut(tween(NuvioMotion.tokens.durations.overlay))
+                // [fork] fade on a non-clipping layer, so the focused Play button's ring is never cut
+                enter = if (nuvioCFadeLogo) androidx.compose.animation.EnterTransition.None else fadeIn(tween(NuvioMotion.tokens.durations.overlay)),
+                exit = fadeOut(tween(NuvioMotion.tokens.durations.overlay)),
+                modifier = if (nuvioCFadeLogo) Modifier.nuvioCFade(nuvioCActionsAlpha) else Modifier // [fork]
             ) {
                 Column {
                     Row(
@@ -325,13 +355,13 @@ fun HeroContentSection(
                             color = NuvioTheme.extendedColors.textSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.fillMaxWidth(0.6f)
+                            modifier = Modifier.nuvioCFade(nuvioCTextAlpha).fillMaxWidth(0.6f) // [fork]
                         )
                         Spacer(modifier = Modifier.height(NuvioTheme.spacing.md))
                     }
 
                     if (mdbListRatings?.isEmpty() == false) {
-                        MDBListRatingsRow(ratings = mdbListRatings, order = mdbListRatingOrder)
+                        MDBListRatingsRow(ratings = mdbListRatings, order = mdbListRatingOrder, modifier = Modifier.nuvioCFade(nuvioCTextAlpha)) // [fork]
                         Spacer(modifier = Modifier.height(14.dp))
                     }
 
@@ -343,17 +373,19 @@ fun HeroContentSection(
                             onFocused = onHeroActionFocused,
                             onTruncationChanged = onTruncationChanged,
                             modifier = Modifier
+                                .nuvioCFade(nuvioCTextAlpha * nuvioCDescriptionAlpha) // [fork]
+                                .onFocusChanged { nuvioCSynopsisFocused = it.hasFocus } // [fork]
                                 .fillMaxWidth(0.6f)
                                 .padding(bottom = NuvioTheme.spacing.md)
                         )
                     }
 
-                    MetaInfoRow(
+                    Box(modifier = Modifier.nuvioCFade(nuvioCTextAlpha)) { MetaInfoRow( // [fork] dimmed with the text
                         meta = meta,
                         hideImdbRating = hideMetaInfoImdb,
                         showFullReleaseDate = showFullReleaseDate,
                         tmdbRating = tmdbRating
-                    )
+                    ) }
                 }
             }
         }
