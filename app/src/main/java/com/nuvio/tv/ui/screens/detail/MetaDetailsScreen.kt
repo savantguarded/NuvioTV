@@ -1152,6 +1152,13 @@ fun MetaDetailsScreen(
             )
         }
 
+        NuvioCTrailerScreenLogo( // [fork] small clearlogo bottom-left on the trailer-button screen
+            logo = uiState.meta?.logo,
+            contentDescription = uiState.meta?.name,
+            visible = uiState.isTrailerPlaying && uiState.showTrailerControls,
+            modifier = Modifier.align(Alignment.BottomStart)
+        )
+
         TrailerSeekOverlayHost(
             visible = uiState.isTrailerPlaying && uiState.showTrailerControls && trailerSeekOverlayVisible,
             overlayState = trailerSeekOverlayState,
