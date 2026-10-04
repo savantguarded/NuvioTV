@@ -16,17 +16,6 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 
 <img src="nuvio-c-screenshots/player-logo.jpg" alt="Player controls with the title logo top-left" width="720" />
 
-**Details page: background trailers** (optional, off by default)
-- Turn on in Settings > Layout > Background trailers.
-- The trailer plays muted and full-screen behind the page, once per visit, with letterbox bars zoomed away.
-- It starts after your autoplay delay wherever you are on the page, and pauses while comments, menus or cast pages are open.
-- Press the trailer button for sound. Press Back to stop it.
-- With the setting off, the page works exactly like official.
-
-<img src="nuvio-c-screenshots/background-trailer.jpg" alt="Details page with a trailer playing behind it" width="720" />
-
-<img src="nuvio-c-screenshots/background-trailers-setting.jpg" alt="Background trailers setting in Layout Settings" width="720" />
-
 **Trailers**
 - The trailer screen (trailer button, trailers row) uses the same seek bar as the player.
 - While a trailer plays with sound, a small title logo shows bottom-left, just above the seek bar.
@@ -56,7 +45,7 @@ The release notes list what was switched off. Clear the variable to turn everyth
 | `hide_via` | Hiding the "via" source line |
 | `year_backfill` | Year for titles opened from Continue Watching |
 | `simkl_v2` | Simkl's newer device login (back to the PIN login) |
-| `background_trailers` | The Background trailers setting |
+| `background_trailers` | Nuvio C behaviour for official's "Play in Background" trailers |
 | `trailer_screen_bar` | Player-style seek bar on the trailer screen |
 | `trailer_screen_logo` | Small logo on the trailer screen |
 | `imdb_trailer_backup` | IMDb trailers when YouTube rate-limits |
@@ -65,7 +54,7 @@ The switches live in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt`. To remo
 
 ## How it's kept up to date
 
-A build runs automatically every hour. When Nuvio publishes a new release, the same changes are applied on top and a new Nuvio C APK is posted to Releases. If an official update clashes with the background trailers or the IMDb backup, the APK is still built, just without that feature.
+A build runs automatically every hour. When Nuvio publishes a new release, the same changes are applied on top and a new Nuvio C APK is posted to Releases. If an official update clashes with the trailer tweaks or the IMDb backup, the APK is still built, just without that feature.
 
 Everything else works like the official app.
 
