@@ -28,7 +28,7 @@ object NuvioCFeatures {
     const val YEAR_BACKFILL = true
     /** Simkl: AUTH V2 device login with automatic token renewal (off = official PIN login). */
     const val SIMKL_V2 = true
-    /** Details page: the "Background trailers" setting (off = setting hidden, official trailers). */
+    /** Details page: Nuvio C layer on official "Play in Background" trailers (off = official as shipped). */
     const val BACKGROUND_TRAILERS = true
     /** Trailer screen: player-style seek bar. */
     const val TRAILER_SCREEN_BAR = true
