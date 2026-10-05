@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- [fork] Nuvio C strings (English only; other languages fall back to these). -->
+<resources>
+    <string name="nuvio_c_bg_trailer_muted_sub">Plays the trailer muted behind the page. Off: with sound, faded in.</string>
+</resources>
