@@ -17,6 +17,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 <img src="nuvio-c-screenshots/player-logo.jpg" alt="Player controls with the title logo top-left" width="720" />
 
 **Trailers**
+- Background trailers ("Play in Background") play muted, with a **Play Trailer Muted** setting under Settings > Layout > Details to play them with sound (faded in). One press of Back stops the trailer and leaves the page.
 - The trailer screen (trailer button, trailers row) uses the same seek bar as the player.
 - While a trailer plays with sound, a small title logo shows bottom-left, just above the seek bar.
 - When YouTube rate-limits and trailers drop to low quality, the IMDb trailer for the title is used instead (720p or better). YouTube stays the main source.
@@ -46,6 +47,8 @@ The release notes list what was switched off. Clear the variable to turn everyth
 | `year_backfill` | Year for titles opened from Continue Watching |
 | `simkl_v2` | Simkl's newer device login (back to the PIN login) |
 | `background_trailers` | Nuvio C behaviour for official's "Play in Background" trailers |
+| `bg_trailer_sound_toggle` | The "Play Trailer Muted" setting (background trailers always muted) |
+| `bg_trailer_back_exits` | One-press Back out of a playing background trailer (back to two presses) |
 | `trailer_screen_bar` | Player-style seek bar on the trailer screen |
 | `trailer_screen_logo` | Small logo on the trailer screen |
 | `imdb_trailer_backup` | IMDb trailers when YouTube rate-limits |
