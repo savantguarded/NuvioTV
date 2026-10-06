@@ -345,7 +345,7 @@ private fun HeroSection(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl, top = if (nuvioCCompact) NUVIO_C_HERO_TOP else NuvioTheme.spacing.xxl, bottom = NuvioTheme.spacing.sm), // [fork] top was spacing.xxl
+            .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl, top = if (nuvioCCompact) NUVIO_C_HERO_TOP else NuvioTheme.spacing.xxl, bottom = if (nuvioCCompact) NUVIO_C_HERO_BOTTOM else NuvioTheme.spacing.sm), // [fork] top was spacing.xxl, bottom spacing.sm
         verticalAlignment = Alignment.Top
     ) {
         // Avatar / Profile Photo
