@@ -1526,6 +1526,7 @@ fun PlayerScreen(
                 .align(Alignment.TopCenter)
                 .padding(top = 44.dp)
                 .zIndex(2.3f)
+                .nuvioCHdrDim(nuvioCHdr) // [fork]
         ) {
             SubtitleDelayOverlay(
                 subtitleDelayMs = uiState.subtitleDelayMs,
@@ -1600,7 +1601,7 @@ fun PlayerScreen(
                     onAddonFilterSelected = { viewModel.onEvent(PlayerEvent.OnEpisodeAddonFilterSelected(it)) },
                     onEpisodeSelected = { viewModel.onEvent(PlayerEvent.OnEpisodeSelected(it)) },
                     onStreamSelected = { viewModel.onEvent(PlayerEvent.OnEpisodeStreamSelected(it)) },
-                    modifier = Modifier.align(Alignment.CenterEnd)
+                    modifier = Modifier.align(Alignment.CenterEnd).nuvioCHdrDim(nuvioCHdr) // [fork]
                 )
             }
         }
@@ -1645,7 +1646,7 @@ fun PlayerScreen(
                     onAddonFilterSelected = { viewModel.onEvent(PlayerEvent.OnSourceAddonFilterSelected(it)) },
                     onStreamSelected = { viewModel.onEvent(PlayerEvent.OnSourceStreamSelected(it)) },
                     onExpandStreams = { viewModel.controller.expandSourceFilteredStreamsIfNeeded() },
-                    modifier = Modifier.align(Alignment.CenterEnd)
+                    modifier = Modifier.align(Alignment.CenterEnd).nuvioCHdrDim(nuvioCHdr) // [fork]
                 )
             }
         }
@@ -1700,6 +1701,7 @@ fun PlayerScreen(
                     isStyleDisabledByLibass = isAssDisabled,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
+                        .nuvioCHdrDim(nuvioCHdr) // [fork]
                 )
             }
         }
@@ -1728,6 +1730,7 @@ fun PlayerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(2.6f)
+                .nuvioCHdrDim(nuvioCHdr) // [fork]
         )
 
         SubtitleSelectionOverlay(
@@ -1754,6 +1757,7 @@ fun PlayerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(2.6f)
+                .nuvioCHdrDim(nuvioCHdr) // [fork]
         )
 
         PlayerOverlayScaffold(
@@ -1778,7 +1782,7 @@ fun PlayerScreen(
         ) {
             SubtitleTimingDialogHost(
                 viewModel = viewModel,
-                modifier = Modifier.align(Alignment.TopCenter),
+                modifier = Modifier.align(Alignment.TopCenter).nuvioCHdrDim(nuvioCHdr), // [fork]
                 subtitleDelayMs = uiState.subtitleDelayMs,
                 selectedAddonSubtitle = uiState.selectedAddonSubtitle,
                 cues = uiState.subtitleAutoSyncCues,
@@ -1797,7 +1801,8 @@ fun PlayerScreen(
             SpeedSelectionDialog(
                 currentSpeed = uiState.playbackSpeed,
                 onSpeedSelected = { viewModel.onEvent(PlayerEvent.OnSetPlaybackSpeed(it)) },
-                onDismiss = { viewModel.onEvent(PlayerEvent.OnDismissTransientOverlay) }
+                onDismiss = { viewModel.onEvent(PlayerEvent.OnDismissTransientOverlay) },
+                nuvioCDim = nuvioCHdr // [fork]
             )
         }
     }
@@ -3677,7 +3682,8 @@ internal fun PlayerOverlayButton(
 private fun SpeedSelectionDialog(
     currentSpeed: Float,
     onSpeedSelected: (Float) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    nuvioCDim: Boolean = false // [fork] HDR dim
 ) {
     val selectedIndex = remember(currentSpeed) {
         PLAYBACK_SPEEDS.indices.minByOrNull { index ->
@@ -3696,6 +3702,7 @@ private fun SpeedSelectionDialog(
     Dialog(onDismissRequest = onDismiss) {
         Box(
             modifier = Modifier
+                .nuvioCHdrDim(nuvioCDim) // [fork]
                 .width(300.dp)
                 .clip(RoundedCornerShape(NuvioTheme.radii.xl))
                 .background(NuvioTheme.colors.BackgroundElevated)
