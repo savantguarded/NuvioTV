@@ -441,7 +441,7 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
             mpv.setPropertyInt("sub-margin-y", subMarginY)
             mpv.setPropertyDouble("sub-shadow-offset", shadowOffset)
             mpv.setPropertyString("sub-border-style", borderStyle)
-            mpv.setPropertyString("sub-color", toMpvColor(style.textColor))
+            mpv.setPropertyString("sub-color", toMpvColor(NuvioCHdrDim.dimArgb(style.textColor, nuvioCSubDim))) // [fork] HDR dim, was style.textColor
             mpv.setPropertyString("sub-back-color", toMpvColor(style.backgroundColor))
             mpv.setPropertyString("sub-outline-color", toMpvColor(style.outlineColor))
             mpv.setPropertyBoolean("sub-filter-sdh", style.stripSdh)
@@ -449,6 +449,23 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
         }.onFailure {
             Log.w(TAG, "Failed to apply subtitle style on mpv: ${it.message}")
         }
+    }
+
+    // [fork] Nuvio C HDR dim: plain-text subtitle colour at [factor] brightness (1 = as saved).
+    private var nuvioCSubDim = 1f
+    fun nuvioCSetSubtitleDim(factor: Float, style: SubtitleStyleSettings) {
+        if (factor == nuvioCSubDim) return
+        nuvioCSubDim = factor
+        if (!initialized) return
+        runCatching { mpv.setPropertyString("sub-color", toMpvColor(NuvioCHdrDim.dimArgb(style.textColor, factor))) }
+    }
+
+    /** [fork] true for PQ / HLG video as mpv decoded it, null when mpv can't say yet. */
+    fun nuvioCIsHdrVideo(): Boolean? {
+        if (!initialized) return null
+        val gamma = runCatching { mpv.getPropertyString("video-params/gamma") }.getOrNull()
+            ?.lowercase(Locale.US)?.takeIf { it.isNotBlank() } ?: return null
+        return gamma == "pq" || gamma == "hlg"
     }
 
     // [fork] Nuvio C subtitle lift while the OSD is open. bottomFraction = how far up the screen
