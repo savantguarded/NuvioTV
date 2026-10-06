@@ -29,6 +29,17 @@ class NuvioCSubtitleLiftLayout @JvmOverloads constructor(
         invalidate()
     }
 
+    // [fork] Nuvio C HDR dim (NuvioCHdrDim.kt): 1 = normal; below 1 the whole subtitle picture
+    // is drawn at that brightness through a colour-filtered view layer.
+    private var dimFactor = 1f
+
+    fun setNuvioCDim(factor: Float) {
+        val f = factor.coerceIn(0f, 1f)
+        if (f == dimFactor) return
+        dimFactor = f
+        if (f < 1f) setLayerType(LAYER_TYPE_HARDWARE, nuvioCDimPaint(f)) else setLayerType(LAYER_TYPE_NONE, null)
+    }
+
     override fun dispatchDraw(canvas: Canvas) {
         val lift = liftPx
         if (!NuvioCFeatures.SUBTITLE_LIFT || lift < 0.5f || width <= 0 || height <= 0) {
