@@ -81,4 +81,23 @@ class NuvioCFilmographyTest {
         assertEquals("Director · Writer", lines["movie:2"])
         assertNull(lines["movie:3"])
     }
+
+    @Test
+    fun newestFirstUsesFullDatesUndatedLast() {
+        val dates = f.releaseDates(
+            listOf(
+                Triple("movie", 1, "2020-03-01"),
+                Triple("movie", 2, "2020-11-20"),
+                Triple("tv", 3, "2023-04-20"),
+                Triple("movie", 4, null),
+                Triple("tv", 3, "2019-01-01") // older entry for the same title is ignored
+            )
+        )
+        assertEquals("2023-04-20", dates["tv:3"])
+        val keys = listOf("movie:1", "movie:2", "tv:3", "movie:4")
+        val sorted = keys.sortedByDescending { f.sortDate(dates, it, null) }
+        assertEquals(listOf("tv:3", "movie:2", "movie:1", "movie:4"), sorted)
+        assertEquals("2015", f.sortDate(emptyMap(), "movie:9", "2015"))
+        assertEquals("", f.sortDate(emptyMap(), null, null))
+    }
 }

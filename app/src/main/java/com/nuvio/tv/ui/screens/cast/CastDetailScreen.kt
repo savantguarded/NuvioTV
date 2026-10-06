@@ -182,7 +182,11 @@ private fun CastDetailContent(
     val backgroundColor = NuvioTheme.colors.Background
     val accentColor = NuvioTheme.colors.Secondary
 
+    val nuvioCLayout = nuvioCCastLayout(person, com.nuvio.tv.ui.components.LocalLandscapePosterMode.current) // [fork]
     val allCredits = remember(person.movieCredits, person.tvCredits) {
+        if (com.nuvio.tv.NuvioCFeatures.CAST_ACTING_ONLY && person.nuvioCRoleLines.isNotEmpty()) { // [fork] newest first by full date
+            nuvioCNewestFirst((person.movieCredits + person.tvCredits).distinctBy { it.type to it.id }, person.nuvioCDates)
+        } else
         (person.movieCredits + person.tvCredits)
             .distinctBy { it.id }
             .sortedByDescending { releaseYearSortKey(it.releaseInfo) }
@@ -265,7 +269,8 @@ private fun CastDetailContent(
                             onBiographyExpandedChange(!isBiographyExpanded)
                         }
                     },
-                    modifier = if (isBiographyExpanded) Modifier.weight(1f) else Modifier
+                    modifier = if (isBiographyExpanded) Modifier.weight(1f) else Modifier,
+                    nuvioCCompact = nuvioCLayout // [fork] room for the role line
                 )
 
                 AnimatedVisibility(
@@ -280,7 +285,8 @@ private fun CastDetailContent(
                     Column {
                         SectionHeader(
                             title = stringResource(R.string.cast_detail_filmography),
-                            count = allCredits.size
+                            count = allCredits.size,
+                            nuvioCCompact = nuvioCLayout // [fork]
                         )
                         FilmographyRow(
                             credits = allCredits,
@@ -322,7 +328,8 @@ private fun HeroSection(
     isBiographyTruncated: Boolean,
     onBiographyTruncationChanged: (Boolean) -> Unit,
     onPortraitClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    nuvioCCompact: Boolean = false // [fork]
 ) {
     val portraitFocusRequester = remember { FocusRequester() }
     val biographyScrollState = rememberScrollState()
@@ -338,7 +345,7 @@ private fun HeroSection(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl, top = NuvioTheme.spacing.xxl, bottom = NuvioTheme.spacing.sm),
+            .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl, top = if (nuvioCCompact) NUVIO_C_HERO_TOP else NuvioTheme.spacing.xxl, bottom = NuvioTheme.spacing.sm), // [fork] top was spacing.xxl
         verticalAlignment = Alignment.Top
     ) {
         // Avatar / Profile Photo
@@ -539,11 +546,15 @@ private fun HeroSection(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun SectionHeader(title: String, count: Int) {
+private fun SectionHeader(title: String, count: Int, nuvioCCompact: Boolean = false) { // [fork] nuvioCCompact
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl, top = NuvioTheme.spacing.md, bottom = NuvioTheme.spacing.sm),
+            .padding(
+                start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl,
+                top = if (nuvioCCompact) NUVIO_C_HEADER_TOP else NuvioTheme.spacing.md, // [fork] was spacing.md
+                bottom = if (nuvioCCompact) NUVIO_C_HEADER_BOTTOM else NuvioTheme.spacing.sm // [fork] was spacing.sm
+            ),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
