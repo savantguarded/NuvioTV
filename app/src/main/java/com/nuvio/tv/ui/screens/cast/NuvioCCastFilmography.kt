@@ -83,8 +83,11 @@ internal fun nuvioCNewestFirst(credits: List<MetaPreview>, dates: Map<String, St
  * The role line adds ~18 dp under each poster, which pushed the row past the bottom of the screen.
  * In the Nuvio C layout the hero's top padding (32 dp) and the "Filmography" header's padding
  * (12 / 8 dp) shrink to make room: ~30 dp, enough for the line and the focused poster's zoom.
+ * The hero keeps 24 dp on top and 12 dp below so the focused portrait's 1.1x zoom (12 dp each
+ * side) is never cut by the screen edge or runs into the header; the role line keeps ~14 dp.
  */
-internal val NUVIO_C_HERO_TOP = 12.dp
+internal val NUVIO_C_HERO_TOP = 24.dp // room for the focused portrait's 1.1x zoom (12dp each side)
+internal val NUVIO_C_HERO_BOTTOM = 12.dp // zoomed portrait clears the Filmography header
 internal val NUVIO_C_HEADER_TOP = 6.dp
 internal val NUVIO_C_HEADER_BOTTOM = 4.dp
 
