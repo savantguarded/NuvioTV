@@ -32,9 +32,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - Filmography lists real work only: no talk shows, award shows, news, reality or "Self" / archive-footage appearances. Actor pages never fill up with producer credits.
 - Director, writer and creator pages list only what they created, directed or wrote (no executive producer or "thanks" credits).
 - Under each title: the character played, or the job ("Creator · Director · Writer"). Long lines take turns scrolling when the poster is focused.
-
-**Images**
-- Larger poster and backdrop cache (10% of free space, 256 MB to 1 GB, official: 200 MB), and images sent without caching rules are kept for a week, so rows reload less.
+- Back on a filmography row jumps to the first title, like the home rows. On the first title, Back leaves the page as usual.
 
 **Accounts**
 - Simkl logs in with its newer device login (QR code on the TV) and renews itself, so you stay signed in.
@@ -73,6 +71,7 @@ The release notes list what was switched off. Clear the variable to turn everyth
 | `osd_timeout` | 8-second controls (back to 3 seconds) |
 | `start_over` | The Start over button |
 | `cast_acting_only` | Real filmography and role lines on cast pages |
+| `cast_back_to_first` | Back jumping to the first title on a cast page's filmography row |
 
 The switches live in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt`. To remove a tweak's code for good rather than switch it off, its commits can be reverted; each tweak is in its own commits (listed in the project notes).
 
