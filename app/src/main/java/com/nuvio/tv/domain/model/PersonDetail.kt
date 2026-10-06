@@ -15,5 +15,7 @@ data class PersonDetail(
     val movieCredits: List<MetaPreview>,
     val tvCredits: List<MetaPreview>,
     /** [fork] Nuvio C: line under each title (character or "Director · Writer"), keyed "movie:<id>" / "tv:<id>". */
-    val nuvioCRoleLines: Map<String, String> = emptyMap()
+    val nuvioCRoleLines: Map<String, String> = emptyMap(),
+    /** [fork] Nuvio C: full release / first-air date per title (same keys), for newest-first order. */
+    val nuvioCDates: Map<String, String> = emptyMap()
 )

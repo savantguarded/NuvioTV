@@ -1406,7 +1406,8 @@ class TmdbMetadataService(
                     knownFor = person.knownForDepartment?.takeIf { it.isNotBlank() },
                     movieCredits = nuvioCPick?.movies ?: movieCredits, // [fork]
                     tvCredits = nuvioCPick?.tv ?: tvCredits, // [fork]
-                    nuvioCRoleLines = nuvioCPick?.roleLines.orEmpty() // [fork]
+                    nuvioCRoleLines = nuvioCPick?.roleLines.orEmpty(), // [fork]
+                    nuvioCDates = nuvioCPick?.dates.orEmpty() // [fork]
                 )
                 personCache[cacheKey] = detail
                 detail

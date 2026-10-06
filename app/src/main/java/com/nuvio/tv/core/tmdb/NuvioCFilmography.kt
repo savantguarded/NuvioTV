@@ -99,7 +99,29 @@ internal object NuvioCFilmography {
 
     // ── hook used by TmdbMetadataService.fetchPersonDetail ──
 
-    class Pick(val movies: List<MetaPreview>, val tv: List<MetaPreview>, val roleLines: Map<String, String>)
+    class Pick(
+        val movies: List<MetaPreview>,
+        val tv: List<MetaPreview>,
+        val roleLines: Map<String, String>,
+        val dates: Map<String, String>
+    )
+
+    /** Full release / first-air date ("yyyy-mm-dd") per title, for newest-first ordering. */
+    fun releaseDates(pairs: List<Triple<String?, Int, String?>>): Map<String, String> {
+        val out = HashMap<String, String>()
+        for ((media, id, date) in pairs) {
+            val d = date?.trim()?.takeIf { it.length >= 4 } ?: continue
+            val k = key(media, id)
+            if ((out[k] ?: "") < d) out[k] = d
+        }
+        return out
+    }
+
+    /** Sort key: the full date when known, else the year shown on the card; undated titles sort last. */
+    fun sortDate(dates: Map<String, String>, key: String?, releaseInfo: String?): String =
+        key?.let { dates[it] }
+            ?: releaseInfo?.trim()?.take(4)?.takeIf { y -> y.length == 4 && y.all { it.isDigit() } }
+            ?: ""
 
     /** The credit lists official code maps (filtered when [active]), and which list the page shows. */
     class Source private constructor(
@@ -128,8 +150,13 @@ internal object NuvioCFilmography {
                 preferCrewFilmography -> hasCrew || !hasCast
                 else -> !hasCast && hasCrew
             }
-            return if (useCrew) Pick(crewMovies, crewTv, jobLines(crew))
-            else Pick(castMovies, castTv, characterLines(cast))
+            return if (useCrew) {
+                Pick(crewMovies, crewTv, jobLines(crew),
+                    releaseDates(crew.map { Triple(it.mediaType, it.id, it.releaseDate ?: it.firstAirDate) }))
+            } else {
+                Pick(castMovies, castTv, characterLines(cast),
+                    releaseDates(cast.map { Triple(it.mediaType, it.id, it.releaseDate ?: it.firstAirDate) }))
+            }
         }
 
         companion object {
