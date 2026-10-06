@@ -43,8 +43,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import com.nuvio.tv.NuvioCFeatures
+import com.nuvio.tv.core.tmdb.NuvioCFilmography
 import com.nuvio.tv.domain.model.ContentType
 import com.nuvio.tv.domain.model.MetaPreview
+import com.nuvio.tv.domain.model.PersonDetail
 import com.nuvio.tv.ui.theme.NuvioTheme
 import kotlinx.coroutines.delay
 
@@ -53,13 +56,37 @@ private val MARQUEE_VELOCITY = 45.dp // per second, as official FocusMarqueeText
 private const val MARQUEE_DELAY_MS = 1_200L // official basicMarquee start / repeat delay
 private const val MARQUEE_ROUNDS = 3 // official MarqueeIterations
 
+private fun nuvioCKey(item: MetaPreview): String? {
+    val tmdbId = item.id.removePrefix("tmdb:").toIntOrNull() ?: return null
+    val media = if (item.type == ContentType.SERIES) "tv" else "movie"
+    return "$media:$tmdbId"
+}
+
 /** Role / job line for a filmography item, from PersonDetail.nuvioCRoleLines. */
 internal fun nuvioCRoleLine(lines: Map<String, String>, item: MetaPreview): String? {
     if (lines.isEmpty()) return null
-    val tmdbId = item.id.removePrefix("tmdb:").toIntOrNull() ?: return null
-    val media = if (item.type == ContentType.SERIES) "tv" else "movie"
-    return lines["$media:$tmdbId"]?.takeIf { it.isNotBlank() }
+    return nuvioCKey(item)?.let { lines[it] }?.takeIf { it.isNotBlank() }
 }
+
+/** Is the Nuvio C cast page layout in use (role lines, tighter spacing)? */
+internal fun nuvioCCastLayout(person: PersonDetail, landscapePosters: Boolean): Boolean =
+    NuvioCFeatures.CAST_ACTING_ONLY && person.nuvioCRoleLines.isNotEmpty() && !landscapePosters
+
+/**
+ * Newest first by the full release / first-air date, so titles from the same year are in order
+ * too. Titles TMDB gives no date at all go last (as official).
+ */
+internal fun nuvioCNewestFirst(credits: List<MetaPreview>, dates: Map<String, String>): List<MetaPreview> =
+    credits.sortedByDescending { NuvioCFilmography.sortDate(dates, nuvioCKey(it), it.releaseInfo) }
+
+/**
+ * The role line adds ~18 dp under each poster, which pushed the row past the bottom of the screen.
+ * In the Nuvio C layout the hero's top padding (32 dp) and the "Filmography" header's padding
+ * (12 / 8 dp) shrink to make room: ~30 dp, enough for the line and the focused poster's zoom.
+ */
+internal val NUVIO_C_HERO_TOP = 12.dp
+internal val NUVIO_C_HEADER_TOP = 6.dp
+internal val NUVIO_C_HEADER_BOTTOM = 4.dp
 
 /** Wraps the poster card: tracks focus for the text lines drawn under it. */
 @Composable
