@@ -52,8 +52,6 @@ object NuvioCFeatures {
     const val OSD_TIMEOUT = true
     /** Player: Start over button right after Play/Pause. */
     const val START_OVER = true
-    /** Images: bigger poster/backdrop disk cache and a 1-week default for images sent without cache rules. */
-    const val IMAGE_CACHE = true
     /** Cast page: real filmography (no talk shows / "Self" credits) with the role or job under each title. */
     const val CAST_ACTING_ONLY = true
 }

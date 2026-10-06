@@ -111,7 +111,6 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
                 }
                 .followRedirects(true)
                 .followSslRedirects(true)
-                .apply { if (NuvioCFeatures.IMAGE_CACHE) addNetworkInterceptor(NuvioCImageCache.weekDefaultInterceptor) } // [fork]
                 .build()
         }
 
@@ -160,7 +159,7 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
             .diskCache {
                 DiskCache.Builder()
                     .directory(cacheDir.resolve("image_cache").toOkioPath())
-                    .apply { if (NuvioCFeatures.IMAGE_CACHE) NuvioCImageCache.size(this) else maxSizeBytes(200L * 1024 * 1024) } // [fork] was maxSizeBytes(200 MB)
+                    .maxSizeBytes(200L * 1024 * 1024)
                     .build()
             }
             .crossfade(false)
