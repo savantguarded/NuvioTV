@@ -56,12 +56,33 @@ class NuvioCOsdBadgesTest {
 
     @Test
     fun audioLabels() {
-        assertEquals("E-AC-3 5.1", b.audioLabel("E-AC-3", 6))
-        assertEquals("E-AC-3 Atmos", b.audioLabel("E-AC-3-JOC", 6))
+        assertEquals("DD+ 5.1", b.audioLabel("E-AC-3", 6))
+        assertEquals("Atmos 5.1", b.audioLabel("E-AC-3-JOC", 6))
+        assertEquals("DD 5.1", b.audioLabel("ac3", 6))
         assertEquals("TrueHD 7.1", b.audioLabel("truehd", 8))
-        assertEquals("AAC Stereo", b.audioLabel("aac", 2))
+        assertEquals("Atmos 7.1", b.audioLabel("truehd", 8, "Movie.2160p.BluRay.REMUX.TrueHD.Atmos.7.1"))
+        assertEquals("AAC 2.0", b.audioLabel("aac", 2))
         assertEquals("DTS-HD 7.1", b.audioLabel("DTS-HD", 8))
         assertNull(b.audioLabel(null, null))
+    }
+
+    @Test
+    fun sourceFromName() {
+        assertEquals("REMUX", b.sourceFromName("Movie.2160p.BluRay.REMUX.HEVC.DV"))
+        assertEquals("REMUX", b.sourceFromName("Movie 2160p BDRemux"))
+        assertEquals("BLURAY", b.sourceFromName("Movie.1080p.BluRay.x264"))
+        assertEquals("BLURAY", b.sourceFromName("Movie 1080p BDRip"))
+        assertEquals("BLURAY", b.sourceFromName("Movie.720p.BRRip"))
+        assertEquals("WEB-DL", b.sourceFromName("Show.S01E01.2160p.WEB-DL.DDP5.1"))
+        assertEquals("WEB-DL", b.sourceFromName("Show S01E01 1080p WEBDL"))
+        assertEquals("WEBRIP", b.sourceFromName("Movie.1080p.WEBRip.x265"))
+        assertEquals("WEB", b.sourceFromName("Show.S02E03.1080p.WEB.h264"))
+        assertEquals("HDTV", b.sourceFromName("Show.S01E01.720p.HDTV"))
+        assertEquals("DVD", b.sourceFromName("Movie.DVDRip.XviD"))
+        assertEquals("CAM", b.sourceFromName("Movie 2024 HDCAM"))
+        assertNull(b.sourceFromName("Cam 2018 1080p"))
+        assertNull(b.sourceFromName("Movie 2160p"))
+        assertNull(b.sourceFromName("Webster 1080p"))
     }
 
     @Test
