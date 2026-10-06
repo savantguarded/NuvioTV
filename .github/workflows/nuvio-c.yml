@@ -13,7 +13,8 @@
 #   - upstream conflicts with the core changes (OSD/Simkl: build stops; last good APK stays), or
 #   - upstream conflicts with, or breaks, the optional trailer patch (the APK is still built and
 #     published, just with official background trailers as shipped instead of the Nuvio C layer), or
-#   - the same happens to the optional IMDb trailer backup patch (built without that feature).
+#   - the same happens to the optional IMDb trailer backup patch (built without that feature), or
+#   - the same happens to the optional cast filmography patch (official cast page instead).
 
 name: Nuvio C build
 
@@ -71,6 +72,15 @@ env:
     app/src/main/java/com/nuvio/tv/data/trailer/NuvioCTrailerBackup.kt
     app/src/main/java/com/nuvio/tv/data/trailer/NuvioCImdbTrailerResolver.kt
     app/src/test/java/com/nuvio/tv/data/trailer/NuvioCTrailerBackupTest.kt
+  # Cast page filmography (real roles only, role / job line under each title). Its own optional
+  # patch, same rules: a conflict or compile failure drops only this feature (official cast page).
+  FILMOGRAPHY_PATHS: >-
+    app/src/main/java/com/nuvio/tv/core/tmdb/TmdbMetadataService.kt
+    app/src/main/java/com/nuvio/tv/core/tmdb/NuvioCFilmography.kt
+    app/src/main/java/com/nuvio/tv/data/remote/api/TmdbApi.kt
+    app/src/main/java/com/nuvio/tv/domain/model/PersonDetail.kt
+    app/src/main/java/com/nuvio/tv/ui/screens/cast
+    app/src/test/java/com/nuvio/tv/core/tmdb/NuvioCFilmographyTest.kt
 
 jobs:
   build:
@@ -164,8 +174,9 @@ jobs:
           git config user.email "nuvio-c-bot@users.noreply.github.com"
           read -ra trailer_paths <<< "$TRAILER_PATHS"
           read -ra imdb_paths <<< "$IMDB_PATHS"
+          read -ra film_paths <<< "$FILMOGRAPHY_PATHS"
           exclude=()
-          for p in "${trailer_paths[@]}" "${imdb_paths[@]}"; do exclude+=(":(exclude)$p"); done
+          for p in "${trailer_paths[@]}" "${imdb_paths[@]}" "${film_paths[@]}"; do exclude+=(":(exclude)$p"); done
           exclude+=(":(exclude)README.md" ":(exclude)nuvio-c-screenshots") # GitHub page only, not part of the app
           # Our changes = this branch vs the upstream commit it sits on, split into core + trailer
           base="$(git merge-base HEAD upstream/$UPSTREAM_BRANCH)"
@@ -174,9 +185,11 @@ jobs:
           git diff --binary "$base" HEAD -- . "${exclude[@]}" > "$RUNNER_TEMP/nuvio-c.patch"
           git diff --binary "$base" HEAD -- "${trailer_paths[@]}" > "$RUNNER_TEMP/nuvio-c-trailer.patch"
           git diff --binary "$base" HEAD -- "${imdb_paths[@]}" > "$RUNNER_TEMP/nuvio-c-imdb.patch"
+          git diff --binary "$base" HEAD -- "${film_paths[@]}" > "$RUNNER_TEMP/nuvio-c-film.patch"
           echo "Core patch:"; git diff --stat "$base" HEAD -- . "${exclude[@]}"
           echo "Trailer patch:"; git diff --stat "$base" HEAD -- "${trailer_paths[@]}"
           echo "IMDb backup patch:"; git diff --stat "$base" HEAD -- "${imdb_paths[@]}"
+          echo "Filmography patch:"; git diff --stat "$base" HEAD -- "${film_paths[@]}"
           git checkout -q --detach refs/nuvio/release
           if ! git apply --3way --index "$RUNNER_TEMP/nuvio-c.patch"; then
             git reset -q --hard
@@ -242,6 +255,34 @@ jobs:
           fi
           echo "IMDb trailer backup: $imdb"
           echo "imdb=$imdb" >> "$GITHUB_OUTPUT"
+          # Optional cast filmography patch, same rules as the trailer patch
+          film="skipped"
+          if [ ! -s "$RUNNER_TEMP/nuvio-c-film.patch" ]; then
+            film="none"
+          elif git apply --3way --index "$RUNNER_TEMP/nuvio-c-film.patch"; then
+            git commit -q --no-verify -m "Nuvio C cast filmography"
+            git diff --binary HEAD~1 HEAD > "$RUNNER_TEMP/nuvio-c-film-applied.patch"
+            film="applied"
+            changed="$(git diff --name-only "$base" refs/nuvio/release -- "${film_paths[@]}" || true)"
+            if [ -n "$changed" ]; then
+              {
+                echo "Official ${{ steps.plan.outputs.release }} changed files the cast filmography tweak also edits. It still merged and built, but check a cast page on the TV."
+                echo
+                echo '```'
+                echo "$changed"
+                echo '```'
+              } > film-notice.md
+            fi
+          else
+            git reset -q --hard
+            {
+              echo "Official ${{ steps.plan.outputs.release }} conflicts with the cast filmography patch, so this build was made **without** it (official cast page). Everything else is in."
+              echo
+              echo "The filmography patch needs refreshing."
+            } > film-notice.md
+          fi
+          echo "Cast filmography: $film"
+          echo "film=$film" >> "$GITHUB_OUTPUT"
 
       - name: Check secrets
         if: steps.plan.outputs.build == 'true'
@@ -346,9 +387,22 @@ jobs:
         run: |
           trailer="${{ steps.replay.outputs.trailer }}"
           imdb="${{ steps.replay.outputs.imdb }}"
+          film="${{ steps.replay.outputs.film }}"
           build() { ./gradlew :app:assembleFullRelease --stacktrace; }
-          done_ok() { echo "trailer=$trailer" >> "$GITHUB_OUTPUT"; echo "imdb=$imdb" >> "$GITHUB_OUTPUT"; exit 0; }
+          done_ok() { echo "trailer=$trailer" >> "$GITHUB_OUTPUT"; echo "imdb=$imdb" >> "$GITHUB_OUTPUT"; echo "film=$film" >> "$GITHUB_OUTPUT"; exit 0; }
           build && done_ok
+          # Drop the optional patches newest first: filmography, IMDb backup, then trailers.
+          if [ "$film" = "applied" ]; then
+            echo "::warning::Build failed with the cast filmography; retrying without it."
+            git apply -R "$RUNNER_TEMP/nuvio-c-film-applied.patch"
+            film="build-failed"
+            {
+              echo "Official ${{ steps.plan.outputs.release }} merged with the cast filmography patch but the app didn't compile with it, so this build was made **without** it (official cast page). Everything else is in."
+              echo
+              echo "See the failed first attempt in the build log. The filmography patch needs refreshing."
+            } > film-notice.md
+            build && done_ok
+          fi
           # An optional patch merged but no longer compiles against this release. Drop the IMDb
           # backup first (applied last), then background trailers, retrying after each.
           if [ "$imdb" = "applied" ]; then
@@ -374,6 +428,7 @@ jobs:
           build
           echo "trailer=$trailer" >> "$GITHUB_OUTPUT"
           echo "imdb=$imdb" >> "$GITHUB_OUTPUT"
+          echo "film=$film" >> "$GITHUB_OUTPUT"
 
       - name: Publish release
         if: steps.plan.outputs.build == 'true'
@@ -397,6 +452,11 @@ jobs:
             notes="${notes} IMDb trailer backup included."
           else
             notes="${notes} IMDb trailer backup NOT included in this build (see issues)."
+          fi
+          if [ "${{ steps.apk.outputs.film }}" = "applied" ]; then
+            notes="${notes} Cast filmography included."
+          else
+            notes="${notes} Cast filmography NOT included in this build (official cast page, see issues)."
           fi
           if [ -n "${{ steps.switches.outputs.off }}" ]; then
             notes="${notes} Switched off in this build: ${{ steps.switches.outputs.off }}."
@@ -437,3 +497,13 @@ jobs:
             title="Nuvio C: ${{ steps.plan.outputs.release }} built without the IMDb trailer backup"
           fi
           gh issue create --title "$title" --body-file imdb-notice.md || cat imdb-notice.md
+
+      - name: Send cast filmography notice
+        if: success() && steps.plan.outputs.build == 'true' && hashFiles('film-notice.md') != ''
+        run: |
+          if [ "${{ steps.apk.outputs.film }}" = "applied" ]; then
+            title="Nuvio C: official ${{ steps.plan.outputs.release }} changed cast page code (filmography still in)"
+          else
+            title="Nuvio C: ${{ steps.plan.outputs.release }} built without the cast filmography"
+          fi
+          gh issue create --title "$title" --body-file film-notice.md || cat film-notice.md
