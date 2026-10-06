@@ -1019,7 +1019,7 @@ internal fun PlayerRuntimeController.scheduleProgressSyncAfterSeek() {
 fun PlayerRuntimeController.scheduleHideControls() {
     hideControlsJob?.cancel()
     hideControlsJob = scope.launch {
-        delay(3000)
+        delay(NuvioCOsdTimeout.hideDelayMs()) // [fork] was delay(3000): 8 s, 3 s after a seek
         if (_uiState.value.isPlaying && !_uiState.value.showAudioOverlay &&
             !_uiState.value.showSubtitleOverlay && !_uiState.value.showSubtitleStylePanel &&
             !_uiState.value.showSpeedDialog && !_uiState.value.showMoreDialog &&
@@ -1222,6 +1222,7 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
             updatePlaybackTimeline(currentPosition = target)
             scheduleProgressSyncAfterSeek()
             if (_uiState.value.showControls) {
+                NuvioCOsdTimeout.markSeek() // [fork]
                 showControlsTemporarily()
             } else {
                 showSeekOverlayTemporarily()
@@ -1237,6 +1238,7 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
             pendingPreviewSeekPosition = target
             updatePlaybackTimeline(currentPosition = target)
             if (_uiState.value.showControls) {
+                NuvioCOsdTimeout.markSeek() // [fork]
                 showControlsTemporarily()
             } else {
                 showSeekOverlayTemporarily()
@@ -1251,6 +1253,7 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
                 pendingPreviewSeekPosition = null
                 scheduleProgressSyncAfterSeek()
                 if (_uiState.value.showControls) {
+                    NuvioCOsdTimeout.markSeek() // [fork]
                     showControlsTemporarily()
                 } else {
                     showSeekOverlayTemporarily()
@@ -1264,6 +1267,7 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
             updatePlaybackTimeline(currentPosition = event.position)
             scheduleProgressSyncAfterSeek()
             if (_uiState.value.showControls) {
+                NuvioCOsdTimeout.markSeek() // [fork]
                 showControlsTemporarily()
             } else {
                 showSeekOverlayTemporarily()
