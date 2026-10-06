@@ -58,6 +58,7 @@ internal fun PlayerRuntimeController.initializeCloudPlaybackSequence() {
 }
 
 internal fun PlayerRuntimeController.applyMetaDetails(meta: Meta) {
+    NuvioCPlaceholder.rememberMeta(meta) // [fork] runtime for the placeholder check
     metaVideos = meta.videos
     metaGenres = meta.genres
     metaCountry = meta.country
@@ -359,6 +360,7 @@ internal fun PlayerRuntimeController.resetPostPlayOverlayState(clearEpisode: Boo
 internal fun PlayerRuntimeController.evaluatePostPlayOverlayVisibility(positionMs: Long, durationMs: Long) {
     if (_playbackTimeline.value.isLive) return
     if (!hasRenderedFirstFrame) return
+    if (nuvioCCheckPlaceholder(durationMs)) return // [fork] short error clip: paused, Sources opened
     // Short debrid/error clips must never arm next-episode auto-play (see #2819).
     // Prefer the largest known duration; the per-poll value can drop transiently.
     val effectiveDurationEarly = maxOf(durationMs, lastKnownDuration)
