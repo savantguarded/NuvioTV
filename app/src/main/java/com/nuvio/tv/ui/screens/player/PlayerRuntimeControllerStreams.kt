@@ -1941,7 +1941,8 @@ internal fun PlayerRuntimeController.playNextEpisode(userInitiated: Boolean = fa
             }
             if (streamToPlay != null) {
                 val sourceName = (streamToPlay.name?.takeIf { it.isNotBlank() } ?: streamToPlay.addonName).trim()
-                for (remaining in 3 downTo 1) {
+                // [fork] Nuvio C: a Next press skips the countdown; unattended auto-play keeps it
+                if (!com.nuvio.tv.NuvioCFeatures.NEXT_EP_NO_COUNTDOWN || !userInitiated) for (remaining in 3 downTo 1) {
                     _uiState.update { current ->
                         val episodeForMode = current.nextEpisode ?: nextInfo
                         current.copy(
