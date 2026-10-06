@@ -180,8 +180,27 @@ private fun buildBadgeParts(controller: PlayerRuntimeController, uiState: Player
     val height = exoFormat?.height?.takeIf { it > 0 }
         ?: controller.currentVideoTrackHeight.takeIf { it > 0 }
         ?: controller.currentVideoHeight
+    val visual = nuvioCVisualTag(controller, uiState)
+    val audio = uiState.audioTracks.firstOrNull { it.isSelected }
+    return NuvioCOsdBadges.parts(
+        NuvioCOsdBadges.resolutionLabel(width, height) ?: NuvioCOsdBadges.resolutionFromName(names),
+        visual,
+        NuvioCOsdBadges.audioLabel(audio?.codec, audio?.channelCount),
+        NuvioCOsdBadges.sizeLabel(controller.currentVideoSize)
+    )
+}
+
+/** What the TV is being sent: DV, HDR10, HDR10+, HLG or SDR (badges and the HDR dim share it). */
+internal fun nuvioCVisualTag(controller: PlayerRuntimeController, uiState: PlayerUiState): String {
+    val exoFormat = if (controller.currentInternalPlayerEngine == InternalPlayerEngine.MVP_PLAYER) null
+    else controller._exoPlayer?.videoFormat
+    val names = listOfNotNull(
+        uiState.currentStreamName,
+        controller.currentFilename,
+        controller.currentStreamDescription
+    ).joinToString(" ")
     val usingExo = exoFormat != null || controller.currentVideoTrackMimeType != null
-    val visual = NuvioCOsdBadges.visualLabel(
+    return NuvioCOsdBadges.visualLabel(
         mimeType = exoFormat?.sampleMimeType ?: controller.currentVideoTrackMimeType,
         codecs = exoFormat?.codecs ?: controller.currentVideoTrackCodecs,
         colorTransfer = exoFormat?.colorInfo?.colorTransfer ?: controller.currentVideoTrackColorTransfer,
@@ -190,13 +209,6 @@ private fun buildBadgeParts(controller: PlayerRuntimeController, uiState: Player
         dvConverted = controller.isExperimentalDv7ToDv81ActiveForCurrentPlayback ||
             controller.isManualDv81Mode2ActiveForCurrentPlayback,
         names = names
-    )
-    val audio = uiState.audioTracks.firstOrNull { it.isSelected }
-    return NuvioCOsdBadges.parts(
-        NuvioCOsdBadges.resolutionLabel(width, height) ?: NuvioCOsdBadges.resolutionFromName(names),
-        visual,
-        NuvioCOsdBadges.audioLabel(audio?.codec, audio?.channelCount),
-        NuvioCOsdBadges.sizeLabel(controller.currentVideoSize)
     )
 }
 

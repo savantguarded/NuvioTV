@@ -195,6 +195,7 @@ fun PlayerScreen(
     val playPauseFocusRequester = remember { FocusRequester() }
     val nuvioCFocus = remember { NuvioCFocusMemory() } // [fork] focus returns to the button that opened a panel
     SideEffect { nuvioCFocus.moreRowOpen = uiState.showMoreDialog } // [fork]
+    val nuvioCHdr = rememberNuvioCHdrDim(viewModel, uiState) // [fork] 60% subtitles + controls in HDR
     val progressBarFocusRequester = remember { FocusRequester() }
     val episodesFocusRequester = remember { FocusRequester() }
     val streamsFocusRequester = remember { FocusRequester() }
@@ -1258,6 +1259,7 @@ fun PlayerScreen(
                 .align(Alignment.BottomStart)
                 .padding(start = NuvioTheme.spacing.xxl, bottom = skipButtonBottomPadding)
                 .zIndex(2.1f)
+                .nuvioCHdrDim(nuvioCHdr) // [fork]
         )
         PostPlayOverlay(
             mode = uiState.postPlayMode.takeIf {
@@ -1289,7 +1291,8 @@ fun PlayerScreen(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 26.dp, bottom = if (uiState.showControls) 122.dp else 30.dp)
-                .zIndex(2.1f),
+                .zIndex(2.1f)
+                .nuvioCHdrDim(nuvioCHdr), // [fork]
         )
 
         // Parental guide overlay (shows when video first starts playing)
@@ -1352,6 +1355,7 @@ fun PlayerScreen(
                 .align(Alignment.TopEnd)
                 .padding(end = 28.dp, top = NuvioTheme.spacing.xl)
                 .zIndex(2.15f)
+                .nuvioCHdrDim(nuvioCHdr) // [fork]
         ) {
             PlayerClockOverlayHost(
                 viewModel = viewModel,
@@ -1374,7 +1378,8 @@ fun PlayerScreen(
                 !postPlayRecommendationState.isVisible &&
                 uiState.postPlayMode !is PostPlayMode.StillWatching,
             enter = fadeIn(animationSpec = tween(200)),
-            exit = fadeOut(animationSpec = tween(200))
+            exit = fadeOut(animationSpec = tween(200)),
+            modifier = Modifier.nuvioCHdrDim(nuvioCHdr) // [fork]
         ) {
             val context = LocalContext.current
             val nuvioCOsd = remember { NuvioCOsdState() } // [fork] badges + subtitle lift
@@ -1543,7 +1548,7 @@ fun PlayerScreen(
                 !uiState.isLive,
             enter = fadeIn(animationSpec = tween(150)),
             exit = fadeOut(animationSpec = tween(150)),
-            modifier = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier.align(Alignment.BottomCenter).nuvioCHdrDim(nuvioCHdr) // [fork]
         ) {
             SeekOverlayHost(viewModel = viewModel)
         }
