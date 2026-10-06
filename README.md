@@ -13,6 +13,12 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - Close a panel (subtitles, audio, sources, episodes, speed…) and focus lands back on the button that opened it, not on Play/Pause.
 - Year shown for movies only, not series. Titles opened from Continue Watching get their year back.
 - Thinner, brighter seek bar (YouTube style) and a taller bottom shadow. The "via" source line is hidden.
+- **Start over** button right after Play/Pause: jumps back to 0:00 (and plays if paused).
+- Controls stay up 8 seconds after you open them (official: 3), but still hide 3 seconds after a seek.
+- In HDR, HLG and Dolby Vision, subtitles and the player controls are shown at 60% brightness so they don't glare. The picture itself is untouched. (On the mpv player only plain-text subtitles are dimmed.)
+- The loading screen shows the add-on and debrid service (e.g. "Torrentio · TorBox") and the release filename at the bottom.
+- If a source turns out to be a short placeholder clip (e.g. "not cached" or "service unavailable" videos) instead of the real video, it is paused, a message says so and the Sources panel opens to pick another.
+- Pressing Next episode starts it straight away; the 3-second countdown is kept only for automatic playback.
 
 <img src="nuvio-c-screenshots/player-logo.jpg" alt="Player controls with the title logo top-left" width="720" />
 
@@ -21,6 +27,14 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - The trailer screen (trailer button, trailers row) uses the same seek bar as the player.
 - While a trailer plays with sound, a small title logo shows bottom-left, just above the seek bar.
 - When YouTube rate-limits and trailers drop to low quality, the IMDb trailer for the title is used instead (720p or better). YouTube stays the main source.
+
+**Cast pages**
+- Filmography lists real work only: no talk shows, award shows, news, reality or "Self" / archive-footage appearances. Actor pages never fill up with producer credits.
+- Director, writer and creator pages list only what they created, directed or wrote (no executive producer or "thanks" credits).
+- Under each title: the character played, or the job ("Creator · Director · Writer"). Long lines take turns scrolling when the poster is focused.
+
+**Images**
+- Larger poster and backdrop cache (10% of free space, 256 MB to 1 GB, official: 200 MB), and images sent without caching rules are kept for a week, so rows reload less.
 
 **Accounts**
 - Simkl logs in with its newer device login (QR code on the TV) and renews itself, so you stay signed in.
@@ -52,12 +66,20 @@ The release notes list what was switched off. Clear the variable to turn everyth
 | `trailer_screen_bar` | Player-style seek bar on the trailer screen |
 | `trailer_screen_logo` | Small logo on the trailer screen |
 | `imdb_trailer_backup` | IMDb trailers when YouTube rate-limits |
+| `hdr_dim` | 60% subtitles and controls during HDR / Dolby Vision |
+| `loading_filename` | Add-on / provider line and filename on the loading screen |
+| `placeholder_check` | Pausing short placeholder clips and opening Sources |
+| `next_ep_no_countdown` | Skipping the countdown when you press Next episode |
+| `osd_timeout` | 8-second controls (back to 3 seconds) |
+| `start_over` | The Start over button |
+| `image_cache` | Bigger image cache and the 1-week default |
+| `cast_acting_only` | Real filmography and role lines on cast pages |
 
 The switches live in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt`. To remove a tweak's code for good rather than switch it off, its commits can be reverted; each tweak is in its own commits (listed in the project notes).
 
 ## How it's kept up to date
 
-A build runs automatically every hour. When Nuvio publishes a new release, the same changes are applied on top and a new Nuvio C APK is posted to Releases. If an official update clashes with the trailer tweaks or the IMDb backup, the APK is still built, just without that feature.
+A build runs automatically every hour. When Nuvio publishes a new release, the same changes are applied on top and a new Nuvio C APK is posted to Releases. If an official update clashes with the trailer tweaks, the IMDb backup or the cast filmography, the APK is still built, just without that feature.
 
 Everything else works like the official app.
 
