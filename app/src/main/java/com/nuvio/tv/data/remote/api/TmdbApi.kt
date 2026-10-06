@@ -691,7 +691,8 @@ data class TmdbPersonCreditCrew(
     @Json(name = "vote_average") val voteAverage: Double? = null,
     @Json(name = "vote_count") val voteCount: Int? = null,
     @Json(name = "overview") val overview: String? = null,
-    @Json(name = "genre_ids") val genreIds: List<Int>? = null
+    @Json(name = "genre_ids") val genreIds: List<Int>? = null,
+    @Json(name = "department") val department: String? = null // [fork] Nuvio C filmography (Creator / Directing / Writing)
 )
 
 @JsonClass(generateAdapter = true)
