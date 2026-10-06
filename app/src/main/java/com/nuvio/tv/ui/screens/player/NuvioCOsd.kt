@@ -1,7 +1,7 @@
 package com.nuvio.tv.ui.screens.player
 
 // [fork] Nuvio C player OSD additions, kept in this file so PlayerScreen.kt only gets a few hook lines:
-//  - badges bottom-right: resolution · visual tag · audio · file size (plain text, year-line style)
+//  - badges bottom-right, one chip each: resolution · HDR format · source · audio · file size
 //  - subtitle lift: while the OSD is open, bottom subtitles move up so they clear the whole bottom
 //    block (title, episode line, seek bar, buttons); top subtitles stay put. Only the finished
 //    subtitle picture moves; saved subtitle settings, cue parsing and libass rendering are untouched.
@@ -129,7 +129,7 @@ internal fun NuvioCOsdBadges(
             .onGloballyPositioned { originY = it.positionInWindow().y }
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -146,19 +146,20 @@ internal fun NuvioCOsdBadges(
                 .graphicsLayer { this.alpha = alpha }
         ) {
             parts.forEach { part ->
+                // Same chip for all; only the size chip is quieter.
                 Text(
-                    text = part.uppercase(Locale.ROOT),
+                    text = part.text.uppercase(Locale.ROOT),
                     style = MaterialTheme.typography.labelMedium.copy(
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 0.5.sp
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.55.sp
                     ),
-                    color = Color.White.copy(alpha = 0.9f),
+                    color = Color.White.copy(alpha = if (part.dim) 0.6f else 0.92f),
                     maxLines = 1,
                     modifier = Modifier
-                        .border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp)
+                        .border(1.dp, Color.White.copy(alpha = if (part.dim) 0.25f else 0.4f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 5.dp)
                 )
             }
         }
@@ -166,7 +167,10 @@ internal fun NuvioCOsdBadges(
     DisposableEffect(state) { onDispose { state.badgesWidthPx = 0 } }
 }
 
-private fun buildBadgeParts(controller: PlayerRuntimeController, uiState: PlayerUiState): List<String> {
+/** One OSD chip. [dim] = the quieter style (file size). */
+internal data class NuvioCBadge(val text: String, val dim: Boolean = false)
+
+private fun buildBadgeParts(controller: PlayerRuntimeController, uiState: PlayerUiState): List<NuvioCBadge> {
     val exoFormat = if (controller.currentInternalPlayerEngine == InternalPlayerEngine.MVP_PLAYER) null
     else controller._exoPlayer?.videoFormat
     val names = listOfNotNull(
@@ -184,10 +188,11 @@ private fun buildBadgeParts(controller: PlayerRuntimeController, uiState: Player
     val audio = uiState.audioTracks.firstOrNull { it.isSelected }
     return NuvioCOsdBadges.parts(
         NuvioCOsdBadges.resolutionLabel(width, height) ?: NuvioCOsdBadges.resolutionFromName(names),
-        visual,
-        NuvioCOsdBadges.audioLabel(audio?.codec, audio?.channelCount),
-        NuvioCOsdBadges.sizeLabel(controller.currentVideoSize)
-    )
+        visual.takeIf { it != "SDR" }, // SDR: no HDR chip
+        NuvioCOsdBadges.sourceFromName(names),
+        NuvioCOsdBadges.audioLabel(audio?.codec, audio?.channelCount, names)
+    ).map { NuvioCBadge(it) } +
+        listOfNotNull(NuvioCOsdBadges.sizeLabel(controller.currentVideoSize)?.let { NuvioCBadge(it, dim = true) })
 }
 
 /** What the TV is being sent: DV, HDR10, HDR10+, HLG or SDR (badges and the HDR dim share it). */
@@ -290,15 +295,34 @@ internal object NuvioCOsdBadges {
         }
     }
 
-    /** Codec as the audio menu names it (ExoPlayer) or mapped from mpv's ffmpeg name, plus channels. */
-    fun audioLabel(codec: String?, channelCount: Int?): String? {
+    /** Release source from the stream title / filename; null when it doesn't say. REMUX wins over BluRay. */
+    fun sourceFromName(names: String): String? {
+        val n = names.lowercase(Locale.US)
+        fun has(re: String) = Regex(re).containsMatchIn(n)
+        return when {
+            has("""(\b|[._ -])(bd)?remux(\b|[._ -])""") -> "REMUX"
+            has("""web[ ._-]?dl""") -> "WEB-DL"
+            has("""web[ ._-]?rip""") -> "WEBRIP"
+            has("""blu[ ._-]?ray|\bbd[ ._-]?rip|\bbr[ ._-]?rip|\bbdmv\b|\bbd(25|50|66|100)\b""") -> "BLURAY"
+            has("""\bhdtv(rip)?\b""") -> "HDTV"
+            has("""\bdvd(rip|r|5|9)?\b""") -> "DVD"
+            has("""\bhdcam\b|\bcamrip\b|\btelesync\b|\bhdts\b""") -> "CAM" // not bare "cam": film titles use it
+            has("""(\b|[._ ])web(\b|[._ ])""") -> "WEB"
+            else -> null
+        }
+    }
+
+    /** Short audio name plus channels, e.g. "DD+ 5.1", "Atmos 7.1", "TrueHD 7.1". */
+    fun audioLabel(codec: String?, channelCount: Int?, names: String = ""): String? {
         val raw = codec?.trim()?.takeIf { it.isNotEmpty() }
+        val atmosInName = Regex("""\batmos\b""").containsMatchIn(names.lowercase(Locale.US))
         val name = when (raw?.lowercase(Locale.US)) {
             null -> null
-            "e-ac-3-joc" -> return "E-AC-3 Atmos"
-            "eac3", "e-ac-3" -> "E-AC-3"
-            "ac3", "ac-3" -> "AC-3"
-            "truehd", "mlp" -> "TrueHD"
+            "e-ac-3-joc" -> "Atmos"
+            "eac3", "e-ac-3" -> "DD+"
+            "ac3", "ac-3" -> "DD"
+            // TrueHD Atmos isn't flagged by the decoder; trust the release name
+            "truehd", "mlp" -> if (atmosInName) "Atmos" else "TrueHD"
             "dts" -> "DTS"
             "dts-hd", "dtshd" -> "DTS-HD"
             "aac" -> "AAC"
@@ -310,7 +334,14 @@ internal object NuvioCOsdBadges {
             "pcm_s16le", "pcm_s24le", "pcm_s32le", "pcm" -> "PCM"
             else -> raw
         }
-        val channels = channelCount?.let { CustomDefaultTrackNameProvider.getChannelLayoutName(it) }
+        val channels = when (channelCount) {
+            null -> null
+            1 -> "1.0"
+            2 -> "2.0"
+            6 -> "5.1"
+            8 -> "7.1"
+            else -> channelCount.takeIf { it > 0 }?.let { "${it}ch" }
+        }
         return listOfNotNull(name, channels).joinToString(" ").takeIf { it.isNotEmpty() }
     }
 
