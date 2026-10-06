@@ -600,6 +600,8 @@ private fun FilmographyRow(
     val restoreFocusRequester = remember { FocusRequester() }
     var restorePending by remember { mutableStateOf(false) }
     val lazyListState = rememberLazyListState()
+    val nuvioCBack = remember { NuvioCBackToFirstState() } // [fork]
+    NuvioCBackToFirst(nuvioCBack, lazyListState, firstItemFocusRequester) // [fork]
 
     LaunchedEffect(restoreFocusToken) {
         if (restoreFocusToken <= 0 || restoreItemId == null) {
@@ -618,6 +620,7 @@ private fun FilmographyRow(
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
+            .then(nuvioCBack.rowModifier()) // [fork]
             .focusRestorer { if (restorePending) restoreFocusRequester else firstItemFocusRequester },
         state = lazyListState,
         contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xxxl, vertical = NuvioTheme.spacing.xs),
@@ -655,6 +658,7 @@ private fun FilmographyRow(
                 showLabel = nuvioCShowLabel, // [fork] was true
                 focusRequester = itemFocusRequester,
                 onFocused = {
+                    nuvioCBack.focusedIndex = index // [fork]
                     if (isRestoreTarget && restoreFocusToken > 0) {
                         onRestoreFocusHandled()
                         restorePending = false
