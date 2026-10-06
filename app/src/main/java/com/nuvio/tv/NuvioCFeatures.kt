@@ -40,4 +40,20 @@ object NuvioCFeatures {
     const val TRAILER_SCREEN_LOGO = true
     /** Trailers: IMDb backup when YouTube rate-limits. */
     const val IMDB_TRAILER_BACKUP = true
+    /** Player: subtitles and controls at 60% brightness while HDR / HLG / Dolby Vision plays. */
+    const val HDR_DIM = true
+    /** Player: add-on / provider line and the release filename at the bottom of the loading screen. */
+    const val LOADING_FILENAME = true
+    /** Player: a "stream" that is really a short error clip is paused and the Sources panel opens. */
+    const val PLACEHOLDER_CHECK = true
+    /** Player: pressing Next episode skips the 3-second countdown (auto-play keeps it). */
+    const val NEXT_EP_NO_COUNTDOWN = true
+    /** Player: controls stay up 8 s after opening (3 s after a seek). Off = 3 s always. */
+    const val OSD_TIMEOUT = true
+    /** Player: Start over button right after Play/Pause. */
+    const val START_OVER = true
+    /** Images: bigger poster/backdrop disk cache and a 1-week default for images sent without cache rules. */
+    const val IMAGE_CACHE = true
+    /** Cast page: real filmography (no talk shows / "Self" credits) with the role or job under each title. */
+    const val CAST_ACTING_ONLY = true
 }
