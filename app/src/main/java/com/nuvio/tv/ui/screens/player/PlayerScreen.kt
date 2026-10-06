@@ -11,6 +11,7 @@ import coil3.compose.AsyncImage
 import coil3.request.crossfade
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.icons.filled.RestartAlt
 
 import com.nuvio.tv.ui.theme.NuvioMotion
 
@@ -2433,6 +2434,21 @@ private fun PlayerControlsOverlay(
                         onDownKey = onHideControls,
                         onFocused = onResetHideTimer
                     )
+
+                    // [fork] Nuvio C: Start over (jumps to 0:00, plays if paused). Not for live streams.
+                    if (com.nuvio.tv.NuvioCFeatures.START_OVER && !isLivePlayback && playbackTimeline.duration > 0L) {
+                        ControlButton(
+                            icon = androidx.compose.material.icons.Icons.Default.RestartAlt,
+                            contentDescription = stringResource(R.string.nuvio_c_start_over),
+                            onClick = {
+                                onSeekTo(0L)
+                                if (!uiState.isPlaying) onPlayPause()
+                            },
+                            upFocusRequester = progressUpTarget,
+                            onDownKey = onHideControls,
+                            onFocused = onResetHideTimer
+                        )
+                    }
 
                     if (showNextEpisodeButton) {
                         ControlButton(
