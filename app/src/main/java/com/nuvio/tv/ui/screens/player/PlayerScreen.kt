@@ -1069,6 +1069,14 @@ fun PlayerScreen(
                 .fillMaxSize()
                 .zIndex(2f)
         )
+        NuvioCLoadingLane( // [fork] add-on / provider + filename at the bottom of the loading screen
+            visible = uiState.showLoadingOverlay && uiState.error == null && !postPlayRecommendationState.isVisible,
+            viewModel = viewModel,
+            uiState = uiState,
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(2.01f)
+        )
 
         if (uiState.playbackIssueReportsEnabled &&
             uiState.showLoadingOverlay &&
