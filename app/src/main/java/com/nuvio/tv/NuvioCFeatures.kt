@@ -54,4 +54,6 @@ object NuvioCFeatures {
     const val START_OVER = true
     /** Cast page: real filmography (no talk shows / "Self" credits) with the role or job under each title. */
     const val CAST_ACTING_ONLY = true
+    /** Cast page: Back past the first filmography title jumps to the first one (like official home rows). */
+    const val CAST_BACK_TO_FIRST = true
 }
