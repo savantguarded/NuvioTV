@@ -1,5 +1,7 @@
 package com.nuvio.tv.core.tmdb
 
+import com.nuvio.tv.NuvioCFeatures // [fork]
+
 import android.util.Log
 import com.nuvio.tv.BuildConfig
 import com.nuvio.tv.data.remote.api.TmdbAggregateCreditsResponse
@@ -1354,14 +1356,15 @@ class TmdbMetadataService(
                 ) ?: "Unknown"
 
                 val preferCrewFilmography = preferCrewCredits ?: shouldPreferCrewCredits(person.knownForDepartment)
+                val nuvioC = NuvioCFilmography.Source.of(credits, NuvioCFeatures.CAST_ACTING_ONLY) // [fork] Nuvio C filmography
 
                 val castMovieCredits = mapMovieCreditsFromCast(
-                    credits?.cast.orEmpty(),
+                    nuvioC.cast, // [fork] was credits?.cast.orEmpty()
                     normalizedLanguage,
                     englishTitlesById
                 )
                 val crewMovieCredits = mapMovieCreditsFromCrew(
-                    credits?.crew.orEmpty(),
+                    nuvioC.crew, // [fork] was credits?.crew.orEmpty()
                     normalizedLanguage,
                     englishTitlesById
                 )
@@ -1372,12 +1375,12 @@ class TmdbMetadataService(
                 }
 
                 val castTvCredits = mapTvCreditsFromCast(
-                    credits?.cast.orEmpty(),
+                    nuvioC.cast, // [fork] was credits?.cast.orEmpty()
                     normalizedLanguage,
                     englishTitlesById
                 )
                 val crewTvCredits = mapTvCreditsFromCrew(
-                    credits?.crew.orEmpty(),
+                    nuvioC.crew, // [fork] was credits?.crew.orEmpty()
                     normalizedLanguage,
                     englishTitlesById
                 )
@@ -1387,6 +1390,11 @@ class TmdbMetadataService(
                     else -> crewTvCredits
                 }
 
+                // [fork] Nuvio C: actors never get crew credits, directors/writers/creators get their crew list
+                val nuvioCPick = nuvioC.pick(
+                    preferCrewCredits, preferCrewFilmography,
+                    castMovieCredits, castTvCredits, crewMovieCredits, crewTvCredits
+                )
                 val detail = PersonDetail(
                     tmdbId = person.id,
                     name = resolvedPersonName,
@@ -1396,8 +1404,9 @@ class TmdbMetadataService(
                     placeOfBirth = person.placeOfBirth?.takeIf { it.isNotBlank() },
                     profilePhoto = buildImageUrl(person.profilePath, "w500"),
                     knownFor = person.knownForDepartment?.takeIf { it.isNotBlank() },
-                    movieCredits = movieCredits,
-                    tvCredits = tvCredits
+                    movieCredits = nuvioCPick?.movies ?: movieCredits, // [fork]
+                    tvCredits = nuvioCPick?.tv ?: tvCredits, // [fork]
+                    nuvioCRoleLines = nuvioCPick?.roleLines.orEmpty() // [fork]
                 )
                 personCache[cacheKey] = detail
                 detail
