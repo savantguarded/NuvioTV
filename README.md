@@ -72,7 +72,6 @@ The release notes list what was switched off. Clear the variable to turn everyth
 | `next_ep_no_countdown` | Skipping the countdown when you press Next episode |
 | `osd_timeout` | 8-second controls (back to 3 seconds) |
 | `start_over` | The Start over button |
-| `image_cache` | Bigger image cache and the 1-week default |
 | `cast_acting_only` | Real filmography and role lines on cast pages |
 
 The switches live in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt`. To remove a tweak's code for good rather than switch it off, its commits can be reverted; each tweak is in its own commits (listed in the project notes).
