@@ -272,6 +272,7 @@ private fun CastDetailContent(
                         )
                         FilmographyRow(
                             credits = allCredits,
+                            nuvioCRoleLines = person.nuvioCRoleLines, // [fork] role / job under each title
                             posterCardStyle = filmographyPosterStyle,
                             firstItemFocusRequester = firstPosterFocusRequester,
                             restoreItemId = pendingRestoreItemId,
@@ -566,9 +567,13 @@ private fun FilmographyRow(
     onRestoreFocusHandled: () -> Unit = {},
     onItemClick: (MetaPreview) -> Unit,
     onItemLongPress: (MetaPreview) -> Unit = {},
-    isItemWatched: (MetaPreview) -> Boolean = { false }
+    isItemWatched: (MetaPreview) -> Boolean = { false },
+    nuvioCRoleLines: Map<String, String> = emptyMap() // [fork]
 ) {
     val hasRequestedInitialFocus = remember(credits) { mutableStateOf(false) }
+    // [fork] Nuvio C: own title + role lines under the poster (not in landscape-poster mode)
+    val nuvioCLines = com.nuvio.tv.NuvioCFeatures.CAST_ACTING_ONLY && nuvioCRoleLines.isNotEmpty() &&
+        !com.nuvio.tv.ui.components.LocalLandscapePosterMode.current
     val restoreFocusRequester = remember { FocusRequester() }
     var restorePending by remember { mutableStateOf(false) }
     val lazyListState = rememberLazyListState()
@@ -607,6 +612,7 @@ private fun FilmographyRow(
                 else -> null
             }
 
+            val nuvioCCard: @Composable (Boolean) -> Unit = { nuvioCShowLabel -> // [fork] official card, label switchable
             GridContentCard(
                 item = item,
                 onClick = { onItemClick(item) },
@@ -623,7 +629,7 @@ private fun FilmographyRow(
                     Modifier
                 },
                 posterCardStyle = posterCardStyle,
-                showLabel = true,
+                showLabel = nuvioCShowLabel, // [fork] was true
                 focusRequester = itemFocusRequester,
                 onFocused = {
                     if (isRestoreTarget && restoreFocusToken > 0) {
@@ -632,6 +638,12 @@ private fun FilmographyRow(
                     }
                 }
             )
+            }
+            if (nuvioCLines) { // [fork]
+                NuvioCFilmographyItem(item, nuvioCRoleLine(nuvioCRoleLines, item), posterCardStyle.width) { nuvioCCard(false) }
+            } else {
+                nuvioCCard(true)
+            }
         }
     }
 }
