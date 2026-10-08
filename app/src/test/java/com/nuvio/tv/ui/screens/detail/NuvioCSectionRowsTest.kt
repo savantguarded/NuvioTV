@@ -45,4 +45,21 @@ class NuvioCSectionRowsTest {
         )
         assertEquals(NuvioCSectionPrefs.DEFAULT_ORDER, NuvioCSectionPrefs.normalize(null))
     }
+
+    @Test
+    fun `loading sections keep their row in saved order, rows off unchanged`() {
+        val rows = NuvioCSectionRows(true, NuvioCSectionPrefs.DEFAULT_ORDER, emptySet())
+        val loaded = listOf(Tab.CAST to "Cast", Tab.TRAILER to "Trailers")
+        val labels = mapOf(Tab.MORE_LIKE_THIS to "More like this", Tab.COLLECTION to "Collection")
+        val withPending = rows.withPending(loaded, setOf("MORE_LIKE_THIS"), labels)
+        assertEquals(
+            listOf("cast_or_more_like:CAST", "cast_or_more_like:hdr:MORE_LIKE_THIS", "cast_or_more_like:MORE_LIKE_THIS",
+                "cast_or_more_like:hdr:TRAILER", "cast_or_more_like:TRAILER"),
+            rows.entries(withPending, selfTitled).map { rows.key("cast_or_more_like", it) }
+        )
+        // already loaded: not added twice
+        assertEquals(available, rows.withPending(available, setOf("MORE_LIKE_THIS"), labels))
+        val off = NuvioCSectionRows(false, NuvioCSectionPrefs.DEFAULT_ORDER, emptySet())
+        assertEquals(loaded, off.withPending(loaded, setOf("MORE_LIKE_THIS"), labels))
+    }
 }

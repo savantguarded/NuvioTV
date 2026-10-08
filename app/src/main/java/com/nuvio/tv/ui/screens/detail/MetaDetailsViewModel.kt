@@ -762,6 +762,7 @@ class MetaDetailsViewModel @Inject constructor(
                     moreLikeThisSource = null,
                     collection = emptyList(),
                     collectionName = null,
+                    nuvioCSectionsPending = emptySet(), // [fork] section rows
                     comments = emptyList(),
                     commentsCurrentPage = 0,
                     commentsPageCount = 0,
@@ -1287,12 +1288,13 @@ class MetaDetailsViewModel @Inject constructor(
                 else -> {
                     val settings = tmdbSettingsDataStore.settings.first()
                     if (!shouldLoadMoreLikeThis(settings)) {
-                        _uiState.update { it.copy(moreLikeThis = emptyList(), moreLikeThisSource = null) }
+                        _uiState.update { it.copy(moreLikeThis = emptyList(), moreLikeThisSource = null, nuvioCSectionsPending = it.nuvioCSectionsPending - NUVIO_C_PENDING_MORE) } // [fork] section rows
                         return@launch
                     }
                     MoreLikeThisSource.TMDB
                 }
             }
+            _uiState.update { it.copy(nuvioCSectionsPending = it.nuvioCSectionsPending + NUVIO_C_PENDING_MORE) } // [fork] section rows: keep the row's place while loading
 
             val rawRecommendations = when (source) {
                 MoreLikeThisSource.TRAKT -> {
@@ -1360,7 +1362,8 @@ class MetaDetailsViewModel @Inject constructor(
                 if (state.meta == null || state.meta.id == meta.id) {
                     state.copy(
                         moreLikeThis = recommendations,
-                        moreLikeThisSource = source.takeIf { recommendations.isNotEmpty() }
+                        moreLikeThisSource = source.takeIf { recommendations.isNotEmpty() },
+                        nuvioCSectionsPending = state.nuvioCSectionsPending - NUVIO_C_PENDING_MORE // [fork] section rows
                     )
                 } else {
                     state
@@ -1395,6 +1398,7 @@ class MetaDetailsViewModel @Inject constructor(
                 _uiState.update { it.copy(collection = emptyList(), collectionName = null) }
                 return@launch
             }
+            _uiState.update { it.copy(nuvioCSectionsPending = it.nuvioCSectionsPending + NUVIO_C_PENDING_COLLECTION) } // [fork] section rows
 
             val collection = runCatching {
                 tmdbMetadataService.fetchMovieCollection(
@@ -1420,7 +1424,8 @@ class MetaDetailsViewModel @Inject constructor(
             _uiState.update { state ->
                 state.copy(
                     collection = filteredItems,
-                    collectionName = collection.name ?: collectionName
+                    collectionName = collection.name ?: collectionName,
+                    nuvioCSectionsPending = state.nuvioCSectionsPending - NUVIO_C_PENDING_COLLECTION // [fork] section rows
                 )
             }
         }
