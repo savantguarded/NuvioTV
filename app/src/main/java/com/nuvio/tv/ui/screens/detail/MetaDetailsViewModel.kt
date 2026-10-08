@@ -757,6 +757,7 @@ class MetaDetailsViewModel @Inject constructor(
                     episodeRatingsError = null,
                     mdbListRatings = null,
                     isMdbListRatingsActive = isMdbListActive,
+                    nuvioCMdbPending = isMdbListActive, // [fork] hero ratings space
                     tmdbRating = null,
                     moreLikeThis = emptyList(),
                     moreLikeThisSource = null,
@@ -1446,7 +1447,8 @@ class MetaDetailsViewModel @Inject constructor(
             state.copy(
                 mdbListRatings = ratingsResult?.ratings,
                 mdbListRatingOrder = settings.enabledRatingOrder(),
-                isMdbListRatingsActive = isMdbListActive
+                isMdbListRatingsActive = isMdbListActive,
+                nuvioCMdbPending = false // [fork] hero ratings space
             )
         }
     }
