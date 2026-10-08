@@ -1154,6 +1154,7 @@ fun PlayerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(2.6f)
+                .nuvioCHdrDim(nuvioCHdr) // [fork] media info panel dims with the OSD
         )
 
         if (uiState.playerStatsHudEnabled && uiState.playerStatsHudButtonAvailable && uiState.error == null) {
@@ -1163,6 +1164,7 @@ fun PlayerScreen(
                     .align(Alignment.TopStart)
                     .padding(start = NuvioTheme.spacing.xl, top = NuvioTheme.spacing.xl)
                     .zIndex(2.75f)
+                    .nuvioCHdrDim(nuvioCHdr) // [fork] stats HUD dims with the OSD
             )
         }
 
@@ -1179,6 +1181,7 @@ fun PlayerScreen(
                 .align(Alignment.TopEnd)
                 .padding(top = NuvioTheme.spacing.lg, end = NuvioTheme.spacing.lg)
                 .zIndex(2.7f)
+                .nuvioCHdrDim(nuvioCHdr) // [fork] torrent stats dim with the OSD
         )
 
         // Buffering indicator — isolated in its own composable scope so that
