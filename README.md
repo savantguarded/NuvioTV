@@ -8,7 +8,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 
 **Player**
 - The title's logo shows top-left on the player controls, inside a fixed box so wide and square logos look balanced and are never cropped. It appears a few seconds after playback starts so it doesn't clash with the parental guide, HDR/Dolby Vision popups or the stats screen.
-- Badges bottom-right, beside the title: resolution, picture format (DV, HDR10, HDR10+, HLG, SDR), audio format and file size, as thin outlined chips (e.g. `4K` `DV` `E-AC-3 ATMOS` `18.4 GB`). The picture format is what the TV is actually being sent.
+- Badges bottom-right, beside the title: resolution, picture format (DV, HDR10, HDR10+, HLG, SDR), audio format and file size, as thin outlined chips (e.g. `4K` `DV` `E-AC-3 ATMOS` `18.4 GB`). The picture format is what the TV is actually being sent, read from the decoded video when the file or stream name doesn't say (e.g. `2160p.WEB.h265` releases that are really HDR).
 - Bottom subtitles move up while the controls are open, so they never sit behind the title, seek bar or buttons, then drop back when the controls close. Subtitles at the top of the screen stay where they are. Your subtitle settings are not changed.
 - Close a panel (subtitles, audio, sources, episodes, speed…) and focus lands back on the button that opened it, not on Play/Pause.
 - Year shown for movies only, not series. Titles opened from Continue Watching get their year back.
@@ -25,7 +25,8 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 <img src="nuvio-c-screenshots/player-logo.jpg" alt="Player controls with the title logo top-left" width="720" />
 
 **Details page**
-- Cast, Ratings, More like this, Trailers and Collection each get their own row, like the mobile app, instead of sharing one tab row. Under Settings > Layout > Details > Sections you can switch this off, hide any section and reorder them with the ▲ ▼ buttons (same as the MDBList ratings order).
+- Cast, Ratings, More like this, Trailers and Collection each get their own row instead of sharing one tab row. Rows that are still loading keep their place, so the page doesn't jump when More like this, Collection or episode ratings arrive. Under Settings > Layout > Details > Sections you can switch this off, hide any section and reorder them with the ▲ ▼ buttons (same as the MDBList ratings order).
+- The MDBList ratings line under the title keeps its space while it loads, so the title block doesn't shift a moment after the page opens.
 - The Shuffle button is the same size as Play.
 - Smoother when a background trailer starts and while scrolling. A background trailer finishing no longer pulls focus back to Play.
 
@@ -33,7 +34,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - Background trailers ("Play in Background") play muted, with a **Play Trailer Muted** setting under Settings > Layout > Details to play them with sound (faded in). One press of Back stops the trailer and leaves the page.
 - The trailer screen (trailer button, trailers row) uses the same seek bar as the player.
 - While a trailer plays with sound, a small title logo shows bottom-left, just above the seek bar.
-- When YouTube rate-limits and trailers drop to low quality, the IMDb trailer for the title is used instead (720p or better). YouTube stays the main source.
+- When YouTube rate-limits and trailers drop to low quality or fail, the IMDb trailer for the title is used instead (720p or better). YouTube is always asked first.
 - Trailers play at up to 1080p (official picks up to 4K60), which keeps pages smooth on TV hardware.
 
 **Cast pages**
@@ -89,6 +90,8 @@ The release notes list what was switched off. Clear the variable to turn everyth
 | `trailer_max_1080p` | 1080p trailer cap |
 | `section_rows` | One row per details section (back to official tabs) |
 | `profile_minimal` | Minimal profile screen |
+| `hdr_decoded` | HDR read from the decoded video (back to file info and stream name only) |
+| `hero_ratings_space` | Reserved space for the MDBList ratings line while it loads |
 
 The switches live in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt`. To remove a tweak's code for good rather than switch it off, its commits can be reverted; each tweak is in its own commits (listed in the project notes).
 
