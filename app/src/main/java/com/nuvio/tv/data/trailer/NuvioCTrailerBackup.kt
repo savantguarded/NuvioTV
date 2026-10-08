@@ -15,10 +15,12 @@ import kotlinx.coroutines.sync.withLock
 // - YouTube answers normally (adaptive or HLS): used as is, IMDb is never touched.
 // - YouTube hands back its low-quality fallback (the ~360p combined file): IMDb is tried for that
 //   title; if IMDb has nothing at 720p or better, the 360p YouTube trailer still plays.
-// - YouTube's website answers 429 ("too many requests"): back-off for 15 minutes. During it the
-//   app stops asking the YouTube website (so the limit can clear instead of being topped up by
-//   every trailer) and goes to IMDb first, YouTube only if IMDb fails. The next trailer after the
-//   15 minutes tries YouTube normally again; another 429 starts a new 15 minutes.
+// - YouTube's website (the watch page) answers 429 ("too many requests"): back-off for 15 minutes.
+//   During it the app stops asking the YouTube website (so the limit can clear) but still asks
+//   YouTube's player first: the website and the player are limited separately, and the player
+//   usually keeps giving full-quality trailers (2026-10-08: IMDb-first during the back-off made
+//   trailers slower, rarer and often 720p). Only if the player then fails for that title is IMDb
+//   tried. Another 429 after the 15 minutes starts a new 15 minutes.
 //
 // Low-quality YouTube links and IMDb links are never put in the trailer caches, so once the
 // limit clears a title gets its full-quality YouTube trailer again.
@@ -45,7 +47,7 @@ internal object NuvioCYouTubeHealth {
     fun onWatchPageFailed(status: Int) {
         if (!com.nuvio.tv.NuvioCFeatures.IMDB_TRAILER_BACKUP || status != 429) return
         backoffUntil = now() + BACKOFF_MS
-        Log.w(TAG, "YouTube rate limit (429): backing off YouTube for 15 min, IMDb goes first")
+        Log.w(TAG, "YouTube website rate limit (429): not asking it again for 15 min; player still first, IMDb if it fails")
     }
 
     fun backingOff(): Boolean = now() < backoffUntil
@@ -136,16 +138,13 @@ class NuvioCTrailerBackup @Inject constructor(
             youtube: suspend () -> TrailerPlaybackSource?,
             imdb: suspend () -> TrailerPlaybackSource?
         ): TrailerPlaybackSource? {
-            if (NuvioCYouTubeHealth.backingOff()) {
-                Log.i(TAG, "YouTube backing off (${NuvioCYouTubeHealth.backoffMinutesLeft()} min left): IMDb first")
-                imdb()?.let {
-                    Log.i(TAG, "Using IMDb trailer")
-                    return it
-                }
-                Log.i(TAG, "No IMDb trailer, using YouTube")
-                return youtube()
+            val fromYouTube = youtube()
+            if (fromYouTube == null) {
+                // A dead link outside a rate limit stays without a trailer, as before.
+                if (!NuvioCYouTubeHealth.backingOff()) return null
+                Log.i(TAG, "YouTube failed while rate-limited (${NuvioCYouTubeHealth.backoffMinutesLeft()} min left): trying IMDb")
+                return imdb()?.also { Log.i(TAG, "Using IMDb trailer") }
             }
-            val fromYouTube = youtube() ?: return null
             if (!NuvioCYouTubeHealth.isDegraded(fromYouTube)) return fromYouTube
             Log.i(TAG, "YouTube gave its low-quality fallback: trying IMDb")
             imdb()?.let {

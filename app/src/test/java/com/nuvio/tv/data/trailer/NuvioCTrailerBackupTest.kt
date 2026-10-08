@@ -60,17 +60,25 @@ class NuvioCTrailerBackupTest {
     }
 
     @Test
-    fun rateLimitGoesToImdbFirstWithoutAskingYouTube() = runTest {
+    fun rateLimitStillAsksYouTubeFirst() = runTest {
         NuvioCYouTubeHealth.onWatchPageFailed(429)
-        assertEquals(imdb, choose(good, imdb))
-        assertEquals(0, youtubeCalls)
+        assertEquals(good, choose(good, imdb))
+        assertEquals(1, youtubeCalls)
+        assertEquals(0, imdbCalls)
     }
 
     @Test
-    fun rateLimitFallsBackToYouTubeWhenImdbFails() = runTest {
+    fun rateLimitUsesImdbWhenYouTubeFails() = runTest {
         NuvioCYouTubeHealth.onWatchPageFailed(429)
-        assertEquals(good, choose(good, null))
-        assertEquals(1, youtubeCalls)
+        assertEquals(imdb, choose(null, imdb))
+        assertEquals(1, imdbCalls)
+    }
+
+    @Test
+    fun rateLimitLowQualityStillTriesImdb() = runTest {
+        NuvioCYouTubeHealth.onWatchPageFailed(429)
+        NuvioCYouTubeHealth.markDegraded(low)
+        assertEquals(imdb, choose(low, imdb))
     }
 
     @Test
