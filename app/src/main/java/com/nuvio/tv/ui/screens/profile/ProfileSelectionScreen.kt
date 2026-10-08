@@ -902,24 +902,26 @@ private fun ProfileSelectionMainContent(
     onProfileLongPress: (UserProfile) -> Unit,
     onAddProfileClick: () -> Unit
 ) {
+    val nuvioC = nuvioCProfileMinimal(isManagementMode) // [fork] minimal profile screen (NuvioCProfileLayout.kt)
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .nuvioCProfileScrim(nuvioC) // [fork]
             .padding(
                 horizontal = ProfileSelectionSpacing.ScreenPaddingHorizontal,
                 vertical = ProfileSelectionSpacing.ScreenPaddingVertical
             ),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        MemberBrandWordmark(
+        if (!nuvioC) MemberBrandWordmark( // [fork] if
             height = ProfileSelectionSpacing.LogoHeight,
             contentDescription = stringResource(R.string.cd_nuvio_logo),
             drawableOverride = brandWordmarkRes
         )
 
-        Spacer(modifier = Modifier.height(ProfileSelectionSpacing.LogoToHeading))
+        if (!nuvioC) Spacer(modifier = Modifier.height(ProfileSelectionSpacing.LogoToHeading)) // [fork] if
 
-        Text(
+        if (!nuvioC) Text( // [fork] if
             text = screenTitle,
             color = NuvioTheme.colors.TextPrimary,
             fontSize = 44.sp,
@@ -927,22 +929,22 @@ private fun ProfileSelectionMainContent(
             letterSpacing = (-0.5).sp
         )
 
-        Spacer(modifier = Modifier.height(ProfileSelectionSpacing.HeadingToSubheading))
+        if (!nuvioC) Spacer(modifier = Modifier.height(ProfileSelectionSpacing.HeadingToSubheading)) // [fork] if
 
-        Text(
+        if (!nuvioC) Text( // [fork] if
             text = screenSubtitle,
             color = NuvioTheme.colors.TextSecondary,
             fontSize = 18.sp,
             fontWeight = FontWeight.Medium
         )
 
-        Spacer(modifier = Modifier.weight(1f, fill = true))
+        Spacer(modifier = Modifier.weight(if (nuvioC) NUVIO_C_PROFILE_TOP_WEIGHT else 1f, fill = true)) // [fork] weight
 
         ProfileGrid(
             profiles = profiles,
             activeProfileId = activeProfileId,
             isManagementMode = isManagementMode,
-            canAddProfile = canAddProfile,
+            canAddProfile = canAddProfile && !nuvioC, // [fork] pill below instead of a card
             profilePinEnabled = profilePinEnabled,
             avatarImageUrlsById = avatarImageUrlsById,
             profileThemes = profileThemes,
@@ -951,10 +953,11 @@ private fun ProfileSelectionMainContent(
             onProfileLongPress = onProfileLongPress,
             onAddProfileClick = onAddProfileClick
         )
+        if (nuvioC && canAddProfile) NuvioCAddProfilePill(onClick = onAddProfileClick, takeFocus = profiles.isEmpty()) // [fork]
 
-        Spacer(modifier = Modifier.weight(1f, fill = true))
+        Spacer(modifier = Modifier.weight(if (nuvioC) NUVIO_C_PROFILE_BOTTOM_WEIGHT else 1f, fill = true)) // [fork] weight
 
-        Text(
+        if (!nuvioC) Text( // [fork] if
             text = screenHint,
             color = NuvioTheme.colors.TextTertiary.copy(alpha = 0.9f),
             fontSize = 14.sp,
@@ -1244,7 +1247,7 @@ private fun ProfileCard(
             modifier = Modifier.height(ProfileSelectionSpacing.MetaSlotHeight),
             contentAlignment = Alignment.TopCenter
         ) {
-            if (profile.isPrimary) {
+            if (profile.isPrimary && !com.nuvio.tv.NuvioCFeatures.PROFILE_MINIMAL) { // [fork] no "Primary" text (star badge stays)
                 Text(
                     text = stringResource(R.string.profile_selection_primary_badge),
                     color = Color(0xFFFFB300),
