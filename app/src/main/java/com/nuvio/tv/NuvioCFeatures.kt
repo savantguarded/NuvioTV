@@ -10,6 +10,9 @@ package com.nuvio.tv
 //
 // To remove a tweak's code completely instead, revert its commits (see README / nuvio-c-setup).
 object NuvioCFeatures {
+    // Section rows sit first, apart from the rest: the build robot peels their commits off on their own.
+    /** Details page: one row per section (Cast, Ratings, More like this, Trailers, Collection) with order and on/off in settings. Off = official tabs. */
+    const val SECTION_ROWS = true
     /** Player: title logo top-left of the controls. */
     const val OSD_LOGO = true
     /** Player: resolution / HDR / audio / size badges bottom-right of the controls. */
