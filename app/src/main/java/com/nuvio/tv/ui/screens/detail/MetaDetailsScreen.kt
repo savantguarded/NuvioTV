@@ -1045,6 +1045,9 @@ fun MetaDetailsScreen(
                     },
                     onTrailerProgressChanged = onTrailerProgressChanged,
                     onTrailerEnded = {
+                        // [fork] only a full-screen / hero trailer ending sends focus back to Play;
+                        // a background trailer ending (or lost while held) leaves focus where the user is
+                        if (!com.nuvio.tv.NuvioCFeatures.BG_TRAILER_KEEP_FOCUS || currentIsTrailerPlaying || !uiState.nuvioCBackgroundLayer)
                         restorePlayFocusAfterTrailerBackToken += 1
                         isTrailerPaused = false
                         viewModel.onEvent(MetaDetailsEvent.OnTrailerEnded)
