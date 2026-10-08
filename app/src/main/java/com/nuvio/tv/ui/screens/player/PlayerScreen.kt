@@ -206,6 +206,7 @@ fun PlayerScreen(
     val postPlayRecommendationFocusRequester = remember { FocusRequester() }
     val postPlayRecommendationPlayerWindowFocusRequester = remember { FocusRequester() }
     var skipButtonActuallyVisible by remember { mutableStateOf(false) }
+    val nuvioCSkipFocus = rememberNuvioCSkipFocus() // [fork] skip-intro focus fix
     var restoreStreamInfoFocus by remember { mutableStateOf(false) }
     var focusPlayAfterMoreBack by remember { mutableStateOf(false) }
     val nextEpisodeFocusRequester = remember { FocusRequester() }
@@ -1239,6 +1240,15 @@ fun PlayerScreen(
                 .padding(start = NuvioTheme.spacing.xxl, bottom = skipButtonBottomPadding)
                 .zIndex(2.1f)
                 .nuvioCHdrDim(nuvioCHdr) // [fork]
+                .nuvioCSkipFocusTracker(nuvioCSkipFocus) // [fork]
+        )
+        NuvioCSkipFocusEffect( // [fork] focus back to the player when the focused skip button hides
+            state = nuvioCSkipFocus,
+            skipVisible = skipButtonActuallyVisible,
+            controlsVisible = uiState.showControls,
+            nextEpisodeCardUp = uiState.postPlayMode is PostPlayMode.AutoPlay || postPlayRecommendationState.isVisible,
+            container = containerFocusRequester,
+            playPause = playPauseFocusRequester
         )
         PostPlayOverlay(
             mode = uiState.postPlayMode.takeIf {
