@@ -891,6 +891,7 @@ fun MetaDetailsScreen(
                     mdbListRatings = uiState.mdbListRatings,
                     mdbListRatingOrder = uiState.mdbListRatingOrder,
                     isMdbListRatingsActive = uiState.isMdbListRatingsActive,
+                    nuvioCMdbPending = uiState.nuvioCMdbPending, // [fork] hero ratings space
                     tmdbRating = uiState.tmdbRating,
                     comments = uiState.comments,
                     commentsCurrentPage = uiState.commentsCurrentPage,
@@ -1242,6 +1243,7 @@ private fun MetaDetailsContent(
     mdbListRatings: MDBListRatings?,
     mdbListRatingOrder: List<String> = com.nuvio.tv.domain.model.MDBListSettings.DEFAULT_RATING_ORDER,
     isMdbListRatingsActive: Boolean,
+    nuvioCMdbPending: Boolean = false, // [fork] hero ratings space
     tmdbRating: Float?,
     comments: List<TraktCommentReview>,
     commentsCurrentPage: Int,
@@ -2527,6 +2529,7 @@ private fun MetaDetailsContent(
                         onToggleMovieWatched = onToggleMovieWatched,
                         mdbListRatings = visibleMdbListRatings,
                         mdbListRatingOrder = mdbListRatingOrder,
+                        nuvioCRatingsPending = isMdbListRatingsActive && nuvioCMdbPending, // [fork] hero ratings space
                         hideMetaInfoImdb = !showStandardOverallRatings,
                         tmdbRating = tmdbRating.takeIf { showStandardOverallRatings },
                         showFullReleaseDate = showFullReleaseDate,
