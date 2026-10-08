@@ -193,10 +193,22 @@ jobs:
           sections_commits="$(git log --format='%H %s' "$base..$tip" | awk -v p="$SECTIONS_PREFIX" 'index($0, " " p) == 41 {print $1}')"
           if [ -n "$sections_commits" ]; then
             git checkout -q --detach "$tip"
+            peeled=true
             for c in $sections_commits; do   # newest first, so each revert applies cleanly
-              git revert --no-edit "$c" > /dev/null || { echo "::error::Could not peel section-rows commit $c"; exit 1; }
+              if ! git revert --no-edit "$c" > /dev/null; then
+                git revert --abort || true
+                peeled=false
+                break
+              fi
             done
-            src="$(git rev-parse HEAD)"
+            if [ "$peeled" = true ]; then
+              src="$(git rev-parse HEAD)"
+            else
+              # Can't separate them (a later commit edits the same lines): keep them in the normal
+              # patches, so the build still goes ahead, just without the separate safety net.
+              git checkout -q --detach "$tip"
+              echo "::warning::Section-rows commits could not be peeled off; built in with the other Nuvio C changes this time."
+            fi
           fi
           git diff --binary "$src" "$tip" -- . ":(exclude)README.md" ":(exclude)nuvio-c-screenshots" > "$RUNNER_TEMP/nuvio-c-sections.patch"
           git diff --binary "$base" "$src" -- . "${exclude[@]}" > "$RUNNER_TEMP/nuvio-c.patch"
