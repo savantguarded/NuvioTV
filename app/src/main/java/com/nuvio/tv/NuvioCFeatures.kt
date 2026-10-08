@@ -69,4 +69,6 @@ object NuvioCFeatures {
     const val TRAILER_MAX_1080P = true
     /** Profile screen: no logo / "Who's watching" / hint / "Primary" text, profiles higher up, "Add profile" pill below them. Manage profiles stays official. */
     const val PROFILE_MINIMAL = true
+    /** Player: HDR read from the decoded video too, so HDR titles whose file/name don't say so still get the badge and HDR dim. */
+    const val HDR_DECODED = true
 }

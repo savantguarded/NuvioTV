@@ -35,8 +35,9 @@ class NuvioCOsdBadgesTest {
             known: Boolean = true,
             stripped: Boolean = false,
             converted: Boolean = false,
-            names: String = ""
-        ) = b.visualLabel(mime, codecs, transfer, known, stripped, converted, names)
+            names: String = "",
+            decoder: Int? = null
+        ) = b.visualLabel(mime, codecs, transfer, known, stripped, converted, names, decoder)
 
         assertEquals("DV", v(mime = MimeTypes.VIDEO_DOLBY_VISION, codecs = "dvhe.08.06"))
         assertEquals("HDR10", v(mime = MimeTypes.VIDEO_DOLBY_VISION, transfer = C.COLOR_TRANSFER_ST2084, stripped = true))
@@ -52,6 +53,21 @@ class NuvioCOsdBadgesTest {
         assertEquals("SDR", v(mime = null, known = false, names = "Movie 1080p"))
         // "dv" inside a word is not Dolby Vision
         assertEquals("SDR", v(mime = null, known = false, names = "Advent DVD Rip"))
+        // HDR only inside the video stream: no colour info in the file, no HDR word in the name
+        assertEquals("HDR10", v(names = "Show.S01E01.2160p.WEB.h265", decoder = C.COLOR_TRANSFER_ST2084))
+        assertEquals("HDR10", v(transfer = androidx.media3.common.Format.NO_VALUE, decoder = C.COLOR_TRANSFER_ST2084))
+        assertEquals("HLG", v(decoder = C.COLOR_TRANSFER_HLG))
+        assertEquals("HDR10+", v(names = "Movie.HDR10+.2160p", decoder = C.COLOR_TRANSFER_ST2084))
+        // a decoder "SDR" never overrides the track info or the name
+        assertEquals("HDR10", v(names = "Movie.2160p.HDR", decoder = C.COLOR_TRANSFER_SDR))
+        assertEquals("SDR", v(decoder = C.COLOR_TRANSFER_SDR))
+        // mpv: name first, then mpv's decoded gamma
+        assertEquals("HDR10", v(mime = null, known = false, names = "Movie 2160p WEB", decoder = C.COLOR_TRANSFER_ST2084))
+        assertEquals("DV", v(mime = null, known = false, names = "Movie DV", decoder = C.COLOR_TRANSFER_ST2084))
+        assertEquals("SDR", v(mime = null, known = false, decoder = C.COLOR_TRANSFER_SDR))
+        assertEquals(C.COLOR_TRANSFER_ST2084, NuvioCDecodedColor.gammaToC("pq"))
+        assertEquals(C.COLOR_TRANSFER_HLG, NuvioCDecodedColor.gammaToC("hlg"))
+        assertNull(NuvioCDecodedColor.gammaToC(null))
     }
 
     @Test
