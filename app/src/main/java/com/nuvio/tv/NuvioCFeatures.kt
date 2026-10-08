@@ -56,4 +56,12 @@ object NuvioCFeatures {
     const val CAST_ACTING_ONLY = true
     /** Cast page: Back past the first filmography title jumps to the first one (like official home rows). */
     const val CAST_BACK_TO_FIRST = true
+    /** Player: focus returns to the player when the focused Skip Intro button hides (official loses it). */
+    const val SKIP_INTRO_FOCUS = true
+    /** Details page: Shuffle / random episode button the same size as Play. */
+    const val SHUFFLE_BUTTON_SIZE = true
+    /** Details page: a background trailer ending leaves focus where it is (official jumps to Play). */
+    const val BG_TRAILER_KEEP_FOCUS = true
+    /** Trailers: picked at 1080p or below (official takes the highest, up to 4K60), for smoother pages. */
+    const val TRAILER_MAX_1080P = true
 }
