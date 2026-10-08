@@ -74,6 +74,10 @@ env:
     app/src/test/java/com/nuvio/tv/data/trailer/NuvioCTrailerBackupTest.kt
   # Cast page filmography (real roles only, role / job line under each title). Its own optional
   # patch, same rules: a conflict or compile failure drops only this feature (official cast page).
+  # Details-page section rows: an optional group picked by COMMIT, not by folder (its edits share
+  # files with the trailer layer). Every commit whose subject starts with this prefix is peeled off
+  # into its own patch, applied last and dropped first, so a clash drops only this feature.
+  SECTIONS_PREFIX: "Nuvio C sections:"
   FILMOGRAPHY_PATHS: >-
     app/src/main/java/com/nuvio/tv/core/tmdb/TmdbMetadataService.kt
     app/src/main/java/com/nuvio/tv/core/tmdb/NuvioCFilmography.kt
@@ -180,16 +184,30 @@ jobs:
           exclude+=(":(exclude)README.md" ":(exclude)nuvio-c-screenshots") # GitHub page only, not part of the app
           # Our changes = this branch vs the upstream commit it sits on, split into core + trailer
           base="$(git merge-base HEAD upstream/$UPSTREAM_BRANCH)"
+          tip="$(git rev-parse HEAD)"
           echo "Nuvio C commits (applied onto ${{ steps.plan.outputs.release }}):"
-          git log --oneline "$base..HEAD"
-          git diff --binary "$base" HEAD -- . "${exclude[@]}" > "$RUNNER_TEMP/nuvio-c.patch"
-          git diff --binary "$base" HEAD -- "${trailer_paths[@]}" > "$RUNNER_TEMP/nuvio-c-trailer.patch"
-          git diff --binary "$base" HEAD -- "${imdb_paths[@]}" > "$RUNNER_TEMP/nuvio-c-imdb.patch"
-          git diff --binary "$base" HEAD -- "${film_paths[@]}" > "$RUNNER_TEMP/nuvio-c-film.patch"
-          echo "Core patch:"; git diff --stat "$base" HEAD -- . "${exclude[@]}"
-          echo "Trailer patch:"; git diff --stat "$base" HEAD -- "${trailer_paths[@]}"
-          echo "IMDb backup patch:"; git diff --stat "$base" HEAD -- "${imdb_paths[@]}"
-          echo "Filmography patch:"; git diff --stat "$base" HEAD -- "${film_paths[@]}"
+          git log --oneline "$base..$tip"
+          # Commit group: peel the section-rows commits off (revert them on a scratch commit), so the
+          # path patches below never contain them; their own patch is the difference back to the tip.
+          src="$tip"
+          sections_commits="$(git log --format='%H %s' "$base..$tip" | awk -v p="$SECTIONS_PREFIX" 'index($0, " " p) == 41 {print $1}')"
+          if [ -n "$sections_commits" ]; then
+            git checkout -q --detach "$tip"
+            for c in $sections_commits; do   # newest first, so each revert applies cleanly
+              git revert --no-edit "$c" > /dev/null || { echo "::error::Could not peel section-rows commit $c"; exit 1; }
+            done
+            src="$(git rev-parse HEAD)"
+          fi
+          git diff --binary "$src" "$tip" -- . ":(exclude)README.md" ":(exclude)nuvio-c-screenshots" > "$RUNNER_TEMP/nuvio-c-sections.patch"
+          git diff --binary "$base" "$src" -- . "${exclude[@]}" > "$RUNNER_TEMP/nuvio-c.patch"
+          git diff --binary "$base" "$src" -- "${trailer_paths[@]}" > "$RUNNER_TEMP/nuvio-c-trailer.patch"
+          git diff --binary "$base" "$src" -- "${imdb_paths[@]}" > "$RUNNER_TEMP/nuvio-c-imdb.patch"
+          git diff --binary "$base" "$src" -- "${film_paths[@]}" > "$RUNNER_TEMP/nuvio-c-film.patch"
+          echo "Core patch:"; git diff --stat "$base" "$src" -- . "${exclude[@]}"
+          echo "Trailer patch:"; git diff --stat "$base" "$src" -- "${trailer_paths[@]}"
+          echo "IMDb backup patch:"; git diff --stat "$base" "$src" -- "${imdb_paths[@]}"
+          echo "Filmography patch:"; git diff --stat "$base" "$src" -- "${film_paths[@]}"
+          echo "Section rows patch:"; git diff --stat "$src" "$tip" -- . ":(exclude)README.md" ":(exclude)nuvio-c-screenshots"
           git checkout -q --detach refs/nuvio/release
           if ! git apply --3way --index "$RUNNER_TEMP/nuvio-c.patch"; then
             git reset -q --hard
@@ -283,6 +301,35 @@ jobs:
           fi
           echo "Cast filmography: $film"
           echo "film=$film" >> "$GITHUB_OUTPUT"
+          # Optional section-rows patch (commit group), same rules, applied last
+          sections="skipped"
+          if [ ! -s "$RUNNER_TEMP/nuvio-c-sections.patch" ]; then
+            sections="none"
+          elif git apply --3way --index "$RUNNER_TEMP/nuvio-c-sections.patch"; then
+            git commit -q --no-verify -m "Nuvio C section rows"
+            git diff --binary HEAD~1 HEAD > "$RUNNER_TEMP/nuvio-c-sections-applied.patch"
+            sections="applied"
+            mapfile -t section_files < <(git diff --name-only HEAD~1 HEAD)
+            changed="$(git diff --name-only "$base" refs/nuvio/release -- "${section_files[@]}" || true)"
+            if [ -n "$changed" ]; then
+              {
+                echo "Official ${{ steps.plan.outputs.release }} changed files the details-page section rows also edit. It still merged and built, but check a details page (and Settings › Layout › Details › Sections) on the TV."
+                echo
+                echo '```'
+                echo "$changed"
+                echo '```'
+              } > sections-notice.md
+            fi
+          else
+            git reset -q --hard
+            {
+              echo "Official ${{ steps.plan.outputs.release }} conflicts with the details-page section rows, so this build was made **without** them (official tabbed sections). Everything else is in."
+              echo
+              echo "The section-rows commits need refreshing."
+            } > sections-notice.md
+          fi
+          echo "Section rows: $sections"
+          echo "sections=$sections" >> "$GITHUB_OUTPUT"
 
       - name: Check secrets
         if: steps.plan.outputs.build == 'true'
@@ -388,9 +435,22 @@ jobs:
           trailer="${{ steps.replay.outputs.trailer }}"
           imdb="${{ steps.replay.outputs.imdb }}"
           film="${{ steps.replay.outputs.film }}"
+          sections="${{ steps.replay.outputs.sections }}"
           build() { ./gradlew :app:assembleFullRelease --stacktrace; }
-          done_ok() { echo "trailer=$trailer" >> "$GITHUB_OUTPUT"; echo "imdb=$imdb" >> "$GITHUB_OUTPUT"; echo "film=$film" >> "$GITHUB_OUTPUT"; exit 0; }
+          done_ok() { echo "trailer=$trailer" >> "$GITHUB_OUTPUT"; echo "imdb=$imdb" >> "$GITHUB_OUTPUT"; echo "film=$film" >> "$GITHUB_OUTPUT"; echo "sections=$sections" >> "$GITHUB_OUTPUT"; exit 0; }
           build && done_ok
+          # Drop the section rows first (applied last).
+          if [ "$sections" = "applied" ]; then
+            echo "::warning::Build failed with the section rows; retrying without them."
+            git apply -R "$RUNNER_TEMP/nuvio-c-sections-applied.patch"
+            sections="build-failed"
+            {
+              echo "Official ${{ steps.plan.outputs.release }} merged with the details-page section rows but the app didn't compile with them, so this build was made **without** them (official tabbed sections). Everything else is in."
+              echo
+              echo "See the failed first attempt in the build log. The section-rows commits need refreshing."
+            } > sections-notice.md
+            build && done_ok
+          fi
           # Drop the optional patches newest first: filmography, IMDb backup, then trailers.
           if [ "$film" = "applied" ]; then
             echo "::warning::Build failed with the cast filmography; retrying without it."
@@ -429,6 +489,7 @@ jobs:
           echo "trailer=$trailer" >> "$GITHUB_OUTPUT"
           echo "imdb=$imdb" >> "$GITHUB_OUTPUT"
           echo "film=$film" >> "$GITHUB_OUTPUT"
+          echo "sections=$sections" >> "$GITHUB_OUTPUT"
 
       - name: Publish release
         if: steps.plan.outputs.build == 'true'
@@ -458,6 +519,11 @@ jobs:
           else
             notes="${notes} Cast filmography NOT included in this build (official cast page, see issues)."
           fi
+          case "${{ steps.apk.outputs.sections }}" in
+            applied) notes="${notes} Details-page section rows included." ;;
+            none) ;;
+            *) notes="${notes} Details-page section rows NOT included in this build (official tabs, see issues)." ;;
+          esac
           if [ -n "${{ steps.switches.outputs.off }}" ]; then
             notes="${notes} Switched off in this build: ${{ steps.switches.outputs.off }}."
           fi
@@ -507,3 +573,13 @@ jobs:
             title="Nuvio C: ${{ steps.plan.outputs.release }} built without the cast filmography"
           fi
           gh issue create --title "$title" --body-file film-notice.md || cat film-notice.md
+
+      - name: Send section rows notice
+        if: success() && steps.plan.outputs.build == 'true' && hashFiles('sections-notice.md') != ''
+        run: |
+          if [ "${{ steps.apk.outputs.sections }}" = "applied" ]; then
+            title="Nuvio C: official ${{ steps.plan.outputs.release }} changed details-page code (section rows still in)"
+          else
+            title="Nuvio C: ${{ steps.plan.outputs.release }} built without the details-page section rows"
+          fi
+          gh issue create --title "$title" --body-file sections-notice.md || cat sections-notice.md
