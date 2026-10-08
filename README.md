@@ -19,14 +19,25 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - The loading screen shows the add-on and debrid service (e.g. "Torrentio · TorBox") and the release filename at the bottom.
 - If a source turns out to be a short placeholder clip (e.g. "not cached" or "service unavailable" videos) instead of the real video, it is paused, a message says so and the Sources panel opens to pick another.
 - Pressing Next episode starts it straight away; the 3-second countdown is kept only for automatic playback.
+- After you press Skip Intro (or it times out), the remote keeps working straight away: focus goes back to the player instead of getting lost.
+- The HDR dimming also covers the media info panel, the stats HUD and torrent stats.
 
 <img src="nuvio-c-screenshots/player-logo.jpg" alt="Player controls with the title logo top-left" width="720" />
+
+**Details page**
+- Cast, Ratings, More like this, Trailers and Collection each get their own row, like the mobile app, instead of sharing one tab row. Under Settings > Layout > Details > Sections you can switch this off, hide any section and reorder them with the ▲ ▼ buttons (same as the MDBList ratings order).
+- The Shuffle button is the same size as Play.
+- Smoother when a background trailer starts and while scrolling. A background trailer finishing no longer pulls focus back to Play.
 
 **Trailers**
 - Background trailers ("Play in Background") play muted, with a **Play Trailer Muted** setting under Settings > Layout > Details to play them with sound (faded in). One press of Back stops the trailer and leaves the page.
 - The trailer screen (trailer button, trailers row) uses the same seek bar as the player.
 - While a trailer plays with sound, a small title logo shows bottom-left, just above the seek bar.
 - When YouTube rate-limits and trailers drop to low quality, the IMDb trailer for the title is used instead (720p or better). YouTube stays the main source.
+- Trailers play at up to 1080p (official picks up to 4K60), which keeps pages smooth on TV hardware.
+
+**Collections**
+- Folders shown in the Modern home layout no longer stutter when you move to a new row: MDBList ratings for the row are applied in one go instead of one screen refresh per title.
 
 **Cast pages**
 - Filmography lists real work only: no talk shows, award shows, news, reality or "Self" / archive-footage appearances. Actor pages never fill up with producer credits.
@@ -72,12 +83,18 @@ The release notes list what was switched off. Clear the variable to turn everyth
 | `start_over` | The Start over button |
 | `cast_acting_only` | Real filmography and role lines on cast pages |
 | `cast_back_to_first` | Back jumping to the first title on a cast page's filmography row |
+| `skip_intro_focus` | Focus going back to the player after Skip Intro |
+| `shuffle_button_size` | Play-sized Shuffle button |
+| `bg_trailer_keep_focus` | Focus staying put when a background trailer ends |
+| `trailer_max_1080p` | 1080p trailer cap |
+| `folder_ratings_batch` | One-go MDBList ratings in Collections |
+| `section_rows` | One row per details section (back to official tabs) |
 
 The switches live in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt`. To remove a tweak's code for good rather than switch it off, its commits can be reverted; each tweak is in its own commits (listed in the project notes).
 
 ## How it's kept up to date
 
-A build runs automatically every hour. When Nuvio publishes a new release, the same changes are applied on top and a new Nuvio C APK is posted to Releases. If an official update clashes with the trailer tweaks, the IMDb backup or the cast filmography, the APK is still built, just without that feature.
+A build runs automatically every hour. When Nuvio publishes a new release, the same changes are applied on top and a new Nuvio C APK is posted to Releases. If an official update clashes with the trailer tweaks, the IMDb backup, the cast filmography or the details-page section rows, the APK is still built, just without that feature.
 
 Everything else works like the official app.
 
