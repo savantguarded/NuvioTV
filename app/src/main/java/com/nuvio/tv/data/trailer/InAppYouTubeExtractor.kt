@@ -481,7 +481,12 @@ class InAppYouTubeExtractor @Inject constructor() {
         }
 
         val bestProgressive = sortCandidates(progressive).firstOrNull()
-        val bestVideo = pickBestForClient(adaptiveVideo, PREFERRED_SEPARATE_CLIENT)
+        // [fork] trailers capped at 1080p: 4K / 4K60 trailers drawn through the trailer's TextureView
+        // stutter the detail page on TV chips; falls back to the full list if nothing is 1080p or below
+        val nuvioCVideo = if (com.nuvio.tv.NuvioCFeatures.TRAILER_MAX_1080P) {
+            adaptiveVideo.filter { it.height in 1..1080 }.ifEmpty { adaptiveVideo }
+        } else adaptiveVideo
+        val bestVideo = pickBestForClient(nuvioCVideo, PREFERRED_SEPARATE_CLIENT)
         val bestAudio = pickBestForClient(adaptiveAudio, PREFERRED_SEPARATE_CLIENT)
 
         for (kind in sourcePreference(singleUrl)) {
