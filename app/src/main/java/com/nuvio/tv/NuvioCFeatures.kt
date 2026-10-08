@@ -71,4 +71,6 @@ object NuvioCFeatures {
     const val PROFILE_MINIMAL = true
     /** Player: HDR read from the decoded video too, so HDR titles whose file/name don't say so still get the badge and HDR dim. */
     const val HDR_DECODED = true
+    /** Details page: the hero keeps the MDBList ratings line's space while it loads (no jump when it lands). */
+    const val HERO_RATINGS_SPACE = true
 }

@@ -85,6 +85,7 @@ data class MetaDetailsUiState(
     val mdbListRatings: MDBListRatings? = null,
     val mdbListRatingOrder: List<String> = com.nuvio.tv.domain.model.MDBListSettings.DEFAULT_RATING_ORDER,
     val isMdbListRatingsActive: Boolean = false,
+    val nuvioCMdbPending: Boolean = false, // [fork] hero keeps the ratings line's space while MDBList loads
     val tmdbRating: Float? = null,
     val comments: List<TraktCommentReview> = emptyList(),
     val commentsCurrentPage: Int = 0,

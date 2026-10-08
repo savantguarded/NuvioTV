@@ -110,6 +110,7 @@ fun HeroContentSection(
     hideLogoDuringTrailer: Boolean = false,
     mdbListRatings: MDBListRatings? = null,
     mdbListRatingOrder: List<String> = com.nuvio.tv.domain.model.MDBListSettings.DEFAULT_RATING_ORDER,
+    nuvioCRatingsPending: Boolean = false, // [fork] MDBList still loading: keep its line's space
     hideMetaInfoImdb: Boolean = false,
     tmdbRating: Float? = null,
     showFullReleaseDate: Boolean = true,
@@ -362,6 +363,9 @@ fun HeroContentSection(
 
                     if (mdbListRatings?.isEmpty() == false) {
                         MDBListRatingsRow(ratings = mdbListRatings, order = mdbListRatingOrder, modifier = Modifier.nuvioCFade { nuvioCTextAlpha.value }) // [fork]
+                        Spacer(modifier = Modifier.height(14.dp))
+                    } else if (nuvioCRatingsPending && com.nuvio.tv.NuvioCFeatures.HERO_RATINGS_SPACE) { // [fork] same height, invisible, until MDBList answers
+                        MDBListRatingsRow(ratings = NUVIO_C_RATINGS_PLACEHOLDER, modifier = Modifier.nuvioCInvisible())
                         Spacer(modifier = Modifier.height(14.dp))
                     }
 
