@@ -44,7 +44,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - Back on a filmography row jumps to the first title, like the home rows. On the first title, Back leaves the page as usual.
 
 **Profiles**
-- The profile screen is minimal: no logo, "Who's watching" or hint text, so your profile background fills the screen. The profiles sit in the upper part (the bottom of the background, e.g. a poster's logo, stays clear) with "Add profile" as a button centred under them. Press and hold a profile for its menu as usual. Manage profiles looks as official.
+- Netflix-style profile screen: the Nuvio wordmark (with your supporter badge) top-left and round profiles stacked down the left, over a dark fade so your profile background fills the rest. The focused profile grows, gets a white ring and its name beside it. Press Left for the pencil (or press and hold, or Menu) to open the profile menu. Lock badge on PIN profiles, star on the primary one, "Add profile" as the last circle. Manage profiles looks as official.
 
 **Accounts**
 - Simkl logs in with its newer device login (QR code on the TV) and renews itself, so you stay signed in.
@@ -89,7 +89,7 @@ The release notes list what was switched off. Clear the variable to turn everyth
 | `bg_trailer_keep_focus` | Focus staying put when a background trailer ends |
 | `trailer_max_1080p` | 1080p trailer cap |
 | `section_rows` | One row per details section (back to official tabs) |
-| `profile_minimal` | Minimal profile screen |
+| `profile_minimal` | Netflix-style profile screen |
 | `hdr_decoded` | HDR read from the decoded video (back to file info and stream name only) |
 | `hero_ratings_space` | Reserved space for the MDBList ratings line while it loads |
 
