@@ -879,6 +879,7 @@ fun MetaDetailsScreen(
                     posterCardCornerRadiusDp = posterCardCornerRadiusDp,
                     collection = uiState.collection,
                     collectionName = uiState.collectionName,
+                    nuvioCSectionsPending = uiState.nuvioCSectionsPending, // [fork] section rows
                     relatedWatchedStatus = uiState.relatedWatchedStatus,
                     episodeImdbRatings = uiState.episodeImdbRatings,
                     isEpisodeRatingsLoading = uiState.isEpisodeRatingsLoading,
@@ -1229,6 +1230,7 @@ private fun MetaDetailsContent(
     posterCardCornerRadiusDp: Int = 12,
     collection: List<MetaPreview>,
     collectionName: String?,
+    nuvioCSectionsPending: Set<String> = emptySet(), // [fork] section rows
     relatedWatchedStatus: Map<String, Boolean> = emptyMap(),
     episodeImdbRatings: Map<Pair<Int, Int>, Double>,
     isEpisodeRatingsLoading: Boolean,
@@ -1967,6 +1969,10 @@ private fun MetaDetailsContent(
     val visiblePeopleTabItems = if (shouldSplitCollection) peopleTabItems.filterNot { it.tab == PeopleSectionTab.COLLECTION } else peopleTabItems
     val hasVisiblePeopleSection = visiblePeopleTabItems.isNotEmpty()
     val hasVisiblePeopleTabs = !nuvioCRows.on && visiblePeopleTabItems.size > 1 // [fork] rows: no tab row
+    val nuvioCRowEntries = nuvioCRows.entries( // [fork] rows (+ rows still loading, kept in place)
+        nuvioCRows.withPending(visiblePeopleTabItems.map { it.tab to it.label }, nuvioCSectionsPending, mapOf(PeopleSectionTab.MORE_LIKE_THIS to strTabMoreLikeThis, PeopleSectionTab.COLLECTION to (collectionName ?: strTabCollection))),
+        setOf(PeopleSectionTab.CAST, PeopleSectionTab.RATINGS)
+    )
     val commentsItemIndex = remember(
         isSeries,
         seasons,
@@ -2135,7 +2141,7 @@ private fun MetaDetailsContent(
 
     LaunchedEffect(commentsEntryFocusToken, shouldShowCommentsSection, commentsItemIndex) {
         if (commentsEntryFocusToken <= 0 || !shouldShowCommentsSection) return@LaunchedEffect
-        listState.animateScrollToItem(nuvioCRows.commentsIndex(commentsItemIndex, if (hasVisiblePeopleSection) 1 else 0, nuvioCRows.entries(visiblePeopleTabItems.map { it.tab to it.label }, setOf(PeopleSectionTab.CAST, PeopleSectionTab.RATINGS)).size)) // [fork] was commentsItemIndex
+        listState.animateScrollToItem(nuvioCRows.commentsIndex(commentsItemIndex, if (hasVisiblePeopleSection) 1 else 0, nuvioCRowEntries.size)) // [fork] was commentsItemIndex
     }
 
     LaunchedEffect(
@@ -2702,13 +2708,14 @@ private fun MetaDetailsContent(
                 }
 
                 items( // [fork] one item per row when rows are on; official's single item otherwise
-                    nuvioCRows.entries(visiblePeopleTabItems.map { it.tab to it.label }, setOf(PeopleSectionTab.CAST, PeopleSectionTab.RATINGS)),
+                    nuvioCRowEntries,
                     key = { nuvioCRows.key("cast_or_more_like", it) },
                     contentType = { if (it.header) "nuvio_c_header" else "horizontal_row" }
                 ) { nuvioCEntry -> // official: item(key = "cast_or_more_like", contentType = "horizontal_row") {
                     if (nuvioCEntry.header) { NuvioCRowHeader(nuvioCEntry.label); return@items } // [fork]
                     val nuvioCTab = nuvioCEntry.tab // [fork]
                     val visiblePeopleTabsList = visiblePeopleTabItems.map { it.tab }
+                    if (nuvioCTab != null && nuvioCTab !in visiblePeopleTabsList) { NuvioCRowPlaceholder(nuvioCTab.name); return@items } // [fork] still loading
                     val visiblePeopleSection = nuvioCTab ?: if (hasVisiblePeopleTabs) { // [fork] nuvioCTab
                         activePeopleTab
                     } else {
@@ -2720,6 +2727,7 @@ private fun MetaDetailsContent(
 
                     Crossfade(
                         targetState = visiblePeopleSection,
+                        modifier = Modifier.nuvioCRowHeight(nuvioCTab?.name), // [fork] remembered for the loading placeholder
                         animationSpec = tween(durationMillis = 160),
                         label = "peopleSectionSwitch"
                     ) { section ->
@@ -2849,8 +2857,8 @@ private fun MetaDetailsContent(
                                 EpisodeRatingsSection(
                                     episodes = meta.videos,
                                     ratings = visibleEpisodeImdbRatings,
-                                    isLoading = isEpisodeRatingsLoading,
-                                    error = episodeRatingsError,
+                                    isLoading = isEpisodeRatingsLoading && nuvioCTab == null, // [fork] rows: the grid shows "—" until ratings land (no jump)
+                                    error = if (nuvioCTab == null) episodeRatingsError else null, // [fork]
                                     title = if (hasVisiblePeopleTabs) "" else strTabRatings,
                                     upFocusRequester = if (nuvioCTab != null) null else if (hasVisiblePeopleTabs) { // [fork]
                                         ratingsTabFocusRequester
