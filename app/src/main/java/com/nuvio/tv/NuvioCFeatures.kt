@@ -67,7 +67,7 @@ object NuvioCFeatures {
     const val BG_TRAILER_KEEP_FOCUS = true
     /** Trailers: picked at 1080p or below (official takes the highest, up to 4K60), for smoother pages. */
     const val TRAILER_MAX_1080P = true
-    /** Profile screen: no logo / "Who's watching" / hint / "Primary" text, profiles higher up, "Add profile" pill below them. Manage profiles stays official. */
+    /** Profile screen: Netflix-style (wordmark top-left, round profiles down the left, pencil for the menu). Manage profiles stays official. */
     const val PROFILE_MINIMAL = true
     /** Player: HDR read from the decoded video too, so HDR titles whose file/name don't say so still get the badge and HDR dim. */
     const val HDR_DECODED = true
