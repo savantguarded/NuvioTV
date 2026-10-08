@@ -33,11 +33,24 @@ internal fun ShuffleButton(
         modifier = Modifier
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .focusProperties { up = FocusRequester.Cancel }
-            .onFocusChanged { if (it.isFocused) onFocused() }
+            .onFocusChanged { if (it.isFocused) onFocused() },
+        // [fork] same height, padding and corner as the Play button (official: smaller default Button)
+        contentPadding = if (com.nuvio.tv.NuvioCFeatures.SHUFFLE_BUTTON_SIZE) {
+            androidx.compose.foundation.layout.PaddingValues(horizontal = com.nuvio.tv.ui.theme.NuvioTheme.spacing.xl, vertical = 14.dp)
+        } else androidx.tv.material3.ButtonDefaults.ContentPadding,
+        shape = if (com.nuvio.tv.NuvioCFeatures.SHUFFLE_BUTTON_SIZE) {
+            androidx.tv.material3.ButtonDefaults.shape(
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(com.nuvio.tv.ui.theme.NuvioTheme.spacing.xxl)
+            )
+        } else androidx.tv.material3.ButtonDefaults.shape()
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(if (active) Icons.Default.Stop else Icons.Default.Shuffle, null, Modifier.size(18.dp))
-            Text(stringResource(if (active) R.string.shuffle_stop else R.string.random_episode_title))
+            Text(
+                stringResource(if (active) R.string.shuffle_stop else R.string.random_episode_title),
+                style = if (com.nuvio.tv.NuvioCFeatures.SHUFFLE_BUTTON_SIZE) androidx.tv.material3.MaterialTheme.typography.labelLarge // [fork] as Play
+                    else androidx.tv.material3.LocalTextStyle.current
+            )
         }
     }
 }
