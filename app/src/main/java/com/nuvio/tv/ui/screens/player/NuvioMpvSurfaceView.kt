@@ -462,10 +462,15 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
 
     /** [fork] true for PQ / HLG video as mpv decoded it, null when mpv can't say yet. */
     fun nuvioCIsHdrVideo(): Boolean? {
-        if (!initialized) return null
-        val gamma = runCatching { mpv.getPropertyString("video-params/gamma") }.getOrNull()
-            ?.lowercase(Locale.US)?.takeIf { it.isNotBlank() } ?: return null
+        val gamma = nuvioCVideoGamma() ?: return null
         return gamma == "pq" || gamma == "hlg"
+    }
+
+    /** [fork] mpv's decoded transfer ("pq", "hlg", "bt.1886"…), null when mpv can't say yet. */
+    fun nuvioCVideoGamma(): String? {
+        if (!initialized) return null
+        return runCatching { mpv.getPropertyString("video-params/gamma") }.getOrNull()
+            ?.lowercase(Locale.US)?.takeIf { it.isNotBlank() && it != "auto" }
     }
 
     // [fork] Nuvio C subtitle lift while the OSD is open. bottomFraction = how far up the screen

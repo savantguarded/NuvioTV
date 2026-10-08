@@ -46,6 +46,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.C
+import androidx.media3.common.Format
 import androidx.media3.common.MimeTypes
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.MaterialTheme
@@ -213,7 +214,8 @@ internal fun nuvioCVisualTag(controller: PlayerRuntimeController, uiState: Playe
         dvStripped = controller.isMapDv7ToHevcActiveForCurrentPlayback || controller.forceDv7ToHevc,
         dvConverted = controller.isExperimentalDv7ToDv81ActiveForCurrentPlayback ||
             controller.isManualDv81Mode2ActiveForCurrentPlayback,
-        names = names
+        names = names,
+        decoderTransfer = NuvioCDecodedColor.transfer(controller, exoFormat)
     )
 }
 
@@ -268,7 +270,9 @@ internal object NuvioCOsdBadges {
 
     /**
      * What the TV is actually being sent. A DV file played as its HDR10 base layer says HDR10.
-     * When nothing was decoded by ExoPlayer (mpv), the stream title decides, else SDR.
+     * When nothing was decoded by ExoPlayer (mpv), the stream title decides, then mpv's decoded
+     * gamma, else SDR. [decoderTransfer] = what the video decoder itself reports (NuvioCDecodedColor):
+     * it catches HDR files whose container and name don't say so ("2160p.WEB.h265").
      */
     fun visualLabel(
         mimeType: String?,
@@ -277,22 +281,31 @@ internal object NuvioCOsdBadges {
         decodedKnown: Boolean,
         dvStripped: Boolean,
         dvConverted: Boolean,
-        names: String
+        names: String,
+        decoderTransfer: Int? = null
     ): String {
         val fromName = visualFromName(names)
-        if (!decodedKnown) return fromName ?: "SDR"
+        if (!decodedKnown) return fromName ?: transferLabel(decoderTransfer, fromName) ?: "SDR"
         val c = codecs?.lowercase(Locale.US).orEmpty()
         val isDv = mimeType?.lowercase(Locale.US) == MimeTypes.VIDEO_DOLBY_VISION ||
             c.startsWith("dvh") || c.startsWith("dva") || c.startsWith("dav1")
+        // Decoder saying PQ / HLG wins; otherwise the track info as before (a decoder "SDR" is ignored).
+        val decoderHdr = decoderTransfer?.takeIf { it == C.COLOR_TRANSFER_ST2084 || it == C.COLOR_TRANSFER_HLG }
+        val transfer = decoderHdr ?: colorTransfer?.takeIf { it != Format.NO_VALUE }
         return when {
             dvConverted -> "DV"
             isDv && !dvStripped -> "DV"
-            colorTransfer == C.COLOR_TRANSFER_ST2084 -> if (fromName == "HDR10+") "HDR10+" else "HDR10"
-            colorTransfer == C.COLOR_TRANSFER_HLG -> "HLG"
+            transfer == C.COLOR_TRANSFER_ST2084 || transfer == C.COLOR_TRANSFER_HLG -> transferLabel(transfer, fromName)!!
             isDv -> "HDR10" // DV stripped to its base layer
-            colorTransfer == C.COLOR_TRANSFER_SDR -> "SDR"
+            transfer == C.COLOR_TRANSFER_SDR -> "SDR"
             else -> fromName?.takeIf { it != "DV" } ?: "SDR"
         }
+    }
+
+    private fun transferLabel(transfer: Int?, fromName: String?): String? = when (transfer) {
+        C.COLOR_TRANSFER_ST2084 -> if (fromName == "HDR10+") "HDR10+" else "HDR10"
+        C.COLOR_TRANSFER_HLG -> "HLG"
+        else -> null
     }
 
     /** Release source from the stream title / filename; null when it doesn't say. REMUX wins over BluRay. */
