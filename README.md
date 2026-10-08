@@ -36,14 +36,14 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - When YouTube rate-limits and trailers drop to low quality, the IMDb trailer for the title is used instead (720p or better). YouTube stays the main source.
 - Trailers play at up to 1080p (official picks up to 4K60), which keeps pages smooth on TV hardware.
 
-**Collections**
-- Folders shown in the Modern home layout no longer stutter when you move to a new row: MDBList ratings for the row are applied in one go instead of one screen refresh per title.
-
 **Cast pages**
 - Filmography lists real work only: no talk shows, award shows, news, reality or "Self" / archive-footage appearances. Actor pages never fill up with producer credits.
 - Director, writer and creator pages list only what they created, directed or wrote (no executive producer or "thanks" credits).
 - Under each title: the character played, or the job ("Creator · Director · Writer"). Long lines take turns scrolling when the poster is focused.
 - Back on a filmography row jumps to the first title, like the home rows. On the first title, Back leaves the page as usual.
+
+**Profiles**
+- The profile screen is minimal: no logo, "Who's watching" or hint text, so your profile background fills the screen. The profiles sit in the upper part (the bottom of the background, e.g. a poster's logo, stays clear) with "Add profile" as a button centred under them. Press and hold a profile for its menu as usual. Manage profiles looks as official.
 
 **Accounts**
 - Simkl logs in with its newer device login (QR code on the TV) and renews itself, so you stay signed in.
@@ -87,8 +87,8 @@ The release notes list what was switched off. Clear the variable to turn everyth
 | `shuffle_button_size` | Play-sized Shuffle button |
 | `bg_trailer_keep_focus` | Focus staying put when a background trailer ends |
 | `trailer_max_1080p` | 1080p trailer cap |
-| `folder_ratings_batch` | One-go MDBList ratings in Collections |
 | `section_rows` | One row per details section (back to official tabs) |
+| `profile_minimal` | Minimal profile screen |
 
 The switches live in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt`. To remove a tweak's code for good rather than switch it off, its commits can be reverted; each tweak is in its own commits (listed in the project notes).
 
