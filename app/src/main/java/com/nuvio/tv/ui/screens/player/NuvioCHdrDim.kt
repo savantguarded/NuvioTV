@@ -5,7 +5,8 @@ package com.nuvio.tv.ui.screens.player
 // their brightness then (colours and transparency kept); the video itself is never touched.
 //  - ExoPlayer: the subtitle frames (text, PGS and libass layers) get a colour filter.
 //  - mpv: plain-text subtitles get a dimmed colour. ASS / PGS drawn by mpv itself stay as they are.
-//  - Controls, clock, skip-intro and next-episode cards: dimmed with Modifier.nuvioCHdrDim.
+//  - Controls, clock, skip-intro and next-episode cards, media info panel, stats HUD and torrent stats:
+//    dimmed with Modifier.nuvioCHdrDim.
 // Switch: NuvioCFeatures.HDR_DIM.
 
 import android.graphics.ColorMatrix
