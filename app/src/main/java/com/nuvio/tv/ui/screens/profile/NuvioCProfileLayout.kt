@@ -82,10 +82,10 @@ internal fun nuvioCProfileRail(isManagementMode: Boolean): Boolean =
 private val RailEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
 private val EditColumn = 52.dp
 private val AvatarColumn = 124.dp
-private val AvatarSmall = 58.dp
-private val AvatarLarge = 104.dp
+private val AvatarSmall = 52.dp
+private val AvatarLarge = 96.dp
 private val RingGap = 5.dp
-private val RowGap = 10.dp
+private val RowGap = 6.dp
 
 @Composable
 internal fun NuvioCProfileRail(
@@ -127,7 +127,7 @@ internal fun NuvioCProfileRail(
                 .fillMaxHeight()
                 .widthIn(max = 560.dp)
                 .verticalScroll(rememberScrollState())
-                .padding(start = 28.dp, top = 30.dp, bottom = 30.dp)
+                .padding(start = 28.dp, top = 24.dp, bottom = 24.dp)
         ) {
             MemberBrandWordmark(
                 height = 34.dp,
@@ -135,7 +135,7 @@ internal fun NuvioCProfileRail(
                 drawableOverride = brandWordmarkRes,
                 modifier = Modifier.padding(start = EditColumn + 8.dp)
             )
-            Spacer(modifier = Modifier.height(22.dp))
+            Spacer(modifier = Modifier.height(18.dp))
             profiles.forEachIndexed { index, profile ->
                 RailProfileRow(
                     profile = profile,
@@ -182,7 +182,7 @@ private fun RailProfileRow(
     val editInteraction = remember { MutableInteractionSource() }
 
     Row(
-        modifier = Modifier.height(avatarSize + RingGap * 2 + 4.dp),
+        modifier = Modifier.height(avatarSize + RingGap * 2),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Pencil: only shown for the focused profile; Left from the avatar reaches it.
@@ -317,7 +317,7 @@ private fun RailAddRow(
     val grow by animateFloatAsState(if (focused) 1f else 0f, tween(220, easing = RailEasing), label = "railAdd")
     val interaction = remember { MutableInteractionSource() }
     Row(
-        modifier = Modifier.height(AvatarSmall + RingGap * 2 + 4.dp),
+        modifier = Modifier.height(AvatarSmall + RingGap * 2),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Spacer(modifier = Modifier.width(EditColumn))
