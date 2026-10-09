@@ -61,7 +61,6 @@ fun TrailerPlayer(
     overscanZoom: Float = 1f,
     autoCropLetterbox: Boolean = false,
     nuvioCHold: Boolean = false, // [fork] page covered: pause here, carry on from the same spot (NuvioCTrailerHold.kt)
-    nuvioCFadeInOnStart: Boolean = false, // [fork] start silent and fade the sound in over 1 s (background trailer with sound)
     modifier: Modifier = Modifier,
     enter: EnterTransition = fadeIn(animationSpec = tween(800)),
     exit: ExitTransition = fadeOut(animationSpec = tween(500)),
@@ -118,17 +117,6 @@ fun TrailerPlayer(
         }
     }
 
-    // [fork] background trailer with sound: fade in from silence once the first frame is up
-    LaunchedEffect(trailerPlayer, hasRenderedFirstFrame, nuvioCFadeInOnStart) {
-        val player = trailerPlayer ?: return@LaunchedEffect
-        if (!nuvioCFadeInOnStart || muted || !hasRenderedFirstFrame || player.volume >= 1f) return@LaunchedEffect
-        val start = player.volume
-        for (step in 1..10) {
-            player.volume = start + (1f - start) * step / 10f
-            delay(100)
-        }
-    }
-
     // [fork] fade the sound in when a playing trailer is unmuted (trailer button on a muted background trailer)
     LaunchedEffect(trailerPlayer, muted) {
         val player = trailerPlayer ?: return@LaunchedEffect
@@ -142,7 +130,7 @@ fun TrailerPlayer(
 
     LaunchedEffect(isPlaying, trailerUrl, trailerAudioUrl, trailerPlayer) { // [fork] no `muted` key: unmuting must not reload
         val player = trailerPlayer ?: return@LaunchedEffect
-        player.volume = if (muted || (nuvioCFadeInOnStart && isPlaying)) 0f else 1f // [fork] fade-in starts silent
+        player.volume = if (muted) 0f else 1f
         if (isPlaying && trailerUrl != null) {
             hasRenderedFirstFrame = false
             if (!trailerAudioUrl.isNullOrBlank()) {
