@@ -24,6 +24,10 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.offset
 import androidx.media3.ui.PlayerView
 import com.nuvio.tv.NuvioCFeatures
 import com.nuvio.tv.R
@@ -93,17 +97,41 @@ private fun PlayerView.nuvioCSetSubtitleDim(factor: Float) {
     }
 }
 
-/** Draws this element at [NuvioCHdrDim.FACTOR] brightness while [active]; transparency is kept. */
-internal fun Modifier.nuvioCHdrDim(active: Boolean): Modifier {
+/**
+ * Draws this element at [NuvioCHdrDim.FACTOR] brightness while [active]; transparency is kept.
+ * The dim needs an offscreen layer, and a layer cuts off anything drawn past the element's edges.
+ * [overflow] widens the layer by that much on every side (layout size unchanged), for elements that
+ * grow past their bounds when focused, like the Skip Intro button's 1.1x focus zoom.
+ */
+internal fun Modifier.nuvioCHdrDim(active: Boolean, overflow: Dp = 0.dp): Modifier {
     if (!active || !NuvioCFeatures.HDR_DIM) return this
     val shade = Color.Black.copy(alpha = 1f - NuvioCHdrDim.FACTOR)
-    return this
-        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-        .drawWithContent {
-            drawContent()
-            // SrcAtop: only darkens what was drawn, keeps its alpha
-            drawRect(shade, blendMode = BlendMode.SrcAtop)
-        }
+    val dimmed = { m: Modifier ->
+        m.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                // SrcAtop: only darkens what was drawn, keeps its alpha
+                drawRect(shade, blendMode = BlendMode.SrcAtop)
+            }
+    }
+    if (overflow <= 0.dp) return dimmed(this)
+    return dimmed(this.nuvioCShrinkBy(overflow)).nuvioCGrowBy(overflow)
+}
+
+/** Reports the size minus [by] per side and places the (grown) child back over the real spot. */
+private fun Modifier.nuvioCShrinkBy(by: Dp): Modifier = layout { measurable, constraints ->
+    val m = by.roundToPx()
+    val placeable = measurable.measure(constraints.offset(2 * m, 2 * m))
+    val w = (placeable.width - 2 * m).coerceAtLeast(0)
+    val h = (placeable.height - 2 * m).coerceAtLeast(0)
+    layout(w, h) { placeable.place(-m, -m) }
+}
+
+/** Reports the size plus [by] per side, with the content centred, so the layer above has room. */
+private fun Modifier.nuvioCGrowBy(by: Dp): Modifier = layout { measurable, constraints ->
+    val m = by.roundToPx()
+    val placeable = measurable.measure(constraints.offset(-2 * m, -2 * m))
+    layout(placeable.width + 2 * m, placeable.height + 2 * m) { placeable.place(m, m) }
 }
 
 /** Colour filter for a subtitle frame (Android view layer). */
