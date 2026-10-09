@@ -116,8 +116,6 @@ internal fun LayoutDetailPageSection(
         onToggle = { onEvent(LayoutSettingsEvent.SetShowFullReleaseDate(!uiState.showFullReleaseDate)) }
     )
 
-    NuvioCDetailSectionsSettings() // [fork] one row per section, order and on/off
-
     if (showOverlayStyleDialog) {
         EpisodeOptionsOverlayStyleDialog(
             currentStyle = uiState.episodeOptionsOverlayStyle,
