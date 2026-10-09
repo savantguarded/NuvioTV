@@ -1242,7 +1242,7 @@ fun PlayerScreen(
                 .align(Alignment.BottomStart)
                 .padding(start = NuvioTheme.spacing.xxl, bottom = skipButtonBottomPadding)
                 .zIndex(2.1f)
-                .nuvioCHdrDim(nuvioCHdr) // [fork]
+                .nuvioCHdrDim(nuvioCHdr, overflow = 16.dp) // [fork] room for the focus zoom (no clipped edges)
                 .nuvioCSkipFocusTracker(nuvioCSkipFocus) // [fork]
         )
         NuvioCSkipFocusEffect( // [fork] focus back to the player when the focused skip button hides
@@ -1284,7 +1284,7 @@ fun PlayerScreen(
                 .align(Alignment.BottomEnd)
                 .padding(end = 26.dp, bottom = if (uiState.showControls) 122.dp else 30.dp)
                 .zIndex(2.1f)
-                .nuvioCHdrDim(nuvioCHdr), // [fork]
+                .nuvioCHdrDim(nuvioCHdr, overflow = 16.dp), // [fork] room for the focus zoom
         )
 
         // Parental guide overlay (shows when video first starts playing)
