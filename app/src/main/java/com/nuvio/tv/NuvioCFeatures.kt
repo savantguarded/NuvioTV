@@ -30,10 +30,6 @@ object NuvioCFeatures {
     const val SIMKL_V2 = true
     /** Details page: Nuvio C layer on official "Play in Background" trailers (off = official as shipped). */
     const val BACKGROUND_TRAILERS = true
-    /** Details page: "Play Trailer Muted" setting for background trailers (off = always muted). */
-    const val BG_TRAILER_SOUND_TOGGLE = true
-    /** Details page: one Back stops the background trailer and leaves the page (off = two presses). */
-    const val BG_TRAILER_BACK_EXITS = true
     /** Trailer screen: player-style seek bar. */
     const val TRAILER_SCREEN_BAR = true
     /** Trailer screen: small title logo bottom-left while the trailer plays with sound. */
