@@ -2309,7 +2309,7 @@ private fun MetaDetailsContent(
         NuvioCTrailerAutostartInputs( // [fork]
             nuvioCTrailer,
             overlayOpen = nuvioCOverlayOpen || isSharedTrailerOverlayVisible,
-            scrolling = { listState.isScrollInProgress } // read off-composition (no page-wide recompose)
+            scrolling = listState.isScrollInProgress
         )
         // Sticky background — backdrop or trailer
         BackdropLayer(
