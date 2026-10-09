@@ -40,7 +40,7 @@ object NuvioCFeatures {
     const val LOADING_FILENAME = true
     /** Player: a "stream" that is really a short error clip is paused and the Sources panel opens. */
     const val PLACEHOLDER_CHECK = true
-    /** Player: pressing Next episode skips the 3-second countdown (auto-play keeps it). */
+    /** Player: the next episode starts without the 3-second countdown (Next press and auto-play). */
     const val NEXT_EP_NO_COUNTDOWN = true
     /** Player: controls stay up 8 s after opening (3 s after a seek). Off = 3 s always. */
     const val OSD_TIMEOUT = true
