@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- [fork] Nuvio C details-page section rows (English only). Own file so the build robot can drop the feature on its own. -->
-<resources>
-    <string name="nuvio_c_sections_group">Sections</string>
-    <string name="nuvio_c_sections_rows">One row per section</string>
-    <string name="nuvio_c_sections_rows_sub">Cast, ratings, trailers, collection and more like this each get their own row, like the mobile app. Off: official tabs.</string>
-    <string name="nuvio_c_sections_reset">Reset to official order</string>
-</resources>
