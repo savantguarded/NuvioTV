@@ -15,12 +15,11 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - Thinner, brighter seek bar (YouTube style) and a taller bottom shadow. The "via" source line is hidden.
 - **Start over** button right after Play/Pause: jumps back to 0:00 (and plays if paused).
 - Controls stay up 8 seconds after you open them (official: 3), but still hide 3 seconds after a seek.
-- In HDR, HLG and Dolby Vision, subtitles and the player controls are shown at 60% brightness so they don't glare. The picture itself is untouched. (On the mpv player only plain-text subtitles are dimmed.)
+- In HDR, HLG and Dolby Vision, subtitles and everything the player draws over the video (controls, logo, badges, panels, pause screen, popups) are shown at 60% brightness so they don't glare. It kicks in whenever any HDR is detected, the same rule as the picture badge. The picture itself is untouched. (On the mpv player only plain-text subtitles are dimmed.)
 - The loading screen shows the add-on and debrid service (e.g. "Torrentio · TorBox") and the release filename at the bottom.
 - If a source turns out to be a short placeholder clip (e.g. "not cached" or "service unavailable" videos) instead of the real video, it is paused, a message says so and the Sources panel opens to pick another.
-- Pressing Next episode starts it straight away; the 3-second countdown is kept only for automatic playback.
+- The next episode starts straight away, whether you press Next episode or it plays automatically (no 3-second countdown).
 - After you press Skip Intro (or it times out), the remote keeps working straight away: focus goes back to the player instead of getting lost.
-- The HDR dimming also covers the media info panel, the stats HUD and torrent stats.
 
 <img src="nuvio-c-screenshots/player-logo.jpg" alt="Player controls with the title logo top-left" width="720" />
 
@@ -32,16 +31,12 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - The trailer screen (trailer button, trailers row) uses the same seek bar as the player.
 - While a trailer plays with sound, a small title logo shows bottom-left, just above the seek bar.
 - When YouTube rate-limits and trailers drop to low quality or fail, the IMDb trailer for the title is used instead (720p or better). YouTube is always asked first.
-- Trailers play at up to 1080p (official picks up to 4K60), which keeps pages smooth on TV hardware.
 
 **Cast pages**
 - Filmography lists real work only: no talk shows, award shows, news, reality or "Self" / archive-footage appearances. Actor pages never fill up with producer credits.
 - Director, writer and creator pages list only what they created, directed or wrote (no executive producer or "thanks" credits).
 - Under each title: the character played, or the job ("Creator · Director · Writer"). Long lines take turns scrolling when the poster is focused.
 - Back on a filmography row jumps to the first title, like the home rows. On the first title, Back leaves the page as usual.
-
-**Profiles**
-- Netflix-style profile screen: the Nuvio wordmark (with your supporter badge) top-left and round profiles stacked down the left, over a dark fade so your profile background fills the rest. The focused profile grows, gets a white ring and its name beside it. Press Left for the pencil (or press and hold, or Menu) to open the profile menu. Lock badge on PIN profiles, star on the primary one, "Add profile" as the last circle. Manage profiles looks as official.
 
 **Accounts**
 - Simkl logs in with its newer device login (QR code on the TV) and renews itself, so you stay signed in.
@@ -73,19 +68,19 @@ The release notes list what was switched off. Clear the variable to turn everyth
 | `hdr_dim` | 60% subtitles and controls during HDR / Dolby Vision |
 | `loading_filename` | Add-on / provider line and filename on the loading screen |
 | `placeholder_check` | Pausing short placeholder clips and opening Sources |
-| `next_ep_no_countdown` | Skipping the countdown when you press Next episode |
+| `next_ep_no_countdown` | Skipping the next-episode countdown (Next press and auto-play) |
 | `osd_timeout` | 8-second controls (back to 3 seconds) |
 | `start_over` | The Start over button |
 | `cast_acting_only` | Real filmography and role lines on cast pages |
 | `cast_back_to_first` | Back jumping to the first title on a cast page's filmography row |
 | `skip_intro_focus` | Focus going back to the player after Skip Intro |
 | `shuffle_button_size` | Play-sized Shuffle button |
-| `trailer_max_1080p` | 1080p trailer cap |
-| `profile_minimal` | Netflix-style profile screen |
+| `trailer_max_1080p` | 1080p trailer cap (**off**: trailers as official) |
+| `profile_minimal` | Netflix-style profile screen (**off**: official profile screen) |
 | `hdr_decoded` | HDR read from the decoded video (back to file info and stream name only) |
 | `hero_ratings_space` | Reserved space for the MDBList ratings line while it loads |
 
-The switches live in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt`. To remove a tweak's code for good rather than switch it off, its commits can be reverted; each tweak is in its own commits (listed in the project notes).
+The switches live in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt`. Ones marked **off** are set to `false` there; change the line back to `true` to bring them back. To remove a tweak's code for good rather than switch it off, its commits can be reverted; each tweak is in its own commits (listed in the project notes).
 
 ## How it's kept up to date
 
