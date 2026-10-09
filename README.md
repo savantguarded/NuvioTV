@@ -25,13 +25,10 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 <img src="nuvio-c-screenshots/player-logo.jpg" alt="Player controls with the title logo top-left" width="720" />
 
 **Details page**
-- Cast, Ratings, More like this, Trailers and Collection each get their own row instead of sharing one tab row. Rows that are still loading keep their place, so the page doesn't jump when More like this, Collection or episode ratings arrive. Under Settings > Layout > Details > Sections you can switch this off, hide any section and reorder them with the ▲ ▼ buttons (same as the MDBList ratings order).
 - The MDBList ratings line under the title keeps its space while it loads, so the title block doesn't shift a moment after the page opens.
 - The Shuffle button is the same size as Play.
-- Smoother when a background trailer starts and while scrolling. A background trailer finishing no longer pulls focus back to Play.
 
-**Trailers**
-- Background trailers ("Play in Background") play muted, with a **Play Trailer Muted** setting under Settings > Layout > Details to play them with sound (faded in). One press of Back stops the trailer and leaves the page.
+**Trailers** (background trailers work exactly as official)
 - The trailer screen (trailer button, trailers row) uses the same seek bar as the player.
 - While a trailer plays with sound, a small title logo shows bottom-left, just above the seek bar.
 - When YouTube rate-limits and trailers drop to low quality or fail, the IMDb trailer for the title is used instead (720p or better). YouTube is always asked first.
@@ -70,9 +67,6 @@ The release notes list what was switched off. Clear the variable to turn everyth
 | `hide_via` | Hiding the "via" source line |
 | `year_backfill` | Year for titles opened from Continue Watching |
 | `simkl_v2` | Simkl's newer device login (back to the PIN login) |
-| `background_trailers` | Nuvio C behaviour for official's "Play in Background" trailers |
-| `bg_trailer_sound_toggle` | The "Play Trailer Muted" setting (background trailers always muted) |
-| `bg_trailer_back_exits` | One-press Back out of a playing background trailer (back to two presses) |
 | `trailer_screen_bar` | Player-style seek bar on the trailer screen |
 | `trailer_screen_logo` | Small logo on the trailer screen |
 | `imdb_trailer_backup` | IMDb trailers when YouTube rate-limits |
@@ -86,9 +80,7 @@ The release notes list what was switched off. Clear the variable to turn everyth
 | `cast_back_to_first` | Back jumping to the first title on a cast page's filmography row |
 | `skip_intro_focus` | Focus going back to the player after Skip Intro |
 | `shuffle_button_size` | Play-sized Shuffle button |
-| `bg_trailer_keep_focus` | Focus staying put when a background trailer ends |
 | `trailer_max_1080p` | 1080p trailer cap |
-| `section_rows` | One row per details section (back to official tabs) |
 | `profile_minimal` | Netflix-style profile screen |
 | `hdr_decoded` | HDR read from the decoded video (back to file info and stream name only) |
 | `hero_ratings_space` | Reserved space for the MDBList ratings line while it loads |
@@ -97,7 +89,7 @@ The switches live in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt`. To remo
 
 ## How it's kept up to date
 
-A build runs automatically every hour. When Nuvio publishes a new release, the same changes are applied on top and a new Nuvio C APK is posted to Releases. If an official update clashes with the trailer tweaks, the IMDb backup, the cast filmography or the details-page section rows, the APK is still built, just without that feature.
+A build runs automatically every hour. When Nuvio publishes a new release, the same changes are applied on top and a new Nuvio C APK is posted to Releases. If an official update clashes with the trailer tweaks, the IMDb backup, or the cast filmography, the APK is still built, just without that feature.
 
 Everything else works like the official app.
 
