@@ -1116,6 +1116,7 @@ fun PlayerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(2.5f)
+                .nuvioCHdrDim(nuvioCHdr) // [fork] pause screen dims in HDR
         )
 
         StreamInfoOverlay(
@@ -1167,7 +1168,8 @@ fun PlayerScreen(
             showLoadingOverlay = uiState.showLoadingOverlay,
             isTorrentStream = uiState.isTorrentStream,
             torrentBufferingMessage = uiState.torrentBufferingMessage,
-            torrentBufferingProgress = uiState.torrentBufferingProgress
+            torrentBufferingProgress = uiState.torrentBufferingProgress,
+            nuvioCDim = nuvioCHdr // [fork] HDR dim
         )
 
         // Error state
@@ -1191,7 +1193,8 @@ fun PlayerScreen(
             NextEpisodeEndPromptOverlay(
                 nextEpisode = endPromptEpisode,
                 onContinue = continueToNextEpisodeFromEndPrompt,
-                onReturnToDetails = returnToDetailsFromEndPrompt
+                onReturnToDetails = returnToDetailsFromEndPrompt,
+                modifier = Modifier.nuvioCHdrDim(nuvioCHdr) // [fork] HDR dim
             )
         }
 
@@ -1294,7 +1297,7 @@ fun PlayerScreen(
             onAnimationComplete = {
                 viewModel.onEvent(PlayerEvent.OnParentalGuideHide)
             },
-            modifier = Modifier.align(Alignment.TopStart)
+            modifier = Modifier.align(Alignment.TopStart).nuvioCHdrDim(nuvioCHdr) // [fork] HDR dim
         )
 
         DisplayModeOverlay(
@@ -1306,6 +1309,7 @@ fun PlayerScreen(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .zIndex(2.2f)
+                .nuvioCHdrDim(nuvioCHdr) // [fork] HDR dim
         )
 
         // [fork] Top-left logo waits a few seconds after a title/episode starts, and while the
@@ -1460,6 +1464,7 @@ fun PlayerScreen(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 80.dp)
+                .nuvioCHdrDim(nuvioCHdr) // [fork] HDR dim
         ) {
             AspectRatioIndicator(text = uiState.aspectRatioIndicatorText)
         }
@@ -1471,6 +1476,7 @@ fun PlayerScreen(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = 128.dp)
+                .nuvioCHdrDim(nuvioCHdr) // [fork] HDR dim
         ) {
             StreamSourceIndicator(text = uiState.streamSourceIndicatorText)
         }
@@ -1482,6 +1488,7 @@ fun PlayerScreen(
             modifier = Modifier
                 .align(Alignment.Center)
                 .zIndex(2.35f)
+                .nuvioCHdrDim(nuvioCHdr) // [fork] HDR dim
         ) {
             PlayerEngineSwitchIndicator(
                 title = stringResource(R.string.player_engine_switching_title),
@@ -3895,12 +3902,13 @@ private fun PlayerBufferingIndicator(
     showLoadingOverlay: Boolean,
     isTorrentStream: Boolean,
     torrentBufferingMessage: String?,
-    torrentBufferingProgress: Float
+    torrentBufferingProgress: Float,
+    nuvioCDim: Boolean = false // [fork] HDR dim
 ) {
     if (!isBuffering || showLoadingOverlay) return
 
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().nuvioCHdrDim(nuvioCDim), // [fork] was fillMaxSize()
         contentAlignment = Alignment.Center
     ) {
         if (isTorrentStream && torrentBufferingMessage != null) {

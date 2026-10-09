@@ -5,8 +5,10 @@ package com.nuvio.tv.ui.screens.player
 // their brightness then (colours and transparency kept); the video itself is never touched.
 //  - ExoPlayer: the subtitle frames (text, PGS and libass layers) get a colour filter.
 //  - mpv: plain-text subtitles get a dimmed colour. ASS / PGS drawn by mpv itself stay as they are.
-//  - Controls, clock, skip-intro and next-episode cards, media info panel, stats HUD and torrent stats:
-//    dimmed with Modifier.nuvioCHdrDim.
+//  - Controls (logo and badges included), clock, skip-intro and next-episode cards, pause screen,
+//    buffering spinner, parental guide, HDR/DV popup, small indicator pills, end-of-episode prompt,
+//    panels, media info panel, stats HUD and torrent stats: dimmed with Modifier.nuvioCHdrDim.
+//  - Dims whenever any HDR is detected (see nuvioCIsHdrNow), the same rule as the OSD picture badge.
 // Switch: NuvioCFeatures.HDR_DIM.
 
 import android.graphics.ColorMatrix
@@ -78,11 +80,15 @@ internal fun rememberNuvioCHdrDim(viewModel: PlayerViewModel, uiState: PlayerUiS
     return hdr
 }
 
+/**
+ * Any HDR seen counts: the OSD's picture badge (track info, decoder, stream name) or, on mpv, mpv's
+ * own decoded gamma. So whenever the badge says DV / HDR10 / HDR10+ / HLG, everything dims with it.
+ */
 private fun nuvioCIsHdrNow(controller: PlayerRuntimeController, uiState: PlayerUiState): Boolean {
     if (!controller.hasRenderedFirstFrame) return false
-    if (controller.currentInternalPlayerEngine == InternalPlayerEngine.MVP_PLAYER) {
-        controller.mpvView?.nuvioCIsHdrVideo()?.let { return it }
-    }
+    if (controller.currentInternalPlayerEngine == InternalPlayerEngine.MVP_PLAYER &&
+        controller.mpvView?.nuvioCIsHdrVideo() == true
+    ) return true
     return NuvioCHdrDim.isHdrTag(nuvioCVisualTag(controller, uiState))
 }
 
