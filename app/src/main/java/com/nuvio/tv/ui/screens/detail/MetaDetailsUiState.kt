@@ -77,7 +77,6 @@ data class MetaDetailsUiState(
     val moreLikeThisSource: MoreLikeThisSource? = null,
     val collection: List<MetaPreview> = emptyList(),
     val collectionName: String? = null,
-    val nuvioCSectionsPending: Set<String> = emptySet(), // [fork] section rows: MORE_LIKE_THIS / COLLECTION still loading (row kept in place)
     val relatedWatchedStatus: Map<String, Boolean> = emptyMap(),
     val episodeImdbRatings: Map<Pair<Int, Int>, Double> = emptyMap(),
     val isEpisodeRatingsLoading: Boolean = false,
