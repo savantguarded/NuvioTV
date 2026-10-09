@@ -41,7 +41,6 @@ data class MetaDetailsUiState(
     val isTrailerPlaying: Boolean = false,
     val isBackgroundTrailerPlaying: Boolean = false,
     val pauseBackgroundTrailerOnScroll: Boolean = true,
-    val nuvioCBackgroundLayer: Boolean = false, // [fork] Nuvio C layer on official background trailers
     val isTrailerLoading: Boolean = false,
     val showTrailerControls: Boolean = false,
     val hideLogoDuringTrailer: Boolean = false,
