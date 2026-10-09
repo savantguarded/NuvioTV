@@ -298,7 +298,9 @@ internal object NuvioCOsdBadges {
             transfer == C.COLOR_TRANSFER_ST2084 || transfer == C.COLOR_TRANSFER_HLG -> transferLabel(transfer, fromName)!!
             isDv -> "HDR10" // DV stripped to its base layer
             transfer == C.COLOR_TRANSFER_SDR -> "SDR"
-            else -> fromName?.takeIf { it != "DV" } ?: "SDR"
+            // Name says DV but the track isn't flagged: the TV gets the HDR10 base layer
+            fromName == "DV" -> "HDR10"
+            else -> fromName ?: "SDR"
         }
     }
 

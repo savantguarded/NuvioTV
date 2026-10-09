@@ -61,6 +61,8 @@ class NuvioCOsdBadgesTest {
         // a decoder "SDR" never overrides the track info or the name
         assertEquals("HDR10", v(names = "Movie.2160p.HDR", decoder = C.COLOR_TRANSFER_SDR))
         assertEquals("SDR", v(decoder = C.COLOR_TRANSFER_SDR))
+        // name says DV, track not flagged and no colour info: the HDR10 base layer plays
+        assertEquals("HDR10", v(names = "Movie.2160p.DV.HEVC"))
         // mpv: name first, then mpv's decoded gamma
         assertEquals("HDR10", v(mime = null, known = false, names = "Movie 2160p WEB", decoder = C.COLOR_TRANSFER_ST2084))
         assertEquals("DV", v(mime = null, known = false, names = "Movie DV", decoder = C.COLOR_TRANSFER_ST2084))
