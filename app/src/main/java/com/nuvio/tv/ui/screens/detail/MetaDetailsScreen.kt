@@ -1964,11 +1964,10 @@ private fun MetaDetailsContent(
         }
     }
     val availablePeopleTabs = remember(peopleTabItems) { peopleTabItems.map { it.tab } }
-    val nuvioCRows = rememberNuvioCSectionRows() // [fork] one row per section (NuvioCSectionRows.kt)
-    val shouldSplitCollection = !nuvioCRows.on && peopleTabItems.size > 3 && peopleTabItems.any { it.tab == PeopleSectionTab.COLLECTION }
+    val shouldSplitCollection = peopleTabItems.size > 3 && peopleTabItems.any { it.tab == PeopleSectionTab.COLLECTION }
     val visiblePeopleTabItems = if (shouldSplitCollection) peopleTabItems.filterNot { it.tab == PeopleSectionTab.COLLECTION } else peopleTabItems
     val hasVisiblePeopleSection = visiblePeopleTabItems.isNotEmpty()
-    val hasVisiblePeopleTabs = !nuvioCRows.on && visiblePeopleTabItems.size > 1 // [fork] rows: no tab row
+    val hasVisiblePeopleTabs = visiblePeopleTabItems.size > 1
     val commentsItemIndex = remember(
         isSeries,
         seasons,
@@ -2028,12 +2027,12 @@ private fun MetaDetailsContent(
         } else {
             castTabFocusRequester
         }
-    val episodesDownFocusRequester = if (nuvioCRows.on) null else when { // [fork] rows: natural focus
+    val episodesDownFocusRequester = when {
         hasVisiblePeopleTabs -> activePeopleTabFocusRequester
         activePeopleTab == PeopleSectionTab.RATINGS -> ratingsContentFocusRequester
         else -> null
     }
-    val commentsUpFocusRequester = if (nuvioCRows.on) null else when { // [fork] rows: natural focus
+    val commentsUpFocusRequester = when {
         shouldSplitCollection && collection.isNotEmpty() -> collectionSectionFocusRequester
         hasVisiblePeopleSection -> when (activePeopleTab) {
             PeopleSectionTab.CAST -> castSectionFocusRequester
@@ -2137,7 +2136,7 @@ private fun MetaDetailsContent(
 
     LaunchedEffect(commentsEntryFocusToken, shouldShowCommentsSection, commentsItemIndex) {
         if (commentsEntryFocusToken <= 0 || !shouldShowCommentsSection) return@LaunchedEffect
-        listState.animateScrollToItem(nuvioCRows.commentsIndex(commentsItemIndex, if (hasVisiblePeopleSection) 1 else 0, nuvioCRows.entries(visiblePeopleTabItems.map { it.tab to it.label }, setOf(PeopleSectionTab.CAST, PeopleSectionTab.RATINGS)).size)) // [fork] was commentsItemIndex
+        listState.animateScrollToItem(commentsItemIndex)
     }
 
     LaunchedEffect(
@@ -2442,14 +2441,6 @@ private fun MetaDetailsContent(
                                     PeopleSectionTab.RATINGS -> ratingsContentFocusRequester
                                 }
                                 name == "collection_section" -> collectionSectionFocusRequester
-                                name.startsWith("cast_or_more_like:") -> when (PeopleSectionTab.entries.firstOrNull { it.name == name.substringAfterLast(':') }) { // [fork] rows
-                                    PeopleSectionTab.CAST -> castSectionFocusRequester
-                                    PeopleSectionTab.MORE_LIKE_THIS -> moreLikeSectionFocusRequester
-                                    PeopleSectionTab.TRAILER -> trailerSectionFocusRequester
-                                    PeopleSectionTab.COLLECTION -> collectionSectionFocusRequester
-                                    PeopleSectionTab.RATINGS -> ratingsContentFocusRequester
-                                    null -> null
-                                }
                                 name == "trakt_comments" -> when {
                                     comments.isNotEmpty() -> commentsRowEntryFocusRequester
                                     canToggleEpisodeComments -> commentsSelectedModeFocusRequester
@@ -2704,15 +2695,9 @@ private fun MetaDetailsContent(
                     }
                 }
 
-                items( // [fork] one item per row when rows are on; official's single item otherwise
-                    nuvioCRows.entries(visiblePeopleTabItems.map { it.tab to it.label }, setOf(PeopleSectionTab.CAST, PeopleSectionTab.RATINGS)),
-                    key = { nuvioCRows.key("cast_or_more_like", it) },
-                    contentType = { if (it.header) "nuvio_c_header" else "horizontal_row" }
-                ) { nuvioCEntry -> // official: item(key = "cast_or_more_like", contentType = "horizontal_row") {
-                    if (nuvioCEntry.header) { NuvioCRowHeader(nuvioCEntry.label); return@items } // [fork]
-                    val nuvioCTab = nuvioCEntry.tab // [fork]
+                item(key = "cast_or_more_like", contentType = "horizontal_row") {
                     val visiblePeopleTabsList = visiblePeopleTabItems.map { it.tab }
-                    val visiblePeopleSection = nuvioCTab ?: if (hasVisiblePeopleTabs) { // [fork] nuvioCTab
+                    val visiblePeopleSection = if (hasVisiblePeopleTabs) {
                         activePeopleTab
                     } else {
                         visiblePeopleTabsList.first()
@@ -2733,8 +2718,8 @@ private fun MetaDetailsContent(
                                     listState = castRowListState,
                                     title = if (hasVisiblePeopleTabs) "" else strTabCast,
                                     leadingCast = directorWriterMembers,
-                                    upFocusRequester = if (nuvioCTab != null) null else if (hasVisiblePeopleTabs) castTabFocusRequester else seasonDownFocusRequester ?: heroPlayFocusRequester, // [fork]
-                                    downFocusRequester = if (nuvioCTab != null) null else if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else null, // [fork]
+                                    upFocusRequester = if (hasVisiblePeopleTabs) castTabFocusRequester else seasonDownFocusRequester ?: heroPlayFocusRequester,
+                                    downFocusRequester = if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else null,
                                     sectionFocusRequester = castSectionFocusRequester,
                                     restorePersonId = if (!childOverlayVisible && pendingRestoreType == RestoreTarget.CAST_MEMBER) pendingRestoreCastPersonId else null,
                                     restoreFocusToken = if (pendingRestoreType == RestoreTarget.CAST_MEMBER) restoreFocusToken else 0,
@@ -2767,8 +2752,8 @@ private fun MetaDetailsContent(
                                     listState = moreLikeThisListState,
                                     sourceLabel = moreLikeThisSourceLabel,
                                     posterCardCornerRadius = posterCardCornerRadiusDp.dp,
-                                    upFocusRequester = if (nuvioCTab != null) null else if (hasVisiblePeopleTabs) moreLikeTabFocusRequester else seasonDownFocusRequester ?: heroPlayFocusRequester, // [fork]
-                                    downFocusRequester = if (nuvioCTab != null) null else if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else null, // [fork]
+                                    upFocusRequester = if (hasVisiblePeopleTabs) moreLikeTabFocusRequester else seasonDownFocusRequester ?: heroPlayFocusRequester,
+                                    downFocusRequester = if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else null,
                                     sectionFocusRequester = moreLikeSectionFocusRequester,
                                     restoreItemId = if (!childOverlayVisible && pendingRestoreType == RestoreTarget.MORE_LIKE_THIS) pendingRestoreMoreLikeItemId else null,
                                     restoreFocusToken = if (pendingRestoreType == RestoreTarget.MORE_LIKE_THIS) restoreFocusToken else 0,
@@ -2798,8 +2783,8 @@ private fun MetaDetailsContent(
                                     trailers = meta.trailers,
                                     listState = trailerListState,
                                     posterCardCornerRadius = posterCardCornerRadiusDp.dp,
-                                    upFocusRequester = if (nuvioCTab != null) null else if (hasVisiblePeopleTabs) trailerTabFocusRequester else seasonDownFocusRequester ?: heroPlayFocusRequester, // [fork]
-                                    downFocusRequester = if (nuvioCTab != null) null else when { // [fork]
+                                    upFocusRequester = if (hasVisiblePeopleTabs) trailerTabFocusRequester else seasonDownFocusRequester ?: heroPlayFocusRequester,
+                                    downFocusRequester = when {
                                         shouldSplitCollection && collection.isNotEmpty() -> collectionSectionFocusRequester
                                         shouldShowCommentsSection && canToggleEpisodeComments -> commentsSelectedModeFocusRequester
                                         else -> null
@@ -2822,8 +2807,8 @@ private fun MetaDetailsContent(
                                     items = collection,
                                     listState = collectionListState,
                                     posterCardCornerRadius = posterCardCornerRadiusDp.dp,
-                                    upFocusRequester = if (nuvioCTab != null) null else if (hasVisiblePeopleTabs) collectionTabFocusRequester else seasonDownFocusRequester ?: heroPlayFocusRequester, // [fork]
-                                    downFocusRequester = if (nuvioCTab != null) null else if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else null, // [fork]
+                                    upFocusRequester = if (hasVisiblePeopleTabs) collectionTabFocusRequester else seasonDownFocusRequester ?: heroPlayFocusRequester,
+                                    downFocusRequester = if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else null,
                                     sectionFocusRequester = collectionSectionFocusRequester,
                                     restoreItemId = if (!childOverlayVisible && pendingRestoreType == RestoreTarget.COLLECTION) pendingRestoreCollectionItemId else null,
                                     restoreFocusToken = if (pendingRestoreType == RestoreTarget.COLLECTION) restoreFocusToken else 0,
@@ -2855,12 +2840,12 @@ private fun MetaDetailsContent(
                                     isLoading = isEpisodeRatingsLoading,
                                     error = episodeRatingsError,
                                     title = if (hasVisiblePeopleTabs) "" else strTabRatings,
-                                    upFocusRequester = if (nuvioCTab != null) null else if (hasVisiblePeopleTabs) { // [fork]
+                                    upFocusRequester = if (hasVisiblePeopleTabs) {
                                         ratingsTabFocusRequester
                                     } else {
                                         seasonDownFocusRequester ?: heroPlayFocusRequester
                                     },
-                                    downFocusRequester = if (nuvioCTab != null) null else if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else null, // [fork]
+                                    downFocusRequester = if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else null,
                                     firstItemFocusRequester = ratingsContentFocusRequester,
                                     ratingsGridFocusRequester = ratingsGridFocusRequester,
                                     modifier = Modifier.heightIn(min = if (!hasItemsBelow) castSectionHeight else NuvioTheme.spacing.none)
