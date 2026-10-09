@@ -504,8 +504,6 @@ fun MetaDetailsScreen(
             restorePlayFocusAfterTrailerBackToken += 1
             isTrailerPaused = false
             viewModel.onEvent(MetaDetailsEvent.OnTrailerEnded)
-        } else if (uiState.nuvioCBackgroundLayer && uiState.isBackgroundTrailerPlaying) { // [fork] first Back stops it, focus stays
-            viewModel.onEvent(MetaDetailsEvent.OnTrailerEnded)
         } else {
             onBackPress()
         }
@@ -564,7 +562,6 @@ fun MetaDetailsScreen(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    NuvioCTrailerAutostartEffect(viewModel.nuvioCAutostart, childOverlayVisible) // [fork] background-trailer countdown
 
     Box(
         modifier = Modifier
@@ -978,7 +975,6 @@ fun MetaDetailsScreen(
                     isTrailerPlaying = uiState.isTrailerPlaying,
                     isBackgroundTrailerPlaying = uiState.isBackgroundTrailerPlaying,
                     pauseBackgroundTrailerOnScroll = uiState.pauseBackgroundTrailerOnScroll,
-                    nuvioCTrailer = NuvioCTrailerUi(uiState.nuvioCBackgroundLayer, viewModel.nuvioCAutostart), // [fork]
                     isTrailerPaused = isTrailerPaused,
                     showTrailerControls = uiState.showTrailerControls,
                     hideLogoDuringTrailer = uiState.hideLogoDuringTrailer,
@@ -1272,7 +1268,6 @@ private fun MetaDetailsContent(
     isTrailerPlaying: Boolean,
     isBackgroundTrailerPlaying: Boolean,
     pauseBackgroundTrailerOnScroll: Boolean,
-    nuvioCTrailer: NuvioCTrailerUi = NuvioCTrailerUi(), // [fork]
     isTrailerPaused: Boolean = false,
     showTrailerControls: Boolean,
     hideLogoDuringTrailer: Boolean,
@@ -2307,16 +2302,6 @@ private fun MetaDetailsContent(
             .background(backgroundColor)
             .onPreviewKeyEvent { randomEpisodePlaybackPending }
     ) {
-        // [fork] any overlay pauses the background trailer and its countdown: the in-page overlays below,
-        // plus every popup (they are all dialog windows, so the page window loses focus while one is open)
-        val nuvioCPageWindowFocused = androidx.compose.ui.platform.LocalWindowInfo.current.isWindowFocused
-        val nuvioCOverlayOpen = !nuvioCPageWindowFocused || selectedComment != null || showSynopsisOverlay ||
-            showHeroPlayOptionsDialog || showRandomEpisodeOverlay || seasonOptionsDialogSeason != null
-        NuvioCTrailerAutostartInputs( // [fork]
-            nuvioCTrailer,
-            overlayOpen = nuvioCOverlayOpen || isSharedTrailerOverlayVisible,
-            scrolling = listState.isScrollInProgress
-        )
         // Sticky background — backdrop or trailer
         BackdropLayer(
             backdropRequest = backdropRequest,
@@ -2326,8 +2311,6 @@ private fun MetaDetailsContent(
             isTrailerPlaying = isTrailerPlaying,
             isBackgroundTrailerPlaying = isBackgroundTrailerPlaying,
             pauseBackgroundTrailerOnScroll = pauseBackgroundTrailerOnScroll,
-            nuvioCLayer = nuvioCTrailer.featureOn, // [fork]
-            nuvioCHold = nuvioCTrailer.featureOn && (nuvioCOverlayOpen || childOverlayVisible), // [fork] covered: pause, resume on close
             isTrailerPaused = isTrailerPaused,
             showTrailerControls = showTrailerControls,
             trailerSeekToken = trailerSeekToken,
@@ -2536,8 +2519,6 @@ private fun MetaDetailsContent(
                         randomEpisodeFocusRequester = randomEpisodeFocusRequester,
                         hideLogoDuringTrailer = hideLogoDuringTrailer,
                         isTrailerPlaying = isTrailerPlaying,
-                        nuvioCBackgroundTrailer = nuvioCTrailer.featureOn && isBackgroundTrailerPlaying, // [fork] dim text
-                        nuvioCFadeLogo = nuvioCTrailer.featureOn, // [fork]
                         playButtonFocusRequester = heroPlayButtonFocusRequester,
                         onHeroActionFocused = {
                             if (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0) {
@@ -3267,8 +3248,6 @@ private fun BackdropLayer(
     isTrailerPlaying: Boolean,
     isBackgroundTrailerPlaying: Boolean,
     pauseBackgroundTrailerOnScroll: Boolean,
-    nuvioCLayer: Boolean = false, // [fork]
-    nuvioCHold: Boolean = false, // [fork]
     isTrailerPaused: Boolean = false,
     showTrailerControls: Boolean,
     trailerSeekToken: Int,
@@ -3307,8 +3286,7 @@ private fun BackdropLayer(
         label = "backgroundTrailerFade"
     )
     val gradientAlphaState = animateFloatAsState(
-        targetValue = if (isTrailerPlaying || isScrolledPastHero) 0f
-            else if (nuvioCLayer && isBackgroundTrailerPlaying) NUVIO_C_BACKGROUND_SCRIM_ALPHA else 1f, // [fork] lighter scrim
+        targetValue = if (isTrailerPlaying || isScrolledPastHero) 0f else 1f,
         animationSpec = tween(durationMillis = if (isScrolledPastHero) 300 else 800),
         label = "gradientFade"
     )
@@ -3338,9 +3316,7 @@ private fun BackdropLayer(
             trailerUrl = trailerUrl,
             trailerAudioUrl = trailerAudioUrl,
             isPlaying = isTrailerPlaying || isBackgroundTrailerPlaying,
-            isPaused = isTrailerPaused || isBackgroundTrailerPaused || (isBackgroundTrailerPlaying && nuvioCHold), // [fork]
-            muted = nuvioCLayer && isBackgroundTrailerPlaying, // [fork] silent in the background; trailer button = sound
-            nuvioCHold = isBackgroundTrailerPlaying && nuvioCHold, // [fork]
+            isPaused = isTrailerPaused || isBackgroundTrailerPaused,
             seekRequestToken = if (showTrailerControls) trailerSeekToken else 0,
             seekDeltaMs = if (showTrailerControls) trailerSeekDeltaMs else 0L,
             onRemoteKey = onTrailerControlKey,
