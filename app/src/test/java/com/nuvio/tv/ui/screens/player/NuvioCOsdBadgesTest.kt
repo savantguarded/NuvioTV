@@ -111,4 +111,17 @@ class NuvioCOsdBadgesTest {
         assertEquals("4K · DV · E-AC-3 5.1 · 9.0 GB", b.join("4K", "DV", "E-AC-3 5.1", "9.0 GB"))
         assertEquals("1080p · SDR", b.join("1080p", "SDR", null, ""))
     }
+
+    @Test
+    fun audioMarksAndDtsSuffix() {
+        assertEquals("ATMOS", b.audioMark("Atmos 7.1"))
+        assertEquals("DTS", b.audioMark("DTS-HD 7.1"))
+        assertEquals("DTS", b.audioMark("DTS 5.1"))
+        assertNull(b.audioMark("DD+ 5.1"))
+        assertEquals("X", b.dtsSuffix("DTS-HD 7.1", "Movie.2160p.BluRay.REMUX.DTS-X.7.1"))
+        assertEquals("X", b.dtsSuffix("DTS-HD 7.1", "Movie 2160p DTS:X"))
+        assertEquals("HD MA", b.dtsSuffix("DTS-HD 7.1", "Movie.1080p.DTS-HD.MA.5.1"))
+        assertEquals("HD", b.dtsSuffix("DTS-HD 5.1", "Movie 1080p"))
+        assertNull(b.dtsSuffix("DTS 5.1", "Movie.1080p.DTS.x264"))
+    }
 }

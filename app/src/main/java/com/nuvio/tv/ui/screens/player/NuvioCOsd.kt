@@ -51,6 +51,12 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import androidx.tv.material3.Icon
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.res.painterResource
 import com.nuvio.tv.R
 import com.nuvio.tv.data.local.InternalPlayerEngine
 import com.nuvio.tv.data.local.SubtitleStyleSettings
@@ -75,17 +81,29 @@ private const val LIFT_ANIM_MS = 200 // same as the OSD fade
 internal fun Modifier.nuvioCOsdBottomBlock(state: NuvioCOsdState): Modifier =
     onGloballyPositioned { state.bottomBlockTop = it.positionInWindow().y }
 
-/** Title block hook: reports its last baseline and keeps clear of the badges on the right. */
+/**
+ * Title block hook: reports its last baseline and keeps clear of the badges on the right.
+ * The badge width is read while measuring (layout phase), so a new width only re-measures the
+ * title, it never recomposes the controls.
+ */
 @Composable
 internal fun Modifier.nuvioCOsdTitleBlock(state: NuvioCOsdState): Modifier {
     DisposableEffect(state) {
         onDispose { state.titleLastBaseline = Float.NaN }
     }
-    val endPadding = with(LocalDensity.current) {
-        if (state.badgesWidthPx > 0) state.badgesWidthPx.toDp() + BADGE_TITLE_GAP else 0.dp
-    }
+    val gapPx = with(LocalDensity.current) { BADGE_TITLE_GAP.roundToPx() }
     return this
-        .padding(end = endPadding)
+        .layout { measurable, constraints ->
+            val badges = state.badgesWidthPx
+            val pad = if (badges > 0 && constraints.hasBoundedWidth) badges + gapPx else 0
+            val inner = constraints.copy(
+                minWidth = (constraints.minWidth - pad).coerceAtLeast(0),
+                maxWidth = if (constraints.hasBoundedWidth) (constraints.maxWidth - pad).coerceAtLeast(0) else constraints.maxWidth
+            )
+            val placeable = measurable.measure(inner)
+            val width = if (constraints.hasBoundedWidth) (placeable.width + pad).coerceAtMost(constraints.maxWidth) else placeable.width
+            layout(width, placeable.height) { placeable.place(0, 0) }
+        }
         .onGloballyPositioned { coords ->
             val baseline = coords[LastBaseline]
             val top = coords.positionInWindow().y
@@ -98,9 +116,10 @@ internal fun Modifier.nuvioCOsdTitleBlock(state: NuvioCOsdState): Modifier {
 }
 
 /**
- * Badges, bottom-right of the OSD, sharing a baseline with the last line of the title block.
- * Outline chips (Apple TV style): thin border, small caps, drawn once per OSD open (no blur,
- * no animation while playing). Refreshed when the audio track or stream changes.
+ * Badges, bottom-right of the OSD, centred on the last line of the title block (Apple TV style,
+ * 2026-10-10): resolution in a filled light tile, Dolby Vision / Dolby Atmos / DTS as marks drawn
+ * from vector files, everything else in outlined tiles, file size as plain text. Built once per
+ * OSD open; positions are read while laying out, so moving the title never recomposes them.
  */
 @Composable
 internal fun NuvioCOsdBadges(
@@ -117,9 +136,9 @@ internal fun NuvioCOsdBadges(
         SideEffect { state.badgesWidthPx = 0 }
         return
     }
-    val baseline = state.titleLastBaseline
+    val placed by remember(state) { derivedStateOf { !state.titleLastBaseline.isNaN() } }
     val alpha by animateFloatAsState(
-        targetValue = if (baseline.isNaN()) 0f else 1f,
+        targetValue = if (placed) 1f else 0f,
         animationSpec = tween(150),
         label = "nuvioCBadgesAlpha"
     )
@@ -130,7 +149,7 @@ internal fun NuvioCOsdBadges(
             .onGloballyPositioned { originY = it.positionInWindow().y }
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -139,37 +158,84 @@ internal fun NuvioCOsdBadges(
                 .layout { measurable, constraints ->
                     val placeable = measurable.measure(constraints)
                     val target = state.titleLastBaseline
-                    val rowBaseline = placeable[LastBaseline].takeIf { it != AlignmentLine.Unspecified }
-                        ?: placeable.height
-                    val y = if (target.isNaN()) 0 else (target - originY - rowBaseline).roundToInt()
+                    // Centre the row on the title's last text line (about 0.35 em above its baseline)
+                    val lineCentre = target - 7.dp.toPx()
+                    val y = if (target.isNaN()) 0 else (lineCentre - originY - placeable.height / 2f).roundToInt()
                     layout(placeable.width, placeable.height) { placeable.place(0, y) }
                 }
                 .graphicsLayer { this.alpha = alpha }
         ) {
-            parts.forEach { part ->
-                // Same chip for all; only the size chip is quieter.
-                Text(
-                    text = part.text.uppercase(Locale.ROOT),
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        fontSize = 11.sp,
-                        lineHeight = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.55.sp
-                    ),
-                    color = Color.White.copy(alpha = if (part.dim) 0.6f else 0.92f),
-                    maxLines = 1,
-                    modifier = Modifier
-                        .border(1.dp, Color.White.copy(alpha = if (part.dim) 0.25f else 0.4f), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 5.dp)
-                )
-            }
+            parts.forEach { part -> NuvioCBadgeView(part) }
         }
     }
     DisposableEffect(state) { onDispose { state.badgesWidthPx = 0 } }
 }
 
-/** One OSD chip. [dim] = the quieter style (file size). */
-internal data class NuvioCBadge(val text: String, val dim: Boolean = false)
+private val BADGE_TILE_HEIGHT = 16.dp
+private val BADGE_MARK_HEIGHT = 18.dp
+private val BADGE_TILE_SHAPE = RoundedCornerShape(3.dp)
+private val BADGE_WHITE = Color(0xE6FFFFFF) // white 90%
+private val BADGE_FILL = Color(0xFFDCDCDC)
+
+@Composable
+private fun NuvioCBadgeView(part: NuvioCBadge) {
+    val textStyle = MaterialTheme.typography.labelMedium.copy(
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 0.2.sp
+    )
+    when (part.kind) {
+        NuvioCBadgeKind.FILLED -> Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .height(BADGE_TILE_HEIGHT)
+                .background(BADGE_FILL, BADGE_TILE_SHAPE)
+                .padding(horizontal = 4.5.dp)
+        ) {
+            Text(text = part.text, style = textStyle, color = Color(0xFF111111), maxLines = 1)
+        }
+        NuvioCBadgeKind.OUTLINED -> Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .height(BADGE_TILE_HEIGHT)
+                .border(1.5.dp, BADGE_WHITE, BADGE_TILE_SHAPE)
+                .padding(horizontal = 4.dp)
+        ) {
+            Text(text = part.text, style = textStyle, color = BADGE_WHITE, maxLines = 1)
+        }
+        NuvioCBadgeKind.MARK -> {
+            val res = part.markRes
+            if (res == null) {
+                NuvioCBadgeView(NuvioCBadge(part.text, NuvioCBadgeKind.OUTLINED))
+            } else {
+                Icon(
+                    painter = painterResource(res),
+                    contentDescription = part.text,
+                    tint = BADGE_WHITE,
+                    modifier = Modifier.height(BADGE_MARK_HEIGHT)
+                        .aspectRatio(part.markAspect, matchHeightConstraintsFirst = true)
+                )
+            }
+        }
+        NuvioCBadgeKind.PLAIN -> Text(
+            text = part.text,
+            style = textStyle.copy(fontSize = 12.sp),
+            color = Color.White.copy(alpha = 0.6f),
+            maxLines = 1
+        )
+    }
+}
+
+internal enum class NuvioCBadgeKind { FILLED, OUTLINED, MARK, PLAIN }
+
+/** One OSD badge. [markRes] / [markAspect] for logo marks (width / height of the vector). */
+internal data class NuvioCBadge(
+    val text: String,
+    val kind: NuvioCBadgeKind = NuvioCBadgeKind.OUTLINED,
+    val markRes: Int? = null,
+    val markAspect: Float = 1f
+)
 
 private fun buildBadgeParts(controller: PlayerRuntimeController, uiState: PlayerUiState): List<NuvioCBadge> {
     val exoFormat = if (controller.currentInternalPlayerEngine == InternalPlayerEngine.MVP_PLAYER) null
@@ -187,13 +253,36 @@ private fun buildBadgeParts(controller: PlayerRuntimeController, uiState: Player
         ?: controller.currentVideoHeight
     val visual = nuvioCVisualTag(controller, uiState)
     val audio = uiState.audioTracks.firstOrNull { it.isSelected }
-    return NuvioCOsdBadges.parts(
-        NuvioCOsdBadges.resolutionLabel(width, height) ?: NuvioCOsdBadges.resolutionFromName(names),
-        visual.takeIf { it != "SDR" }, // SDR: no HDR chip
-        NuvioCOsdBadges.sourceFromName(names),
-        NuvioCOsdBadges.audioLabel(audio?.codec, audio?.channelCount, names)
-    ).map { NuvioCBadge(it) } +
-        listOfNotNull(NuvioCOsdBadges.sizeLabel(controller.currentVideoSize)?.let { NuvioCBadge(it, dim = true) })
+    val audioLabel = NuvioCOsdBadges.audioLabel(audio?.codec, audio?.channelCount, names)
+    return buildList {
+        (NuvioCOsdBadges.resolutionLabel(width, height) ?: NuvioCOsdBadges.resolutionFromName(names))
+            ?.let { add(NuvioCBadge(it, NuvioCBadgeKind.FILLED)) }
+        when (visual) {
+            "SDR" -> Unit // SDR: no HDR badge
+            "DV" -> add(NuvioCBadge("Dolby Vision", NuvioCBadgeKind.MARK, R.drawable.nuvio_c_badge_dolby_vision, MARK_ASPECT_DV))
+            else -> add(NuvioCBadge(visual, NuvioCBadgeKind.OUTLINED))
+        }
+        addAll(nuvioCAudioBadges(audioLabel, names))
+        NuvioCOsdBadges.sourceFromName(names)?.let { add(NuvioCBadge(it, NuvioCBadgeKind.OUTLINED)) }
+        NuvioCOsdBadges.sizeLabel(controller.currentVideoSize)?.let { add(NuvioCBadge(it, NuvioCBadgeKind.PLAIN)) }
+    }
+}
+
+private const val MARK_ASPECT_DV = 2.693f
+private const val MARK_ASPECT_ATMOS = 2.695f
+private const val MARK_ASPECT_DTS = 2.553f
+
+/** Audio: Atmos = Dolby Atmos mark; DTS family = DTS mark (+ "X" / "HD MA" / "HD"); else a tile. */
+internal fun nuvioCAudioBadges(audioLabel: String?, names: String): List<NuvioCBadge> {
+    val label = audioLabel ?: return emptyList()
+    return when (NuvioCOsdBadges.audioMark(label, names)) {
+        "ATMOS" -> listOf(NuvioCBadge("Dolby Atmos", NuvioCBadgeKind.MARK, R.drawable.nuvio_c_badge_dolby_atmos, MARK_ASPECT_ATMOS))
+        "DTS" -> listOfNotNull(
+            NuvioCBadge("DTS", NuvioCBadgeKind.MARK, R.drawable.nuvio_c_badge_dts, MARK_ASPECT_DTS),
+            NuvioCOsdBadges.dtsSuffix(label, names)?.let { NuvioCBadge(it, NuvioCBadgeKind.OUTLINED) }
+        )
+        else -> listOf(NuvioCBadge(label.uppercase(Locale.ROOT), NuvioCBadgeKind.OUTLINED))
+    }
 }
 
 /** What the TV is being sent: DV, HDR10, HDR10+, HLG or SDR (badges and the HDR dim share it). */
@@ -358,6 +447,28 @@ internal object NuvioCOsdBadges {
             else -> channelCount.takeIf { it > 0 }?.let { "${it}ch" }
         }
         return listOfNotNull(name, channels).joinToString(" ").takeIf { it.isNotEmpty() }
+    }
+
+    /** "ATMOS" / "DTS" when the audio gets a logo mark, else null (unit tested). */
+    fun audioMark(audioLabel: String, names: String = ""): String? {
+        val l = audioLabel.lowercase(Locale.US)
+        return when {
+            l.startsWith("atmos") -> "ATMOS"
+            l.startsWith("dts") -> "DTS"
+            else -> null
+        }
+    }
+
+    /** Text after the DTS mark: "X" for DTS:X, "HD MA" / "HD" for DTS-HD, null for core DTS. */
+    fun dtsSuffix(audioLabel: String, names: String = ""): String? {
+        val n = names.lowercase(Locale.US)
+        val l = audioLabel.lowercase(Locale.US)
+        return when {
+            Regex("""dts[ ._-]?x(\b|[._ ])""").containsMatchIn(n) || Regex("""dts[:]x""").containsMatchIn(n) -> "X"
+            Regex("""dts[ ._-]?hd[ ._-]?ma""").containsMatchIn(n) -> "HD MA"
+            l.startsWith("dts-hd") || Regex("""dts[ ._-]?hd""").containsMatchIn(n) -> "HD"
+            else -> null
+        }
     }
 
     fun sizeLabel(bytes: Long?): String? {
