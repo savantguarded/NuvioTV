@@ -4,4 +4,5 @@
     <string name="nuvio_c_bg_trailer_muted_sub">Plays the trailer muted behind the page. Off: with sound, faded in.</string>
     <string name="nuvio_c_start_over">Start over</string>
     <string name="nuvio_c_placeholder_stream">This source is a short placeholder clip, not the real video. Pick another source.</string>
+    <string name="nuvio_c_subtitles_off">Off</string>
 </resources>

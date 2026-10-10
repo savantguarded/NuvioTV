@@ -72,4 +72,8 @@ object NuvioCFeatures {
     const val HERO_RATINGS_SPACE = true
     /** Player: Skip Intro and the next-episode card sit 16 dp above the seek bar while the controls are open (never overlap or clip). */
     const val SKIP_ABOVE_SEEK = true
+    /** Player: playback buttons left, subtitle / audio / sources buttons right, time under the seek bar. */
+    const val OSD_SPLIT = true
+    /** Player: the focused control's name (and current subtitle / audio track) shown small under it. */
+    const val OSD_FOCUS_LABEL = true
 }

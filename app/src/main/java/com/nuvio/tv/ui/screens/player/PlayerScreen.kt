@@ -2256,6 +2256,7 @@ private fun PlayerControlsOverlay(
     val nuvioCTimeline = viewModel.playbackTimeline.collectAsState()
     val isLivePlayback by remember { derivedStateOf { nuvioCTimeline.value.isLive } }
     val nuvioCHasDuration by remember { derivedStateOf { nuvioCTimeline.value.duration > 0L } }
+    val nuvioCSplit = com.nuvio.tv.NuvioCFeatures.OSD_SPLIT && !isLivePlayback // [fork] live keeps the official row
     val progressUpTarget = if (isLivePlayback) {
         progressBarUpFocusRequester ?: playPauseFocusRequester
     } else {
@@ -2431,6 +2432,12 @@ private fun PlayerControlsOverlay(
                         onFocused = onResetHideTimer
                     )
                     } // [fork]
+                    if (nuvioCSplit) { // [fork] split layout: time under the seek bar, right-aligned
+                        Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                            PlayerControlsTimeTextHost(viewModel = viewModel)
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
@@ -2446,6 +2453,7 @@ private fun PlayerControlsOverlay(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
+                    modifier = if (nuvioCSplit) Modifier.weight(1f) else Modifier, // [fork] split: fills the row
                     horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -2494,6 +2502,22 @@ private fun PlayerControlsOverlay(
                         )
                     }
 
+                    // [fork] split layout: playback buttons (and Episodes) left, track buttons right
+                    if (nuvioCSplit) {
+                        if (hasEpisodeContext) {
+                            ControlButton(
+                                icon = Icons.AutoMirrored.Filled.List,
+                                iconPainter = customEpisodesPainter,
+                                contentDescription = stringResource(R.string.cd_episodes),
+                                onClick = onShowEpisodesPanel,
+                                upFocusRequester = progressUpTarget,
+                                onDownKey = onHideControls,
+                                onFocused = onResetHideTimer
+                            )
+                        }
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+
                     if (hasSubtitleControl) {
                         ControlButton(
                             icon = Icons.Default.ClosedCaption,
@@ -2502,7 +2526,8 @@ private fun PlayerControlsOverlay(
                             onClick = onShowSubtitleDialog,
                             upFocusRequester = progressUpTarget,
                             onDownKey = onHideControls,
-                            onFocused = onResetHideTimer
+                            onFocused = onResetHideTimer,
+                            nuvioCLabel = nuvioCSubtitleLabel(uiState, stringResource(R.string.cd_subtitles), stringResource(R.string.nuvio_c_subtitles_off)) // [fork]
                         )
                     }
 
@@ -2514,7 +2539,8 @@ private fun PlayerControlsOverlay(
                             onClick = onShowAudioDialog,
                             upFocusRequester = progressUpTarget,
                             onDownKey = onHideControls,
-                            onFocused = onResetHideTimer
+                            onFocused = onResetHideTimer,
+                            nuvioCLabel = nuvioCAudioLabel(uiState, stringResource(R.string.cd_audio_tracks)) // [fork]
                         )
                     }
 
@@ -2537,7 +2563,7 @@ private fun PlayerControlsOverlay(
                         onFocused = onResetHideTimer
                     )
 
-                    if (hasEpisodeContext) {
+                    if (hasEpisodeContext && !nuvioCSplit) { // [fork] was if (hasEpisodeContext)
                         ControlButton(
                             icon = Icons.AutoMirrored.Filled.List,
                             iconPainter = customEpisodesPainter,
@@ -2636,7 +2662,7 @@ private fun PlayerControlsOverlay(
                 }
 
                 // Right side - Time display only
-                PlayerControlsTimeTextHost(viewModel = viewModel)
+                if (!nuvioCSplit) PlayerControlsTimeTextHost(viewModel = viewModel) // [fork] split: time sits under the seek bar
             }
             }
         }
@@ -2741,7 +2767,8 @@ private fun ControlButton(
     upFocusRequester: FocusRequester? = null,
     enabled: Boolean = true,
     onDownKey: (() -> Unit)? = null,
-    onFocused: (() -> Unit)? = null
+    onFocused: (() -> Unit)? = null,
+    nuvioCLabel: String? = null // [fork] name shown under the button while focused (default: contentDescription)
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val nuvioCFocus = LocalNuvioCFocusMemory.current // [fork] focus returns here after its panel closes
@@ -2752,6 +2779,7 @@ private fun ControlButton(
         enabled = enabled,
         modifier = Modifier
             .size(NuvioTheme.spacing.xxxl)
+            .nuvioCFocusLabel(isFocused, nuvioCLabel ?: contentDescription) // [fork]
             .then(
                 if (nuvioCRequester != null) Modifier.focusRequester(nuvioCRequester) // [fork] was focusRequester
                 else Modifier
