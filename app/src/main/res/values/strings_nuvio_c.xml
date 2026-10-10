@@ -5,4 +5,7 @@
     <string name="nuvio_c_start_over">Start over</string>
     <string name="nuvio_c_placeholder_stream">This source is a short placeholder clip, not the real video. Pick another source.</string>
     <string name="nuvio_c_subtitles_off">Off</string>
+    <string name="nuvio_c_prefer_sdh">Prefer SDH Subtitles</string>
+    <string name="nuvio_c_prefer_sdh_desc">Pick the SDH (hearing impaired) version of an embedded subtitle in your language when the file has one</string>
+    <string name="nuvio_c_prefer_sdh_strip_warning">Strip SDH is also on, so sound descriptions will still be hidden</string>
 </resources>

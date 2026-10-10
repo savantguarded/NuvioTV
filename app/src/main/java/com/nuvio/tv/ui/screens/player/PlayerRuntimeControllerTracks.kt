@@ -1255,6 +1255,7 @@ internal fun PlayerRuntimeController.findBestInternalSubtitleTrackIndex(
             } else {
                 candidateIndexes
             }
+        nuvioCPreferSdhIndex(subtitleTracks, preferredCandidateIndexes, normalizedTarget)?.let { return it } // [fork] Prefer SDH
         if (preferredCandidateIndexes.size == 1) {
             // For regional targets, verify the single candidate is actually the right variant.
             // A track with language="por" matches both "pt" and "pt-br" by language code,
