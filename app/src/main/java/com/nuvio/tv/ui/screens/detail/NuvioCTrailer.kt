@@ -35,12 +35,14 @@ import kotlin.math.roundToInt
 // (off = official background trailers exactly as shipped).
 //
 // What the layer changes while official's background trailer plays:
-// - muted; the trailer button carries on with the same playback and fades the sound in over 1 s
+// - muted by default ("Play Trailer Muted" setting, NuvioCTrailerPrefs.kt); with it off the sound
+//   fades in over 1 s. The trailer button carries on with the same playback, with sound
 // - countdown from anywhere on the page (NuvioCTrailerAutostart.kt)
 // - lighter page scrim (75%), detail text 85%, synopsis dimmer still, full when focused
 // - every overlay, and cast / production / another-title pages, pause it; it resumes on close
 //   (only a trailer from the trailers row stops it, as official)
-// - first Back stops it and keeps focus, second Back leaves
+// - one Back stops it and leaves the page (switch BG_TRAILER_BACK_EXITS off = first Back stops it,
+//   second Back leaves). Back on the trailer-button screen returns to the page, as official
 
 /** Page scrim over a muted background trailer (official keeps the full scrim). */
 internal const val NUVIO_C_BACKGROUND_SCRIM_ALPHA = 0.75f
