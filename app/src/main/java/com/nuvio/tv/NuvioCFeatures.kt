@@ -78,4 +78,6 @@ object NuvioCFeatures {
     const val OSD_FOCUS_LABEL = true
     /** Appearance: 12 extra app fonts in the font picker (Google Sans Flex, Manrope, Figtree, Geist…). Off = official three. */
     const val EXTRA_FONTS = true
+    /** Subtitles: "Prefer SDH subtitles" setting (embedded tracks only, off until you turn it on). */
+    const val PREFER_SDH = true
 }
