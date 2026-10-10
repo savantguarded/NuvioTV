@@ -500,8 +500,9 @@ fun MetaDetailsScreen(
             restorePlayFocusAfterTrailerBackToken += 1
             isTrailerPaused = false
             viewModel.onEvent(MetaDetailsEvent.OnTrailerEnded)
-        } else if (uiState.nuvioCBackgroundLayer && uiState.isBackgroundTrailerPlaying) { // [fork] first Back stops it, focus stays
-            viewModel.onEvent(MetaDetailsEvent.OnTrailerEnded)
+        } else if (uiState.nuvioCBackgroundLayer && uiState.isBackgroundTrailerPlaying) { // [fork]
+            viewModel.onEvent(MetaDetailsEvent.OnTrailerEnded) // stop first so no sound runs into the exit
+            if (com.nuvio.tv.NuvioCFeatures.BG_TRAILER_BACK_EXITS) onBackPress() // one Back leaves the page
         } else {
             onBackPress()
         }
@@ -3237,6 +3238,7 @@ private fun BackdropLayer(
     leftGradient: ImageBitmap,
     bottomGradient: ImageBitmap,
 ) {
+    val nuvioCBackgroundMuted = com.nuvio.tv.data.local.rememberNuvioCBackgroundTrailerMuted() // [fork]
     var showHeroBackdropUnderlay by remember(heroBackdropRequest, backdropRequest) {
         mutableStateOf(heroBackdropRequest != null)
     }
@@ -3296,7 +3298,8 @@ private fun BackdropLayer(
             trailerAudioUrl = trailerAudioUrl,
             isPlaying = isTrailerPlaying || isBackgroundTrailerPlaying,
             isPaused = isTrailerPaused || isBackgroundTrailerPaused || (isBackgroundTrailerPlaying && nuvioCHold), // [fork]
-            muted = nuvioCLayer && isBackgroundTrailerPlaying, // [fork] silent in the background; trailer button = sound
+            muted = nuvioCLayer && isBackgroundTrailerPlaying && nuvioCBackgroundMuted, // [fork] "Play Trailer Muted"; trailer button = sound
+            nuvioCFadeInOnStart = nuvioCLayer && isBackgroundTrailerPlaying && !nuvioCBackgroundMuted, // [fork]
             nuvioCHold = isBackgroundTrailerPlaying && nuvioCHold, // [fork]
             seekRequestToken = if (showTrailerControls) trailerSeekToken else 0,
             seekDeltaMs = if (showTrailerControls) trailerSeekDeltaMs else 0L,
