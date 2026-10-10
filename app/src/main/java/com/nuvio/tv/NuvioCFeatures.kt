@@ -82,4 +82,6 @@ object NuvioCFeatures {
     const val PREFER_SDH = true
     /** Details page: Creator and Cast / Ratings / More like this tabs drawn as season-tab pills. */
     const val DETAIL_TABS_PILLS = true
+    /** Details page: Rate button (1-10) sent to Trakt and / or MDBList, one way, remembered on this TV. */
+    const val DETAIL_RATING = true
 }
