@@ -1,5 +1,9 @@
 package com.nuvio.tv.ui.screens.detail
 
+// Nuvio C imports
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+
 import com.nuvio.tv.ui.theme.NuvioMotion
 
 import android.view.KeyEvent as AndroidKeyEvent
@@ -122,7 +126,11 @@ fun HeroContentSection(
     onHeroActionFocused: () -> Unit = {},
     onPlayFocusRestored: () -> Unit = {},
     onShowFullDescription: () -> Unit = {},
-    onTruncationChanged: (Boolean) -> Unit = {}
+    onTruncationChanged: (Boolean) -> Unit = {},
+    nuvioCRateAvailable: Boolean = false, // [fork] Rate button (Trakt / MDBList)
+    nuvioCRated: Boolean = false, // [fork]
+    onNuvioCRate: () -> Unit = {}, // [fork]
+    nuvioCRateFocusRequester: FocusRequester? = null // [fork]
 ) {
     val context = LocalContext.current
     // [fork] Nuvio C dimming over a background trailer (Apple TV look), full brightness when the synopsis is focused
@@ -321,6 +329,19 @@ fun HeroContentSection(
                                 selectedContainerColor = Color.White,
                                 selectedContentColor = Color.Black,
                                 onFocused = onHeroActionFocused
+                            )
+                        }
+
+                        if (nuvioCRateAvailable) { // [fork] Rate: white when you've rated it, like Watched
+                            ActionIconButton(
+                                icon = if (nuvioCRated) Icons.Default.Star else Icons.Default.StarBorder,
+                                contentDescription = stringResource(R.string.nuvio_c_rate),
+                                onClick = onNuvioCRate,
+                                selected = nuvioCRated,
+                                selectedContainerColor = Color.White,
+                                selectedContentColor = Color.Black,
+                                onFocused = onHeroActionFocused,
+                                focusRequester = nuvioCRateFocusRequester
                             )
                         }
 

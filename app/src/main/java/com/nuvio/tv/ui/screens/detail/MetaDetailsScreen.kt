@@ -2339,6 +2339,8 @@ private fun MetaDetailsContent(
                 detailPageBringIntoViewSpec
             }
         ) {
+        val nuvioCRateFocus = remember { FocusRequester() } // [fork] Rate button + dialog
+        val nuvioCRating = rememberNuvioCRating(meta, nuvioCRateFocus) // [fork]
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -2546,7 +2548,11 @@ private fun MetaDetailsContent(
                             clearPendingRestore()
                         },
                         onShowFullDescription = { showSynopsisOverlay = true },
-                        onTruncationChanged = { synopsisTruncated = it }
+                        onTruncationChanged = { synopsisTruncated = it },
+                        nuvioCRateAvailable = nuvioCRating.available, // [fork]
+                        nuvioCRated = nuvioCRating.rated, // [fork]
+                        onNuvioCRate = nuvioCRating.open, // [fork]
+                        nuvioCRateFocusRequester = nuvioCRateFocus // [fork]
                     )
                 }
             }
