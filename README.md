@@ -27,7 +27,11 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - The MDBList ratings line under the title keeps its space while it loads, so the title block doesn't shift a moment after the page opens.
 - The Shuffle button is the same size as Play.
 
-**Trailers** (background trailers work exactly as official)
+**Trailers**
+- Background trailers ("Play in Background") play muted, with a **Play Trailer Muted** setting under Settings > Layout > Details to play them with sound (faded in). The trailer button carries on with the same playback and fades the sound in.
+- The countdown runs wherever you are on the page, once per visit. Titles you've started or watched don't start a background trailer.
+- Lighter dimming over a background trailer; the title logo fades in.
+- Popups, comments, the full synopsis, cast and production pages and other titles pause the background trailer; it carries on from the same spot when you come back. One press of Back stops it and leaves the page.
 - The trailer screen (trailer button, trailers row) uses the same seek bar as the player.
 - While a trailer plays with sound, a small title logo shows bottom-left, just above the seek bar.
 - When YouTube rate-limits and trailers drop to low quality or fail, the IMDb trailer for the title is used instead (720p or better). YouTube is always asked first.
@@ -62,6 +66,10 @@ The release notes list what was switched off. Clear the variable to turn everyth
 | `hide_via` | Hiding the "via" source line |
 | `year_backfill` | Year for titles opened from Continue Watching |
 | `simkl_v2` | Simkl's newer device login (back to the PIN login) |
+| `background_trailers` | Nuvio C behaviour for official's "Play in Background" trailers |
+| `bg_trailer_sound_toggle` | The "Play Trailer Muted" setting (background trailers always muted) |
+| `bg_trailer_back_exits` | One-press Back out of a playing background trailer (back to two presses) |
+| `bg_trailer_skip_watched` | No background trailer for started or watched titles |
 | `trailer_screen_bar` | Player-style seek bar on the trailer screen |
 | `trailer_screen_logo` | Small logo on the trailer screen |
 | `imdb_trailer_backup` | IMDb trailers when YouTube rate-limits |
