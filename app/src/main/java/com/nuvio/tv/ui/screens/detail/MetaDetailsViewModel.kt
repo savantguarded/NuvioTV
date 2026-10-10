@@ -144,6 +144,19 @@ class MetaDetailsViewModel @Inject constructor(
     private var trailerAutoplayEnabled = false
     private var trailerPlayInBackground = false
     private var trailerHasPlayed = false
+    // [fork] Nuvio C background-trailer layer: page-level countdown, see NuvioCTrailerAutostart.kt
+    internal val nuvioCAutostart = NuvioCTrailerAutostart(viewModelScope, delayMs = { trailerDelayMs }) {
+        val state = _uiState.value
+        val canStart = state.nuvioCBackgroundLayer && trailerAutoplayEnabled && !trailerHasPlayed &&
+            state.trailerUrl != null && !state.isTrailerPlaying && !state.isBackgroundTrailerPlaying &&
+            AppFeaturePolicy.inAppTrailerPlaybackEnabled
+        if (canStart) {
+            trailerHasPlayed = true // one pass per visit
+            setTrailerPlaybackState(isPlaying = false, showControls = false, hideLogo = false, isBackgroundPlaying = true)
+        }
+        canStart
+    }
+
     private var suppressSeasonAutoSwitch = false
 
     private var isPlayButtonFocused = false
@@ -336,8 +349,14 @@ class MetaDetailsViewModel @Inject constructor(
                 if (!settings.enabled) {
                     idleTimerJob?.cancel()
                 }
+                nuvioCApplySettings(settings.enabled && nuvioCLayerOn(settings.playInBackground)) // [fork]
             }
         }
+    }
+
+    private fun nuvioCApplySettings(layerOn: Boolean) {
+        _uiState.update { if (it.nuvioCBackgroundLayer == layerOn) it else it.copy(nuvioCBackgroundLayer = layerOn) }
+        if (layerOn) startIdleTimer()
     }
 
     fun onEvent(event: MetaDetailsEvent) {
@@ -2888,6 +2907,7 @@ class MetaDetailsViewModel @Inject constructor(
             if (url != null && isPlayButtonFocused && AppFeaturePolicy.inAppTrailerPlaybackEnabled) {
                 startIdleTimer()
             }
+            if (url != null && _uiState.value.nuvioCBackgroundLayer) startIdleTimer() // [fork] no Play focus needed
         }
     }
 
@@ -2899,6 +2919,7 @@ class MetaDetailsViewModel @Inject constructor(
         if (state.trailerUrl == null || state.isTrailerPlaying || state.isBackgroundTrailerPlaying) return
         if (!trailerAutoplayEnabled) return
         if (trailerHasPlayed) return
+        if (state.nuvioCBackgroundLayer) { nuvioCAutostart.arm(); return } // [fork] page-level countdown
         if (!isPlayButtonFocused) return
 
         idleTimerJob = viewModelScope.launch {
