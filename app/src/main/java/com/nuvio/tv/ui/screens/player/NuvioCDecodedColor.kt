@@ -50,9 +50,18 @@ internal object NuvioCDecodedColor {
         if (controller.currentInternalPlayerEngine == InternalPlayerEngine.MVP_PLAYER) {
             return gammaToC(controller.mpvView?.nuvioCVideoGamma())
         }
-        watch(controller)
-        val last = seen ?: return null
-        return last.transfer.takeIf { videoFormat != null && sameTrack(last.format, videoFormat) }
+        val last = seen
+        val known = last != null && videoFormat != null && sameTrack(last.format, videoFormat)
+        // The callback runs for every decoded frame: listen only until this track's colour is known,
+        // then let go (re-hooked when the track changes). 2026-10-10 OSD lag fix.
+        if (known) unwatch() else watch(controller)
+        return if (known) last!!.transfer else null
+    }
+
+    private fun unwatch() {
+        val player = watched?.get() ?: return
+        runCatching { player.clearVideoFrameMetadataListener(listener) }
+        watched = null
     }
 
     /** Same video track: identical object, or same codec, size and codec string. */

@@ -16,6 +16,7 @@ import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.view.View
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -139,6 +140,29 @@ private fun Modifier.nuvioCGrowBy(by: Dp): Modifier = layout { measurable, const
     val placeable = measurable.measure(constraints.offset(-2 * m, -2 * m))
     layout(placeable.width + 2 * m, placeable.height + 2 * m) { placeable.place(m, m) }
 }
+
+/**
+ * Light HDR dim for the player controls (2026-10-10, OSD lag fix): no offscreen layer. Each draw is
+ * made at [NuvioCHdrDim.FACTOR] opacity instead, so white text and icons read at 60% over the dark
+ * shadows (gradients stay full strength: they are outside these blocks). The old full-screen
+ * offscreen layer re-rendered the whole OSD on every focus move and seek-bar tick while 4K HDR
+ * decoded, which was the HDR lag. Used for the controls, clock and seek-only bar; small static
+ * panels keep [nuvioCHdrDim].
+ */
+internal fun Modifier.nuvioCHdrDimLight(active: Boolean): Modifier {
+    if (!active || !NuvioCFeatures.HDR_DIM) return this
+    return graphicsLayer {
+        alpha = NuvioCHdrDim.FACTOR
+        compositingStrategy = CompositingStrategy.ModulateAlpha
+    }
+}
+
+/** Whether the controls drawn below should take the light HDR dim (set by PlayerScreen). */
+internal val LocalNuvioCHdrDim = compositionLocalOf { false }
+
+/** [nuvioCHdrDimLight] driven by [LocalNuvioCHdrDim]. */
+@Composable
+internal fun Modifier.nuvioCOsdDim(): Modifier = nuvioCHdrDimLight(LocalNuvioCHdrDim.current)
 
 /** Colour filter for a subtitle frame (Android view layer). */
 internal fun nuvioCDimPaint(factor: Float): Paint = Paint().apply {
