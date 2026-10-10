@@ -28,6 +28,8 @@ object NuvioCFeatures {
     const val YEAR_BACKFILL = true
     /** Simkl: AUTH V2 device login with automatic token renewal (off = official PIN login). */
     const val SIMKL_V2 = true
+    /** Details page: Nuvio C layer on official "Play in Background" trailers (off = official as shipped). */
+    const val BACKGROUND_TRAILERS = true
     /** Trailer screen: player-style seek bar. */
     const val TRAILER_SCREEN_BAR = true
     /** Trailer screen: small title logo bottom-left while the trailer plays with sound. */
@@ -54,6 +56,8 @@ object NuvioCFeatures {
     const val SKIP_INTRO_FOCUS = true
     /** Details page: Shuffle / random episode button the same size as Play. */
     const val SHUFFLE_BUTTON_SIZE = true
+    /** Details page: a background trailer ending leaves focus where it is (official jumps to Play). */
+    const val BG_TRAILER_KEEP_FOCUS = true
     /** Trailers: picked at 1080p or below (official takes the highest, up to 4K60), for smoother pages. */
     const val TRAILER_MAX_1080P = false
     /** Profile screen: Netflix-style (wordmark top-left, round profiles down the left, pencil for the menu). Manage profiles stays official. */
