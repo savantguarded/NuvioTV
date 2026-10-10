@@ -77,7 +77,6 @@ fun TrailerPlayer(
     val currentOnFirstFrameRendered by rememberUpdatedState(onFirstFrameRendered)
     val currentOnProgressChanged by rememberUpdatedState(onProgressChanged)
     val currentOnRemoteKey by rememberUpdatedState(onRemoteKey)
-    val currentNuvioCHold by rememberUpdatedState(nuvioCHold) // [fork]
     val zoomScale = if (cropToFill) overscanZoom.coerceAtLeast(1f) else 1f
     var hasRenderedFirstFrame by remember(trailerUrl) { mutableStateOf(false) }
     val playerAlphaState = animateFloatAsState(
@@ -197,12 +196,13 @@ fun TrailerPlayer(
         }
     }
 
-    NuvioCTrailerHoldEffect( // [fork]
+    val nuvioCHoldBusy by NuvioCTrailerHoldEffect( // [fork]
         player = trailerPlayer,
         pool = resolvedPool,
         isPlaying = isPlaying,
         hold = nuvioCHold,
         isPaused = isPaused,
+        muted = muted,
         trailerUrl = trailerUrl,
         trailerAudioUrl = trailerAudioUrl,
         reattachView = { playerViewRef.value?.let { view -> view.player = null; view.player = trailerPlayer } },
@@ -212,7 +212,7 @@ fun TrailerPlayer(
     LaunchedEffect(isPaused, trailerPlayer) {
         val player = trailerPlayer ?: return@LaunchedEffect
         if (!isPlaying) return@LaunchedEffect
-        player.playWhenReady = !isPaused
+        player.playWhenReady = !isPaused && !nuvioCHoldBusy // [fork] a held trailer resumes through NuvioCTrailerHold
     }
 
     LaunchedEffect(seekRequestToken, seekDeltaMs, trailerPlayer) {
@@ -242,7 +242,7 @@ fun TrailerPlayer(
                 if (playbackState == Player.STATE_ENDED &&
                     currentIsPlaying &&
                     player.playWhenReady &&
-                    !currentNuvioCHold // [fork] not another page's trailer ending
+                    !nuvioCHoldBusy // [fork] not another page's trailer ending
                 ) {
                     currentOnEnded()
                 }
