@@ -80,4 +80,6 @@ object NuvioCFeatures {
     const val EXTRA_FONTS = true
     /** Subtitles: "Prefer SDH subtitles" setting (embedded tracks only, off until you turn it on). */
     const val PREFER_SDH = true
+    /** Details page: Creator and Cast / Ratings / More like this tabs drawn as season-tab pills. */
+    const val DETAIL_TABS_PILLS = true
 }
