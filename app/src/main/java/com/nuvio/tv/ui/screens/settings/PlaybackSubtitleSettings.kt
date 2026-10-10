@@ -77,6 +77,7 @@ internal fun PlaybackSubtitlesSection(
         onToggle = { onUpdate { setUseForcedSubtitles(!style.useForcedSubtitles) } },
         enabled = enabled
     )
+    NuvioCPreferSdhRow(enabled = enabled, stripSdh = style.stripSdh) // [fork]
     SettingsToggleRow(
         title = stringResource(R.string.sub_show_only_preferred_languages),
         subtitle = stringResource(R.string.sub_show_only_preferred_languages_desc),
