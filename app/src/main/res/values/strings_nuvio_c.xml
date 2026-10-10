@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- [fork] Nuvio C strings (English only; other languages fall back to these). -->
 <resources>
+    <string name="nuvio_c_bg_trailer_muted_sub">Plays the trailer muted behind the page. Off: with sound, faded in.</string>
     <string name="nuvio_c_start_over">Start over</string>
     <string name="nuvio_c_placeholder_stream">This source is a short placeholder clip, not the real video. Pick another source.</string>
 </resources>
