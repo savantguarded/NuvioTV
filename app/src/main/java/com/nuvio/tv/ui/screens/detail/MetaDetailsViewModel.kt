@@ -149,7 +149,8 @@ class MetaDetailsViewModel @Inject constructor(
         val state = _uiState.value
         val canStart = state.nuvioCBackgroundLayer && trailerAutoplayEnabled && !trailerHasPlayed &&
             state.trailerUrl != null && !state.isTrailerPlaying && !state.isBackgroundTrailerPlaying &&
-            AppFeaturePolicy.inAppTrailerPlaybackEnabled
+            AppFeaturePolicy.inAppTrailerPlaybackEnabled &&
+            !(com.nuvio.tv.NuvioCFeatures.BG_TRAILER_SKIP_WATCHED && nuvioCHasWatchHistory(state))
         if (canStart) {
             trailerHasPlayed = true // one pass per visit
             setTrailerPlaybackState(isPlaying = false, showControls = false, hideLogo = false, isBackgroundPlaying = true)

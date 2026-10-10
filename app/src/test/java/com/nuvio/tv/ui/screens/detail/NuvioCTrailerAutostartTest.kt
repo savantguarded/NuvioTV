@@ -111,4 +111,29 @@ class NuvioCTrailerAutostartTest {
         assertEquals(0, h.starts)
         assertEquals(NuvioCTrailerAutostart.Phase.DONE, h.autostart.phase)
     }
+
+    @Test
+    fun watchHistorySkipsAutostart() {
+        val progress = com.nuvio.tv.domain.model.WatchProgress(
+            contentId = "tt1", contentType = "movie", name = "x", poster = null, backdrop = null,
+            logo = null, videoId = "tt1", season = null, episode = null, episodeTitle = null,
+            position = 60_000, duration = 6_000_000, lastWatched = 0
+        )
+        val fresh = MetaDetailsUiState()
+        assertEquals(false, nuvioCHasWatchHistory(fresh))
+        assertEquals(true, nuvioCHasWatchHistory(fresh.copy(isMovieWatched = true)))
+        assertEquals(true, nuvioCHasWatchHistory(fresh.copy(watchedEpisodes = setOf(1 to 1))))
+        assertEquals(true, nuvioCHasWatchHistory(fresh.copy(episodeProgressMap = mapOf((1 to 2) to progress))))
+        assertEquals(
+            true,
+            nuvioCHasWatchHistory(
+                fresh.copy(
+                    nextToWatch = com.nuvio.tv.domain.model.NextToWatch(
+                        watchProgress = progress, isResume = true, nextVideoId = "tt1",
+                        nextSeason = null, nextEpisode = null, displayText = "Resume"
+                    )
+                )
+            )
+        )
+    }
 }

@@ -34,6 +34,8 @@ object NuvioCFeatures {
     const val BG_TRAILER_SOUND_TOGGLE = true
     /** Details page: one Back stops the background trailer and leaves the page (off = two presses). */
     const val BG_TRAILER_BACK_EXITS = true
+    /** Details page: no background-trailer countdown for titles you've started or watched. */
+    const val BG_TRAILER_SKIP_WATCHED = true
     /** Trailer screen: player-style seek bar. */
     const val TRAILER_SCREEN_BAR = true
     /** Trailer screen: small title logo bottom-left while the trailer plays with sound. */
@@ -60,8 +62,6 @@ object NuvioCFeatures {
     const val SKIP_INTRO_FOCUS = true
     /** Details page: Shuffle / random episode button the same size as Play. */
     const val SHUFFLE_BUTTON_SIZE = true
-    /** Details page: a background trailer ending leaves focus where it is (official jumps to Play). */
-    const val BG_TRAILER_KEEP_FOCUS = true
     /** Trailers: picked at 1080p or below (official takes the highest, up to 4K60), for smoother pages. */
     const val TRAILER_MAX_1080P = false
     /** Profile screen: Netflix-style (wordmark top-left, round profiles down the left, pencil for the menu). Manage profiles stays official. */

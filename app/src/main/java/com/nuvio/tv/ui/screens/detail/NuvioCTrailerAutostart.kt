@@ -25,6 +25,15 @@ import kotlinx.coroutines.withTimeoutOrNull
 //   countdown; it resumes with the time that was left.
 // - Leaving the page (starting playback, the stream picker, Back) ends it for the visit.
 // - When it runs out mid-scroll, the trailer waits for the rows to settle (max ~1 s).
+// - Titles you've started or watched (movie in progress or watched, any episode with progress or
+//   watched) get no countdown, so coming back after playback never starts the trailer again.
+
+/** True when the title has any watch history: no background-trailer autostart for it. */
+internal fun nuvioCHasWatchHistory(state: MetaDetailsUiState): Boolean =
+    state.isMovieWatched ||
+        state.watchedEpisodes.isNotEmpty() ||
+        state.episodeProgressMap.isNotEmpty() ||
+        state.nextToWatch?.watchProgress != null
 
 private const val TICK_MS = 100L
 private const val SCROLL_SETTLE_MAX_MS = 1_000L
