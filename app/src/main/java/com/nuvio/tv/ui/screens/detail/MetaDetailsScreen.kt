@@ -3356,7 +3356,9 @@ private fun PeopleSectionTabs(
         @Composable
         fun androidx.compose.foundation.layout.RowScope.renderTabs(items: List<PeopleTabItem>) {
             items.forEachIndexed { index, item ->
-                if (index > 0) {
+                if (index > 0 && com.nuvio.tv.NuvioCFeatures.DETAIL_TABS_PILLS) {
+                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.width(NuvioTheme.spacing.md)) // [fork] pills: season-tab gap
+                } else if (index > 0) {
                     Text(
                         text = "|",
                         style = MaterialTheme.typography.titleLarge,
@@ -3399,6 +3401,7 @@ private fun PeopleSectionTabButton(
     onFocused: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val nuvioCPills = com.nuvio.tv.NuvioCFeatures.DETAIL_TABS_PILLS // [fork]
 
     LaunchedEffect(isFocused, selected) {
         if (isFocused && !selected && activeFocusRequester != null) {
@@ -3426,27 +3429,41 @@ private fun PeopleSectionTabButton(
                     onFocused()
                 }
             },
-        colors = CardDefaults.colors(
+        shape = if (nuvioCPills) CardDefaults.shape(shape = RoundedCornerShape(20.dp)) else CardDefaults.shape(), // [fork] season-tab pill
+        colors = if (nuvioCPills) CardDefaults.colors( // [fork] same colours as the season tabs
+            containerColor = if (selected) NuvioTheme.colors.SurfaceVariant else NuvioTheme.colors.BackgroundCard,
+            focusedContainerColor = NuvioTheme.colors.Secondary
+        ) else CardDefaults.colors(
             containerColor = Color.Transparent,
             focusedContainerColor = Color.Transparent
         ),
-        border = CardDefaults.border(
+        border = if (nuvioCPills) CardDefaults.border( // [fork] theme focus ring, drawn inside the pill
+            focusedBorder = Border(
+                border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
+                shape = RoundedCornerShape(20.dp)
+            )
+        ) else CardDefaults.border(
             focusedBorder = Border(
                 border = BorderStroke(NuvioTheme.spacing.none, Color.Transparent),
                 shape = RoundedCornerShape(NuvioTheme.radii.xl)
             )
         ),
-        scale = CardDefaults.scale(focusedScale = 1.03f)
+        scale = CardDefaults.scale(focusedScale = if (nuvioCPills) 1.0f else 1.03f) // [fork] pills: no zoom, nothing clipped
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.titleLarge,
-            color = when {
+            style = if (nuvioCPills) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge, // [fork]
+            color = if (nuvioCPills) when { // [fork] season-tab text colours
+                isFocused -> NuvioTheme.colors.OnSecondary
+                selected -> NuvioTheme.colors.TextPrimary
+                else -> NuvioTheme.extendedColors.textSecondary
+            } else when {
                 isFocused -> NuvioTheme.colors.TextPrimary
                 selected -> NuvioTheme.colors.TextPrimary.copy(alpha = 0.92f)
                 else -> NuvioTheme.colors.TextPrimary.copy(alpha = 0.55f)
             },
-            modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxs, vertical = NuvioTheme.spacing.xxs)
+            modifier = if (nuvioCPills) Modifier.padding(vertical = 10.dp, horizontal = 20.dp) // [fork]
+            else Modifier.padding(horizontal = NuvioTheme.spacing.xxs, vertical = NuvioTheme.spacing.xxs)
         )
     }
 }
