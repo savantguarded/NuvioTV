@@ -43,6 +43,8 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.C
@@ -147,6 +149,7 @@ internal fun NuvioCOsdBadges(
         modifier = Modifier
             .fillMaxSize()
             .onGloballyPositioned { originY = it.positionInWindow().y }
+            .nuvioCOsdDim() // HDR dim without an offscreen layer
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -510,7 +513,9 @@ internal fun NuvioCSubtitleLiftEffect(
 
     // mpv draws subtitles into its own surface, so it moves in one step at the start/end of the fade.
     val mpvLifted = osdShown && !state.bottomBlockTop.isNaN()
-    LaunchedEffect(controller, mpvLifted, state.bottomBlockTop, subtitleStyle) {
+    // Re-applied only when the block really moves (2 px steps): each apply is an mpv property set.
+    val topKey = if (state.bottomBlockTop.isNaN()) Int.MIN_VALUE else (state.bottomBlockTop / 2f).roundToInt()
+    LaunchedEffect(controller, mpvLifted, topKey, subtitleStyle) {
         val mpv = controller.mpvView ?: return@LaunchedEffect
         runCatching {
             if (mpvLifted) {
@@ -579,4 +584,57 @@ private fun PlayerView.nuvioCApplySubtitleLift(
         val lift = (subsBottom - limit).coerceAtLeast(0f) * progress
         frame.setSubtitleLift(lift, container.height / 2f)
     }
+}
+
+/**
+ * Seek bar height without moving the OSD (2026-10-10 lag fix): the bar is 4 dp, 6 dp when focused,
+ * but always takes 6 dp of room, so focusing it no longer shifts the title, badges and subtitles.
+ */
+internal fun Modifier.nuvioCSeekBarHeight(focused: Boolean): Modifier = layout { measurable, constraints ->
+    val reserved = 6.dp.roundToPx()
+    val h = (if (focused) 6.dp else 4.dp).roundToPx()
+    val placeable = measurable.measure(constraints.copy(minHeight = h, maxHeight = h))
+    layout(placeable.width, reserved) { placeable.place(0, (reserved - h) / 2) }
+}
+
+/**
+ * Where the OSD's seek bar is (window px), so Skip Intro and the next-episode card can sit just
+ * above it while the controls are open (2026-10-10). Official uses a fixed 122 dp, which the
+ * taller Nuvio C bottom block (badges, time row) can reach.
+ */
+@Stable
+internal class NuvioCOsdAnchor {
+    var seekBarTop by mutableFloatStateOf(Float.NaN)
+}
+
+internal val LocalNuvioCOsdAnchor = staticCompositionLocalOf<NuvioCOsdAnchor?> { null }
+
+internal fun Modifier.nuvioCSeekBarAnchor(anchor: NuvioCOsdAnchor?): Modifier =
+    if (anchor == null || !NuvioCFeatures.SKIP_ABOVE_SEEK) this
+    else onGloballyPositioned { anchor.seekBarTop = it.positionInWindow().y }
+
+/** Forgets the seek bar position when the controls leave. */
+@Composable
+internal fun NuvioCOsdAnchorReset(anchor: NuvioCOsdAnchor) {
+    DisposableEffect(anchor) { onDispose { anchor.seekBarTop = Float.NaN } }
+}
+
+/** Gap kept between Skip Intro (focused, 1.1x, ring included) and the top of the seek bar. */
+private val SKIP_SEEK_GAP = 16.dp
+
+/**
+ * Bottom padding for an element that must clear the seek bar: [official] when the controls are
+ * hidden or the bar hasn't been measured, else the distance from the window bottom to the bar's
+ * top plus a 16 dp gap.
+ */
+@Composable
+internal fun nuvioCAboveSeekBar(anchor: NuvioCOsdAnchor, controlsVisible: Boolean, official: Dp): Dp {
+    if (!NuvioCFeatures.SKIP_ABOVE_SEEK || !controlsVisible) return official
+    val top = anchor.seekBarTop
+    if (top.isNaN()) return official
+    val windowHeight = LocalView.current.rootView.height
+    if (windowHeight <= 0) return official
+    val density = LocalDensity.current
+    val fromBottom = with(density) { (windowHeight - top).coerceAtLeast(0f).toDp() }
+    return fromBottom + SKIP_SEEK_GAP
 }
