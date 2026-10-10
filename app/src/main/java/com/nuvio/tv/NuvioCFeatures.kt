@@ -76,4 +76,6 @@ object NuvioCFeatures {
     const val OSD_SPLIT = true
     /** Player: the focused control's name (and current subtitle / audio track) shown small under it. */
     const val OSD_FOCUS_LABEL = true
+    /** Appearance: 12 extra app fonts in the font picker (Google Sans Flex, Manrope, Figtree, Geist…). Off = official three. */
+    const val EXTRA_FONTS = true
 }
