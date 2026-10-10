@@ -76,6 +76,7 @@ internal fun LayoutDetailPageSection(
                         onEvent(LayoutSettingsEvent.SetDetailPageTrailerPauseOnScroll(!uiState.detailPageTrailerPauseOnScroll))
                     }
                 )
+                NuvioCBackgroundTrailerMutedRow() // [fork]
             }
             SliderSettingsItem(
                 title = stringResource(R.string.audio_trailer_delay),
