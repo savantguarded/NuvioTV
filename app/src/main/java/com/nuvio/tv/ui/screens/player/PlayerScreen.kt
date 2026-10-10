@@ -6,6 +6,7 @@
 package com.nuvio.tv.ui.screens.player
 
 // Nuvio C imports
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.SideEffect
 import coil3.compose.AsyncImage
 import coil3.request.crossfade
@@ -197,6 +198,7 @@ fun PlayerScreen(
     val nuvioCFocus = remember { NuvioCFocusMemory() } // [fork] focus returns to the button that opened a panel
     SideEffect { nuvioCFocus.moreRowOpen = uiState.showMoreDialog } // [fork]
     val nuvioCHdr = rememberNuvioCHdrDim(viewModel, uiState) // [fork] 60% subtitles + controls in HDR
+    val nuvioCOsdAnchor = remember { NuvioCOsdAnchor() } // [fork] where the seek bar is, for Skip Intro
     val progressBarFocusRequester = remember { FocusRequester() }
     val episodesFocusRequester = remember { FocusRequester() }
     val streamsFocusRequester = remember { FocusRequester() }
@@ -1224,7 +1226,7 @@ fun PlayerScreen(
         }
 
         val skipButtonBottomPadding by animateDpAsState(
-            targetValue = if (uiState.showControls) 122.dp else 30.dp,
+            targetValue = nuvioCAboveSeekBar(nuvioCOsdAnchor, uiState.showControls, if (uiState.showControls) 122.dp else 30.dp), // [fork] was if (showControls) 122.dp else 30.dp
             animationSpec = tween(durationMillis = NuvioMotion.tokens.durations.fast),
             label = "skipButtonBottomPadding"
         )
@@ -1315,7 +1317,7 @@ fun PlayerScreen(
             onDismissStillWatching = { viewModel.onEvent(PlayerEvent.OnDismissStillWatchingPrompt) },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(end = 26.dp, bottom = if (uiState.showControls) 122.dp else 30.dp)
+                .padding(end = 26.dp, bottom = nuvioCAboveSeekBar(nuvioCOsdAnchor, uiState.showControls, if (uiState.showControls) 122.dp else 30.dp)) // [fork] was if (showControls) 122.dp else 30.dp
                 .zIndex(2.1f)
                 .nuvioCHdrDim(nuvioCHdr, overflow = 16.dp), // [fork] room for the focus zoom
         )
@@ -1381,7 +1383,7 @@ fun PlayerScreen(
                 .align(Alignment.TopEnd)
                 .padding(end = 28.dp, top = NuvioTheme.spacing.xl)
                 .zIndex(2.15f)
-                .nuvioCHdrDim(nuvioCHdr) // [fork]
+                .nuvioCHdrDimLight(nuvioCHdr) // [fork] no offscreen layer (ticks every second)
         ) {
             PlayerClockOverlayHost(
                 viewModel = viewModel,
@@ -1404,13 +1406,13 @@ fun PlayerScreen(
                 !postPlayRecommendationState.isVisible &&
                 uiState.postPlayMode !is PostPlayMode.StillWatching,
             enter = fadeIn(animationSpec = tween(200)),
-            exit = fadeOut(animationSpec = tween(200)),
-            modifier = Modifier.nuvioCHdrDim(nuvioCHdr) // [fork]
+            exit = fadeOut(animationSpec = tween(200))
         ) {
             val context = LocalContext.current
             val nuvioCOsd = remember { NuvioCOsdState() } // [fork] badges + subtitle lift
             NuvioCSubtitleLiftEffect(viewModel, transition.targetState == androidx.compose.animation.EnterExitState.Visible, nuvioCOsd, uiState.subtitleStyle) // [fork]
-            CompositionLocalProvider(LocalNuvioCFocusMemory provides nuvioCFocus) { // [fork]
+            CompositionLocalProvider(LocalNuvioCFocusMemory provides nuvioCFocus, LocalNuvioCHdrDim provides nuvioCHdr, LocalNuvioCOsdAnchor provides nuvioCOsdAnchor) { // [fork]
+            NuvioCOsdAnchorReset(nuvioCOsdAnchor) // [fork]
             PlayerControlsOverlay(
                 osdLogoAllowed = osdLogoAllowed, // [fork]
                 nuvioCOsd = nuvioCOsd, // [fork]
@@ -1578,7 +1580,7 @@ fun PlayerScreen(
                 !uiState.isLive,
             enter = fadeIn(animationSpec = tween(150)),
             exit = fadeOut(animationSpec = tween(150)),
-            modifier = Modifier.align(Alignment.BottomCenter).nuvioCHdrDim(nuvioCHdr) // [fork]
+            modifier = Modifier.align(Alignment.BottomCenter).nuvioCHdrDimLight(nuvioCHdr) // [fork] no offscreen layer while scrubbing
         ) {
             SeekOverlayHost(viewModel = viewModel)
         }
@@ -2283,8 +2285,11 @@ private fun PlayerControlsOverlay(
     val customSourcePainter = rememberRawSvgPainter(R.raw.ic_player_source)
     val customAspectPainter = rememberRawSvgPainter(R.raw.ic_player_aspect_ratio)
     val customEpisodesPainter = rememberRawSvgPainter(R.raw.ic_player_episodes)
-    val playbackTimeline by viewModel.playbackTimeline.collectAsState()
-    val isLivePlayback = playbackTimeline.isLive
+    // [fork] read through derivedStateOf: the timeline ticks twice a second, the controls only
+    // need to change when these two facts do (was a full recomposition of the OSD every tick)
+    val nuvioCTimeline = viewModel.playbackTimeline.collectAsState()
+    val isLivePlayback by remember { derivedStateOf { nuvioCTimeline.value.isLive } }
+    val nuvioCHasDuration by remember { derivedStateOf { nuvioCTimeline.value.duration > 0L } }
     val progressUpTarget = if (isLivePlayback) {
         progressBarUpFocusRequester ?: playPauseFocusRequester
     } else {
@@ -2317,7 +2322,7 @@ private fun PlayerControlsOverlay(
             visible = com.nuvio.tv.NuvioCFeatures.OSD_LOGO && osdLogo != null && !osdLogoFailed && osdLogoAllowed,
             enter = fadeIn(animationSpec = tween(250)),
             exit = fadeOut(animationSpec = tween(150)),
-            modifier = Modifier.align(Alignment.TopStart)
+            modifier = Modifier.align(Alignment.TopStart).nuvioCOsdDim() // [fork] HDR dim, no layer
         ) {
             if (osdLogo != null) {
                 val osdContext = LocalContext.current
@@ -2364,6 +2369,7 @@ private fun PlayerControlsOverlay(
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = NuvioTheme.spacing.xxl, vertical = NuvioTheme.spacing.xl)
                 .nuvioCOsdBottomBlock(nuvioCOsd) // [fork]
+                .nuvioCOsdDim() // [fork] HDR dim, no layer
         ) {
             val skipIntroVisible = uiState.activeSkipInterval != null
 
@@ -2449,6 +2455,7 @@ private fun PlayerControlsOverlay(
             if (!isLivePlayback) {
                 // Progress bar — always LTR regardless of locale
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Box(modifier = Modifier.nuvioCSeekBarAnchor(LocalNuvioCOsdAnchor.current)) { // [fork] Skip Intro sits above this
                     PlayerControlsProgressBarHost(
                         viewModel = viewModel,
                         focusRequester = progressBarFocusRequester,
@@ -2458,6 +2465,7 @@ private fun PlayerControlsOverlay(
                         onFocused = onResetHideTimer,
                         onClick = onPlayPause
                     )
+                    } // [fork]
                 }
 
                 Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
@@ -2496,7 +2504,7 @@ private fun PlayerControlsOverlay(
                     )
 
                     // [fork] Nuvio C: Start over (jumps to 0:00, plays if paused). Not for live streams.
-                    if (com.nuvio.tv.NuvioCFeatures.START_OVER && !isLivePlayback && playbackTimeline.duration > 0L) {
+                    if (com.nuvio.tv.NuvioCFeatures.START_OVER && !isLivePlayback && nuvioCHasDuration) {
                         ControlButton(
                             icon = androidx.compose.material.icons.Icons.Default.RestartAlt,
                             contentDescription = stringResource(R.string.nuvio_c_start_over),
@@ -2880,7 +2888,7 @@ private fun ProgressBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(if (com.nuvio.tv.NuvioCFeatures.SEEK_BAR_STYLE) (if (isFocused) 6.dp else 4.dp) else (if (isFocused) NuvioTheme.spacing.md else NuvioTheme.spacing.sm)) // [fork] was spacing.md / spacing.sm
+            .then(if (com.nuvio.tv.NuvioCFeatures.SEEK_BAR_STYLE) Modifier.nuvioCSeekBarHeight(isFocused) else Modifier.height(if (isFocused) NuvioTheme.spacing.md else NuvioTheme.spacing.sm)) // [fork] was height(spacing.md / spacing.sm)
             .then(
                 if (focusRequester != null) Modifier.focusRequester(focusRequester)
                 else Modifier

@@ -70,4 +70,6 @@ object NuvioCFeatures {
     const val HDR_DECODED = true
     /** Details page: the hero keeps the MDBList ratings line's space while it loads (no jump when it lands). */
     const val HERO_RATINGS_SPACE = true
+    /** Player: Skip Intro and the next-episode card sit 16 dp above the seek bar while the controls are open (never overlap or clip). */
+    const val SKIP_ABOVE_SEEK = true
 }
