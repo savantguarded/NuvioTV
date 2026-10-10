@@ -44,6 +44,10 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -637,4 +641,49 @@ internal fun nuvioCAboveSeekBar(anchor: NuvioCOsdAnchor, controlsVisible: Boolea
     val density = LocalDensity.current
     val fromBottom = with(density) { (windowHeight - top).coerceAtLeast(0f).toDp() }
     return fromBottom + SKIP_SEEK_GAP
+}
+
+/**
+ * The focused control's name, drawn just under it in the OSD's bottom padding (2026-10-10). Drawn,
+ * not laid out, so the button row never moves; nothing is drawn while unfocused.
+ */
+@Composable
+internal fun Modifier.nuvioCFocusLabel(focused: Boolean, label: String): Modifier {
+    if (!NuvioCFeatures.OSD_FOCUS_LABEL) return this
+    val measurer = rememberTextMeasurer()
+    val style = MaterialTheme.typography.labelSmall.copy(
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Medium,
+        color = Color.White.copy(alpha = 0.85f)
+    )
+    return drawWithCache {
+        val text = if (focused) measurer.measure(label, style, maxLines = 1, softWrap = false) else null
+        val gap = 7.dp.toPx() // clears the 1.1x focus zoom
+        onDrawWithContent {
+            drawContent()
+            if (text != null) {
+                drawText(
+                    textLayoutResult = text,
+                    topLeft = Offset((size.width - text.size.width) / 2f, size.height + gap)
+                )
+            }
+        }
+    }
+}
+
+/** "Subtitles · English SDH" / "Subtitles · Off" for the focus label. */
+internal fun nuvioCSubtitleLabel(uiState: PlayerUiState, title: String, off: String): String {
+    val addon = uiState.selectedAddonSubtitle
+    val name = when {
+        addon != null -> addon.getDisplayLanguage()
+        else -> uiState.subtitleTracks.getOrNull(uiState.selectedSubtitleTrackIndex)?.name
+    }
+    return "$title · ${name?.takeIf { it.isNotBlank() } ?: off}"
+}
+
+/** "Audio · English 5.1" style label for the focus label. */
+internal fun nuvioCAudioLabel(uiState: PlayerUiState, title: String): String {
+    val track = uiState.audioTracks.getOrNull(uiState.selectedAudioTrackIndex)
+        ?: uiState.audioTracks.firstOrNull { it.isSelected }
+    return track?.name?.takeIf { it.isNotBlank() }?.let { "$title · $it" } ?: title
 }
