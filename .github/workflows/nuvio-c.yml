@@ -55,13 +55,15 @@ env:
     app/src/main/java/com/nuvio/tv/ui/screens/player/NuvioMpvSurfaceView.kt
     app/src/main/java/com/nuvio/tv/ui/screens/player/PlayerSidecarSubtitles.kt
   OSD_FUNCTIONS: PlayerControlsOverlay|ProgressBar|SeekOverlay|PlayerControlsProgressBarHost|applyMetaDetails|applySubtitleStyle|applySubtitleStyleIfNeeded|syncLibassOverlay
-  # Details page and trailer screen tweaks (background trailers themselves are official as shipped
-  # since 2026-10-09). Applied as a separate, optional patch: if an official release conflicts with it, or the
+  # Background trailers (Nuvio C layer on official's "Play in Background") and the trailer screen
+  # tweaks. Applied as a separate, optional patch: if an official release conflicts with it, or the
   # app won't compile with it, the build carries on without it (official trailer behaviour) and
   # opens an issue. Everything else is the core patch.
   TRAILER_PATHS: >-
     app/src/main/java/com/nuvio/tv/ui/screens/detail
     app/src/main/java/com/nuvio/tv/ui/components/TrailerPlayer.kt
+    app/src/main/java/com/nuvio/tv/ui/components/NuvioCTrailerHold.kt
+    app/src/test/java/com/nuvio/tv/ui/screens/detail/NuvioCTrailerAutostartTest.kt
   # IMDb trailer backup when YouTube rate-limits. Its own optional patch, handled like the trailer
   # patch: a conflict or compile failure drops only this feature (official YouTube-only trailers).
   IMDB_PATHS: >-
