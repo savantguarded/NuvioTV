@@ -8,4 +8,10 @@
     <string name="nuvio_c_prefer_sdh">Prefer SDH Subtitles</string>
     <string name="nuvio_c_prefer_sdh_desc">Pick the SDH (hearing impaired) version of an embedded subtitle in your language when the file has one</string>
     <string name="nuvio_c_prefer_sdh_strip_warning">Strip SDH is also on, so sound descriptions will still be hidden</string>
+    <string name="nuvio_c_rate">Rate</string>
+    <string name="nuvio_c_rate_title">Rate %1$s</string>
+    <string name="nuvio_c_rate_remove">Remove rating</string>
+    <string name="nuvio_c_rate_failed">Couldn\'t reach %1$s. Save again to retry.</string>
+    <string name="nuvio_c_rate_pick_score">Pick a score first</string>
+    <string name="nuvio_c_rate_pick_tracker">Pick at least one tracker</string>
 </resources>
