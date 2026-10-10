@@ -60,6 +60,7 @@ fun TrailerPlayer(
     cropToFill: Boolean = false,
     overscanZoom: Float = 1f,
     autoCropLetterbox: Boolean = false,
+    nuvioCHold: Boolean = false, // [fork] page covered: pause here, carry on from the same spot (NuvioCTrailerHold.kt)
     modifier: Modifier = Modifier,
     enter: EnterTransition = fadeIn(animationSpec = tween(800)),
     exit: ExitTransition = fadeOut(animationSpec = tween(500)),
@@ -75,6 +76,7 @@ fun TrailerPlayer(
     val currentOnFirstFrameRendered by rememberUpdatedState(onFirstFrameRendered)
     val currentOnProgressChanged by rememberUpdatedState(onProgressChanged)
     val currentOnRemoteKey by rememberUpdatedState(onRemoteKey)
+    val currentNuvioCHold by rememberUpdatedState(nuvioCHold) // [fork]
     val zoomScale = if (cropToFill) overscanZoom.coerceAtLeast(1f) else 1f
     var hasRenderedFirstFrame by remember(trailerUrl) { mutableStateOf(false) }
     val playerAlphaState = animateFloatAsState(
@@ -107,7 +109,7 @@ fun TrailerPlayer(
     // Configure player settings when acquired
     LaunchedEffect(trailerPlayer, muted, cropToFill) {
         val player = trailerPlayer ?: return@LaunchedEffect
-        player.volume = if (muted) 0f else 1f
+        if (muted || !player.isPlaying) player.volume = if (muted) 0f else 1f // [fork] unmute mid-play fades in below
         player.videoScalingMode = if (cropToFill) {
             C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
         } else {
@@ -115,7 +117,18 @@ fun TrailerPlayer(
         }
     }
 
-    LaunchedEffect(isPlaying, trailerUrl, trailerAudioUrl, muted, trailerPlayer) {
+    // [fork] fade the sound in when a playing trailer is unmuted (trailer button on a muted background trailer)
+    LaunchedEffect(trailerPlayer, muted) {
+        val player = trailerPlayer ?: return@LaunchedEffect
+        if (muted || !player.isPlaying) return@LaunchedEffect
+        val start = player.volume
+        for (step in 1..10) {
+            player.volume = start + (1f - start) * step / 10f
+            delay(100)
+        }
+    }
+
+    LaunchedEffect(isPlaying, trailerUrl, trailerAudioUrl, trailerPlayer) { // [fork] no `muted` key: unmuting must not reload
         val player = trailerPlayer ?: return@LaunchedEffect
         player.volume = if (muted) 0f else 1f
         if (isPlaying && trailerUrl != null) {
@@ -172,6 +185,18 @@ fun TrailerPlayer(
         }
     }
 
+    NuvioCTrailerHoldEffect( // [fork]
+        player = trailerPlayer,
+        pool = resolvedPool,
+        isPlaying = isPlaying,
+        hold = nuvioCHold,
+        isPaused = isPaused,
+        trailerUrl = trailerUrl,
+        trailerAudioUrl = trailerAudioUrl,
+        reattachView = { playerViewRef.value?.let { view -> view.player = null; view.player = trailerPlayer } },
+        onLost = { currentOnEnded() }
+    )
+
     LaunchedEffect(isPaused, trailerPlayer) {
         val player = trailerPlayer ?: return@LaunchedEffect
         if (!isPlaying) return@LaunchedEffect
@@ -204,7 +229,8 @@ fun TrailerPlayer(
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED &&
                     currentIsPlaying &&
-                    player.playWhenReady
+                    player.playWhenReady &&
+                    !currentNuvioCHold // [fork] not another page's trailer ending
                 ) {
                     currentOnEnded()
                 }
