@@ -97,6 +97,7 @@ internal fun LayoutDetailPageSection(
             onToggle = { onEvent(LayoutSettingsEvent.SetTrailer4kEnabled(!uiState.trailer4kEnabled)) }
         )
     }
+    NuvioCPreferImdbTrailersRow() // [fork]
     SettingsToggleRow(
         title = stringResource(R.string.layout_trailer_button),
         subtitle = stringResource(R.string.layout_trailer_button_sub),

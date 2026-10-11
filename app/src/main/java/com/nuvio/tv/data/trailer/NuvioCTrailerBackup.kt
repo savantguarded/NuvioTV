@@ -22,6 +22,12 @@ import kotlinx.coroutines.sync.withLock
 //   trailers slower, rarer and often 720p). Only if the player then fails for that title is IMDb
 //   tried. Another 429 after the 15 minutes starts a new 15 minutes.
 //
+// - YouTube's best video stream is under 720p (old or low-res uploads): treated like the fallback
+//   above, IMDb is tried first (2026-10-11).
+// - "Prefer IMDb Trailers" on (Settings > Layout > Detail Page, 2026-10-11): IMDb is asked first for
+//   every trailer; YouTube only when IMDb has nothing at 720p or better. IMDb lookups take about
+//   5-15 s; on the details page this happens while the page opens, before the countdown starts.
+//
 // Low-quality YouTube links and IMDb links are never put in the trailer caches, so once the
 // limit clears a title gets its full-quality YouTube trailer again.
 // Upstream files only call in here through a few `[fork]` lines in InAppYouTubeExtractor.kt and
@@ -85,7 +91,8 @@ internal object NuvioCYouTubeHealth {
 @Singleton
 class NuvioCTrailerBackup @Inject constructor(
     private val imdbResolver: NuvioCImdbTrailerResolver,
-    private val tmdbService: TmdbService
+    private val tmdbService: TmdbService,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: android.content.Context
 ) {
     private data class ImdbResult(val source: TrailerPlaybackSource?, val at: Long)
 
@@ -99,7 +106,11 @@ class NuvioCTrailerBackup @Inject constructor(
         tmdbId: String?,
         type: String?,
         youtube: suspend () -> TrailerPlaybackSource?
-    ): TrailerPlaybackSource? = choose(youtube = youtube, imdb = { imdbFor(tmdbId, type) })
+    ): TrailerPlaybackSource? = choose(
+        youtube = youtube,
+        imdb = { imdbFor(tmdbId, type) },
+        preferImdb = com.nuvio.tv.data.local.NuvioCTrailerPrefs.preferImdb(appContext)
+    )
 
     private suspend fun imdbFor(tmdbId: String?, type: String?): TrailerPlaybackSource? {
         val numericId = tmdbId?.toIntOrNull() ?: run {
@@ -136,8 +147,17 @@ class NuvioCTrailerBackup @Inject constructor(
         /** The decision itself, kept free of Android and network code so it can be unit-tested. */
         internal suspend fun choose(
             youtube: suspend () -> TrailerPlaybackSource?,
-            imdb: suspend () -> TrailerPlaybackSource?
+            imdb: suspend () -> TrailerPlaybackSource?,
+            preferImdb: Boolean = false
         ): TrailerPlaybackSource? {
+            if (preferImdb) {
+                imdb()?.let {
+                    Log.i(TAG, "Prefer IMDb: using IMDb trailer")
+                    return it
+                }
+                Log.i(TAG, "Prefer IMDb: nothing on IMDb at 720p+, falling back to YouTube")
+                return youtube()
+            }
             val fromYouTube = youtube()
             if (fromYouTube == null) {
                 // A dead link outside a rate limit stays without a trailer, as before.
