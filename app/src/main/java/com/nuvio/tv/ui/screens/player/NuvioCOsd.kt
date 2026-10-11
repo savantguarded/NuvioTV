@@ -155,7 +155,7 @@ internal fun NuvioCOsdBadges(
             .onGloballyPositioned { originY = it.positionInWindow().y }
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -177,39 +177,36 @@ internal fun NuvioCOsdBadges(
     DisposableEffect(state) { onDispose { state.badgesWidthPx = 0 } }
 }
 
-private val BADGE_TILE_HEIGHT = 16.dp
-private val BADGE_MARK_HEIGHT = 18.dp
-private val BADGE_TILE_SHAPE = RoundedCornerShape(3.dp)
+// 2026-10-11: one height for every badge (tiles, marks and the size text), so they share one
+// centre line; tile text is placed by its capital letters, not its line box (the line box keeps
+// room for descenders, which made caps sit high and the size text look offset).
+private val BADGE_HEIGHT = 14.dp
+private val BADGE_TILE_SHAPE = RoundedCornerShape(2.5.dp)
 private val BADGE_WHITE = Color(0xE6FFFFFF) // white 90%
 private val BADGE_FILL = Color(0xFFDCDCDC)
+private const val BADGE_CAP_HEIGHT_EM = 0.72f // cap height of the UI fonts, as a share of the font size
 
 @Composable
 private fun NuvioCBadgeView(part: NuvioCBadge) {
     val textStyle = MaterialTheme.typography.labelMedium.copy(
-        fontSize = 11.sp,
-        lineHeight = 14.sp,
+        fontSize = 9.5.sp,
+        lineHeight = 12.sp,
         fontWeight = FontWeight.SemiBold,
         letterSpacing = 0.2.sp
     )
     when (part.kind) {
-        NuvioCBadgeKind.FILLED -> Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .height(BADGE_TILE_HEIGHT)
-                .background(BADGE_FILL, BADGE_TILE_SHAPE)
-                .padding(horizontal = 4.5.dp)
-        ) {
-            Text(text = part.text, style = textStyle, color = Color(0xFF111111), maxLines = 1)
-        }
-        NuvioCBadgeKind.OUTLINED -> Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .height(BADGE_TILE_HEIGHT)
-                .border(1.5.dp, BADGE_WHITE, BADGE_TILE_SHAPE)
-                .padding(horizontal = 4.dp)
-        ) {
-            Text(text = part.text, style = textStyle, color = BADGE_WHITE, maxLines = 1)
-        }
+        NuvioCBadgeKind.FILLED -> NuvioCBadgeText(
+            text = part.text,
+            style = textStyle,
+            color = nuvioCOsd(Color(0xFF111111)),
+            modifier = Modifier.background(nuvioCOsd(BADGE_FILL), BADGE_TILE_SHAPE).padding(horizontal = 4.dp)
+        )
+        NuvioCBadgeKind.OUTLINED -> NuvioCBadgeText(
+            text = part.text,
+            style = textStyle,
+            color = nuvioCOsd(BADGE_WHITE),
+            modifier = Modifier.border(1.2.dp, nuvioCOsd(BADGE_WHITE), BADGE_TILE_SHAPE).padding(horizontal = 3.5.dp)
+        )
         NuvioCBadgeKind.MARK -> {
             val res = part.markRes
             if (res == null) {
@@ -218,17 +215,39 @@ private fun NuvioCBadgeView(part: NuvioCBadge) {
                 Icon(
                     painter = painterResource(res),
                     contentDescription = part.text,
-                    tint = BADGE_WHITE,
-                    modifier = Modifier.height(BADGE_MARK_HEIGHT)
+                    tint = nuvioCOsd(BADGE_WHITE),
+                    modifier = Modifier.height(BADGE_HEIGHT)
                         .aspectRatio(part.markAspect, matchHeightConstraintsFirst = true)
                 )
             }
         }
-        NuvioCBadgeKind.PLAIN -> Text(
+        NuvioCBadgeKind.PLAIN -> NuvioCBadgeText(
             text = part.text,
-            style = textStyle.copy(fontSize = 12.sp),
-            color = Color.White.copy(alpha = 0.6f),
-            maxLines = 1
+            style = textStyle.copy(fontSize = 10.5.sp),
+            color = nuvioCOsd(Color.White.copy(alpha = 0.6f)),
+            modifier = Modifier
+        )
+    }
+}
+
+/** Badge text in a [BADGE_HEIGHT] box with its capitals centred vertically. */
+@Composable
+private fun NuvioCBadgeText(text: String, style: androidx.compose.ui.text.TextStyle, color: Color, modifier: Modifier) {
+    Box(modifier = modifier.height(BADGE_HEIGHT)) {
+        Text(
+            text = text,
+            style = style,
+            color = color,
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.layout { measurable, constraints ->
+                val p = measurable.measure(constraints.copy(minHeight = 0))
+                val box = BADGE_HEIGHT.roundToPx()
+                val baseline = p[androidx.compose.ui.layout.FirstBaseline].takeIf { it != AlignmentLine.Unspecified } ?: p.height
+                val cap = style.fontSize.toPx() * BADGE_CAP_HEIGHT_EM
+                val y = ((box + cap) / 2f - baseline).roundToInt()
+                layout(p.width, box) { p.place(0, y) }
+            }
         )
     }
 }
@@ -258,6 +277,7 @@ private fun buildBadgeParts(controller: PlayerRuntimeController, uiState: Player
         ?: controller.currentVideoTrackHeight.takeIf { it > 0 }
         ?: controller.currentVideoHeight
     val visual = nuvioCVisualTag(controller, uiState)
+    nuvioCLogVisualInputs(controller, uiState, visual)
     val audio = uiState.audioTracks.firstOrNull { it.isSelected }
     val audioLabel = NuvioCOsdBadges.audioLabel(audio?.codec, audio?.channelCount, names)
     return buildList {
@@ -277,7 +297,6 @@ private fun buildBadgeParts(controller: PlayerRuntimeController, uiState: Player
 private const val MARK_ASPECT_DV = 2.693f
 private const val MARK_ASPECT_ATMOS = 2.695f
 private const val MARK_ASPECT_DTS = 2.553f
-    nuvioCLogVisualInputs(controller, uiState, visual)
 
 /** Audio: Atmos = Dolby Atmos mark; DTS family = DTS mark (+ "X" / "HD MA" / "HD"); else a tile. */
 internal fun nuvioCAudioBadges(audioLabel: String?, names: String): List<NuvioCBadge> {
@@ -316,6 +335,20 @@ internal fun nuvioCVisualTag(controller: PlayerRuntimeController, uiState: Playe
     )
 }
 
+/** One line per OSD open (tag NuvioCOsdBadges): what the badge rules were given. For checking files. */
+internal fun nuvioCLogVisualInputs(controller: PlayerRuntimeController, uiState: PlayerUiState, tag: String) {
+    runCatching {
+        val exo = if (controller.currentInternalPlayerEngine == InternalPlayerEngine.MVP_PLAYER) null else controller._exoPlayer?.videoFormat
+        android.util.Log.i(
+            "NuvioCOsdBadges",
+            "badge=$tag engine=${controller.currentInternalPlayerEngine} mime=${exo?.sampleMimeType ?: controller.currentVideoTrackMimeType} " +
+                "codecs=${exo?.codecs ?: controller.currentVideoTrackCodecs} trackTransfer=${exo?.colorInfo?.colorTransfer ?: controller.currentVideoTrackColorTransfer} " +
+                "decoderTransfer=${NuvioCDecodedColor.transfer(controller, exo)} hdr10plus=${NuvioCDecodedColor.hdr10Plus(controller, exo)} " +
+                "mpvGamma=${controller.mpvView?.nuvioCVideoGamma()} file=${controller.currentFilename}"
+        )
+    }
+}
+
 /** Pure label rules (unit tested). */
 @VisibleForTesting
 internal object NuvioCOsdBadges {
@@ -335,20 +368,6 @@ internal object NuvioCOsdBadges {
             w >= 1700 || h >= 1000 -> "1080p"
             w >= 1200 || h >= 700 -> "720p"
             h >= 540 -> "576p"
-/** One line per OSD open (tag NuvioCOsdBadges): what the badge rules were given. For checking files. */
-internal fun nuvioCLogVisualInputs(controller: PlayerRuntimeController, uiState: PlayerUiState, tag: String) {
-    runCatching {
-        val exo = if (controller.currentInternalPlayerEngine == InternalPlayerEngine.MVP_PLAYER) null else controller._exoPlayer?.videoFormat
-        android.util.Log.i(
-            "NuvioCOsdBadges",
-            "badge=$tag engine=${controller.currentInternalPlayerEngine} mime=${exo?.sampleMimeType ?: controller.currentVideoTrackMimeType} " +
-                "codecs=${exo?.codecs ?: controller.currentVideoTrackCodecs} trackTransfer=${exo?.colorInfo?.colorTransfer ?: controller.currentVideoTrackColorTransfer} " +
-                "decoderTransfer=${NuvioCDecodedColor.transfer(controller, exo)} hdr10plus=${NuvioCDecodedColor.hdr10Plus(controller, exo)} " +
-                "mpvGamma=${controller.mpvView?.nuvioCVideoGamma()} file=${controller.currentFilename}"
-        )
-    }
-}
-
             h >= 440 -> "480p"
             else -> "SD"
         }
@@ -407,6 +426,7 @@ internal fun nuvioCLogVisualInputs(controller: PlayerRuntimeController, uiState:
         return when {
             dvConverted -> "DV"
             isDv && !dvStripped -> "DV"
+            transfer == C.COLOR_TRANSFER_ST2084 && decoderHdr10Plus -> "HDR10+"
             transfer == C.COLOR_TRANSFER_ST2084 || transfer == C.COLOR_TRANSFER_HLG -> transferLabel(transfer, fromName)!!
             isDv -> "HDR10" // DV stripped to its base layer
             transfer == C.COLOR_TRANSFER_SDR -> "SDR"
@@ -426,7 +446,6 @@ internal fun nuvioCLogVisualInputs(controller: PlayerRuntimeController, uiState:
     fun sourceFromName(names: String): String? {
         val n = names.lowercase(Locale.US)
         fun has(re: String) = Regex(re).containsMatchIn(n)
-            transfer == C.COLOR_TRANSFER_ST2084 && decoderHdr10Plus -> "HDR10+"
         return when {
             has("""(\b|[._ -])(bd)?remux(\b|[._ -])""") -> "REMUX"
             has("""web[ ._-]?dl""") -> "WEB-DL"
