@@ -88,4 +88,6 @@ object NuvioCFeatures {
     const val ENGINE_IN_MORE = true
     /** Subtitles: "Font" picker (player subtitle style panel and Settings) with the app's extra fonts. Off = official default font. */
     const val SUBTITLE_FONT = true
+    /** Profile screen: official layout without "Who's watching?", the hold hint, star and Primary text; Add Profile as a button under the profiles. Manage profiles stays official. */
+    const val PROFILE_CLEAN = true
 }

@@ -79,6 +79,48 @@ import com.nuvio.tv.ui.util.rememberLongPressKeyTracker
 internal fun nuvioCProfileRail(isManagementMode: Boolean): Boolean =
     NuvioCFeatures.PROFILE_MINIMAL && !isManagementMode
 
+// ---- Clean profile screen (2026-10-11, switch PROFILE_CLEAN) ------------------------------------
+// Official layout and card sizes, minus "Who's watching?", the "Hold to manage profile" hint, the
+// primary star and the "Primary" line; "Select a profile to continue" stays. Logo, line, profiles
+// and an "Add Profile" pill centred under the profiles sit together in the middle of the screen.
+// Hooks: a few `[fork]` lines in ProfileSelectionScreen.kt. Manage profiles stays official.
+
+internal val LocalNuvioCProfileClean = androidx.compose.runtime.staticCompositionLocalOf { false }
+
+internal fun nuvioCProfileClean(isManagementMode: Boolean): Boolean =
+    NuvioCFeatures.PROFILE_CLEAN && !NuvioCFeatures.PROFILE_MINIMAL && !isManagementMode
+
+/** Gap between "Select a profile to continue" and the profiles. */
+internal val NUVIO_C_SUBTITLE_TO_PROFILES = 44.dp
+
+@Composable
+internal fun NuvioCAddProfileButton(
+    focusRequester: FocusRequester,
+    onFocused: () -> Unit,
+    onClick: () -> Unit
+) {
+    Spacer(modifier = Modifier.height(28.dp))
+    androidx.tv.material3.Button(
+        onClick = onClick,
+        modifier = Modifier
+            .focusRequester(focusRequester)
+            .onFocusChanged { if (it.isFocused) onFocused() },
+        shape = androidx.tv.material3.ButtonDefaults.shape(shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp)),
+        scale = androidx.tv.material3.ButtonDefaults.scale(focusedScale = 1.05f),
+        colors = androidx.tv.material3.ButtonDefaults.colors(
+            containerColor = Color.White.copy(alpha = 0.10f),
+            contentColor = Color.White.copy(alpha = 0.85f),
+            focusedContainerColor = Color.White,
+            focusedContentColor = Color.Black
+        ),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+    ) {
+        Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text = stringResource(R.string.profile_add_new), fontSize = 15.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
 private val RailEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
 private val EditColumn = 52.dp
 private val AvatarColumn = 124.dp
