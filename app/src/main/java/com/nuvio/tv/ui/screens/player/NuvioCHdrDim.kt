@@ -164,6 +164,16 @@ internal fun Color.nuvioCDimmed(): Color {
     return Color(red * f, green * f, blue * f, alpha)
 }
 
+/**
+ * Own render layer for a part of the controls (2026-10-11 round 4, HDR lag). The 2026-10-10 alpha
+ * dim happened to give the bottom block, logo, clock and seek-only bar their own layers, so a seek-bar
+ * tick or the clock only redrew that part; the colour dim dropped those layers and the whole OSD
+ * redrew with every tick, which is what felt less fluid on 4K HDR. These layers are plain (no
+ * transparency, no offscreen copy), so nothing turns see-through and nothing is clipped.
+ */
+internal fun Modifier.nuvioCOsdLayer(): Modifier =
+    if (NuvioCFeatures.HDR_DIM) graphicsLayer { } else this
+
 /** Colour filter for images (OSD logo) while dimmed, else null. */
 @Composable
 @ReadOnlyComposable

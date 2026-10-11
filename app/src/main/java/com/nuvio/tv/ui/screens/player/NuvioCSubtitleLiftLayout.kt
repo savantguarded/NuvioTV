@@ -33,11 +33,38 @@ class NuvioCSubtitleLiftLayout @JvmOverloads constructor(
     // is drawn at that brightness through a colour-filtered view layer.
     private var dimFactor = 1f
 
+    // 2026-10-11 round 4 (HDR lag): the layer is a full-screen offscreen copy, so it is only kept
+    // on a frame that has something visible in it. The two libass frames are empty unless libass
+    // draws, and before this each still cost a full-screen copy every frame of HDR playback.
     fun setNuvioCDim(factor: Float) {
         val f = factor.coerceIn(0f, 1f)
-        if (f == dimFactor) return
+        val changed = f != dimFactor
         dimFactor = f
-        if (f < 1f) setLayerType(LAYER_TYPE_HARDWARE, nuvioCDimPaint(f)) else setLayerType(LAYER_TYPE_NONE, null)
+        updateDimLayer(changed)
+    }
+
+    private fun updateDimLayer(force: Boolean = false) {
+        val want = dimFactor < 1f && hasVisibleChild()
+        val has = layerType == LAYER_TYPE_HARDWARE
+        when {
+            want && (!has || force) -> setLayerType(LAYER_TYPE_HARDWARE, nuvioCDimPaint(dimFactor))
+            !want && has -> setLayerType(LAYER_TYPE_NONE, null)
+        }
+    }
+
+    private fun hasVisibleChild(): Boolean {
+        for (i in 0 until childCount) if (getChildAt(i).visibility == VISIBLE) return true
+        return false
+    }
+
+    override fun onViewAdded(child: android.view.View?) {
+        super.onViewAdded(child)
+        if (dimFactor < 1f) updateDimLayer()
+    }
+
+    override fun onViewRemoved(child: android.view.View?) {
+        super.onViewRemoved(child)
+        if (dimFactor < 1f) updateDimLayer()
     }
 
     override fun dispatchDraw(canvas: Canvas) {

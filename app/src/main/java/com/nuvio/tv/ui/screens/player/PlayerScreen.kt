@@ -1354,6 +1354,7 @@ fun PlayerScreen(
                 .align(Alignment.TopEnd)
                 .padding(end = 28.dp, top = NuvioTheme.spacing.xl)
                 .zIndex(2.15f)
+                .nuvioCOsdLayer() // [fork] own layer: the clock ticks every second
         ) {
             CompositionLocalProvider(LocalNuvioCHdrDim provides nuvioCHdr) { // [fork] HDR dim by colour, no layer
             PlayerClockOverlayHost(
@@ -1552,7 +1553,7 @@ fun PlayerScreen(
                 !uiState.isLive,
             enter = fadeIn(animationSpec = tween(150)),
             exit = fadeOut(animationSpec = tween(150)),
-            modifier = Modifier.align(Alignment.BottomCenter)
+            modifier = Modifier.align(Alignment.BottomCenter).nuvioCOsdLayer() // [fork] own layer while scrubbing
         ) {
             CompositionLocalProvider(LocalNuvioCHdrDim provides nuvioCHdr) { SeekOverlayHost(viewModel = viewModel) } // [fork] HDR dim by colour
         }
@@ -2291,7 +2292,7 @@ private fun PlayerControlsOverlay(
             visible = com.nuvio.tv.NuvioCFeatures.OSD_LOGO && osdLogo != null && !osdLogoFailed && osdLogoAllowed,
             enter = fadeIn(animationSpec = tween(250)),
             exit = fadeOut(animationSpec = tween(150)),
-            modifier = Modifier.align(Alignment.TopStart)
+            modifier = Modifier.align(Alignment.TopStart).nuvioCOsdLayer() // [fork] own layer, drawn once
         ) {
             if (osdLogo != null) {
                 val osdContext = LocalContext.current
@@ -2339,6 +2340,7 @@ private fun PlayerControlsOverlay(
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = NuvioTheme.spacing.xxl, vertical = NuvioTheme.spacing.xl)
                 .nuvioCOsdBottomBlock(nuvioCOsd) // [fork]
+                .nuvioCOsdLayer() // [fork] own layer (HDR lag)
         ) {
             val skipIntroVisible = uiState.activeSkipInterval != null
 
@@ -2424,7 +2426,7 @@ private fun PlayerControlsOverlay(
             if (!isLivePlayback) {
                 // Progress bar — always LTR regardless of locale
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                    Box(modifier = Modifier.nuvioCSeekBarAnchor(LocalNuvioCOsdAnchor.current)) { // [fork] Skip Intro sits above this
+                    Box(modifier = Modifier.nuvioCSeekBarAnchor(LocalNuvioCOsdAnchor.current).nuvioCOsdLayer()) { // [fork] Skip Intro sits above this
                     PlayerControlsProgressBarHost(
                         viewModel = viewModel,
                         focusRequester = progressBarFocusRequester,
@@ -2726,7 +2728,8 @@ private fun PlayerControlsTimeTextHost(viewModel: PlayerViewModel) {
     Text(
         text = timeText,
         style = MaterialTheme.typography.bodyMedium,
-        color = nuvioCOsd(Color.White.copy(alpha = 0.9f)) // [fork] HDR dim
+        color = nuvioCOsd(Color.White.copy(alpha = 0.9f)), // [fork] HDR dim
+        modifier = Modifier.nuvioCOsdLayer() // [fork] own layer: the time changes every second
     )
 }
 
