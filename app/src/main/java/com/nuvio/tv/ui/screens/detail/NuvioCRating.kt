@@ -143,7 +143,8 @@ internal fun rememberNuvioCRating(meta: Meta, starFocusRequester: FocusRequester
     val state by viewModel.state.collectAsState()
     if (state.open) {
         NuvioCRatingDialog(
-            title = stringResource(R.string.nuvio_c_rate_title, meta.name),
+            title = stringResource(R.string.nuvio_c_rate_your_rating),
+            subtitle = meta.name,
             state = state,
             onPick = viewModel::pick,
             onToggle = viewModel::toggle,
@@ -164,6 +165,7 @@ internal fun rememberNuvioCRating(meta: Meta, starFocusRequester: FocusRequester
 @Composable
 private fun NuvioCRatingDialog(
     title: String,
+    subtitle: String?,
     state: NuvioCRatingUiState,
     onPick: (Int) -> Unit,
     onToggle: (NuvioCTracker) -> Unit,
@@ -175,7 +177,7 @@ private fun NuvioCRatingDialog(
     val startScore = state.score ?: 5 // 2026-10-11: middle of the scale (was 7)
     LaunchedEffect(Unit) { runCatching { firstFocus.requestFocus() } }
 
-    NuvioDialog(onDismiss = onDismiss, title = title, width = 520.dp) {
+    NuvioDialog(onDismiss = onDismiss, title = title, subtitle = subtitle, width = 520.dp) {
         // 2026-10-11: circles sized from the row width (10 circles, 9 gaps of at least 8 dp), no
         // zoom on focus (the 1.1x zoom made neighbours overlap); focus = white fill + ring inside.
         androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -229,24 +231,16 @@ private fun NuvioCRatingDialog(
             )
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // 2026-10-11 round 4: one settings-style toggle row per tracker ("Sync to Trakt").
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             state.connected.forEach { tracker ->
-                val on = tracker in state.ticked
-                Button(
-                    onClick = { onToggle(tracker) },
-                    enabled = !state.saving,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.colors(
-                        containerColor = if (on) NuvioTheme.colors.FocusBackground else NuvioTheme.colors.BackgroundCard,
-                        contentColor = NuvioTheme.colors.TextPrimary
-                    )
-                ) {
-                    Text(
-                        text = if (on) "✓ ${tracker.label}" else tracker.label,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                com.nuvio.tv.ui.screens.settings.SettingsToggleRow(
+                    title = stringResource(R.string.nuvio_c_rate_sync_to, tracker.label),
+                    subtitle = null,
+                    checked = tracker in state.ticked,
+                    onToggle = { onToggle(tracker) },
+                    enabled = !state.saving
+                )
             }
         }
 
