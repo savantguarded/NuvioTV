@@ -32,7 +32,7 @@ class NuvioCTrailerAutostartTest {
     }
 
     @Test
-    fun overlayPausesAndResumesWithRemainingTime() = runTest {
+    fun overlayStopsAndRestartsFromFullDelay() = runTest {
         val h = Harness(this)
         h.autostart.arm()
         advanceTimeBy(5_000); runCurrent()
@@ -40,14 +40,14 @@ class NuvioCTrailerAutostartTest {
         advanceTimeBy(60_000); runCurrent()
         assertEquals(0, h.starts)
         h.autostart.setOverlayOpen(false)
-        advanceTimeBy(1_900); runCurrent()
+        advanceTimeBy(6_900); runCurrent()
         assertEquals(0, h.starts)
         advanceTimeBy(200); runCurrent()
         assertEquals(1, h.starts)
     }
 
     @Test
-    fun castPageAndAppAwayPauseToo() = runTest {
+    fun castPageResetsAndAppAwayPauses() = runTest {
         val h = Harness(this)
         h.autostart.arm()
         advanceTimeBy(3_000); runCurrent()
@@ -58,7 +58,9 @@ class NuvioCTrailerAutostartTest {
         advanceTimeBy(30_000); runCurrent()
         assertEquals(0, h.starts)
         h.autostart.setAppAway(false)
-        advanceTimeBy(4_100); runCurrent()
+        advanceTimeBy(6_900); runCurrent()
+        assertEquals(0, h.starts) // child page closing reset it to the full 7 s
+        advanceTimeBy(200); runCurrent()
         assertEquals(1, h.starts)
     }
 
