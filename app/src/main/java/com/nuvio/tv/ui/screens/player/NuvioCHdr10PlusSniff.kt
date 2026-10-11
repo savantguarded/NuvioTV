@@ -151,8 +151,12 @@ internal object NuvioCHdr10PlusSniff {
                 if (allowEndOfInput) return C.RESULT_END_OF_INPUT
                 throw EOFException()
             }
-            scan(buffer, 0, read)
-            delegate.sampleData(ParsableByteArray(buffer.copyOf(read)), read, sampleDataPart)
+            // Copy and pass the bytes on BEFORE scanning: scan() can call stop(), which empties
+            // `buffer`, and copying after that sent zeros to the decoder in place of real video
+            // (DV files failed with ERROR_CODE_DECODING_FAILED). Fixed 2026-10-11.
+            val chunk = buffer.copyOf(read)
+            delegate.sampleData(ParsableByteArray(chunk), read, sampleDataPart)
+            scan(chunk, 0, read)
             return read
         }
 
