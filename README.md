@@ -8,10 +8,10 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 
 **Player**
 - The title's logo shows top-left on the player controls, inside a fixed box so wide and square logos look balanced and are never cropped. It appears a few seconds after playback starts so it doesn't clash with the parental guide, HDR/Dolby Vision popups or the stats screen.
-- Small badges bottom-right, beside the title, Apple TV style, all the same height on one line: resolution in a filled tile (`4K`), Dolby Vision, Dolby Atmos and DTS as their logos, HDR10 / HDR10+ / HLG, other audio and the source (`REMUX`, `WEB-DL`…) in outlined tiles, and the file size in plain text. The picture format is what the TV is actually being sent, read from the decoded video when the file or stream name doesn't say (e.g. `2160p.WEB.h265` releases that are really HDR, or HDR10+ files whose name doesn't mention it).
+- Small badges bottom-right, beside the title, all the same outlined tile on one line: resolution (`4K`), picture (`DV`, `HDR10`, `HDR10+`, `HLG`), audio (`ATMOS 7.1`, `DTS-HD MA 5.1`, `DD+ 5.1`…) and source (`REMUX`, `WEB-DL`…), then the file size in plain text. The picture format is what the TV is actually being sent, read from the decoded video when the file or stream name doesn't say (e.g. `2160p.WEB.h265` releases that are really HDR). HDR10+ is found in the video stream itself (the first couple of hundred frames are checked), so HDR10+ files whose name doesn't mention it still say HDR10+ (ExoPlayer, MKV / MP4 files).
 - Official button row with the time on the right. The focused button's name shows small underneath it, with the current subtitle or audio track (e.g. "Subtitles · English SDH"). **Switch player engine** lives in the More row (the hidden buttons) with its own icon.
 - Skip Intro and the next-episode card sit just above the seek bar while the controls are open, so they never overlap it or get cut off.
-- Faster controls: no full-screen layer for the HDR dim, no re-layout when the seek bar gets focus, and the controls no longer redraw twice a second just because the clock ticks.
+- Faster controls: no full-screen layer for the HDR dim, no re-layout when the seek bar gets focus, and the clock, time, seek bar, logo and title block each redraw on their own, so a tick of one doesn't redraw the whole OSD. In HDR the subtitle dim only uses a layer on subtitle frames that have something in them.
 - Bottom subtitles move up while the controls are open, so they never sit behind the title, seek bar or buttons, then drop back when the controls close. Subtitles at the top of the screen stay where they are. Your subtitle settings are not changed.
 - Close a panel (subtitles, audio, sources, episodes, speed…) and focus lands back on the button that opened it, not on Play/Pause.
 - Year shown for movies only, not series. Titles opened from Continue Watching get their year back.
@@ -24,12 +24,12 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - The next episode starts straight away, whether you press Next episode or it plays automatically (no 3-second countdown).
 - After you press Skip Intro (or it times out), the remote keeps working straight away: focus goes back to the player instead of getting lost.
 - **Prefer SDH Subtitles** (Settings > Playback > Subtitles, off by default): when the player picks a subtitle in your language, an embedded SDH track wins over the plain one. Add-on subtitles and forced subtitles work as before.
-- **Subtitle font**: the app fonts for subtitles too, in the player's subtitle style list ("Font") and Settings > Playback > Subtitles. Plain-text subtitles only; ASS and picture subtitles keep their own look.
+- **Subtitle font**: the app fonts for subtitles too, in the player's subtitle style list ("Font") and Settings > Playback > Subtitles (a pick-one list like Appearance > Font, each name shown in its own font). Plain-text subtitles only; ASS and picture subtitles keep their own look.
 
 <img src="nuvio-c-screenshots/player-logo.jpg" alt="Player controls with the title logo top-left" width="720" />
 
 **Details page**
-- **Rate** button (star) next to Watched: pick 1 to 10 (starts on 5) and send it to Trakt and / or MDBList (only the ones you're signed in to). It overwrites your rating there, and Remove rating clears it. Your Trakt ratings are read too (a tiny check at most every 15 minutes, the full list only when it changed), so titles rated anywhere on Trakt show the white star and open on your score.
+- **Rate** button (star) next to Watched: a "Your Rating" dialog, pick 1 to 10 (starts on 5), with "Sync to Trakt" / "Sync to MDBList" switches (only the ones you're signed in to). It overwrites your rating there, and Remove rating clears it. Your Trakt ratings are read too (a tiny check at most every 15 minutes, the full list only when it changed), so titles rated anywhere on Trakt show the white star and open on your score.
 - No empty gap under the synopsis when an add-on's description ends in blank lines.
 - Creator and Cast / Ratings / More like this are pills, the same as the season tabs.
 - The MDBList ratings line under the title keeps its space while it loads, so the title block doesn't shift a moment after the page opens.
@@ -52,9 +52,9 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - Back on a filmography row jumps to the first title, like the home rows. On the first title, Back leaves the page as usual.
 
 **Appearance**
-- 7 extra app fonts in Settings > Appearance > Font, picked to look clearly different: Geist, Google Sans Flex, Outfit, Space Grotesk, Lexend, Atkinson Hyperlegible Next and Source Serif 4 (all SIL Open Font License, see `docs/nuvio-c-fonts-OFL.txt`).
-- A small clock top-right on Home and inside collection folders.
-- Cleaner profile screen: no "Who's watching?", hint, star or "Primary" label; "Add Profile" is a button under the profiles.
+- 7 extra app fonts in Settings > Appearance > Font, picked to look clearly different: Geist, Google Sans Flex, Outfit, Space Grotesk, Lexend, Atkinson Hyperlegible Next and Source Serif 4 (all SIL Open Font License, see `docs/nuvio-c-fonts-OFL.txt`). The chosen font also reaches the player's Episodes and Sources panels and the few other screens official leaves on the system font.
+- A small clock top-right on Home and inside collection folders, formatted like the player clock (e.g. 4:14 AM) on a see-through rounded square.
+- Cleaner profile screen: no "Who's watching?", hint, star, "Primary" label or supporter badge beside the Nuvio logo; "Add Profile" is a button under the profiles.
 
 **Accounts**
 - Simkl logs in with its newer device login (QR code on the TV) and renews itself, so you stay signed in.
@@ -99,7 +99,7 @@ The release notes list what was switched off. Clear the variable to turn everyth
 | `shuffle_button_size` | Play-sized Shuffle button |
 | `trailer_max_1080p` | 1080p trailer cap (**off**: trailers as official) |
 | `profile_minimal` | Netflix-style profile screen (**off**: official profile screen) |
-| `hdr_decoded` | HDR read from the decoded video (back to file info and stream name only) |
+| `hdr_decoded` | HDR read from the decoded video and HDR10+ from the video stream (back to file info and stream name only) |
 | `hero_ratings_space` | Reserved space for the MDBList ratings line while it loads |
 | `skip_above_seek` | Skip Intro / next-episode card placed just above the seek bar (back to official fixed spot) |
 | `osd_split` | Split button row with the time under the seek bar (**off**: official row) |
@@ -112,6 +112,7 @@ The release notes list what was switched off. Clear the variable to turn everyth
 | `detail_rating` | The Rate button |
 | `profile_clean` | Clean profile screen (back to the official one) |
 | `browse_clock` | Clock on Home and in collection folders |
+| `font_everywhere` | App font in the player's Episodes / Sources panels and other Material 3 text (back to the system font there) |
 
 The switches live in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt`. Ones marked **off** are set to `false` there; change the line back to `true` to bring them back. To remove a tweak's code for good rather than switch it off, its commits can be reverted; each tweak is in its own commits (listed in the project notes).
 
