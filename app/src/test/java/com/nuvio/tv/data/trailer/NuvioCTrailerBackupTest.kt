@@ -103,4 +103,18 @@ class NuvioCTrailerBackupTest {
     fun normalLinksStayCacheable() {
         assertTrue(NuvioCYouTubeHealth.cacheable(good))
     }
+
+    @Test
+    fun preferImdbUsesImdbWithoutAskingYouTube() = runTest {
+        val r = NuvioCTrailerBackup.choose(youtube = { youtubeCalls++; good }, imdb = { imdbCalls++; imdb }, preferImdb = true)
+        assertEquals(imdb, r)
+        assertEquals(0, youtubeCalls)
+    }
+
+    @Test
+    fun preferImdbFallsBackToYouTube() = runTest {
+        val r = NuvioCTrailerBackup.choose(youtube = { youtubeCalls++; good }, imdb = { imdbCalls++; null }, preferImdb = true)
+        assertEquals(good, r)
+        assertEquals(1, imdbCalls)
+    }
 }

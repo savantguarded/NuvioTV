@@ -18,4 +18,6 @@
     <string name="nuvio_c_subtitle_font_desc">Font for plain-text subtitles. ASS and picture subtitles keep their own</string>
     <string name="nuvio_c_subtitle_font_title">Font</string>
     <string name="nuvio_c_rate_trakt_score">Your Trakt rating: %1$d</string>
+    <string name="nuvio_c_prefer_imdb_trailers">Prefer IMDb Trailers</string>
+    <string name="nuvio_c_prefer_imdb_trailers_sub">IMDb first for every trailer, YouTube only when IMDb has nothing in HD. IMDb trailers take a few seconds longer to start</string>
 </resources>
