@@ -153,7 +153,6 @@ internal fun NuvioCOsdBadges(
         modifier = Modifier
             .fillMaxSize()
             .onGloballyPositioned { originY = it.positionInWindow().y }
-            .nuvioCOsdDim() // HDR dim without an offscreen layer
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -654,7 +653,7 @@ internal fun Modifier.nuvioCFocusLabel(focused: Boolean, label: String): Modifie
     val style = MaterialTheme.typography.labelSmall.copy(
         fontSize = 10.sp,
         fontWeight = FontWeight.Medium,
-        color = Color.White.copy(alpha = 0.85f)
+        color = nuvioCOsd(Color.White.copy(alpha = 0.85f)) // HDR dim
     )
     return drawWithCache {
         val text = if (focused) measurer.measure(label, style, maxLines = 1, softWrap = false) else null
