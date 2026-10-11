@@ -122,6 +122,11 @@ class NuvioCOsdBadgesTest {
         assertEquals("X", b.dtsSuffix("DTS-HD 7.1", "Movie 2160p DTS:X"))
         assertEquals("HD MA", b.dtsSuffix("DTS-HD 7.1", "Movie.1080p.DTS-HD.MA.5.1"))
         assertEquals("HD", b.dtsSuffix("DTS-HD 5.1", "Movie 1080p"))
+        assertEquals("DTS:X 7.1", b.audioTile("DTS-HD 7.1", "Movie.2160p.BluRay.REMUX.DTS-X.7.1"))
+        assertEquals("DTS-HD MA 5.1", b.audioTile("DTS-HD 5.1", "Movie.1080p.DTS-HD.MA.5.1"))
+        assertEquals("DTS 5.1", b.audioTile("DTS 5.1", "Movie 1080p"))
+        assertEquals("ATMOS 7.1", b.audioTile("Atmos 7.1"))
+        assertEquals("DD+ 5.1", b.audioTile("DD+ 5.1"))
         assertNull(b.dtsSuffix("DTS 5.1", "Movie.1080p.DTS.x264"))
     }
 }
