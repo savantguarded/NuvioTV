@@ -390,7 +390,7 @@ fun HeroContentSection(
                         Spacer(modifier = Modifier.height(14.dp))
                     }
 
-                    meta.description?.let { description ->
+                    meta.description?.nuvioCCleanSynopsis()?.let { description -> // [fork] no blank lines at the end
                         SynopsisDescription(
                             description = description,
                             onShowFullDescription = onShowFullDescription,
