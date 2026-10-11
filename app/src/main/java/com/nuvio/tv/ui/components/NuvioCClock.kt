@@ -2,7 +2,8 @@ package com.nuvio.tv.ui.components
 
 // [fork] Nuvio C clock (2026-10-11): a small persistent clock top-right while browsing catalogs,
 // like Plex. Shown on Home and inside collection folders only (Charles's pick); the player has its
-// own clock. Updates once a minute on the minute, follows the TV's 12 / 24-hour setting.
+// own clock. Updates once a minute on the minute, follows the TV's 12 / 24-hour setting
+// with AM / PM like the player clock, on a see-through rounded square.
 // Hooked with one line in MainActivity over the navigation host. Switch: NuvioCFeatures.BROWSE_CLOCK.
 
 import android.text.format.DateFormat
@@ -10,7 +11,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -19,11 +22,8 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,9 +31,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.nuvio.tv.NuvioCFeatures
 import kotlinx.coroutines.delay
-import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.Locale
 
 /** Routes that show the clock: Home and collection folders. Add a route prefix here to show it elsewhere. */
 private val NUVIO_C_CLOCK_ROUTES = listOf("home", "folder_detail")
@@ -57,17 +55,21 @@ fun NuvioCBrowseClock(route: String?) {
                     delay(60_000L - value % 60_000L + 50L) // next minute boundary
                 }
             }
-            val pattern = if (DateFormat.is24HourFormat(context)) "H:mm" else "h:mm"
-            val formatter = remember(pattern) { SimpleDateFormat(pattern, Locale.getDefault()) }
+            // 2026-10-11 round 4: same format as the player clock ("4:14 AM", or 24 h if the TV is
+            // set to it) on a see-through rounded square.
+            val formatter = remember(context) { DateFormat.getTimeFormat(context) }
             Text(
                 text = formatter.format(Date(now)),
                 style = MaterialTheme.typography.titleMedium.copy(
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    shadow = Shadow(Color.Black.copy(alpha = 0.6f), Offset(0f, 1f), 6f)
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold
                 ),
-                color = Color.White.copy(alpha = 0.92f),
-                modifier = Modifier.padding(top = 22.dp, end = 32.dp)
+                color = Color.White.copy(alpha = 0.95f),
+                maxLines = 1,
+                modifier = Modifier
+                    .padding(top = 20.dp, end = 28.dp)
+                    .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
             )
         }
     }
