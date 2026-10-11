@@ -903,6 +903,7 @@ private fun ProfileSelectionMainContent(
     onAddProfileClick: () -> Unit
 ) {
     if (nuvioCProfileRail(isManagementMode)) { NuvioCProfileRail(profiles, activeProfileId, canAddProfile, profilePinEnabled, avatarImageUrlsById, brandWordmarkRes, onProfileFocused, onProfileSelected, onProfileLongPress, onAddProfileClick); return } // [fork] NuvioCProfileLayout.kt
+    val nuvioCClean = nuvioCProfileClean(isManagementMode) // [fork] clean profile screen, see NuvioCProfileLayout.kt
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -910,6 +911,7 @@ private fun ProfileSelectionMainContent(
                 horizontal = ProfileSelectionSpacing.ScreenPaddingHorizontal,
                 vertical = ProfileSelectionSpacing.ScreenPaddingVertical
             ),
+        verticalArrangement = if (nuvioCClean) Arrangement.Center else Arrangement.Top, // [fork]
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         MemberBrandWordmark(
@@ -920,6 +922,7 @@ private fun ProfileSelectionMainContent(
 
         Spacer(modifier = Modifier.height(ProfileSelectionSpacing.LogoToHeading))
 
+        if (!nuvioCClean) { // [fork] no "Who's watching?"
         Text(
             text = screenTitle,
             color = NuvioTheme.colors.TextPrimary,
@@ -929,6 +932,7 @@ private fun ProfileSelectionMainContent(
         )
 
         Spacer(modifier = Modifier.height(ProfileSelectionSpacing.HeadingToSubheading))
+        } // [fork]
 
         Text(
             text = screenSubtitle,
@@ -937,8 +941,10 @@ private fun ProfileSelectionMainContent(
             fontWeight = FontWeight.Medium
         )
 
+        if (nuvioCClean) Spacer(modifier = Modifier.height(NUVIO_C_SUBTITLE_TO_PROFILES)) else // [fork]
         Spacer(modifier = Modifier.weight(1f, fill = true))
 
+        CompositionLocalProvider(LocalNuvioCProfileClean provides nuvioCClean) { // [fork]
         ProfileGrid(
             profiles = profiles,
             activeProfileId = activeProfileId,
@@ -952,7 +958,9 @@ private fun ProfileSelectionMainContent(
             onProfileLongPress = onProfileLongPress,
             onAddProfileClick = onAddProfileClick
         )
+        } // [fork]
 
+        if (!nuvioCClean) { // [fork] no "Hold to manage profile"
         Spacer(modifier = Modifier.weight(1f, fill = true))
 
         Text(
@@ -961,6 +969,7 @@ private fun ProfileSelectionMainContent(
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium
         )
+        } // [fork]
     }
 }
 
@@ -979,6 +988,8 @@ private fun ProfileGrid(
     onAddProfileClick: () -> Unit
 ) {
     val totalItems = profiles.size + if (canAddProfile) 1 else 0
+    val nuvioCClean = LocalNuvioCProfileClean.current // [fork] Add profile as a button under the row
+    val nuvioCRowItems = if (nuvioCClean) profiles.size else totalItems // [fork]
     val initialFocusIndex = remember(profiles, activeProfileId, canAddProfile) {
         profiles.indexOfFirst { it.id == activeProfileId }
             .takeIf { it >= 0 }
@@ -1008,12 +1019,12 @@ private fun ProfileGrid(
             contentAlignment = Alignment.Center
         ) {
             val defaultGridWidth = profileGridWidth(
-                itemCount = totalItems,
+                itemCount = nuvioCRowItems, // [fork] was totalItems
                 cardWidth = ProfileSelectionSpacing.CardWidth,
                 itemGap = ProfileSelectionSpacing.GridItemGap
             )
             val fullSizeTightGridWidth = profileGridWidth(
-                itemCount = totalItems,
+                itemCount = nuvioCRowItems, // [fork] was totalItems
                 cardWidth = ProfileSelectionSpacing.CardWidth,
                 itemGap = ProfileSelectionSpacing.CompactGridItemGap
             )
@@ -1041,7 +1052,7 @@ private fun ProfileGrid(
                         onLongPress = { onProfileLongPress(profile) }
                     )
                 }
-                if (canAddProfile) {
+                if (canAddProfile && !nuvioCClean) { // [fork] was if (canAddProfile)
                     AddProfileCard(
                         focusRequester = focusRequesters[profiles.size],
                         compact = useCompactCards,
@@ -1050,6 +1061,13 @@ private fun ProfileGrid(
                     )
                 }
             }
+        }
+        if (nuvioCClean && canAddProfile) { // [fork]
+            NuvioCAddProfileButton(
+                focusRequester = focusRequesters[profiles.size],
+                onFocused = { onProfileFocused(null) },
+                onClick = onAddProfileClick
+            )
         }
     }
 }
@@ -1193,7 +1211,7 @@ private fun ProfileCard(
                 )
             }
 
-            if (profile.isPrimary) {
+            if (profile.isPrimary && !LocalNuvioCProfileClean.current) { // [fork] no star on the clean screen
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
@@ -1239,6 +1257,7 @@ private fun ProfileCard(
             overflow = TextOverflow.Ellipsis
         )
 
+        if (!LocalNuvioCProfileClean.current) { // [fork] no "Primary" line (and its space) on the clean screen
         Spacer(modifier = Modifier.height(ProfileSelectionSpacing.NameToMeta))
 
         Box(
@@ -1255,6 +1274,7 @@ private fun ProfileCard(
                 )
             }
         }
+        } // [fork]
     }
 }
 
