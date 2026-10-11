@@ -914,6 +914,7 @@ private fun ProfileSelectionMainContent(
         verticalArrangement = if (nuvioCClean) Arrangement.Center else Arrangement.Top, // [fork]
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        if (nuvioCClean) NuvioCPlainWordmark(ProfileSelectionSpacing.LogoHeight, brandWordmarkRes) else // [fork] no supporter badge
         MemberBrandWordmark(
             height = ProfileSelectionSpacing.LogoHeight,
             contentDescription = stringResource(R.string.cd_nuvio_logo),
