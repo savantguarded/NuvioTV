@@ -9,6 +9,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
 import com.nuvio.tv.NuvioCFeatures
 import com.nuvio.tv.R
 import com.nuvio.tv.core.nuvioc.NuvioCPrefs
@@ -33,17 +35,44 @@ internal fun NuvioCPreferSdhRow(enabled: Boolean, stripSdh: Boolean) {
     )
 }
 
-/** "Subtitle Font": cycles through the fonts (same list as the player's subtitle style panel). */
+/** "Subtitle Font": opens the same pick-one list as Appearance > Font, each name in its own font. */
 @Composable
 internal fun NuvioCSubtitleFontRow(enabled: Boolean) {
     if (!NuvioCFeatures.SUBTITLE_FONT) return
     val context = LocalContext.current
-    val current = com.nuvio.tv.ui.screens.player.NuvioCSubtitleFont.let { it.load(context); it.current }
+    val fonts = com.nuvio.tv.ui.screens.player.NuvioCSubtitleFont
+    remember { fonts.load(context) }
+    var showDialog by remember { mutableStateOf(false) }
     SettingsActionRow(
         title = stringResource(R.string.nuvio_c_subtitle_font),
         subtitle = stringResource(R.string.nuvio_c_subtitle_font_desc),
-        value = current.label,
-        onClick = { com.nuvio.tv.ui.screens.player.NuvioCSubtitleFont.step(context, 1) },
+        value = fonts.current.label,
+        onClick = { showDialog = true },
         enabled = enabled
     )
+    if (showDialog) {
+        val options = remember {
+            fonts.options.map { option ->
+                SettingsPickerOption(
+                    value = option.id,
+                    title = option.label,
+                    titleFontFamily = if (option.file == null) null else {
+                        fonts.typefaceFor(context, option)?.let { FontFamily(it) }
+                    }
+                )
+            }
+        }
+        SettingsSingleChoiceDialog(
+            title = stringResource(R.string.nuvio_c_subtitle_font),
+            options = options,
+            selectedValue = fonts.current.id,
+            onOptionSelected = { id ->
+                fonts.select(context, id)
+                showDialog = false
+            },
+            onDismiss = { showDialog = false },
+            width = 400.dp,
+            maxHeight = 280.dp
+        )
+    }
 }
