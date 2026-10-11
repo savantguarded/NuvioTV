@@ -54,6 +54,14 @@ internal object NuvioCSubtitleFont {
         return current
     }
 
+    /** Pick a font by [id] (the Settings dialog). */
+    fun select(context: Context, id: String) {
+        load(context)
+        val option = options.firstOrNull { it.id == id } ?: return
+        current = option
+        NuvioCPrefs.setSubtitleFont(context, option.id)
+    }
+
     /** Next (+1) / previous (-1) font, wrapping round. */
     fun step(context: Context, delta: Int) {
         load(context)
@@ -66,8 +74,10 @@ internal object NuvioCSubtitleFont {
     private val typefaces = ConcurrentHashMap<String, Typeface>()
 
     /** Typeface for ExoPlayer subtitles, or null for the official default. */
-    fun typeface(context: Context, bold: Boolean): Typeface? {
-        val option = load(context)
+    fun typeface(context: Context, bold: Boolean): Typeface? = typefaceFor(context, load(context), bold)
+
+    /** Typeface of any [option] (Settings list previews each font in itself). */
+    fun typefaceFor(context: Context, option: Option, bold: Boolean = false): Typeface? {
         val file = option.file ?: return null
         val name = "$ASSET_DIR/$file-${if (bold) "Bold" else "Regular"}.ttf"
         return typefaces[name] ?: runCatching { Typeface.createFromAsset(context.assets, name) }
