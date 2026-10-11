@@ -110,7 +110,9 @@ fun NuvioTheme(
         MaterialTheme(
             colorScheme = materialColorScheme,
             typography = typography,
-            content = content
+            content = if (com.nuvio.tv.NuvioCFeatures.FONT_EVERYWHERE) { // [fork] app font in Material 3 text too
+                { NuvioCMaterial3Font(getFontFamily(appFont), content) }
+            } else content
         )
     }
 }
