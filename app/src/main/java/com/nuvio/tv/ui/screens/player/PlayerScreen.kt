@@ -13,6 +13,7 @@ import coil3.request.crossfade
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Memory // [fork] Switch player engine icon
 
 import com.nuvio.tv.ui.theme.NuvioMotion
 
@@ -2555,6 +2556,7 @@ private fun PlayerControlsOverlay(
                     )
 
                     ControlButton(
+                    if (!com.nuvio.tv.NuvioCFeatures.ENGINE_IN_MORE) { // [fork] moved to the More row
                         icon = Icons.Default.SwapHoriz,
                         contentDescription = stringResource(R.string.cd_switch_player_engine),
                         onClick = onSwitchPlayerEngine,
@@ -2563,6 +2565,7 @@ private fun PlayerControlsOverlay(
                         onFocused = onResetHideTimer
                     )
 
+                    } // [fork]
                     if (hasEpisodeContext && !nuvioCSplit) { // [fork] was if (hasEpisodeContext)
                         ControlButton(
                             icon = Icons.AutoMirrored.Filled.List,
@@ -2612,6 +2615,16 @@ private fun PlayerControlsOverlay(
                                 onFocused = onResetHideTimer
                             )
                             ControlButton(
+                            if (com.nuvio.tv.NuvioCFeatures.ENGINE_IN_MORE) { // [fork] Switch player engine lives here, own icon
+                                ControlButton(
+                                    icon = androidx.compose.material.icons.Icons.Default.Memory,
+                                    contentDescription = stringResource(R.string.cd_switch_player_engine),
+                                    onClick = onSwitchPlayerEngine,
+                                    upFocusRequester = progressUpTarget,
+                                    onDownKey = onHideControls,
+                                    onFocused = onResetHideTimer
+                                )
+                            }
                                 icon = Icons.AutoMirrored.Filled.OpenInNew,
                                 contentDescription = stringResource(R.string.cd_open_external_player),
                                 onClick = {
