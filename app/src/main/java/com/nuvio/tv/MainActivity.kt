@@ -1186,6 +1186,7 @@ open class MainActivity : ComponentActivity() {
                                 )
                             }
 
+                            com.nuvio.tv.ui.components.NuvioCBrowseClock(actualRoute) // [fork] clock on Home and collection folders
                             val autoNextOverlay by externalPlaybackTracker.autoNextOverlay.collectAsState()
                             autoNextOverlay?.let { ov ->
                                 com.nuvio.tv.ui.screens.player.LoadingOverlay(
