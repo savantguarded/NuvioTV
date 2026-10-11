@@ -1849,7 +1849,7 @@ private fun MpvPlayerSurface(
         mpvView.applyAspectMode(aspectMode)
     }
 
-    LaunchedEffect(mpvView, subtitleStyle) {
+    LaunchedEffect(mpvView, subtitleStyle, NuvioCSubtitleFont.current) { // [fork] + font
         mpvView.applySubtitleStyle(subtitleStyle)
     }
 }
@@ -2011,7 +2011,7 @@ private fun ExoPlayerSurface(
         )
     }
 
-    LaunchedEffect(playerView, subtitleStyle) {
+    LaunchedEffect(playerView, subtitleStyle, NuvioCSubtitleFont.current) { // [fork] + font
         playerView.applySubtitleStyleIfNeeded(subtitleStyle)
     }
 }
@@ -2084,7 +2084,7 @@ private fun PlayerView.applySubtitleStyleIfNeeded(
     force: Boolean = false
 ) {
     val isAss = isAssOrSsaSubtitleSelected()
-    val config = SubtitleAppliedConfig(subtitleStyle, isAss)
+    val config = SubtitleAppliedConfig(subtitleStyle, isAss) to NuvioCSubtitleFont.load(context).id // [fork] font change re-applies
     if (!force && getTag(R.id.player_view_subtitle_style_tag) == config) {
         return
     }
@@ -2101,7 +2101,7 @@ private fun PlayerView.applySubtitleStyleIfNeeded(
         setFixedTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, scaledFontSize)
         setApplyEmbeddedFontSizes(false)
 
-        val typeface = if (subtitleStyle.bold) {
+        val typeface = NuvioCSubtitleFont.typeface(context, subtitleStyle.bold) ?: if (subtitleStyle.bold) { // [fork] subtitle font
             android.graphics.Typeface.DEFAULT_BOLD
         } else {
             android.graphics.Typeface.DEFAULT

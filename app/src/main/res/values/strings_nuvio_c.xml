@@ -14,5 +14,8 @@
     <string name="nuvio_c_rate_failed">Couldn\'t reach %1$s. Save again to retry.</string>
     <string name="nuvio_c_rate_pick_score">Pick a score first</string>
     <string name="nuvio_c_rate_pick_tracker">Pick at least one tracker</string>
+    <string name="nuvio_c_subtitle_font">Subtitle Font</string>
+    <string name="nuvio_c_subtitle_font_desc">Font for plain-text subtitles. ASS and picture subtitles keep their own</string>
+    <string name="nuvio_c_subtitle_font_title">Font</string>
     <string name="nuvio_c_rate_trakt_score">Your Trakt rating: %1$d</string>
 </resources>

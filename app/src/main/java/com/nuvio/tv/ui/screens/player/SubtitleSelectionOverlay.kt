@@ -1017,6 +1017,27 @@ private fun SubtitleStyleRail(
                     )
                 }
             }
+            if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_FONT) item { // [fork] Nuvio C subtitle font
+                val nuvioCContext = androidx.compose.ui.platform.LocalContext.current
+                val nuvioCFont = NuvioCSubtitleFont.let { it.load(nuvioCContext); it.current }
+                OverlaySectionCard(
+                    title = stringResource(R.string.nuvio_c_subtitle_font_title),
+                    modifier = styleCardModifier
+                ) {
+                    StepperRow(
+                        value = nuvioCFont.label,
+                        valueWidth = 136.dp,
+                        onDecrease = { if (!isStyleDisabledByLibass) NuvioCSubtitleFont.step(nuvioCContext, -1) },
+                        onIncrease = { if (!isStyleDisabledByLibass) NuvioCSubtitleFont.step(nuvioCContext, 1) },
+                        onMoveLeft = onMoveLeft,
+                        decrementFocusRequester = focusRequesters[NUVIO_C_FONT_PREV],
+                        incrementFocusRequester = focusRequesters[NUVIO_C_FONT_NEXT],
+                        decrementFocusKey = NUVIO_C_FONT_PREV,
+                        incrementFocusKey = NUVIO_C_FONT_NEXT,
+                        onFocusChanged = onStyleFocused
+                    )
+                }
+            }
             item {
                 Card(
                     onClick = { dispatchStyleEvent(PlayerEvent.OnResetSubtitleDefaults) },
@@ -1674,6 +1695,10 @@ private fun overlayCardBorder() = CardDefaults.border(
     )
 )
 
+// [fork] Nuvio C subtitle font stepper focus keys
+private const val NUVIO_C_FONT_PREV = "nuvio_c_font_prev"
+private const val NUVIO_C_FONT_NEXT = "nuvio_c_font_next"
+
 private object StyleFocusKey {
     const val FontSizeDecrease = "font_size_decrease"
     const val FontSizeIncrease = "font_size_increase"
@@ -1704,7 +1729,8 @@ private fun styleListIndexForFocusKey(focusKey: String): Int {
         focusKey == StyleFocusKey.OpacityDecrease || focusKey == StyleFocusKey.OpacityIncrease -> 4
         focusKey == StyleFocusKey.OutlineToggle || focusKey.startsWith("${StyleFocusKey.OutlineColorPrefix}:") -> 5
         focusKey == StyleFocusKey.OffsetDecrease || focusKey == StyleFocusKey.OffsetIncrease -> 6
-        focusKey == StyleFocusKey.Reset -> 7
+        focusKey == NUVIO_C_FONT_PREV || focusKey == NUVIO_C_FONT_NEXT -> 7 // [fork]
+        focusKey == StyleFocusKey.Reset -> if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_FONT) 8 else 7 // [fork] was 7
         else -> 0
     }
 }
@@ -1727,7 +1753,8 @@ private fun rememberStyleFocusRequesters(): Map<String, FocusRequester> {
             StyleFocusKey.OffsetDecrease,
             StyleFocusKey.OffsetIncrease,
             StyleFocusKey.DelaySet,
-            StyleFocusKey.Reset
+            StyleFocusKey.Reset,
+            NUVIO_C_FONT_PREV, NUVIO_C_FONT_NEXT // [fork]
         ).associateWith { FocusRequester() } +
             OverlayTextColors.associate { color ->
                 "${StyleFocusKey.TextColorPrefix}:${color.toArgb()}" to FocusRequester()

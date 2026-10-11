@@ -32,3 +32,18 @@ internal fun NuvioCPreferSdhRow(enabled: Boolean, stripSdh: Boolean) {
         enabled = enabled
     )
 }
+
+/** "Subtitle Font": cycles through the fonts (same list as the player's subtitle style panel). */
+@Composable
+internal fun NuvioCSubtitleFontRow(enabled: Boolean) {
+    if (!NuvioCFeatures.SUBTITLE_FONT) return
+    val context = LocalContext.current
+    val current = com.nuvio.tv.ui.screens.player.NuvioCSubtitleFont.let { it.load(context); it.current }
+    SettingsActionRow(
+        title = stringResource(R.string.nuvio_c_subtitle_font),
+        subtitle = stringResource(R.string.nuvio_c_subtitle_font_desc),
+        value = current.label,
+        onClick = { com.nuvio.tv.ui.screens.player.NuvioCSubtitleFont.step(context, 1) },
+        enabled = enabled
+    )
+}

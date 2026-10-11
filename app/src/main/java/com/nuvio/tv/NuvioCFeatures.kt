@@ -86,4 +86,6 @@ object NuvioCFeatures {
     const val DETAIL_RATING = true
     /** Player: "Switch player engine" sits in the More row (the hidden buttons) instead of the main row. */
     const val ENGINE_IN_MORE = true
+    /** Subtitles: "Font" picker (player subtitle style panel and Settings) with the app's extra fonts. Off = official default font. */
+    const val SUBTITLE_FONT = true
 }
