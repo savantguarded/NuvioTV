@@ -497,6 +497,7 @@ class InAppYouTubeExtractor @Inject constructor() {
                     val resolvedVideo = bestVideo?.url?.let { resolveReachableUrl(it) }
                     val resolvedAudio = if (resolvedVideo != null) bestAudio?.url?.let { resolveReachableUrl(it) } else null
                     resolvedVideo?.let { TrailerPlaybackSource(videoUrl = it, audioUrl = resolvedAudio) }
+                        ?.also { if ((bestVideo?.height ?: 0) in 1..719) NuvioCYouTubeHealth.markDegraded(it) } // [fork] Nuvio C: under 720p, IMDb may do better
                 }
                 // HLS manifest (1080p, always works for COPPA/kids content)
                 PlaybackSourceKind.HLS_MANIFEST ->

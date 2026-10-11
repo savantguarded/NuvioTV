@@ -91,6 +91,7 @@ internal fun LayoutDetailPageSection(
             )
         }
     }
+    NuvioCPreferImdbTrailersRow() // [fork]
     SettingsToggleRow(
         title = stringResource(R.string.layout_trailer_button),
         subtitle = stringResource(R.string.layout_trailer_button_sub),

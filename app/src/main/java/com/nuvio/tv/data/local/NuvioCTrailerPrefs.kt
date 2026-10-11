@@ -23,6 +23,15 @@ object NuvioCTrailerPrefs {
     fun setBackgroundTrailerMuted(context: Context, muted: Boolean) {
         prefs(context).edit().putBoolean(KEY_BG_TRAILER_MUTED, muted).apply()
     }
+
+    const val KEY_PREFER_IMDB = "prefer_imdb_trailers"
+
+    /** Trailers: IMDb first, YouTube as the fallback (2026-10-11). Off by default. */
+    fun preferImdb(context: Context): Boolean = prefs(context).getBoolean(KEY_PREFER_IMDB, false)
+
+    fun setPreferImdb(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean(KEY_PREFER_IMDB, value).apply()
+    }
 }
 
 /** Whether background trailers play muted. Always true when the switch is off (the old behaviour). */
