@@ -92,4 +92,6 @@ object NuvioCFeatures {
     const val PROFILE_CLEAN = true
     /** Home and collection folders: small clock top-right (like Plex). Not in the player (it has its own). */
     const val BROWSE_CLOCK = true
+    /** App font everywhere: the player's Episodes and Sources panels (and other Material 3 text) follow Settings > Appearance > Font. Off = those stay on the system font. */
+    const val FONT_EVERYWHERE = true
 }
