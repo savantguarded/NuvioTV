@@ -90,4 +90,6 @@ object NuvioCFeatures {
     const val SUBTITLE_FONT = true
     /** Profile screen: official layout without "Who's watching?", the hold hint, star and Primary text; Add Profile as a button under the profiles. Manage profiles stays official. */
     const val PROFILE_CLEAN = true
+    /** Home and collection folders: small clock top-right (like Plex). Not in the player (it has its own). */
+    const val BROWSE_CLOCK = true
 }
