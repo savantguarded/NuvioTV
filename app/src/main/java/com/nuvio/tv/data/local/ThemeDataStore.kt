@@ -47,6 +47,7 @@ class ThemeDataStore @Inject constructor(
     val selectedFont: Flow<AppFont> = profileManager.activeProfileId.flatMapLatest { pid ->
         factory.get(pid, FEATURE).data.map { prefs ->
             val fontName = prefs[fontKey] ?: AppFont.INTER.name
+            if (fontName in com.nuvio.tv.domain.model.NUVIO_C_DROPPED_FONTS) return@map AppFont.GEIST // [fork] trimmed font list
             try {
                 AppFont.valueOf(fontName)
             } catch (e: IllegalArgumentException) {

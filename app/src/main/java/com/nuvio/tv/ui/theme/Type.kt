@@ -38,17 +38,12 @@ fun getFontFamily(appFont: AppFont): FontFamily = when (appFont) {
     AppFont.OPEN_SANS -> OpenSansFamily
     // [fork] Nuvio C extra fonts
     AppFont.GOOGLE_SANS_FLEX -> if (com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS) NuvioCGoogleSansFlexFamily else InterFamily
-    AppFont.MANROPE -> if (com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS) NuvioCManropeFamily else InterFamily
-    AppFont.FIGTREE -> if (com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS) NuvioCFigtreeFamily else InterFamily
-    AppFont.PLUS_JAKARTA_SANS -> if (com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS) NuvioCPlusJakartaSansFamily else InterFamily
     AppFont.OUTFIT -> if (com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS) NuvioCOutfitFamily else InterFamily
     AppFont.ATKINSON_HYPERLEGIBLE_NEXT -> if (com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS) NuvioCAtkinsonHyperlegibleNextFamily else InterFamily
     AppFont.GEIST -> if (com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS) NuvioCGeistFamily else InterFamily
-    AppFont.ONEST -> if (com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS) NuvioCOnestFamily else InterFamily
-    AppFont.INSTRUMENT_SANS -> if (com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS) NuvioCInstrumentSansFamily else InterFamily
-    AppFont.ALBERT_SANS -> if (com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS) NuvioCAlbertSansFamily else InterFamily
-    AppFont.HANKEN_GROTESK -> if (com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS) NuvioCHankenGroteskFamily else InterFamily
-    AppFont.RETHINK_SANS -> if (com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS) NuvioCRethinkSansFamily else InterFamily
+    AppFont.SPACE_GROTESK -> if (com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS) NuvioCSpaceGroteskFamily else InterFamily
+    AppFont.LEXEND -> if (com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS) NuvioCLexendFamily else InterFamily
+    AppFont.SOURCE_SERIF_4 -> if (com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS) NuvioCSourceSerif4Family else InterFamily
 }
 
 // [fork] Nuvio C extra fonts: one variable font file each (OFL, from Google Fonts), weights from its wght axis
@@ -59,17 +54,12 @@ private fun nuvioCVariableFamily(res: Int) = FontFamily(
     Font(res, FontWeight.Bold)
 )
 private val NuvioCGoogleSansFlexFamily by lazy { nuvioCVariableFamily(R.font.nuvio_c_google_sans_flex) }
-private val NuvioCManropeFamily by lazy { nuvioCVariableFamily(R.font.nuvio_c_manrope) }
-private val NuvioCFigtreeFamily by lazy { nuvioCVariableFamily(R.font.nuvio_c_figtree) }
-private val NuvioCPlusJakartaSansFamily by lazy { nuvioCVariableFamily(R.font.nuvio_c_plus_jakarta_sans) }
 private val NuvioCOutfitFamily by lazy { nuvioCVariableFamily(R.font.nuvio_c_outfit) }
 private val NuvioCAtkinsonHyperlegibleNextFamily by lazy { nuvioCVariableFamily(R.font.nuvio_c_atkinson_hyperlegible_next) }
 private val NuvioCGeistFamily by lazy { nuvioCVariableFamily(R.font.nuvio_c_geist) }
-private val NuvioCOnestFamily by lazy { nuvioCVariableFamily(R.font.nuvio_c_onest) }
-private val NuvioCInstrumentSansFamily by lazy { nuvioCVariableFamily(R.font.nuvio_c_instrument_sans) }
-private val NuvioCAlbertSansFamily by lazy { nuvioCVariableFamily(R.font.nuvio_c_albert_sans) }
-private val NuvioCHankenGroteskFamily by lazy { nuvioCVariableFamily(R.font.nuvio_c_hanken_grotesk) }
-private val NuvioCRethinkSansFamily by lazy { nuvioCVariableFamily(R.font.nuvio_c_rethink_sans) }
+private val NuvioCSpaceGroteskFamily by lazy { nuvioCVariableFamily(R.font.nuvio_c_space_grotesk) }
+private val NuvioCLexendFamily by lazy { nuvioCVariableFamily(R.font.nuvio_c_lexend) }
+private val NuvioCSourceSerif4Family by lazy { nuvioCVariableFamily(R.font.nuvio_c_source_serif_4) }
 
 
 @Immutable
