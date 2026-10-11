@@ -400,3 +400,19 @@ private fun isRailSelectKey(keyCode: Int): Boolean =
     keyCode == AndroidKeyEvent.KEYCODE_DPAD_CENTER ||
         keyCode == AndroidKeyEvent.KEYCODE_ENTER ||
         keyCode == AndroidKeyEvent.KEYCODE_NUMPAD_ENTER
+
+/** [fork] 2026-10-11 round 4: the clean profile screen's wordmark without the supporter badge beside it. */
+@androidx.compose.runtime.Composable
+internal fun NuvioCPlainWordmark(height: androidx.compose.ui.unit.Dp, drawableOverride: Int?) {
+    androidx.compose.animation.Crossfade(
+        targetState = drawableOverride,
+        animationSpec = androidx.compose.animation.core.tween(durationMillis = 180),
+        label = "nuvioCPlainWordmark"
+    ) { current ->
+        com.nuvio.tv.ui.components.BrandWordmark(
+            modifier = Modifier.height(height),
+            contentDescription = androidx.compose.ui.res.stringResource(com.nuvio.tv.R.string.cd_nuvio_logo),
+            drawableOverride = current
+        )
+    }
+}
