@@ -133,3 +133,13 @@ internal fun NuvioCTrailerScreenLogo(
         }
     }
 }
+
+/**
+ * [fork] Nuvio C (2026-10-11): some add-ons send descriptions ending in blank lines, which showed as
+ * an empty gap between the synopsis and the genre line. Trims the ends and folds runs of blank lines.
+ */
+internal fun String.nuvioCCleanSynopsis(): String? =
+    replace("\r\n", "\n")
+        .trim { it.isWhitespace() || it == '\u200B' || it == '\uFEFF' }
+        .replace(Regex("\n[\\h\u200B]*(\n[\\h\u200B]*)+"), "\n\n")
+        .takeIf { it.isNotEmpty() }
