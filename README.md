@@ -8,7 +8,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 
 **Player**
 - The title's logo shows top-left on the player controls, inside a fixed box so wide and square logos look balanced and are never cropped. It appears a few seconds after playback starts so it doesn't clash with the parental guide, HDR/Dolby Vision popups or the stats screen.
-- Small badges bottom-right, beside the title, all the same outlined tile on one line: resolution (`4K`), picture (`DV`, `HDR10`, `HDR10+`, `HLG`), audio (`ATMOS 7.1`, `DTS-HD MA 5.1`, `DD+ 5.1`…) and source (`REMUX`, `WEB-DL`…), then the file size in plain text. The picture format is what the TV is actually being sent, read from the decoded video when the file or stream name doesn't say (e.g. `2160p.WEB.h265` releases that are really HDR). HDR10+ is found in the video stream itself (the first couple of hundred frames are checked), so HDR10+ files whose name doesn't mention it still say HDR10+ (ExoPlayer, MKV / MP4 files).
+- Small badges bottom-right, beside the title, all the same outlined tile on one line: resolution (`4K`), picture (`DV`, `HDR10`, `HDR10+`, `HLG`), audio (`ATMOS 7.1`, `DTS-HD MA 5.1`, `DD+ 5.1`…) and source (`REMUX`, `WEB-DL`…), then the file size in plain text. The picture format is what the TV is actually being sent, read from the decoded video when the file or stream name doesn't say (e.g. `2160p.WEB.h265` releases that are really HDR). HDR10+ is found by a separate background check that downloads the first 8 MB of the file on its own and looks for HDR10+ metadata, so HDR10+ files whose name doesn't mention it still say HDR10+ (ExoPlayer, MKV / MP4 files). It never touches playback or the decoder.
 - Official button row with the time on the right. The focused button's name shows small underneath it, with the current subtitle or audio track (e.g. "Subtitles · English SDH"). **Switch player engine** lives in the More row (the hidden buttons) with its own icon.
 - Skip Intro and the next-episode card sit just above the seek bar while the controls are open, so they never overlap it or get cut off.
 - Faster controls: no full-screen layer for the HDR dim, no re-layout when the seek bar gets focus, and the clock, time, seek bar, logo and title block each redraw on their own, so a tick of one doesn't redraw the whole OSD. In HDR the subtitle dim only uses a layer on subtitle frames that have something in them.
@@ -99,7 +99,7 @@ The release notes list what was switched off. Clear the variable to turn everyth
 | `shuffle_button_size` | Play-sized Shuffle button |
 | `trailer_max_1080p` | 1080p trailer cap (**off**: trailers as official) |
 | `profile_minimal` | Netflix-style profile screen (**off**: official profile screen) |
-| `hdr_decoded` | HDR read from the decoded video and HDR10+ from the video stream (back to file info and stream name only) |
+| `hdr_decoded` | HDR read from the decoded video and HDR10+ from a side check of the file (back to file info and stream name only) |
 | `hero_ratings_space` | Reserved space for the MDBList ratings line while it loads |
 | `skip_above_seek` | Skip Intro / next-episode card placed just above the seek bar (back to official fixed spot) |
 | `osd_split` | Split button row with the time under the seek bar (**off**: official row) |
