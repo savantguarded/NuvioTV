@@ -283,15 +283,16 @@ internal fun nuvioCVisualTag(controller: PlayerRuntimeController, uiState: Playe
     return NuvioCOsdBadges.visualLabel(
         mimeType = exoFormat?.sampleMimeType ?: controller.currentVideoTrackMimeType,
         codecs = exoFormat?.codecs ?: controller.currentVideoTrackCodecs,
-        colorTransfer = exoFormat?.colorInfo?.colorTransfer ?: controller.currentVideoTrackColorTransfer,
+        // [fork] track colour info, else the video's own header (MKVs without a Colour block)
+        colorTransfer = exoFormat?.colorInfo?.colorTransfer?.takeIf { it != Format.NO_VALUE }
+            ?: NuvioCSpsColor.transfer(exoFormat)
+            ?: controller.currentVideoTrackColorTransfer,
         decodedKnown = usingExo,
         dvStripped = controller.isMapDv7ToHevcActiveForCurrentPlayback || controller.forceDv7ToHevc,
         dvConverted = controller.isExperimentalDv7ToDv81ActiveForCurrentPlayback ||
             controller.isManualDv81Mode2ActiveForCurrentPlayback,
         names = names,
-        decoderTransfer = NuvioCDecodedColor.transfer(controller, exoFormat),
-        decoderHdr10Plus = NuvioCDecodedColor.hdr10Plus(controller, exoFormat) ||
-            (exoFormat != null && NuvioCHdr10PlusSniff.found()) // [fork] HDR10+ side check (separate request)
+        decoderTransfer = NuvioCDecodedColor.transfer(controller) // mpv's decoded gamma only
     )
 }
 
@@ -303,7 +304,7 @@ internal fun nuvioCLogVisualInputs(controller: PlayerRuntimeController, uiState:
             "NuvioCOsdBadges",
             "badge=$tag engine=${controller.currentInternalPlayerEngine} mime=${exo?.sampleMimeType ?: controller.currentVideoTrackMimeType} " +
                 "codecs=${exo?.codecs ?: controller.currentVideoTrackCodecs} trackTransfer=${exo?.colorInfo?.colorTransfer ?: controller.currentVideoTrackColorTransfer} " +
-                "decoderTransfer=${NuvioCDecodedColor.transfer(controller, exo)} hdr10plus=${NuvioCDecodedColor.hdr10Plus(controller, exo)} " +
+                "headerTransfer=${NuvioCSpsColor.transfer(exo)} mpvTransfer=${NuvioCDecodedColor.transfer(controller)} " +
                 "mpvGamma=${controller.mpvView?.nuvioCVideoGamma()} file=${controller.currentFilename}"
         )
     }
@@ -361,8 +362,8 @@ internal object NuvioCOsdBadges {
     /**
      * What the TV is actually being sent. A DV file played as its HDR10 base layer says HDR10.
      * When nothing was decoded by ExoPlayer (mpv), the stream title decides, then mpv's decoded
-     * gamma, else SDR. [decoderTransfer] = what the video decoder itself reports (NuvioCDecodedColor):
-     * it catches HDR files whose container and name don't say so ("2160p.WEB.h265").
+     * gamma, else SDR. [decoderTransfer] = mpv's decoded gamma (NuvioCDecodedColor):
+     * ExoPlayer HDR files whose container and name don't say so come through [colorTransfer] (NuvioCSpsColor).
      */
     fun visualLabel(
         mimeType: String?,
@@ -372,8 +373,7 @@ internal object NuvioCOsdBadges {
         dvStripped: Boolean,
         dvConverted: Boolean,
         names: String,
-        decoderTransfer: Int? = null,
-        decoderHdr10Plus: Boolean = false
+        decoderTransfer: Int? = null
     ): String {
         val fromName = visualFromName(names)
         if (!decodedKnown) return fromName ?: transferLabel(decoderTransfer, fromName) ?: "SDR"
@@ -386,8 +386,6 @@ internal object NuvioCOsdBadges {
         return when {
             dvConverted -> "DV"
             isDv && !dvStripped -> "DV"
-            // HDR10+ metadata only exists on PQ video, so it also counts when the colour isn't flagged
-            decoderHdr10Plus && (transfer == null || transfer == C.COLOR_TRANSFER_ST2084) -> "HDR10+"
             transfer == C.COLOR_TRANSFER_ST2084 || transfer == C.COLOR_TRANSFER_HLG -> transferLabel(transfer, fromName)!!
             isDv -> "HDR10" // DV stripped to its base layer
             transfer == C.COLOR_TRANSFER_SDR -> "SDR"
