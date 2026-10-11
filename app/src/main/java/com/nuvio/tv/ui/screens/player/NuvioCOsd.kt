@@ -277,6 +277,7 @@ private fun buildBadgeParts(controller: PlayerRuntimeController, uiState: Player
 private const val MARK_ASPECT_DV = 2.693f
 private const val MARK_ASPECT_ATMOS = 2.695f
 private const val MARK_ASPECT_DTS = 2.553f
+    nuvioCLogVisualInputs(controller, uiState, visual)
 
 /** Audio: Atmos = Dolby Atmos mark; DTS family = DTS mark (+ "X" / "HD MA" / "HD"); else a tile. */
 internal fun nuvioCAudioBadges(audioLabel: String?, names: String): List<NuvioCBadge> {
@@ -310,7 +311,8 @@ internal fun nuvioCVisualTag(controller: PlayerRuntimeController, uiState: Playe
         dvConverted = controller.isExperimentalDv7ToDv81ActiveForCurrentPlayback ||
             controller.isManualDv81Mode2ActiveForCurrentPlayback,
         names = names,
-        decoderTransfer = NuvioCDecodedColor.transfer(controller, exoFormat)
+        decoderTransfer = NuvioCDecodedColor.transfer(controller, exoFormat),
+        decoderHdr10Plus = NuvioCDecodedColor.hdr10Plus(controller, exoFormat)
     )
 }
 
@@ -333,6 +335,20 @@ internal object NuvioCOsdBadges {
             w >= 1700 || h >= 1000 -> "1080p"
             w >= 1200 || h >= 700 -> "720p"
             h >= 540 -> "576p"
+/** One line per OSD open (tag NuvioCOsdBadges): what the badge rules were given. For checking files. */
+internal fun nuvioCLogVisualInputs(controller: PlayerRuntimeController, uiState: PlayerUiState, tag: String) {
+    runCatching {
+        val exo = if (controller.currentInternalPlayerEngine == InternalPlayerEngine.MVP_PLAYER) null else controller._exoPlayer?.videoFormat
+        android.util.Log.i(
+            "NuvioCOsdBadges",
+            "badge=$tag engine=${controller.currentInternalPlayerEngine} mime=${exo?.sampleMimeType ?: controller.currentVideoTrackMimeType} " +
+                "codecs=${exo?.codecs ?: controller.currentVideoTrackCodecs} trackTransfer=${exo?.colorInfo?.colorTransfer ?: controller.currentVideoTrackColorTransfer} " +
+                "decoderTransfer=${NuvioCDecodedColor.transfer(controller, exo)} hdr10plus=${NuvioCDecodedColor.hdr10Plus(controller, exo)} " +
+                "mpvGamma=${controller.mpvView?.nuvioCVideoGamma()} file=${controller.currentFilename}"
+        )
+    }
+}
+
             h >= 440 -> "480p"
             else -> "SD"
         }
@@ -377,7 +393,8 @@ internal object NuvioCOsdBadges {
         dvStripped: Boolean,
         dvConverted: Boolean,
         names: String,
-        decoderTransfer: Int? = null
+        decoderTransfer: Int? = null,
+        decoderHdr10Plus: Boolean = false
     ): String {
         val fromName = visualFromName(names)
         if (!decodedKnown) return fromName ?: transferLabel(decoderTransfer, fromName) ?: "SDR"
@@ -409,6 +426,7 @@ internal object NuvioCOsdBadges {
     fun sourceFromName(names: String): String? {
         val n = names.lowercase(Locale.US)
         fun has(re: String) = Regex(re).containsMatchIn(n)
+            transfer == C.COLOR_TRANSFER_ST2084 && decoderHdr10Plus -> "HDR10+"
         return when {
             has("""(\b|[._ -])(bd)?remux(\b|[._ -])""") -> "REMUX"
             has("""web[ ._-]?dl""") -> "WEB-DL"

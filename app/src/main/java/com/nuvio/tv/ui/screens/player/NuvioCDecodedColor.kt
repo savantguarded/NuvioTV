@@ -21,16 +21,32 @@ import java.lang.ref.WeakReference
 
 internal object NuvioCDecodedColor {
 
-    private class Seen(val format: Format, val transfer: Int)
+    private class Seen(val format: Format, val transfer: Int, val hdr10Plus: Boolean = false)
+
+    /** Frames to keep listening on a PQ track for HDR10+ metadata before letting go (~10 s). */
+    private const val HDR10_PLUS_WAIT_FRAMES = 240
+    @Volatile private var pqFramesSeen = 0
 
     @Volatile private var seen: Seen? = null
     private var watched: WeakReference<ExoPlayer>? = null
 
     private val listener = VideoFrameMetadataListener { _, _, format, mediaFormat ->
         val transfer = mediaFormat?.toC() ?: return@VideoFrameMetadataListener
+        // 2026-10-11: HDR10+ comes as per-frame metadata the decoder hands out with the frame
+        // (Android 10+), so HDR10+ files whose name doesn't say so still get the HDR10+ badge.
+        val plus = transfer == C.COLOR_TRANSFER_ST2084 &&
+            runCatching { mediaFormat.containsKey(KEY_HDR10_PLUS_INFO) }.getOrDefault(false)
         val last = seen
-        if (last == null || last.transfer != transfer || !sameTrack(last.format, format)) seen = Seen(format, transfer)
+        val same = last != null && sameTrack(last.format, format)
+        if (!same) pqFramesSeen = 0
+        if (transfer == C.COLOR_TRANSFER_ST2084) pqFramesSeen++
+        if (last == null || last.transfer != transfer || !same || (plus && !last.hdr10Plus)) {
+            seen = Seen(format, transfer, plus || (same && last!!.hdr10Plus))
+        }
     }
+
+    /** MediaFormat.KEY_HDR10_PLUS_INFO (API 29), as a literal so older SDK levels still compile. */
+    private const val KEY_HDR10_PLUS_INFO = "hdr10-plus-info"
 
     /** Hooks the decoder callback onto the current ExoPlayer once (cheap to call every poll). */
     fun watch(controller: PlayerRuntimeController) {
@@ -54,8 +70,19 @@ internal object NuvioCDecodedColor {
         val known = last != null && videoFormat != null && sameTrack(last.format, videoFormat)
         // The callback runs for every decoded frame: listen only until this track's colour is known,
         // then let go (re-hooked when the track changes). 2026-10-10 OSD lag fix.
-        if (known) unwatch() else watch(controller)
+        // A PQ track stays watched a little longer (about 10 s of frames) in case HDR10+ turns up.
+        val waitForPlus = known && last!!.transfer == C.COLOR_TRANSFER_ST2084 && !last.hdr10Plus &&
+            pqFramesSeen < HDR10_PLUS_WAIT_FRAMES
+        if (known && !waitForPlus) unwatch() else watch(controller)
         return if (known) last!!.transfer else null
+    }
+
+    /** True when the decoder has handed out HDR10+ metadata for [videoFormat] (ExoPlayer only). */
+    fun hdr10Plus(controller: PlayerRuntimeController, videoFormat: Format?): Boolean {
+        if (!NuvioCFeatures.HDR_DECODED) return false
+        if (controller.currentInternalPlayerEngine == InternalPlayerEngine.MVP_PLAYER) return false
+        val last = seen ?: return false
+        return videoFormat != null && sameTrack(last.format, videoFormat) && last.hdr10Plus
     }
 
     private fun unwatch() {
