@@ -291,7 +291,7 @@ internal fun nuvioCVisualTag(controller: PlayerRuntimeController, uiState: Playe
         names = names,
         decoderTransfer = NuvioCDecodedColor.transfer(controller, exoFormat),
         decoderHdr10Plus = NuvioCDecodedColor.hdr10Plus(controller, exoFormat) ||
-            (exoFormat != null && NuvioCHdr10PlusSniff.found(exoFormat)) // [fork] round 4: from the stream itself
+            (exoFormat != null && NuvioCHdr10PlusSniff.found()) // [fork] HDR10+ side check (separate request)
     )
 }
 
