@@ -294,7 +294,7 @@ internal class PlayerMediaSourceFactory(private val context: Context) {
                 "requestedCap=${vodCacheMaxBytes / (1024L * 1024L)}MB stats=${vodCacheStatsSnapshot()}"
         )
 
-        val extractorsFactory = customExtractorsFactory ?: DefaultExtractorsFactory()
+        val extractorsFactory = NuvioCHdr10PlusSniff.wrap(customExtractorsFactory ?: DefaultExtractorsFactory()) // [fork] HDR10+ from the stream
         // MediaItem subtitle tracks load through this factory too; route addon subtitles through the
         // subtitle download path so they don't inherit the stream's headers and client.
         val defaultSourceFactory = if (subtitleConfigurations.isNotEmpty()) {
