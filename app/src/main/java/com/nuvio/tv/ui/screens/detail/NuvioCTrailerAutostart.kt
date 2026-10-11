@@ -20,9 +20,10 @@ import kotlinx.coroutines.withTimeoutOrNull
 // a few `[fork]` lines. Play in Background off = never armed, official autoplay runs unchanged.
 //
 // Rules (one visit = one countdown, never restarted once the trailer has played):
-// - Any overlay (comments, synopsis, every popup dialog, a trailer from the trailers row),
-//   a cast / production page or another title, or the app going to the background pause the
-//   countdown; it resumes with the time that was left.
+// - Any overlay (comments, synopsis, every popup dialog, a trailer from the trailers row) or a
+//   cast / production page or another title stops the countdown; when it closes the countdown
+//   starts again from the full delay (2026-10-11, was: resume with the time left).
+// - The app going to the background pauses it; it resumes with the time that was left.
 // - Leaving the page (starting playback, the stream picker, Back) ends it for the visit.
 // - When it runs out mid-scroll, the trailer waits for the rows to settle (max ~1 s).
 // - Titles you've started or watched (movie in progress or watched, any episode with progress or
@@ -60,16 +61,36 @@ class NuvioCTrailerAutostart internal constructor(
         if (phase != Phase.IDLE) return
         phase = Phase.COUNTING
         remainingMs = delayMs().coerceAtLeast(0L)
+        log("armed: ${remainingMs} ms")
         reschedule()
     }
 
-    fun setOverlayOpen(open: Boolean) { if (overlayOpen != open) { overlayOpen = open; reschedule() } }
-    fun setChildPageOpen(open: Boolean) { if (childPageOpen != open) { childPageOpen = open; reschedule() } }
+    fun setOverlayOpen(open: Boolean) {
+        if (overlayOpen == open) return
+        overlayOpen = open
+        if (!open) restartFromFull("overlay closed")
+        reschedule()
+    }
+
+    fun setChildPageOpen(open: Boolean) {
+        if (childPageOpen == open) return
+        childPageOpen = open
+        if (!open) restartFromFull("child page closed")
+        reschedule()
+    }
+
+    /** Back from an overlay or a child page: the countdown starts over (2026-10-11). */
+    private fun restartFromFull(why: String) {
+        if (phase != Phase.COUNTING) return
+        remainingMs = delayMs().coerceAtLeast(0L)
+        log("$why: countdown reset to ${remainingMs} ms")
+    }
     fun setAppAway(away: Boolean) { if (appAway != away) { appAway = away; reschedule() } }
     fun setScrolling(active: Boolean) { scrolling.value = active }
 
     /** Left the details page: no more autostart this visit. */
     fun finish() {
+        if (phase == Phase.COUNTING) log("page left: countdown ended")
         job?.cancel()
         job = null
         phase = Phase.DONE
@@ -89,8 +110,13 @@ class NuvioCTrailerAutostart internal constructor(
             withTimeoutOrNull(SCROLL_SETTLE_MAX_MS) { scrolling.first { !it } }
             phase = Phase.DONE
             job = null
-            start()
+            log("countdown done, started=${start()}")
         }
+    }
+
+    // Logcat tag NuvioCTrailerAutostart; quiet in unit tests (no Android Log there).
+    private fun log(message: String) {
+        runCatching { android.util.Log.i("NuvioCTrailerAutostart", message) }
     }
 }
 
