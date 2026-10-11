@@ -16,6 +16,7 @@ import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.view.View
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -25,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
@@ -142,27 +144,46 @@ private fun Modifier.nuvioCGrowBy(by: Dp): Modifier = layout { measurable, const
 }
 
 /**
- * Light HDR dim for the player controls (2026-10-10, OSD lag fix): no offscreen layer. Each draw is
- * made at [NuvioCHdrDim.FACTOR] opacity instead, so white text and icons read at 60% over the dark
- * shadows (gradients stay full strength: they are outside these blocks). The old full-screen
- * offscreen layer re-rendered the whole OSD on every focus move and seek-bar tick while 4K HDR
- * decoded, which was the HDR lag. Used for the controls, clock and seek-only bar; small static
- * panels keep [nuvioCHdrDim].
+ * HDR dim for the player controls without any layer (2026-10-11): the colours themselves are drawn
+ * at [NuvioCHdrDim.FACTOR] brightness, transparency kept, so the controls stay solid (the
+ * 2026-10-10 version lowered their opacity instead, and the picture showed through them). Text,
+ * icons, focus pills, seek bar, badges, logo, clock and time read their colours through
+ * [nuvioCOsd] / [nuvioCOsdColorFilter] / [nuvioCOsdShade]; gradients stay full strength.
+ * PlayerScreen sets [LocalNuvioCHdrDim] around the controls, clock and seek-only bar.
  */
-internal fun Modifier.nuvioCHdrDimLight(active: Boolean): Modifier {
-    if (!active || !NuvioCFeatures.HDR_DIM) return this
-    return graphicsLayer {
-        alpha = NuvioCHdrDim.FACTOR
-        compositingStrategy = CompositingStrategy.ModulateAlpha
-    }
-}
-
-/** Whether the controls drawn below should take the light HDR dim (set by PlayerScreen). */
 internal val LocalNuvioCHdrDim = compositionLocalOf { false }
 
-/** [nuvioCHdrDimLight] driven by [LocalNuvioCHdrDim]. */
+/** [color] at HDR-dim brightness while the controls are dimmed; alpha untouched. */
 @Composable
-internal fun Modifier.nuvioCOsdDim(): Modifier = nuvioCHdrDimLight(LocalNuvioCHdrDim.current)
+@ReadOnlyComposable
+internal fun nuvioCOsd(color: Color): Color =
+    if (LocalNuvioCHdrDim.current && NuvioCFeatures.HDR_DIM) color.nuvioCDimmed() else color
+
+internal fun Color.nuvioCDimmed(): Color {
+    val f = NuvioCHdrDim.FACTOR
+    return Color(red * f, green * f, blue * f, alpha)
+}
+
+/** Colour filter for images (OSD logo) while dimmed, else null. */
+@Composable
+@ReadOnlyComposable
+internal fun nuvioCOsdColorFilter(): ColorFilter? =
+    if (LocalNuvioCHdrDim.current && NuvioCFeatures.HDR_DIM) NUVIO_C_DIM_FILTER else null
+
+private val NUVIO_C_DIM_FILTER: ColorFilter = NuvioCHdrDim.FACTOR.let { f ->
+    ColorFilter.colorMatrix(
+        androidx.compose.ui.graphics.ColorMatrix().apply { setToScale(f, f, f, 1f) }
+    )
+}
+
+/**
+ * For fully opaque fills drawn with a brush (seek bar played part, thumb): black at 40% drawn over
+ * the element's own shape. Only valid where the element itself is opaque.
+ */
+@Composable
+@ReadOnlyComposable
+internal fun nuvioCOsdShade(): Color? =
+    if (LocalNuvioCHdrDim.current && NuvioCFeatures.HDR_DIM) Color.Black.copy(alpha = 1f - NuvioCHdrDim.FACTOR) else null
 
 /** Colour filter for a subtitle frame (Android view layer). */
 internal fun nuvioCDimPaint(factor: Float): Paint = Paint().apply {

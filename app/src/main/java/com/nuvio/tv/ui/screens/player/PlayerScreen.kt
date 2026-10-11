@@ -1384,12 +1384,13 @@ fun PlayerScreen(
                 .align(Alignment.TopEnd)
                 .padding(end = 28.dp, top = NuvioTheme.spacing.xl)
                 .zIndex(2.15f)
-                .nuvioCHdrDimLight(nuvioCHdr) // [fork] no offscreen layer (ticks every second)
         ) {
+            CompositionLocalProvider(LocalNuvioCHdrDim provides nuvioCHdr) { // [fork] HDR dim by colour, no layer
             PlayerClockOverlayHost(
                 viewModel = viewModel,
                 playbackSpeed = uiState.playbackSpeed
             )
+            } // [fork]
         }
 
         // Controls overlay
@@ -1581,9 +1582,9 @@ fun PlayerScreen(
                 !uiState.isLive,
             enter = fadeIn(animationSpec = tween(150)),
             exit = fadeOut(animationSpec = tween(150)),
-            modifier = Modifier.align(Alignment.BottomCenter).nuvioCHdrDimLight(nuvioCHdr) // [fork] no offscreen layer while scrubbing
+            modifier = Modifier.align(Alignment.BottomCenter)
         ) {
-            SeekOverlayHost(viewModel = viewModel)
+            CompositionLocalProvider(LocalNuvioCHdrDim provides nuvioCHdr) { SeekOverlayHost(viewModel = viewModel) } // [fork] HDR dim by colour
         }
 
         // Episodes/streams side panel (slides in from right)
@@ -2324,7 +2325,7 @@ private fun PlayerControlsOverlay(
             visible = com.nuvio.tv.NuvioCFeatures.OSD_LOGO && osdLogo != null && !osdLogoFailed && osdLogoAllowed,
             enter = fadeIn(animationSpec = tween(250)),
             exit = fadeOut(animationSpec = tween(150)),
-            modifier = Modifier.align(Alignment.TopStart).nuvioCOsdDim() // [fork] HDR dim, no layer
+            modifier = Modifier.align(Alignment.TopStart)
         ) {
             if (osdLogo != null) {
                 val osdContext = LocalContext.current
@@ -2341,6 +2342,7 @@ private fun PlayerControlsOverlay(
                     contentDescription = uiState.contentName ?: uiState.title,
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.TopStart,
+                    colorFilter = nuvioCOsdColorFilter(), // [fork] HDR dim
                     modifier = Modifier
                         .padding(start = NuvioTheme.spacing.xxl, top = NuvioTheme.spacing.xl)
                         .size(width = 280.dp, height = 64.dp),
@@ -2371,7 +2373,6 @@ private fun PlayerControlsOverlay(
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = NuvioTheme.spacing.xxl, vertical = NuvioTheme.spacing.xl)
                 .nuvioCOsdBottomBlock(nuvioCOsd) // [fork]
-                .nuvioCOsdDim() // [fork] HDR dim, no layer
         ) {
             val skipIntroVisible = uiState.activeSkipInterval != null
 
@@ -2390,7 +2391,7 @@ private fun PlayerControlsOverlay(
                     Text(
                         text = displayName,
                         style = MaterialTheme.typography.headlineMedium,
-                        color = Color.White,
+                        color = nuvioCOsd(Color.White), // [fork] HDR dim
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -2413,7 +2414,7 @@ private fun PlayerControlsOverlay(
                         Text(
                             text = episodeInfo,
                             style = MaterialTheme.typography.titleMedium,
-                            color = Color.White.copy(alpha = 0.9f),
+                            color = nuvioCOsd(Color.White.copy(alpha = 0.9f)), // [fork] HDR dim
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -2430,7 +2431,7 @@ private fun PlayerControlsOverlay(
                                 Text(
                                     text = yearText,
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = Color.White.copy(alpha = 0.68f)
+                                    color = nuvioCOsd(Color.White.copy(alpha = 0.68f)) // [fork] HDR dim
                                 )
                             }
 
@@ -2590,8 +2591,8 @@ private fun PlayerControlsOverlay(
                         onFocused = onResetHideTimer
                     )
 
-                    ControlButton(
                     if (!com.nuvio.tv.NuvioCFeatures.ENGINE_IN_MORE) { // [fork] moved to the More row
+                    ControlButton(
                         icon = Icons.Default.SwapHoriz,
                         contentDescription = stringResource(R.string.cd_switch_player_engine),
                         onClick = onSwitchPlayerEngine,
@@ -2599,8 +2600,8 @@ private fun PlayerControlsOverlay(
                         onDownKey = onHideControls,
                         onFocused = onResetHideTimer
                     )
-
                     } // [fork]
+
                     if (hasEpisodeContext && !nuvioCSplit) { // [fork] was if (hasEpisodeContext)
                         ControlButton(
                             icon = Icons.AutoMirrored.Filled.List,
@@ -2762,7 +2763,7 @@ private fun PlayerControlsTimeTextHost(viewModel: PlayerViewModel) {
     Text(
         text = timeText,
         style = MaterialTheme.typography.bodyMedium,
-        color = Color.White.copy(alpha = 0.9f)
+        color = nuvioCOsd(Color.White.copy(alpha = 0.9f)) // [fork] HDR dim
     )
 }
 
@@ -2868,8 +2869,8 @@ private fun ControlButton(
             },
         colors = IconButtonDefaults.colors(
             containerColor = Color.Transparent,
-            focusedContainerColor = Color.White,
-            contentColor = Color.White,
+            focusedContainerColor = nuvioCOsd(Color.White), // [fork] HDR dim (was Color.White)
+            contentColor = nuvioCOsd(Color.White), // [fork] HDR dim (was Color.White)
             focusedContentColor = Color.Black
         ),
         shape = IconButtonDefaults.shape(shape = CircleShape)
@@ -2906,6 +2907,7 @@ private fun ProgressBar(
     bufferedPosition: Long = 0L
 ) {
     val accentBrush = NuvioTheme.palette.accentBrush()
+    val nuvioCShade = nuvioCOsdShade() // [fork] HDR dim for the opaque played part and thumb
     val progress = if (duration > 0) {
         (currentPosition.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
     } else 0f
@@ -3036,11 +3038,12 @@ private fun ProgressBar(
                     // [fork] YouTube-style thumb: same colour as the played fill, no halo
                     val thumbCenter = Offset(size.width * animatedProgress, size.height / 2f)
                     drawCircle(brush = accentBrush, radius = 7.dp.toPx(), center = thumbCenter)
+                    nuvioCShade?.let { drawCircle(it, radius = 7.dp.toPx(), center = thumbCenter) } // [fork] HDR dim
                 }
             }
             .clip(RoundedCornerShape(3.dp))
             .background(
-                if (com.nuvio.tv.NuvioCFeatures.SEEK_BAR_STYLE) { if (isFocused) Color.White.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.35f) } // [fork]
+                if (com.nuvio.tv.NuvioCFeatures.SEEK_BAR_STYLE) nuvioCOsd(if (isFocused) Color.White.copy(alpha = 0.5f) else Color.White.copy(alpha = 0.35f)) // [fork] + HDR dim
                 else if (isFocused) Color.White.copy(alpha = 0.45f)
                 else Color.White.copy(alpha = 0.3f)
             )
@@ -3083,7 +3086,7 @@ private fun SeekOverlay(
                 Text(
                     text = "${formatTime(currentPosition)} / ${formatTime(duration)}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.9f)
+                    color = nuvioCOsd(Color.White.copy(alpha = 0.9f)) // [fork] HDR dim
                 )
             }
         }
@@ -3141,13 +3144,13 @@ private fun PlayerClockOverlay(
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold
             ),
-            color = Color.White.copy(alpha = 0.96f)
+            color = nuvioCOsd(Color.White.copy(alpha = 0.96f)) // [fork] HDR dim
         )
         if (!isLive) {
             Text(
                 text = stringResource(R.string.player_ends_at, endTimeText),
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 10.sp),
-                color = Color.White.copy(alpha = 0.78f)
+                color = nuvioCOsd(Color.White.copy(alpha = 0.78f)) // [fork] HDR dim
             )
         }
     }
