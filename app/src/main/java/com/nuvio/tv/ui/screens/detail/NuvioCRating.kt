@@ -67,6 +67,8 @@ data class NuvioCRatingUiState(
     val target: NuvioCRatingTarget? = null,
     val connected: List<NuvioCTracker> = emptyList(),
     val saved: Int? = null,
+    /** Your score on Trakt (pulled), shown in the dialog. */
+    val trakt: Int? = null,
     val open: Boolean = false,
     val score: Int? = null,
     val ticked: Set<NuvioCTracker> = emptySet(),
@@ -91,6 +93,11 @@ class NuvioCRatingViewModel @Inject constructor(
         viewModelScope.launch {
             val connected = service.connected()
             _state.update { it.copy(connected = connected, saved = service.savedScore(target)) }
+            // Trakt copy: memory lookup, refreshed at most every 15 min (tiny request)
+            val trakt = service.traktScore(target)
+            if (trakt != null && _state.value.target == target) {
+                _state.update { if (it.open) it.copy(trakt = trakt) else it.copy(trakt = trakt, saved = trakt) }
+            }
         }
     }
 
@@ -115,7 +122,8 @@ class NuvioCRatingViewModel @Inject constructor(
             val failed = service.send(target, score, s.ticked)
             val saved = service.savedScore(target)
             _state.update {
-                if (failed.isEmpty()) it.copy(saving = false, open = false, saved = saved)
+                if (failed.isEmpty()) it.copy(saving = false, open = false, saved = saved,
+                    trakt = if (NuvioCTracker.TRAKT in s.ticked) score else it.trakt)
                 // keep only the failed ones ticked, so Save retries just those
                 else it.copy(saving = false, saved = saved, failed = failed, ticked = failed)
             }
@@ -164,10 +172,14 @@ private fun NuvioCRatingDialog(
     onDismiss: () -> Unit
 ) {
     val firstFocus = remember { FocusRequester() }
-    val startScore = state.score ?: 7
+    val startScore = state.score ?: 5 // 2026-10-11: middle of the scale (was 7)
     LaunchedEffect(Unit) { runCatching { firstFocus.requestFocus() } }
 
     NuvioDialog(onDismiss = onDismiss, title = title, width = 520.dp) {
+        // 2026-10-11: circles sized from the row width (10 circles, 9 gaps of at least 8 dp), no
+        // zoom on focus (the 1.1x zoom made neighbours overlap); focus = white fill + ring inside.
+        androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val circle = ((maxWidth - 8.dp * 9) / 10).coerceIn(28.dp, 44.dp)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
@@ -178,13 +190,23 @@ private fun NuvioCRatingDialog(
                     onClick = { onPick(v) },
                     enabled = !state.saving,
                     shape = ButtonDefaults.shape(shape = CircleShape),
+                    scale = ButtonDefaults.scale(focusedScale = 1f),
+                    border = ButtonDefaults.border(
+                        focusedBorder = androidx.tv.material3.Border(
+                            border = androidx.compose.foundation.BorderStroke(2.dp, NuvioTheme.colors.TextPrimary),
+                            inset = 2.dp,
+                            shape = CircleShape
+                        )
+                    ),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(circle)
                         .then(if (v == startScore) Modifier.focusRequester(firstFocus) else Modifier),
                     colors = ButtonDefaults.colors(
                         containerColor = if (selected) NuvioTheme.colors.FocusBackground else NuvioTheme.colors.BackgroundCard,
-                        contentColor = NuvioTheme.colors.TextPrimary
+                        contentColor = NuvioTheme.colors.TextPrimary,
+                        focusedContainerColor = Color.White,
+                        focusedContentColor = Color.Black
                     )
                 ) {
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -196,6 +218,15 @@ private fun NuvioCRatingDialog(
                     }
                 }
             }
+        }
+        } // BoxWithConstraints
+
+        if (state.trakt != null) {
+            Text(
+                text = stringResource(R.string.nuvio_c_rate_trakt_score, state.trakt),
+                style = MaterialTheme.typography.bodySmall,
+                color = NuvioTheme.colors.TextSecondary
+            )
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
