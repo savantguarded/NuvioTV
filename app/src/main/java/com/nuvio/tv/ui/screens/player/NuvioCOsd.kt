@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.nuvio.tv.NuvioCFeatures
+import com.nuvio.tv.R
 import androidx.annotation.VisibleForTesting
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -57,13 +58,9 @@ import androidx.media3.common.MimeTypes
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import androidx.tv.material3.Icon
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.ui.res.painterResource
-import com.nuvio.tv.R
 import com.nuvio.tv.data.local.InternalPlayerEngine
 import com.nuvio.tv.data.local.SubtitleStyleSettings
 import java.util.Locale
@@ -123,8 +120,8 @@ internal fun Modifier.nuvioCOsdTitleBlock(state: NuvioCOsdState): Modifier {
 
 /**
  * Badges, bottom-right of the OSD, centred on the last line of the title block (Apple TV style,
- * 2026-10-10): resolution in a filled light tile, Dolby Vision / Dolby Atmos / DTS as marks drawn
- * from vector files, everything else in outlined tiles, file size as plain text. Built once per
+ * 2026-10-10; 2026-10-11 round 4: no logo marks, every badge is the same outlined text tile, e.g.
+ * 4K · DV · ATMOS 7.1 · REMUX, then the file size as plain text). Built once per
  * OSD open; positions are read while laying out, so moving the title never recomposes them.
  */
 @Composable
@@ -183,7 +180,6 @@ internal fun NuvioCOsdBadges(
 private val BADGE_HEIGHT = 14.dp
 private val BADGE_TILE_SHAPE = RoundedCornerShape(2.5.dp)
 private val BADGE_WHITE = Color(0xE6FFFFFF) // white 90%
-private val BADGE_FILL = Color(0xFFDCDCDC)
 private const val BADGE_CAP_HEIGHT_EM = 0.72f // cap height of the UI fonts, as a share of the font size
 
 @Composable
@@ -195,32 +191,12 @@ private fun NuvioCBadgeView(part: NuvioCBadge) {
         letterSpacing = 0.2.sp
     )
     when (part.kind) {
-        NuvioCBadgeKind.FILLED -> NuvioCBadgeText(
-            text = part.text,
-            style = textStyle,
-            color = nuvioCOsd(Color(0xFF111111)),
-            modifier = Modifier.background(nuvioCOsd(BADGE_FILL), BADGE_TILE_SHAPE).padding(horizontal = 4.dp)
-        )
         NuvioCBadgeKind.OUTLINED -> NuvioCBadgeText(
             text = part.text,
             style = textStyle,
             color = nuvioCOsd(BADGE_WHITE),
             modifier = Modifier.border(1.2.dp, nuvioCOsd(BADGE_WHITE), BADGE_TILE_SHAPE).padding(horizontal = 3.5.dp)
         )
-        NuvioCBadgeKind.MARK -> {
-            val res = part.markRes
-            if (res == null) {
-                NuvioCBadgeView(NuvioCBadge(part.text, NuvioCBadgeKind.OUTLINED))
-            } else {
-                Icon(
-                    painter = painterResource(res),
-                    contentDescription = part.text,
-                    tint = nuvioCOsd(BADGE_WHITE),
-                    modifier = Modifier.height(BADGE_HEIGHT)
-                        .aspectRatio(part.markAspect, matchHeightConstraintsFirst = true)
-                )
-            }
-        }
         NuvioCBadgeKind.PLAIN -> NuvioCBadgeText(
             text = part.text,
             style = textStyle.copy(fontSize = 10.5.sp),
@@ -252,14 +228,12 @@ private fun NuvioCBadgeText(text: String, style: androidx.compose.ui.text.TextSt
     }
 }
 
-internal enum class NuvioCBadgeKind { FILLED, OUTLINED, MARK, PLAIN }
+internal enum class NuvioCBadgeKind { OUTLINED, PLAIN }
 
-/** One OSD badge. [markRes] / [markAspect] for logo marks (width / height of the vector). */
+/** One OSD badge. */
 internal data class NuvioCBadge(
     val text: String,
-    val kind: NuvioCBadgeKind = NuvioCBadgeKind.OUTLINED,
-    val markRes: Int? = null,
-    val markAspect: Float = 1f
+    val kind: NuvioCBadgeKind = NuvioCBadgeKind.OUTLINED
 )
 
 private fun buildBadgeParts(controller: PlayerRuntimeController, uiState: PlayerUiState): List<NuvioCBadge> {
@@ -282,33 +256,18 @@ private fun buildBadgeParts(controller: PlayerRuntimeController, uiState: Player
     val audioLabel = NuvioCOsdBadges.audioLabel(audio?.codec, audio?.channelCount, names)
     return buildList {
         (NuvioCOsdBadges.resolutionLabel(width, height) ?: NuvioCOsdBadges.resolutionFromName(names))
-            ?.let { add(NuvioCBadge(it, NuvioCBadgeKind.FILLED)) }
-        when (visual) {
-            "SDR" -> Unit // SDR: no HDR badge
-            "DV" -> add(NuvioCBadge("Dolby Vision", NuvioCBadgeKind.MARK, R.drawable.nuvio_c_badge_dolby_vision, MARK_ASPECT_DV))
-            else -> add(NuvioCBadge(visual, NuvioCBadgeKind.OUTLINED))
-        }
+            ?.let { add(NuvioCBadge(it)) }
+        if (visual != "SDR") add(NuvioCBadge(visual)) // SDR: no HDR badge; Dolby Vision = "DV"
         addAll(nuvioCAudioBadges(audioLabel, names))
         NuvioCOsdBadges.sourceFromName(names)?.let { add(NuvioCBadge(it, NuvioCBadgeKind.OUTLINED)) }
         NuvioCOsdBadges.sizeLabel(controller.currentVideoSize)?.let { add(NuvioCBadge(it, NuvioCBadgeKind.PLAIN)) }
     }
 }
 
-private const val MARK_ASPECT_DV = 2.693f
-private const val MARK_ASPECT_ATMOS = 2.695f
-private const val MARK_ASPECT_DTS = 2.553f
-
-/** Audio: Atmos = Dolby Atmos mark; DTS family = DTS mark (+ "X" / "HD MA" / "HD"); else a tile. */
+/** Audio tile: "ATMOS 7.1", "DTS:X 7.1", "DTS-HD MA 7.1", "DD+ 5.1"… (one outlined tile, round 4). */
 internal fun nuvioCAudioBadges(audioLabel: String?, names: String): List<NuvioCBadge> {
     val label = audioLabel ?: return emptyList()
-    return when (NuvioCOsdBadges.audioMark(label, names)) {
-        "ATMOS" -> listOf(NuvioCBadge("Dolby Atmos", NuvioCBadgeKind.MARK, R.drawable.nuvio_c_badge_dolby_atmos, MARK_ASPECT_ATMOS))
-        "DTS" -> listOfNotNull(
-            NuvioCBadge("DTS", NuvioCBadgeKind.MARK, R.drawable.nuvio_c_badge_dts, MARK_ASPECT_DTS),
-            NuvioCOsdBadges.dtsSuffix(label, names)?.let { NuvioCBadge(it, NuvioCBadgeKind.OUTLINED) }
-        )
-        else -> listOf(NuvioCBadge(label.uppercase(Locale.ROOT), NuvioCBadgeKind.OUTLINED))
-    }
+    return listOf(NuvioCBadge(NuvioCOsdBadges.audioTile(label, names)))
 }
 
 /** What the TV is being sent: DV, HDR10, HDR10+, HLG or SDR (badges and the HDR dim share it). */
@@ -331,7 +290,8 @@ internal fun nuvioCVisualTag(controller: PlayerRuntimeController, uiState: Playe
             controller.isManualDv81Mode2ActiveForCurrentPlayback,
         names = names,
         decoderTransfer = NuvioCDecodedColor.transfer(controller, exoFormat),
-        decoderHdr10Plus = NuvioCDecodedColor.hdr10Plus(controller, exoFormat)
+        decoderHdr10Plus = NuvioCDecodedColor.hdr10Plus(controller, exoFormat) ||
+            (exoFormat != null && NuvioCHdr10PlusSniff.found(exoFormat)) // [fork] round 4: from the stream itself
     )
 }
 
@@ -426,7 +386,8 @@ internal object NuvioCOsdBadges {
         return when {
             dvConverted -> "DV"
             isDv && !dvStripped -> "DV"
-            transfer == C.COLOR_TRANSFER_ST2084 && decoderHdr10Plus -> "HDR10+"
+            // HDR10+ metadata only exists on PQ video, so it also counts when the colour isn't flagged
+            decoderHdr10Plus && (transfer == null || transfer == C.COLOR_TRANSFER_ST2084) -> "HDR10+"
             transfer == C.COLOR_TRANSFER_ST2084 || transfer == C.COLOR_TRANSFER_HLG -> transferLabel(transfer, fromName)!!
             isDv -> "HDR10" // DV stripped to its base layer
             transfer == C.COLOR_TRANSFER_SDR -> "SDR"
@@ -512,6 +473,20 @@ internal object NuvioCOsdBadges {
             l.startsWith("dts-hd") || Regex("""dts[ ._-]?hd""").containsMatchIn(n) -> "HD"
             else -> null
         }
+    }
+
+    /** Audio badge text, upper case; the DTS family gets its full name from the release name. */
+    fun audioTile(audioLabel: String, names: String = ""): String {
+        val upper = audioLabel.uppercase(Locale.ROOT)
+        if (audioMark(audioLabel, names) != "DTS") return upper
+        val channels = Regex("""\s(\d\.\d|\d+CH)$""").find(upper)?.groupValues?.get(1)
+        val name = when (dtsSuffix(audioLabel, names)) {
+            "X" -> "DTS:X"
+            "HD MA" -> "DTS-HD MA"
+            "HD" -> "DTS-HD"
+            else -> "DTS"
+        }
+        return listOfNotNull(name, channels).joinToString(" ")
     }
 
     fun sizeLabel(bytes: Long?): String? {
