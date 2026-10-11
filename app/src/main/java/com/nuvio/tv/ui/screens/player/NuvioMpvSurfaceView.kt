@@ -441,6 +441,7 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
 
             mpv.setPropertyDouble("sub-scale", scale)
             mpv.setPropertyBoolean("sub-bold", style.bold)
+            mpv.setPropertyString("sub-font", NuvioCSubtitleFont.mpvFamily(context) ?: "Roboto") // [fork] subtitle font
             mpv.setPropertyDouble("sub-outline-size", outlineSize)
             val liftedSubPos = if (subtitleLiftFraction > 0.0) {
                 minOf(subPos, 100.0 * (1.0 - subtitleLiftFraction))
@@ -731,6 +732,7 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
         mpv.setOptionString("sub-ass-override", "no")
         mpv.setOptionString("sub-codepage", "auto:utf-8")
         mpv.setOptionString("sub-font", "Roboto")
+        NuvioCSubtitleFont.mpvFontsDir(context)?.let { mpv.setOptionString("sub-fonts-dir", it.absolutePath) } // [fork] subtitle font files
         mpv.setOptionString("sub-use-margins", "yes")
         mpv.setOptionString("sub-ass-force-margins", "yes")
         mpv.setOptionString(
