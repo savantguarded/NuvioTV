@@ -134,4 +134,6 @@ object NuvioCFeatures {
     const val PAUSE_SCREEN_C = true
     /** Details page: the TMDB tagline between the logo and Play (one line, two if long; hidden while a trailer plays). Needs TMDB enrichment on; add-on meta is untouched. */
     const val DETAIL_TAGLINE = true
+    /** Collections: with TMDB Basic info off, TMDB-built collections take the hero description from your meta add-on (like the details page); logo, backdrop and the rest stay TMDB-enriched. */
+    const val FOLDER_ADDON_DESCRIPTION = true
 }
