@@ -60,7 +60,7 @@ object NuvioCFeatures {
     const val CAST_BACK_TO_FIRST = true
     /** Player: focus returns to the player when the focused Skip Intro button hides (official loses it). */
     const val SKIP_INTRO_FOCUS = true
-    /** Details page: Shuffle / random episode button the same size as Play. */
+    /** Details page: Shuffle / random episode is a round icon button next to Play, same size, colour and focus as Watched / Rate / Trailer (white with a stop icon while shuffle is on). */
     const val SHUFFLE_BUTTON_SIZE = true
     /** Trailers: picked at 1080p or below (official takes the highest, up to 4K60), for smoother pages. */
     const val TRAILER_MAX_1080P = false
@@ -110,4 +110,12 @@ object NuvioCFeatures {
     const val LOGO_WEIGHT = true
     /** 40 dp side margin on Home / collections (official 52) and the details page (official 48). */
     const val PAGE_MARGIN_40 = true
+    /** Clearlogos (Home / collections, details, player OSD, trailer screen): black parts lifted to white so they show on the dark background (My Spy); dark coloured logos get a thin light outline instead. */
+    const val LOGO_DARK_LIFT = true
+    /** Details page: a background trailer ending leaves focus where it is (official sends it to Play and scrolls to the top). Full-screen trailers still return to Play. */
+    const val BG_TRAILER_KEEP_FOCUS = true
+    /** Details page: focus and layout stay put while scrolling (no jump to Play when the hero comes back into view or after a cast / filmography page, no synopsis slide when the logo or ratings land), and the last rows ease to the page end. */
+    const val DETAIL_FOCUS_STABLE = true
+    /** Home / collections: the synopsis uses official's width when it fits in 5 lines, and only grows (our width, then 80 dp more, then a 6th line) when it needs to; the logo keeps at least 56 dp. */
+    const val HOME_SYNOPSIS_FIT = true
 }

@@ -42,12 +42,21 @@ object NuvioCLogoSize {
     val DETAIL = NuvioCLogoBox(area = 9_000f, maxWidth = 220.dp, maxHeight = 64.dp)
     val OSD = NuvioCLogoBox(area = 7_000f, maxWidth = 200.dp, maxHeight = 52.dp)
 
-    /** Width / height of a loaded logo, from Coil's success state. */
+    /** Width / height of a loaded logo, from Coil's success state (also remembered for [known]). */
     fun aspectOf(state: AsyncImagePainter.State.Success): Float? {
         val s = state.painter.intrinsicSize
         if (!s.width.isFinite() || !s.height.isFinite() || s.height <= 0f) return null
-        return s.width / s.height
+        val aspect = s.width / s.height
+        (state.result.request.data as? String)?.let { aspects.put(it, aspect) }
+        return aspect
     }
+
+    // 2026-10-12: aspects already seen this session, so a logo shown again (the details hero
+    // scrolling back into view, Home returning to a title) starts at its real size instead of the
+    // max box and nothing shifts when it loads.
+    private val aspects = android.util.LruCache<String, Float>(300)
+
+    fun known(url: String?): Float? = url?.let { aspects.get(it) }
 }
 
 /** Top clearance for the home title block, so a logo never runs into the top of the screen (the clock sits at 20 dp). */
@@ -62,12 +71,16 @@ val NUVIO_C_HOME_HERO_TOP: Dp = 24.dp
 fun NuvioCHeroStack(
     gap: Dp,
     modifier: Modifier = Modifier,
+    minLogoHeight: Dp = 0.dp,
     logo: @Composable () -> Unit,
     rest: @Composable () -> Unit
 ) {
     Layout(contents = listOf(logo, rest), modifier = modifier) { (logoMeasurables, restMeasurables), constraints ->
         val loose = constraints.copy(minWidth = 0, minHeight = 0)
-        val restPlaceable = restMeasurables.firstOrNull()?.measure(loose)
+        // 2026-10-12: the text never takes the logo's minimum height (a 6th synopsis line ellipsizes instead).
+        val gapPx0 = gap.roundToPx()
+        val restMax = if (constraints.hasBoundedHeight && minLogoHeight > 0.dp) (constraints.maxHeight - minLogoHeight.roundToPx() - gapPx0).coerceAtLeast(0) else constraints.maxHeight
+        val restPlaceable = restMeasurables.firstOrNull()?.measure(loose.copy(maxHeight = restMax))
         val restHeight = restPlaceable?.height ?: 0
         val gapPx = gap.roundToPx()
         val left = if (constraints.hasBoundedHeight) (constraints.maxHeight - restHeight - gapPx).coerceAtLeast(0) else Constraints.Infinity

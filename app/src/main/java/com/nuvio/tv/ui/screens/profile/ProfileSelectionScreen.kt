@@ -1120,6 +1120,10 @@ private fun ProfileCard(
         focusProgress
     )
     val ringWidth = androidx.compose.ui.unit.lerp(NuvioTheme.spacing.hairline, 3.dp, focusProgress)
+    // [fork] profile_clean (2026-10-12): the picture fills the ring's circle (no gap between them) and
+    // is decoded at its largest drawn size (focused size x the 1.04 card zoom), so it stays sharp.
+    val nuvioCFlush = com.nuvio.tv.NuvioCFeatures.PROFILE_CLEAN && LocalNuvioCProfileClean.current
+    val nuvioCDecodeSize = (if (compact) ProfileSelectionSpacing.CompactFocusedOuterAvatarSize else 122.dp) * 1.04f
     val nameColor = lerp(
         NuvioTheme.colors.TextSecondary,
         NuvioTheme.colors.TextPrimary,
@@ -1207,8 +1211,9 @@ private fun ProfileCard(
                 ProfileAvatarCircle(
                     name = profile.name,
                     colorHex = profile.avatarColorHex,
-                    size = avatarSize,
-                    avatarImageUrl = avatarImageUrl
+                    size = if (nuvioCFlush) outerAvatarSize - 1.dp else avatarSize, // edge tucked under the ring, no fringe
+                    avatarImageUrl = avatarImageUrl,
+                    nuvioCDecodeSize = if (nuvioCFlush) nuvioCDecodeSize else null
                 )
             }
 

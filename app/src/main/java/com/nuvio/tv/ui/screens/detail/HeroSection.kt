@@ -7,6 +7,7 @@ import kotlinx.coroutines.launch // [fork] logo weight
 // Nuvio C imports
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.Stop
 
 import com.nuvio.tv.ui.theme.NuvioMotion
 
@@ -85,6 +86,7 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.painter.Painter
 import coil3.request.ImageRequest
+import com.nuvio.tv.ui.util.nuvioCLogoContrast
 import coil3.request.crossfade
 import com.nuvio.tv.ui.util.localizedGenreLabel
 import com.nuvio.tv.ui.util.rememberLongPressKeyTracker
@@ -127,6 +129,7 @@ fun HeroContentSection(
     nuvioCFadeLogo: Boolean = false, // [fork] fade the logo with the trailer instead of removing it
     playButtonFocusRequester: FocusRequester? = null,
     restorePlayFocusToken: Int = 0,
+    nuvioCPlayTokenSeen: androidx.compose.runtime.MutableIntState? = null, // [fork] focus stability
     onHeroActionFocused: () -> Unit = {},
     onPlayFocusRestored: () -> Unit = {},
     onShowFullDescription: () -> Unit = {},
@@ -170,6 +173,7 @@ fun HeroContentSection(
             ImageRequest.Builder(context)
                 .data(logo)
                 .crossfade(true)
+                .nuvioCLogoContrast() // [fork] dark logos
                 .build()
         }
     }
@@ -219,7 +223,7 @@ fun HeroContentSection(
     )
     // [fork] logo weight: same visual weight for every logo (Apple TV style), official sizes over a trailer.
     // Box size snaps when the logo loads (aspect known) and animates only when the trailer starts / stops.
-    var nuvioCLogoAspect by remember(meta.logo) { mutableStateOf<Float?>(null) }
+    var nuvioCLogoAspect by remember(meta.logo) { mutableStateOf(com.nuvio.tv.ui.components.NuvioCLogoSize.known(meta.logo)) }
     val nuvioCLogoNormal = com.nuvio.tv.ui.components.NuvioCLogoSize.DETAIL.sizeFor(nuvioCLogoAspect)
     val nuvioCTrailerLogoWidth = (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp - com.nuvio.tv.ui.components.nuvioCDetailMargin * 2) * 0.25f
     val nuvioCLogoTargetW = if (isTrailerPlaying) nuvioCTrailerLogoWidth else nuvioCLogoNormal.width
@@ -249,7 +253,7 @@ fun HeroContentSection(
             modifier = Modifier
                 .fillMaxWidth()
                 .then( // [fork] same size animation without clipping the logo or the focused buttons
-                    if (nuvioCFadeLogo) Modifier.nuvioCAnimateHeightNoClip(tween(600))
+                    if (nuvioCFadeLogo) Modifier.nuvioCAnimateHeightNoClip(tween(600), animateKey = isTrailerPlaying)
                     else Modifier.animateContentSize(animationSpec = tween(600))
                 )
                 .padding(start = com.nuvio.tv.ui.components.nuvioCDetailMargin, end = com.nuvio.tv.ui.components.nuvioCDetailMargin, bottom = NuvioTheme.spacing.lg), // [fork] page margin
@@ -325,11 +329,26 @@ fun HeroContentSection(
                             onLongPress = onPlayLongPress,
                             focusRequester = playButtonFocusRequester,
                             restoreFocusToken = restorePlayFocusToken,
+                            nuvioCTokenSeen = nuvioCPlayTokenSeen,
                             onFocusRestored = {
                                 onHeroActionFocused()
                                 onPlayFocusRestored()
                             }
                         )
+
+                        if (showRandomEpisodeButton && com.nuvio.tv.NuvioCFeatures.SHUFFLE_BUTTON_SIZE) { // [fork] round like the others, next to Play
+                            ActionIconButton(
+                                icon = if (episodeShuffle.enabled) Icons.Default.Stop else null,
+                                painter = if (episodeShuffle.enabled) null else androidx.compose.ui.res.painterResource(R.drawable.nuvio_c_ic_shuffle),
+                                contentDescription = stringResource(if (episodeShuffle.enabled) R.string.shuffle_stop else R.string.random_episode_title),
+                                onClick = { if (!shuffleActionPending) onRandomEpisodeClick() },
+                                selected = episodeShuffle.enabled,
+                                selectedContainerColor = Color.White,
+                                selectedContentColor = Color.Black,
+                                onFocused = onHeroActionFocused,
+                                focusRequester = randomEpisodeFocusRequester
+                            )
+                        }
 
                         ActionIconButton(
                             icon = if (isInLibrary) Icons.Default.Check else null,
@@ -387,7 +406,7 @@ fun HeroContentSection(
                             )
                         }
 
-                        if (showRandomEpisodeButton) {
+                        if (showRandomEpisodeButton && !com.nuvio.tv.NuvioCFeatures.SHUFFLE_BUTTON_SIZE) {
                             ShuffleButton(
                                 active = episodeShuffle.enabled,
                                 pending = shuffleActionPending,
@@ -461,12 +480,21 @@ internal fun PlayButton(
     onLongPress: (() -> Unit)? = null,
     focusRequester: FocusRequester? = null,
     restoreFocusToken: Int = 0,
+    nuvioCTokenSeen: androidx.compose.runtime.MutableIntState? = null,
     onFocusRestored: () -> Unit = {}
 ) {
     var longPressTriggered by remember { mutableStateOf(false) }
     val longPressKeyTracker = rememberLongPressKeyTracker()
 
     LaunchedEffect(restoreFocusToken) {
+        // [fork] focus stability: only a new request moves focus to Play. Official re-ran this every
+        // time the hero came back into the list (scrolling up from seasons / cast, back from a cast
+        // page) and when the token dropped as a restore was cleared, pulling focus to Play.
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_FOCUS_STABLE && nuvioCTokenSeen != null) {
+            val seen = nuvioCTokenSeen.intValue
+            nuvioCTokenSeen.intValue = restoreFocusToken
+            if (restoreFocusToken <= seen) return@LaunchedEffect
+        }
         if (restoreFocusToken > 0 && focusRequester != null) {
             focusRequester.requestFocusAfterFrames()
         }

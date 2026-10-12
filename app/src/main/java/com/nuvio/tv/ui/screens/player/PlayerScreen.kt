@@ -134,6 +134,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.rememberAsyncImagePainter
 import coil3.request.ImageRequest
+import com.nuvio.tv.ui.util.nuvioCLogoContrast
 import androidx.compose.ui.res.stringResource
 import com.nuvio.tv.R
 import com.nuvio.tv.core.player.PlayerWindowBackdrop
@@ -2334,12 +2335,13 @@ private fun PlayerControlsOverlay(
                     ImageRequest.Builder(osdContext)
                         .data(osdLogo)
                         .crossfade(true)
+                        .nuvioCLogoContrast() // [fork] dark logos
                         .build()
                 }
                 // Fixed 280x64 box, logo fitted inside it: wide logos hit the width, square/tall
                 // ones the height. Fit scales the whole image down, so nothing is ever cropped.
                 // With `logo_weight` on: same visual weight for every logo (max 200 x 52 dp).
-                var nuvioCOsdLogoAspect by remember(osdLogo) { mutableStateOf<Float?>(null) }
+                var nuvioCOsdLogoAspect by remember(osdLogo) { mutableStateOf(com.nuvio.tv.ui.components.NuvioCLogoSize.known(osdLogo)) }
                 AsyncImage(
                     model = osdLogoRequest,
                     contentDescription = uiState.contentName ?: uiState.title,
