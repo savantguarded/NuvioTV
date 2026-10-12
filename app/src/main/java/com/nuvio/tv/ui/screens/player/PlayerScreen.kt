@@ -201,6 +201,7 @@ fun PlayerScreen(
     SideEffect { nuvioCFocus.moreRowOpen = uiState.showMoreDialog } // [fork]
     val nuvioCHdr = rememberNuvioCHdrDim(viewModel, uiState) // [fork] 60% subtitles + controls in HDR
     val nuvioCOsdAnchor = remember { NuvioCOsdAnchor() } // [fork] where the seek bar is, for Skip Intro
+    val nuvioCLift = remember { NuvioCOsdState() } // [fork] OSD layout facts + subtitle lift (OSD and pause screen share it)
     val progressBarFocusRequester = remember { FocusRequester() }
     val episodesFocusRequester = remember { FocusRequester() }
     val streamsFocusRequester = remember { FocusRequester() }
@@ -1103,9 +1104,11 @@ fun PlayerScreen(
             )
         }
 
+        val nuvioCPauseVisible = uiState.showPauseOverlay && uiState.error == null && // [fork]
+            !uiState.showLoadingOverlay && !postPlayRecommendationState.isVisible
         if (com.nuvio.tv.NuvioCFeatures.PAUSE_SCREEN_C) NuvioCPauseScreen( // [fork] Nuvio C pause screen replaces official's
-            visible = uiState.showPauseOverlay && uiState.error == null &&
-                !uiState.showLoadingOverlay && !postPlayRecommendationState.isVisible,
+            visible = nuvioCPauseVisible,
+            liftState = nuvioCLift,
             viewModel = viewModel,
             title = (if (uiState.currentSeason != null && uiState.currentEpisode != null) uiState.contentName else null) ?: uiState.title,
             logo = uiState.logo,
@@ -1383,8 +1386,7 @@ fun PlayerScreen(
         }
 
         // Controls overlay
-        AnimatedVisibility(
-            visible = uiState.showControls && uiState.error == null &&
+        val nuvioCControlsVisible = uiState.showControls && uiState.error == null && // [fork] named, also drives the subtitle lift
                 !uiState.showLoadingOverlay && !uiState.showPauseOverlay &&
                 !uiState.showStreamInfoOverlay &&
                 !uiState.showSubtitleStylePanel &&
@@ -1395,13 +1397,15 @@ fun PlayerScreen(
                 !uiState.showSubtitleOverlay &&
                 !uiState.showSpeedDialog &&
                 !postPlayRecommendationState.isVisible &&
-                uiState.postPlayMode !is PostPlayMode.StillWatching,
+                uiState.postPlayMode !is PostPlayMode.StillWatching
+        NuvioCSubtitleLiftEffect(viewModel, nuvioCControlsVisible, nuvioCLift, uiState.subtitleStyle, pauseShown = com.nuvio.tv.NuvioCFeatures.PAUSE_SCREEN_C && nuvioCPauseVisible) // [fork] subtitles clear the OSD / the pause screen's progress line
+        AnimatedVisibility(
+            visible = nuvioCControlsVisible,
             enter = fadeIn(animationSpec = tween(200)),
             exit = fadeOut(animationSpec = tween(200))
         ) {
             val context = LocalContext.current
-            val nuvioCOsd = remember { NuvioCOsdState() } // [fork] badges + subtitle lift
-            NuvioCSubtitleLiftEffect(viewModel, transition.targetState == androidx.compose.animation.EnterExitState.Visible, nuvioCOsd, uiState.subtitleStyle) // [fork]
+            val nuvioCOsd = nuvioCLift // [fork] badges + subtitle lift (lift effect runs at screen level, below)
             CompositionLocalProvider(LocalNuvioCFocusMemory provides nuvioCFocus, LocalNuvioCHdrDim provides nuvioCHdr, LocalNuvioCOsdAnchor provides nuvioCOsdAnchor) { // [fork]
             NuvioCOsdAnchorReset(nuvioCOsdAnchor) // [fork]
             PlayerControlsOverlay(

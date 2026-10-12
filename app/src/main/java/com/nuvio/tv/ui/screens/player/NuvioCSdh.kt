@@ -78,6 +78,11 @@ internal object NuvioCSubtitleSession {
         }
     }
 
+    /** Player closed: forget its automatic pick, so a later player (e.g. Continue Watching) restores as official. */
+    fun end(controller: Any) {
+        if (owner == System.identityHashCode(controller)) { autoPick = null; owner = 0 }
+    }
+
     /** Saved preference to restore for the next episode: subtitle dropped while an automatic pick stands. */
     fun filterSaved(controller: Any, saved: PlayerRuntimeController.TrackPreference?): PlayerRuntimeController.TrackPreference? {
         if (!NuvioCFeatures.SDH_SESSION_PICK || saved?.subtitle == null) return saved
