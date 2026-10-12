@@ -1511,6 +1511,10 @@ private fun MetaDetailsContent(
     }
 
     fun onCompanyRowFocused(revealOverflowPx: Float) {
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_SCROLL_END) { // [fork] one normal scroll to the end, no stop-then-nudge
+            nuvioCScrollDetailToEnd(listState, tapScroll.lastKey, pendingRestoreType == RestoreTarget.COMPANY_OR_NETWORK, detailFastScrolling, coroutineScope)
+            return
+        }
         if (tapScroll.rapidDown && tapScroll.lastKey == KeyEvent.KEYCODE_DPAD_DOWN) return
         pinDetailPageScroll()
         if (pendingRestoreType == RestoreTarget.COMPANY_OR_NETWORK) return
@@ -1532,6 +1536,7 @@ private fun MetaDetailsContent(
         val key = tapScroll.lastKey
         val vertical = key == KeyEvent.KEYCODE_DPAD_UP || key == KeyEvent.KEYCODE_DPAD_DOWN
         if (!vertical) return false
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_SCROLL_END) return detailFastScrolling || !listState.canScrollForward // [fork] onCompanyRowFocused does the one scroll
         if (key == KeyEvent.KEYCODE_DPAD_DOWN && tapScroll.rapidDown) return true
         return remainingDetailScrollPx() !in 1..200
     }
