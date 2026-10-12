@@ -34,6 +34,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -60,7 +62,8 @@ import java.util.concurrent.TimeUnit
 // as before). Netflix style: the screen behind is darkened a little more on the left, "You're
 // watching" above the logo (slides down into place), the episode line (series) or year (movies)
 // under it, clock top right, a slim progress line with time and "Paused · ends at" at the bottom.
-// No synopsis, no cast row. Nothing per frame: one fade + one slide when it opens.
+// No synopsis, no cast row. Nothing per frame: one fade + one slide when it opens. Bottom
+// subtitles move up above the progress line while it shows (same lift as the controls).
 // HDR: text and logo drawn through the same colour dim as the player controls.
 
 /** Pause-screen logo box: bigger than the OSD logo (same visual-weight rules). */
@@ -70,6 +73,7 @@ private val PAUSE_LOGO = NuvioCLogoBox(area = 16_000f, maxWidth = 340.dp, maxHei
 internal fun NuvioCPauseScreen(
     visible: Boolean,
     viewModel: PlayerViewModel,
+    liftState: NuvioCOsdState, // subtitles move up above the progress line while this shows
     title: String,
     logo: String?,
     season: Int?,
@@ -88,7 +92,7 @@ internal fun NuvioCPauseScreen(
         modifier = modifier
     ) {
         androidx.compose.runtime.CompositionLocalProvider(LocalNuvioCHdrDim provides hdrDim) {
-            NuvioCPauseContent(viewModel, title, logo, season, episode, episodeTitle, year, isLive)
+            NuvioCPauseContent(viewModel, liftState, title, logo, season, episode, episodeTitle, year, isLive)
         }
     }
 }
@@ -96,6 +100,7 @@ internal fun NuvioCPauseScreen(
 @Composable
 private fun NuvioCPauseContent(
     viewModel: PlayerViewModel,
+    liftState: NuvioCOsdState,
     title: String,
     logo: String?,
     season: Int?,
@@ -195,6 +200,7 @@ private fun NuvioCPauseContent(
         if (!isLive) {
             NuvioCPauseProgress(
                 viewModel = viewModel,
+                liftState = liftState,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
@@ -205,16 +211,28 @@ private fun NuvioCPauseContent(
 }
 
 @Composable
-private fun NuvioCPauseProgress(viewModel: PlayerViewModel, modifier: Modifier) {
+private fun NuvioCPauseProgress(viewModel: PlayerViewModel, liftState: NuvioCOsdState, modifier: Modifier) {
+    androidx.compose.runtime.DisposableEffect(liftState) { onDispose { liftState.pauseTop = Float.NaN } }
     val timeline by viewModel.playbackTimeline.collectAsState()
     val duration = timeline.duration
     if (duration <= 0L) return
     val position = timeline.currentPosition.coerceIn(0L, duration)
     val context = LocalContext.current
-    val endsAt = remember(position, duration) {
+    // "Ends at" moves on while you stay paused: re-read the clock once a minute.
+    var minute by remember { mutableLongStateOf(System.currentTimeMillis() / 60_000L) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000L - System.currentTimeMillis() % 60_000L)
+            minute = System.currentTimeMillis() / 60_000L
+        }
+    }
+    val endsAt = remember(position, duration, minute) {
         DateFormat.getTimeFormat(context).format(Date(System.currentTimeMillis() + (duration - position)))
     }
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        modifier = modifier.onGloballyPositioned { liftState.pauseTop = it.positionInWindow().y },
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
