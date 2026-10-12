@@ -8,13 +8,18 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.text.drawText
 import com.nuvio.tv.NuvioCFeatures
 
-// [fork] Nuvio C home synopsis fit (switch `home_synopsis_fit`). Up to 6 lines (round 6,
-// 2026-10-12: was 5, with a 6th only at the widest width), and only as wide as it needs to be:
-//  1. official width (42% of the space between the side paddings) if it fits in 6 lines,
+// [fork] Nuvio C home synopsis fit (switch `home_synopsis_fit`). Up to 6 lines and only as wide as
+// it needs to be:
+//  1. official width (42% of the space between the side paddings) if it all fits,
 //  2. else our width (to the second landscape poster),
-//  3. else our width + 80 dp, ellipsis after the 6th line.
+//  3. else our width + 80 dp (the widest step), ellipsis only there, after the last line.
+// Round 6b (2026-10-12): decided while laying out, against the height really left for the text
+// ("6, or fewer if 6 can't fit"). The first version only checked 6 lines, so it could pick a narrow
+// width that the height then cut at 4-5 lines with the wider steps unused.
 // Lines are broken for even length (no lone last word). The block stays bottom-anchored with its
 // top clearance; NuvioCHeroStack keeps the logo at least [MIN_LOGO_HEIGHT] tall, so text that
 // doesn't fit the height ellipsizes instead of squeezing the logo away.
@@ -36,10 +41,16 @@ object NuvioCSynopsisFit {
             .sorted()
     }
 
+    /** Lines the text may use: 6, or fewer when only that many fit in [maxHeightPx] (unit-tested). */
+    fun linesFor(maxHeightPx: Int, lineHeightPx: Float, hasBoundedHeight: Boolean): Int {
+        if (!hasBoundedHeight || lineHeightPx <= 0f) return MAX_LINES
+        return (maxHeightPx / lineHeightPx + 0.01f).toInt().coerceIn(1, MAX_LINES)
+    }
+
     /** Pure choice from a "does it fit in n lines at width w" test (unit-tested). */
-    fun choose(widths: List<Dp>, fits: (Dp, Int) -> Boolean): NuvioCSynopsisFitResult {
-        for (w in widths) if (fits(w, MAX_LINES)) return NuvioCSynopsisFitResult(w, MAX_LINES)
-        return NuvioCSynopsisFitResult(widths.last(), MAX_LINES)
+    fun choose(widths: List<Dp>, lines: Int = MAX_LINES, fits: (Dp, Int) -> Boolean): NuvioCSynopsisFitResult {
+        for (w in widths) if (fits(w, lines)) return NuvioCSynopsisFitResult(w, lines)
+        return NuvioCSynopsisFitResult(widths.last(), lines)
     }
 }
 
@@ -53,5 +64,46 @@ fun rememberNuvioCSynopsisFit(text: String, style: TextStyle, widths: List<Dp>?)
             val px = with(density) { w.roundToPx() }.coerceAtLeast(1)
             !measurer.measure(text, style, maxLines = lines, constraints = Constraints(maxWidth = px)).hasVisualOverflow
         }
+    }
+}
+
+/**
+ * The home synopsis, sized while laying out: the line count comes from the height the hero leaves it
+ * (up to 6), the width from [widths] (narrowest that shows it all, else the widest with an ellipsis).
+ * Measured with a cached TextMeasurer once per layout change, drawn from that one result.
+ */
+@Composable
+fun NuvioCFitSynopsis(
+    text: String,
+    style: TextStyle,
+    color: androidx.compose.ui.graphics.Color,
+    widths: List<Dp>,
+    modifier: androidx.compose.ui.Modifier = androidx.compose.ui.Modifier
+) {
+    val measurer = rememberTextMeasurer(cacheSize = 8)
+    val result = remember { androidx.compose.runtime.mutableStateOf<androidx.compose.ui.text.TextLayoutResult?>(null, androidx.compose.runtime.referentialEqualityPolicy()) }
+    androidx.compose.ui.layout.Layout(
+        modifier = modifier.drawBehind {
+            result.value?.let { drawText(it, color = color) }
+        }
+    ) { _, constraints ->
+        val lineHeightPx = if (style.lineHeight.isSp) style.lineHeight.toPx() else style.fontSize.toPx() * 1.4f
+        val lines = NuvioCSynopsisFit.linesFor(constraints.maxHeight, lineHeightPx, constraints.hasBoundedHeight)
+        val maxW = if (constraints.hasBoundedWidth) constraints.maxWidth else Int.MAX_VALUE
+        var chosen: androidx.compose.ui.text.TextLayoutResult? = null
+        for (w in widths) {
+            val px = w.roundToPx().coerceIn(1, maxW)
+            val r = measurer.measure(
+                text, style, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                maxLines = lines, constraints = Constraints(maxWidth = px)
+            )
+            chosen = r
+            if (!r.hasVisualOverflow) break
+        }
+        val r = chosen
+        result.value = r
+        val width = r?.size?.width ?: 0
+        val height = (r?.size?.height ?: 0).coerceAtMost(if (constraints.hasBoundedHeight) constraints.maxHeight else Int.MAX_VALUE)
+        layout(width, height) {}
     }
 }
