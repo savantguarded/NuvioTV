@@ -98,4 +98,6 @@ object NuvioCFeatures {
     const val FOCUS_ROOM = true
     /** Details page: a movie collection always gets its own row (official puts it in the tabs when there are 3 tabs or fewer). */
     const val COLLECTION_OWN_ROW = true
+    /** Details page: a director (or writer) who also acts is listed under crew and in the cast (official drops the acting credit). */
+    const val DIRECTOR_IN_CAST = true
 }

@@ -1630,7 +1630,9 @@ class MetaDetailsViewModel @Inject constructor(
         }
 
         if (enrichment != null && settings.useCredits) {
-            val peopleCredits = buildList {
+            val peopleCredits = if (com.nuvio.tv.NuvioCFeatures.DIRECTOR_IN_CAST) { // [fork] director who also acts keeps the acting credit
+                nuvioCPeopleCredits(enrichment.directorMembers, enrichment.writerMembers, enrichment.castMembers)
+            } else buildList {
                 addAll(enrichment.directorMembers)
                 addAll(enrichment.writerMembers)
                 addAll(enrichment.castMembers)
