@@ -126,4 +126,6 @@ object NuvioCFeatures {
     const val SDH_SESSION_PICK = true
     /** Add to library dialog (details, Home, poster menu): your Library source's lists first, no focus zoom so nothing clips at the top or bottom, a check at the end for selected lists. */
     const val LIBRARY_PICKER = true
+    /** Player OSD: badges in a row under the title block (movies: "Title (2008)" with the year in the title), file size on a solid light tile. Off = badges bottom-right as before. */
+    const val OSD_BADGES_LEFT = true
 }
