@@ -132,4 +132,6 @@ object NuvioCFeatures {
     const val START_OVER_ICON = true
     /** Player: Netflix-style pause screen replaces official's (same trigger and keys): screen darkened a little, "You're watching" + logo + episode line on the left, clock, slim progress line with "Paused · ends at". */
     const val PAUSE_SCREEN_C = true
+    /** Details page: the TMDB tagline between the logo and Play (one line, two if long; hidden while a trailer plays). Needs TMDB enrichment on; add-on meta is untouched. */
+    const val DETAIL_TAGLINE = true
 }

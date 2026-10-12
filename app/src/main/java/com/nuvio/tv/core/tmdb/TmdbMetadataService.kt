@@ -487,7 +487,8 @@ class TmdbMetadataService(
                     collectionName = collectionName,
                     originalTitle = originalTitle,
                     alternativeTitles = altTitles,
-                    trailers = trailers
+                    trailers = trailers,
+                    tagline = details?.tagline?.trim()?.takeIf { it.isNotBlank() } // [fork] Nuvio C details tagline
                 )
                 enrichmentCache[cacheKey] = enrichment
                 requestDeferred.complete(enrichment)
@@ -1675,7 +1676,8 @@ data class TmdbEnrichment(
     val collectionName: String?,
     val originalTitle: String? = null,
     val alternativeTitles: List<String> = emptyList(),
-    val trailers: List<MetaTrailer> = emptyList()
+    val trailers: List<MetaTrailer> = emptyList(),
+    val tagline: String? = null // [fork] Nuvio C details tagline
 )
 
 data class TmdbEpisodeEnrichment(

@@ -53,6 +53,7 @@ data class MetaDetailsUiState(
     val selectedSharedTrailer: MetaTrailer? = null,
     val trailerButtonEnabled: Boolean = false,
     val librarySourceMode: LibrarySourceMode = LibrarySourceMode.LOCAL,
+    val nuvioCTagline: String? = null, // [fork] TMDB tagline under the logo
     val libraryListTabs: List<LibraryListTab> = emptyList(),
     val isInWatchlist: Boolean = false,
     val showListPicker: Boolean = false,
