@@ -334,6 +334,7 @@ data class TmdbDetailsResponse(
     @Json(name = "original_title") val originalTitle: String? = null,
     @Json(name = "original_name") val originalName: String? = null,
     @Json(name = "overview") val overview: String? = null,
+    @Json(name = "tagline") val tagline: String? = null, // [fork] Nuvio C details tagline
     @Json(name = "genres") val genres: List<TmdbGenre>? = null,
     @Json(name = "created_by") val createdBy: List<TmdbCreatedBy>? = null,
     @Json(name = "release_date") val releaseDate: String? = null,

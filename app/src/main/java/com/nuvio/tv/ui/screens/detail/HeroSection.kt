@@ -133,6 +133,7 @@ fun HeroContentSection(
     onHeroActionFocused: () -> Unit = {},
     onPlayFocusRestored: () -> Unit = {},
     onShowFullDescription: () -> Unit = {},
+    nuvioCTagline: String? = null, // [fork] TMDB tagline between logo and Play (switch `detail_tagline`)
     onTruncationChanged: (Boolean) -> Unit = {},
     nuvioCRateAvailable: Boolean = false, // [fork] Rate button (Trakt / MDBList)
     nuvioCRated: Boolean = false, // [fork]
@@ -318,6 +319,20 @@ fun HeroContentSection(
                 modifier = if (nuvioCFadeLogo) Modifier.nuvioCFade(nuvioCActionsAlpha) else Modifier // [fork]
             ) {
                 Column {
+                    // [fork] tagline: between the logo and Play, details text style, one line (two if long),
+                    // hidden with the buttons while a trailer plays; absent = no gap at all.
+                    if (com.nuvio.tv.NuvioCFeatures.DETAIL_TAGLINE && !nuvioCTagline.isNullOrBlank()) {
+                        Text(
+                            text = nuvioCTagline,
+                            style = MaterialTheme.typography.bodyLarge.copy(fontSize = androidx.compose.ui.unit.TextUnit(14f, androidx.compose.ui.unit.TextUnitType.Sp), lineHeight = androidx.compose.ui.unit.TextUnit(19f, androidx.compose.ui.unit.TextUnitType.Sp)),
+                            color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.72f),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .widthIn(max = 560.dp)
+                                .padding(bottom = 14.dp)
+                        )
+                    }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
                         verticalAlignment = Alignment.CenterVertically
