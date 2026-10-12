@@ -1708,6 +1708,7 @@ internal fun PlayerRuntimeController.tryAutoSelectPreferredSubtitleFromAvailable
         autoSubtitleSelected = true
         val currentInternal = state.selectedSubtitleTrackIndex
         val currentAddon = state.selectedAddonSubtitle
+        NuvioCSubtitleSession.rememberAuto(this, state.subtitleTracks[internalIndex]) // [fork] auto pick counts for Next / auto-play
         if (currentInternal != internalIndex || currentAddon != null) {
             Log.d(PlayerRuntimeController.TAG, "AUTO_SUB pick internal index=$internalIndex lang=${state.subtitleTracks[internalIndex].language}")
             selectSubtitleTrack(internalIndex)
