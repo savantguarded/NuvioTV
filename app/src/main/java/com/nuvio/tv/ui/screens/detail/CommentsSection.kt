@@ -239,7 +239,7 @@ fun CommentsSection(
             .padding(top = 20.dp, bottom = NuvioTheme.spacing.sm)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl),
+            modifier = Modifier.padding(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin), // [fork] page margin
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
         ) {
@@ -263,13 +263,13 @@ fun CommentsSection(
             text = subtitleText,
             style = MaterialTheme.typography.bodyMedium,
             color = NuvioTheme.colors.TextSecondary,
-            modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl)
+            modifier = Modifier.padding(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin) // [fork] page margin
         )
         if (canToggleEpisodeComments) {
             Spacer(modifier = Modifier.height(NuvioTheme.spacing.md))
             Row(
                 modifier = Modifier
-                    .padding(horizontal = NuvioTheme.spacing.xxxl)
+                    .padding(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin) // [fork] page margin
                     .focusRestorer(controlsFocusRequester),
                 horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
                 verticalAlignment = Alignment.CenterVertically
@@ -319,7 +319,7 @@ fun CommentsSection(
                         .then(
                             commentsTargetFocusRequester?.let { Modifier.focusRestorer(it) } ?: Modifier
                         ),
-                    contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xxxl, vertical = 6.dp),
+                    contentPadding = PaddingValues(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin, vertical = 6.dp), // [fork] page margin
                     horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
                 ) {
                     items(3) { index ->
@@ -349,7 +349,7 @@ fun CommentsSection(
 
             !error.isNullOrBlank() -> {
                 Column(
-                    modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl),
+                    modifier = Modifier.padding(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin), // [fork] page margin
                     verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
                 ) {
                     Text(
@@ -387,7 +387,7 @@ fun CommentsSection(
                     text = stringResource(R.string.detail_comments_empty),
                     style = MaterialTheme.typography.bodyMedium,
                     color = NuvioTheme.colors.TextSecondary,
-                    modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl)
+                    modifier = Modifier.padding(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin) // [fork] page margin
                 )
             }
 
@@ -414,7 +414,7 @@ fun CommentsSection(
                         }
                         .focusGroup(),
                     state = listState,
-                    contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xxxl, vertical = 6.dp),
+                    contentPadding = PaddingValues(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin, vertical = 6.dp), // [fork] page margin
                     horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
                 ) {
                     items(comments, key = { it.id }) { review ->

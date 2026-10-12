@@ -267,7 +267,7 @@ fun SeasonTabs(
             }
             .focusGroup(),
         state = lazyListState,
-        contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xxxl, vertical = NuvioTheme.spacing.xl),
+        contentPadding = PaddingValues(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin, vertical = NuvioTheme.spacing.xl), // [fork] page margin
         horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
     ) {
         items(sortedSeasons, key = { it }) { season ->
@@ -1264,7 +1264,7 @@ private fun rememberEpisodeCardMetrics(posterCardCornerRadiusDp: Int = 12): Epis
             )
 
             screenWidthDp >= 760 -> EpisodeCardMetrics(
-                rowHorizontalPadding = NuvioTheme.spacing.xxxl,
+                rowHorizontalPadding = com.nuvio.tv.ui.components.nuvioCDetailMargin, // [fork] page margin
                 rowVerticalPadding = NuvioTheme.spacing.lg,
                 itemSpacing = NuvioTheme.spacing.lg,
                 cardWidth = 320.dp,
