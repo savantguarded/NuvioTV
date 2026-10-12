@@ -602,7 +602,7 @@ fun MetaDetailsScreen(
                                 true
                             }
                             KeyEvent.KEYCODE_DPAD_DOWN -> {
-                                trailerSeekOverlayVisible = false
+                                trailerSeekOverlayVisible = com.nuvio.tv.NuvioCFeatures.TRAILER_SCREEN_BAR // [fork] Down shows the seek bar too, like Up (official hides it)
                                 true
                             }
                             KeyEvent.KEYCODE_DPAD_LEFT -> {
@@ -1029,7 +1029,7 @@ fun MetaDetailsScreen(
                                     true
                                 }
                                 KeyEvent.KEYCODE_DPAD_DOWN -> {
-                                    trailerSeekOverlayVisible = false
+                                    trailerSeekOverlayVisible = com.nuvio.tv.NuvioCFeatures.TRAILER_SCREEN_BAR // [fork] Down shows the seek bar too, like Up (official hides it)
                                     true
                                 }
                                 KeyEvent.KEYCODE_DPAD_LEFT -> {
@@ -1050,7 +1050,11 @@ fun MetaDetailsScreen(
                     },
                     onTrailerProgressChanged = onTrailerProgressChanged,
                     onTrailerEnded = {
-                        restorePlayFocusAfterTrailerBackToken += 1
+                        // [fork] bg_trailer_keep_focus: a background trailer ending leaves focus where it is
+                        // (official sends it to Play and scrolls to the top); a full-screen trailer still returns to Play.
+                        if (!(com.nuvio.tv.NuvioCFeatures.BG_TRAILER_KEEP_FOCUS && uiState.nuvioCBackgroundLayer && uiState.isBackgroundTrailerPlaying)) {
+                            restorePlayFocusAfterTrailerBackToken += 1
+                        }
                         isTrailerPaused = false
                         viewModel.onEvent(MetaDetailsEvent.OnTrailerEnded)
                     },
@@ -1391,6 +1395,7 @@ private fun MetaDetailsContent(
     var pendingRestoreCollectionItemId by rememberSaveable { mutableStateOf<String?>(null) }
     var pendingRestoreCompanyId by rememberSaveable { mutableStateOf<Int?>(null) }
     var restoreFocusToken by rememberSaveable { mutableIntStateOf(0) }
+    val nuvioCPlayTokenSeen = rememberSaveable(meta.id) { mutableIntStateOf(0) } // [fork] last Play focus request handled
     var commentsEntryFocusToken by rememberSaveable { mutableIntStateOf(0) }
     var companyRestoreToken by rememberSaveable { mutableIntStateOf(0) }
     var restoreOnNextResume by rememberSaveable { mutableStateOf(false) }
@@ -1450,6 +1455,8 @@ private fun MetaDetailsContent(
             }
         }
     }
+    @Suppress("DEPRECATION")
+    val nuvioCPageScrollSpec = detailPageBringIntoViewSpec.scrollAnimationSpec // [fork] scroll-end speed = normal row speed
     val detailRowBringIntoViewResponder = remember(suppressDetailRowRelocation) {
         object : BringIntoViewResponder {
             override fun calculateRectForParent(localRect: Rect): Rect {
@@ -1512,7 +1519,7 @@ private fun MetaDetailsContent(
 
     fun onCompanyRowFocused(revealOverflowPx: Float) {
         if (com.nuvio.tv.NuvioCFeatures.DETAIL_SCROLL_END) { // [fork] one normal scroll to the end, no stop-then-nudge
-            nuvioCScrollDetailToEnd(listState, tapScroll.lastKey, pendingRestoreType == RestoreTarget.COMPANY_OR_NETWORK, detailFastScrolling, coroutineScope)
+            nuvioCScrollDetailToEnd(listState, tapScroll.lastKey, pendingRestoreType == RestoreTarget.COMPANY_OR_NETWORK, detailFastScrolling, coroutineScope, nuvioCPageScrollSpec)
             return
         }
         if (tapScroll.rapidDown && tapScroll.lastKey == KeyEvent.KEYCODE_DPAD_DOWN) return
@@ -2560,6 +2567,7 @@ private fun MetaDetailsContent(
                         },
                         restorePlayFocusToken = (if (pendingRestoreType == RestoreTarget.HERO) restoreFocusToken else 0) +
                                 restorePlayFocusAfterTrailerBackToken,
+                        nuvioCPlayTokenSeen = nuvioCPlayTokenSeen, // [fork] focus stability
                         onPlayFocusRestored = {
                             onPlayButtonFocused()
                             initialHeroFocusRequested = true

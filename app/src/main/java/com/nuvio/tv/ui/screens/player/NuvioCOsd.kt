@@ -209,6 +209,9 @@ private fun NuvioCBadgeView(part: NuvioCBadge) {
 /** Badge text in a [BADGE_HEIGHT] box with its capitals centred vertically. */
 @Composable
 private fun NuvioCBadgeText(text: String, style: androidx.compose.ui.text.TextStyle, color: Color, modifier: Modifier) {
+    // 2026-10-12: the real cap height of the app font in use (0.67 em in Source Serif 4 / Atkinson,
+    // 0.73 in Inter), so capitals sit centred whatever font is picked.
+    val capEm = rememberNuvioCCapHeightEm(style)
     Box(modifier = modifier.height(BADGE_HEIGHT)) {
         Text(
             text = text,
@@ -220,11 +223,26 @@ private fun NuvioCBadgeText(text: String, style: androidx.compose.ui.text.TextSt
                 val p = measurable.measure(constraints.copy(minHeight = 0))
                 val box = BADGE_HEIGHT.roundToPx()
                 val baseline = p[androidx.compose.ui.layout.FirstBaseline].takeIf { it != AlignmentLine.Unspecified } ?: p.height
-                val cap = style.fontSize.toPx() * BADGE_CAP_HEIGHT_EM
+                val cap = style.fontSize.toPx() * capEm
                 val y = ((box + cap) / 2f - baseline).roundToInt()
                 layout(p.width, box) { p.place(0, y) }
             }
         )
+    }
+}
+
+/** Cap height of [style]'s font as a share of its size (height of "H"); [BADGE_CAP_HEIGHT_EM] if unknown. */
+@Composable
+private fun rememberNuvioCCapHeightEm(style: androidx.compose.ui.text.TextStyle): Float {
+    val resolver = androidx.compose.ui.platform.LocalFontFamilyResolver.current
+    val typeface = resolver.resolve(style.fontFamily, style.fontWeight ?: FontWeight.Normal).value as? android.graphics.Typeface
+    return androidx.compose.runtime.remember(typeface) {
+        typeface?.let {
+            val paint = android.graphics.Paint().apply { this.typeface = it; textSize = 100f }
+            val bounds = android.graphics.Rect()
+            paint.getTextBounds("H", 0, 1, bounds)
+            (-bounds.top / 100f).takeIf { em -> em in 0.5f..0.9f }
+        } ?: BADGE_CAP_HEIGHT_EM
     }
 }
 

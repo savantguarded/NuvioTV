@@ -30,18 +30,21 @@ fun ProfileAvatarCircle(
     size: Dp = 80.dp,
     isSelected: Boolean = false,
     avatarImageUrl: String? = null,
-    imageCrossfade: Boolean = true
+    imageCrossfade: Boolean = true,
+    nuvioCDecodeSize: Dp? = null // [fork] decode at the largest size it is ever drawn (focus zoom), so it never upscales
 ) {
     val avatarColor = runCatching { Color(android.graphics.Color.parseColor(colorHex)) }
         .getOrDefault(Color(0xFF1E88E5))
     val initial = name.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
     val fontSize = (size.value * 0.4f).sp
     val context = LocalContext.current
-    val imageRequest = remember(context, avatarImageUrl, imageCrossfade) {
+    val nuvioCDecodePx = nuvioCDecodeSize?.let { with(androidx.compose.ui.platform.LocalDensity.current) { it.roundToPx() } }
+    val imageRequest = remember(context, avatarImageUrl, imageCrossfade, nuvioCDecodePx) {
         avatarImageUrl?.let {
             ImageRequest.Builder(context)
                 .data(it)
                 .crossfade(imageCrossfade)
+                .apply { if (nuvioCDecodePx != null) size(nuvioCDecodePx, nuvioCDecodePx) }
                 .build()
         }
     }

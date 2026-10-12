@@ -64,6 +64,7 @@ import com.nuvio.tv.ui.util.StableList
 import com.nuvio.tv.ui.util.recompositionHighlighter
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
+import com.nuvio.tv.ui.util.nuvioCLogoContrast
 import coil3.request.colorSpace
 import coil3.request.crossfade
 import com.nuvio.tv.domain.model.MetaPreview
@@ -242,6 +243,7 @@ private fun HeroCarouselSlide(
                 .data(it)
                 .crossfade(true)
                 .size(width = logoRequestWidthPx, height = logoRequestHeightPx)
+                .nuvioCLogoContrast() // [fork] dark logos
                 .build()
         }
     }
