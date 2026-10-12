@@ -172,7 +172,7 @@ fun SharedTrailerOverlay(
 
                         KeyEvent.KEYCODE_DPAD_DOWN -> {
                             if (!canControlPlayback) return@onPreviewKeyEvent false
-                            seekOverlayVisible = false
+                            seekOverlayVisible = com.nuvio.tv.NuvioCFeatures.TRAILER_SCREEN_BAR // [fork] Down shows the seek bar too, like Up (official hides it)
                             true
                         }
 

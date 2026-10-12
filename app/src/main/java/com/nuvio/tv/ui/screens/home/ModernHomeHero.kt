@@ -55,6 +55,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
+import com.nuvio.tv.ui.util.nuvioCLogoContrast
 import coil3.request.crossfade
 import com.nuvio.tv.ui.util.LocalRecompositionHighlighterEnabled
 import com.nuvio.tv.ui.util.contentTextDirection
@@ -314,6 +315,7 @@ internal fun HeroTitleBlock(
     mdbListShowOnHero: Boolean = false,
     mdbListRatingOrder: List<String> = com.nuvio.tv.domain.model.MDBListSettings.DEFAULT_RATING_ORDER,
     trailerPlaying: () -> Boolean = { false },
+    nuvioCTextWidths: List<androidx.compose.ui.unit.Dp>? = null, // [fork] home synopsis fit: narrowest first
     modifier: Modifier = Modifier
 ) {
     val currentPreview = previewProvider()
@@ -344,7 +346,8 @@ internal fun HeroTitleBlock(
             showImdbRatings = showImdbRatings,
             mdbListShowOnHero = mdbListShowOnHero,
             mdbListRatingOrder = mdbListRatingOrder,
-            trailerPlaying = trailerPlaying
+            trailerPlaying = trailerPlaying,
+            nuvioCTextWidths = nuvioCTextWidths
         )
     }
 }
@@ -356,7 +359,8 @@ private fun HeroTitleContent(
     showImdbRatings: Boolean,
     mdbListShowOnHero: Boolean = false,
     mdbListRatingOrder: List<String> = com.nuvio.tv.domain.model.MDBListSettings.DEFAULT_RATING_ORDER,
-    trailerPlaying: () -> Boolean = { false }
+    trailerPlaying: () -> Boolean = { false },
+    nuvioCTextWidths: List<androidx.compose.ui.unit.Dp>? = null
 ) {
     val preview = previewProvider() ?: return
     val highlighterEnabled = LocalRecompositionHighlighterEnabled.current
@@ -383,6 +387,7 @@ private fun HeroTitleContent(
                 .data(it)
                 .crossfade(true)
                 .size(width = logoMaxWidthPx, height = logoHeightPx)
+                .nuvioCLogoContrast() // [fork] dark logos
                 .build()
         }
     }
@@ -408,7 +413,7 @@ private fun HeroTitleContent(
 
     var logoLoadFailed by remember(preview.logo) { mutableStateOf(false) }
     val showLogo = !preview.logo.isNullOrBlank() && !logoLoadFailed
-    var nuvioCLogoAspect by remember(preview.logo) { mutableStateOf<Float?>(null) } // [fork] logo weight
+    var nuvioCLogoAspect by remember(preview.logo) { mutableStateOf(com.nuvio.tv.ui.components.NuvioCLogoSize.known(preview.logo)) } // [fork] logo weight
     val logoPart: @Composable () -> Unit = {
         if (showLogo) {
             AsyncImage(
@@ -668,13 +673,19 @@ private fun HeroTitleContent(
         }
 
         preview.description?.let { if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.homeSynopsis(it) else it }?.takeIf { it.isNotBlank() }?.let { description -> // [fork] hero spec: no blank lines
+            val nuvioCStyle = scaledDescriptionStyle.copy(textDirection = description.contentTextDirection())
+            // [fork] home synopsis fit: the narrowest width (official first) that shows it all in 5 lines;
+            // a 6th line only at the widest, and the logo keeps its minimum height (NuvioCHeroStack).
+            val nuvioCFit = com.nuvio.tv.ui.components.rememberNuvioCSynopsisFit(description, nuvioCStyle, nuvioCTextWidths)
             Text(
                 text = description,
-                style = scaledDescriptionStyle.copy(textDirection = description.contentTextDirection()),
+                style = nuvioCStyle,
                 color = NuvioTheme.colors.TextPrimary,
-                maxLines = descriptionMaxLines,
+                maxLines = nuvioCFit?.lines ?: descriptionMaxLines,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.graphicsLayer { alpha = metaAlpha }
+                modifier = Modifier
+                    .then(if (nuvioCFit != null) Modifier.width(nuvioCFit.width) else Modifier)
+                    .graphicsLayer { alpha = metaAlpha }
             )
         }
     }
@@ -684,6 +695,7 @@ private fun HeroTitleContent(
         // [fork] hero spec: text keeps its full height, the logo gets what is left above it
         com.nuvio.tv.ui.components.NuvioCHeroStack(
             gap = titleSpacing,
+            minLogoHeight = if (showLogo && com.nuvio.tv.NuvioCFeatures.HOME_SYNOPSIS_FIT) com.nuvio.tv.ui.components.NuvioCSynopsisFit.MIN_LOGO_HEIGHT else 0.dp,
             modifier = columnModifier,
             logo = logoPart,
             rest = { Column(verticalArrangement = Arrangement.spacedBy(titleSpacing)) { restPart() } }

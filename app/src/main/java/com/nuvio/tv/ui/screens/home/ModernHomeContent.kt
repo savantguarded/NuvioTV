@@ -1071,14 +1071,19 @@ fun ModernHomeContent(
             val heroTrailerRenderedLambda = remember { { heroTrailerFirstFrameRenderedUpdated } }
 
             val nuvioCHeroTextWidth = landscapeCatalogCardWidth * 2 + NuvioTheme.spacing.md // [fork] hero spec: text ends at the second landscape poster's right edge
-            val heroMetadataModifier = remember(rowHorizontalPadding, rowsViewportHeight, nuvioCHeroTextWidth) {
+            // [fork] home synopsis fit: official width, then ours, then ours + 80 dp, only as wide as the text needs
+            val nuvioCScreenWidth = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
+            val nuvioCTextWidths = if (com.nuvio.tv.NuvioCFeatures.HOME_SYNOPSIS_FIT && com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) remember(nuvioCScreenWidth, rowHorizontalPadding, nuvioCHeroTextWidth) {
+                com.nuvio.tv.ui.components.NuvioCSynopsisFit.widths(nuvioCScreenWidth - rowHorizontalPadding - NuvioTheme.spacing.xxxl, nuvioCHeroTextWidth)
+            } else null
+            val heroMetadataModifier = remember(rowHorizontalPadding, rowsViewportHeight, nuvioCHeroTextWidth, nuvioCTextWidths) {
                 Modifier
                     .align(Alignment.BottomStart)
                     .padding(start = rowHorizontalPadding, end = NuvioTheme.spacing.xxxl, bottom = NuvioTheme.spacing.none + rowsViewportHeight + NuvioTheme.spacing.lg)
                     .then(
                         if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) Modifier // [fork] hero spec: room above for the logo, never past the top clearance
                             .padding(top = com.nuvio.tv.ui.components.NUVIO_C_HOME_HERO_TOP)
-                            .widthIn(max = nuvioCHeroTextWidth)
+                            .widthIn(max = nuvioCTextWidths?.last() ?: nuvioCHeroTextWidth)
                             .fillMaxWidth()
                         else Modifier.fillMaxWidth(MODERN_HERO_TEXT_WIDTH_FRACTION)
                     )
@@ -1105,6 +1110,7 @@ fun ModernHomeContent(
                         state.fullScreenBackdrop && shouldPlayTrailerLambda() && heroTrailerRenderedLambda()
                     }
                 },
+                nuvioCTextWidths = nuvioCTextWidths,
                 modifier = heroMetadataModifier
             )
 

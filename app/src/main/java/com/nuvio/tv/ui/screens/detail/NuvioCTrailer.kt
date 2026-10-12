@@ -24,6 +24,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.nuvio.tv.ui.util.nuvioCLogoContrast
 import com.nuvio.tv.ui.theme.NuvioMotion
 import com.nuvio.tv.ui.theme.NuvioTheme
 import kotlinx.coroutines.launch
@@ -77,16 +78,26 @@ internal fun Modifier.nuvioCFade(alpha: Float): Modifier = graphicsLayer {
  * Like animateContentSize (height only, content pinned to the top) but without clipToBounds,
  * so the hero's logo and focused buttons are never cropped while the hero resizes.
  */
-internal fun Modifier.nuvioCAnimateHeightNoClip(spec: AnimationSpec<Float>): Modifier = composed {
+internal fun Modifier.nuvioCAnimateHeightNoClip(spec: AnimationSpec<Float>, animateKey: Any? = null): Modifier = composed {
     val scope = rememberCoroutineScope()
     val height = remember { Animatable(-1f) }
+    // 2026-10-12 (switch `detail_focus_stable`): only animate for a short while after [animateKey]
+    // changes (trailer start / stop). Any other height change (logo or ratings landing, the hero
+    // coming back into the list) snaps, so the synopsis never slides while you scroll.
+    var animateUntil by remember { androidx.compose.runtime.mutableLongStateOf(0L) }
+    var lastKey by remember { androidx.compose.runtime.mutableStateOf<Any?>(animateKey) }
+    if (lastKey != animateKey) {
+        lastKey = animateKey
+        animateUntil = android.os.SystemClock.uptimeMillis() + 1_500L
+    }
     layout { measurable, constraints ->
         val placeable = measurable.measure(constraints)
         val target = placeable.height.toFloat()
+        val animate = !com.nuvio.tv.NuvioCFeatures.DETAIL_FOCUS_STABLE || android.os.SystemClock.uptimeMillis() < animateUntil
         if (height.value < 0f) {
             scope.launch { height.snapTo(target) }
         } else if (height.targetValue != target) {
-            scope.launch { height.animateTo(target, spec) }
+            scope.launch { if (animate) height.animateTo(target, spec) else height.snapTo(target) }
         }
         val shown = if (height.value < 0f) placeable.height else height.value.roundToInt()
         layout(placeable.width, shown) { placeable.place(0, 0) }
@@ -116,8 +127,12 @@ internal fun NuvioCTrailerScreenLogo(
     )
     if (!visible && alpha <= 0f) return
     Column(modifier = modifier.fillMaxWidth()) {
+        val nuvioCContext = androidx.compose.ui.platform.LocalContext.current
+        val nuvioCModel = androidx.compose.runtime.remember(nuvioCContext, url) {
+            coil3.request.ImageRequest.Builder(nuvioCContext).data(url).nuvioCLogoContrast().build() // [fork] dark logos
+        }
         AsyncImage(
-            model = url,
+            model = nuvioCModel,
             contentDescription = contentDescription,
             contentScale = ContentScale.Fit,
             alignment = Alignment.BottomStart,
