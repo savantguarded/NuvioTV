@@ -544,7 +544,7 @@ internal fun ModernRowSection(
         val rowTitle = row.title
         val textColor = NuvioTheme.colors.TextPrimary
         val textModifier = remember(rowTitleBottom) {
-            Modifier.padding(start = 52.dp, bottom = rowTitleBottom)
+            Modifier.padding(start = com.nuvio.tv.ui.components.nuvioCHomeMargin, bottom = rowTitleBottom) // [fork] page margin (official 52.dp)
         }
         Text(
             text = rowTitle,
@@ -650,7 +650,7 @@ internal fun ModernRowSection(
         }
 
         val density = LocalDensity.current
-        val rowStartPadding = 52.dp
+        val rowStartPadding = com.nuvio.tv.ui.components.nuvioCHomeMargin // [fork] page margin (official 52.dp)
         val context = LocalContext.current
         val imageLoader = context.imageLoader
 

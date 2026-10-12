@@ -229,7 +229,7 @@ fun CastSection(
                 text = title,
                 style = MaterialTheme.typography.titleLarge,
                 color = NuvioTheme.colors.TextPrimary,
-                modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl)
+                modifier = Modifier.padding(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin) // [fork] page margin
             )
             Spacer(modifier = Modifier.height(NuvioTheme.spacing.md))
         }
@@ -255,7 +255,7 @@ fun CastSection(
                 }
                 .focusGroup(),
             state = listState,
-            contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xxxl, vertical = 6.dp),
+            contentPadding = PaddingValues(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin, vertical = 6.dp), // [fork] page margin
             horizontalArrangement = Arrangement.Start
         ) {
             val standardGap = NuvioTheme.spacing.sm

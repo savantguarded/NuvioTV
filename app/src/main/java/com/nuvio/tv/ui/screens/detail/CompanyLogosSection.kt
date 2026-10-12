@@ -160,7 +160,7 @@ fun CompanyLogosSection(
             text = title,
             style = MaterialTheme.typography.titleLarge,
             color = NuvioTheme.colors.TextPrimary,
-            modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl)
+            modifier = Modifier.padding(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin) // [fork] page margin
         )
 
         LazyRow(
@@ -175,7 +175,7 @@ fun CompanyLogosSection(
                 }
                 .focusGroup(),
             state = listState,
-            contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xxxl, vertical = 6.dp),
+            contentPadding = PaddingValues(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin, vertical = 6.dp), // [fork] page margin
             horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
         ) {
             itemsIndexed(

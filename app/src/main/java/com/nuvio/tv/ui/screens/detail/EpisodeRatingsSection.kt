@@ -124,7 +124,7 @@ fun EpisodeRatingsSection(
                 text = title,
                 style = MaterialTheme.typography.titleMedium,
                 color = NuvioTheme.colors.TextPrimary,
-                modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl)
+                modifier = Modifier.padding(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin) // [fork] page margin
             )
         }
 
@@ -134,7 +134,7 @@ fun EpisodeRatingsSection(
                     text = stringResource(R.string.ratings_loading),
                     style = MaterialTheme.typography.bodyMedium,
                     color = NuvioTheme.colors.TextSecondary,
-                    modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl, vertical = NuvioTheme.spacing.md)
+                    modifier = Modifier.padding(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin, vertical = NuvioTheme.spacing.md) // [fork] page margin
                 )
             }
             error != null -> {
@@ -142,7 +142,7 @@ fun EpisodeRatingsSection(
                     text = error,
                     style = MaterialTheme.typography.bodyMedium,
                     color = NuvioTheme.colors.TextSecondary,
-                    modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl, vertical = NuvioTheme.spacing.md)
+                    modifier = Modifier.padding(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin, vertical = NuvioTheme.spacing.md) // [fork] page margin
                 )
             }
             seasonNumbers.isEmpty() -> {
@@ -150,7 +150,7 @@ fun EpisodeRatingsSection(
                     text = stringResource(R.string.ratings_unavailable),
                     style = MaterialTheme.typography.bodyMedium,
                     color = NuvioTheme.colors.TextSecondary,
-                    modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl, vertical = NuvioTheme.spacing.md)
+                    modifier = Modifier.padding(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin, vertical = NuvioTheme.spacing.md) // [fork] page margin
                 )
             }
             else -> {
@@ -159,7 +159,7 @@ fun EpisodeRatingsSection(
                         .fillMaxWidth()
                         .focusRestorer { selectedSeasonRequester }
                         .focusGroup(),
-                    contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xxxl, vertical = 6.dp),
+                    contentPadding = PaddingValues(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin, vertical = 6.dp), // [fork] page margin
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(seasonNumbers, key = { it }) { season ->
@@ -215,7 +215,7 @@ fun EpisodeRatingsSection(
                     text = stringResource(R.string.ratings_season_summary, selectedSeason, episodesForSeason.size),
                     style = MaterialTheme.typography.labelSmall,
                     color = NuvioTheme.colors.TextTertiary,
-                    modifier = Modifier.padding(horizontal = NuvioTheme.spacing.xxxl, vertical = NuvioTheme.spacing.xxs)
+                    modifier = Modifier.padding(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin, vertical = NuvioTheme.spacing.xxs) // [fork] page margin
                 )
 
                 LazyRow(
@@ -224,7 +224,7 @@ fun EpisodeRatingsSection(
                         .focusRequester(effectiveRatingsGridFocusRequester)
                         .focusRestorer(firstEpisodeRatingFocusRequester)
                         .focusGroup(),
-                    contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xxxl, vertical = 6.dp),
+                    contentPadding = PaddingValues(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin, vertical = 6.dp), // [fork] page margin
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(seasonRatings, key = { "${it.seasonNumber}:${it.episodeNumber}" }) { episodeRating ->
