@@ -120,4 +120,6 @@ object NuvioCFeatures {
     const val HOME_SYNOPSIS_FIT = true
     /** Clearlogos: transparent borders trimmed when the logo loads, so sizing uses the visible logo (padded TMDB logos looked small). */
     const val LOGO_TRIM = true
+    /** Player: Next / auto-play shows the episode name the details page had (your meta add-on), never a blank or the previous episode's. */
+    const val NEXT_EP_TITLE = true
 }

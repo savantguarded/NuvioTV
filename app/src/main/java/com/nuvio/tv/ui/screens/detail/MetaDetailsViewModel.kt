@@ -1021,6 +1021,7 @@ class MetaDetailsViewModel @Inject constructor(
         // Fire all independent async jobs immediately — they run in parallel.
         loadMoreLikeThisAsync(meta)
         val enriched = enrichMeta(meta)
+        com.nuvio.tv.ui.screens.player.NuvioCEpisodeTitles.remember(enriched.videos) // [fork] episode names for Next / auto-play
 
         syncEffectiveContentId(enriched)
         val cachedNextToWatch = metaDetailsSessionState.getNextToWatch(
