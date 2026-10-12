@@ -52,3 +52,37 @@ internal fun PlayerRuntimeController.nuvioCPreferSdhIndex(
         PlayerSubtitleUtils.detectTrackLanguageVariant(track.language, track.name, track.trackId) == normalizedTarget
     }
 }
+
+// [fork] 2026-10-12 round 6 (switch `sdh_session_pick`): official only saves subtitle picks you make
+// yourself; the player's automatic pick (where Prefer SDH works) is never kept. On Next / auto-play
+// the saved pick for the series (often an older plain-track choice) was restored instead and the
+// automatic pick never ran. Now an automatic pick counts for the rest of this player session: while
+// it stands, the next episode skips the saved subtitle and picks again the same way (SDH included).
+// A subtitle you choose yourself ends it, and is saved as before. Audio restore is untouched.
+internal object NuvioCSubtitleSession {
+    private const val TAG = "NuvioCSdh"
+    private var owner = 0
+    private var autoPick: String? = null
+
+    fun rememberAuto(controller: Any, track: TrackInfo) {
+        if (!NuvioCFeatures.SDH_SESSION_PICK) return
+        owner = System.identityHashCode(controller)
+        autoPick = "lang=${track.language} sdh=${NuvioCSdh.isSdhText(track.name, track.trackId)} name=${track.name}"
+        android.util.Log.d(TAG, "auto pick kept for this session: $autoPick")
+    }
+
+    fun forget(controller: Any) {
+        if (owner == System.identityHashCode(controller) && autoPick != null) {
+            android.util.Log.d(TAG, "manual subtitle pick: session auto pick cleared")
+            autoPick = null
+        }
+    }
+
+    /** Saved preference to restore for the next episode: subtitle dropped while an automatic pick stands. */
+    fun filterSaved(controller: Any, saved: PlayerRuntimeController.TrackPreference?): PlayerRuntimeController.TrackPreference? {
+        if (!NuvioCFeatures.SDH_SESSION_PICK || saved?.subtitle == null) return saved
+        if (owner != System.identityHashCode(controller) || autoPick == null) return saved
+        android.util.Log.d(TAG, "next episode: saved subtitle skipped, picking again like last time ($autoPick)")
+        return saved.copy(subtitle = null)
+    }
+}

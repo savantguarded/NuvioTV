@@ -122,4 +122,6 @@ object NuvioCFeatures {
     const val LOGO_TRIM = true
     /** Player: Next / auto-play shows the episode name the details page had (your meta add-on), never a blank or the previous episode's. */
     const val NEXT_EP_TITLE = true
+    /** Player: the automatic subtitle pick (Prefer SDH included) carries to the next episode in the same session instead of the series' older saved pick; a manual pick still wins and is saved. */
+    const val SDH_SESSION_PICK = true
 }
