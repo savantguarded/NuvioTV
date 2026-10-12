@@ -1491,7 +1491,8 @@ internal fun PlayerRuntimeController.switchToEpisodeStream(
     currentVideoId = targetVideoId
     currentSeason = targetVideo?.season ?: _uiState.value.episodeStreamsSeason ?: currentSeason
     currentEpisode = targetVideo?.episode ?: _uiState.value.episodeStreamsEpisode ?: currentEpisode
-    currentEpisodeTitle = targetVideo?.title ?: _uiState.value.episodeStreamsTitle ?: currentEpisodeTitle
+    currentEpisodeTitle = if (com.nuvio.tv.NuvioCFeatures.NEXT_EP_TITLE && targetVideo != null) NuvioCEpisodeTitles.pick(targetVideo) else // [fork] details page names first, never the previous episode's
+    targetVideo?.title ?: _uiState.value.episodeStreamsTitle ?: currentEpisodeTitle
     // Until the new file loads, MPV keeps reporting the old one, which is often at its end.
     hasRenderedFirstFrame = false
     mpvView?.markMediaRequested(playbackUrl)
@@ -1607,7 +1608,8 @@ private fun PlayerRuntimeController.switchToEpisodeStreamCommon(
     currentVideoId = targetVideo?.id ?: _uiState.value.episodeStreamsForVideoId ?: currentVideoId
     currentSeason = targetVideo?.season ?: _uiState.value.episodeStreamsSeason ?: currentSeason
     currentEpisode = targetVideo?.episode ?: _uiState.value.episodeStreamsEpisode ?: currentEpisode
-    currentEpisodeTitle = targetVideo?.title ?: _uiState.value.episodeStreamsTitle ?: currentEpisodeTitle
+    currentEpisodeTitle = if (com.nuvio.tv.NuvioCFeatures.NEXT_EP_TITLE && targetVideo != null) NuvioCEpisodeTitles.pick(targetVideo) else // [fork] details page names first, never the previous episode's
+    targetVideo?.title ?: _uiState.value.episodeStreamsTitle ?: currentEpisodeTitle
     refreshScrobbleItem()
 
     lastSavedPosition = 0L

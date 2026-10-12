@@ -1022,6 +1022,7 @@ class MetaDetailsViewModel @Inject constructor(
     private suspend fun applyMetaWithEnrichment(meta: Meta) {
         if (!isServerItem) loadMoreLikeThisAsync(meta)
         val enriched = if (isServerItem) meta else enrichMeta(meta)
+        com.nuvio.tv.ui.screens.player.NuvioCEpisodeTitles.remember(enriched.videos) // [fork] episode names for Next / auto-play
 
         syncEffectiveContentId(enriched)
         val cachedNextToWatch = metaDetailsSessionState.getNextToWatch(
