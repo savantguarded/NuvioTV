@@ -708,9 +708,22 @@ internal fun nuvioCSubtitleLabel(uiState: PlayerUiState, title: String, off: Str
     return "$title · ${name?.takeIf { it.isNotBlank() } ?: off}"
 }
 
-/** "Audio · English 5.1" style label for the focus label. */
+/** "Audio · English" for the focus label: the track's language only (round 6, 2026-10-12; was the full
+ * track name with its format). Commentary / description tracks keep that word. No language = official name. */
 internal fun nuvioCAudioLabel(uiState: PlayerUiState, title: String): String {
     val track = uiState.audioTracks.getOrNull(uiState.selectedAudioTrackIndex)
         ?: uiState.audioTracks.firstOrNull { it.isSelected }
-    return track?.name?.takeIf { it.isNotBlank() }?.let { "$title · $it" } ?: title
+        ?: return title
+    val lang = track.language?.trim()?.takeIf { it.isNotEmpty() }
+        ?.let { com.nuvio.tv.ui.util.languageCodeToName(it) }
+        ?.takeIf { it.isNotBlank() && it != "Unknown" }
+    val role = listOf("commentary", "descriptive", "audio description").firstOrNull {
+        track.name.contains(it, ignoreCase = true)
+    }?.replaceFirstChar { it.uppercase() }
+    val label = when {
+        lang != null && role != null -> "$lang · $role"
+        lang != null -> lang
+        else -> track.name.takeIf { it.isNotBlank() }
+    }
+    return label?.let { "$title · $it" } ?: title
 }
