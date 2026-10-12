@@ -1961,7 +1961,7 @@ private fun MetaDetailsContent(
         }
     }
     val availablePeopleTabs = remember(peopleTabItems) { peopleTabItems.map { it.tab } }
-    val shouldSplitCollection = peopleTabItems.size > 3 && peopleTabItems.any { it.tab == PeopleSectionTab.COLLECTION }
+    val shouldSplitCollection = (com.nuvio.tv.NuvioCFeatures.COLLECTION_OWN_ROW || peopleTabItems.size > 3) && peopleTabItems.any { it.tab == PeopleSectionTab.COLLECTION } // [fork] collection always its own row
     val visiblePeopleTabItems = if (shouldSplitCollection) peopleTabItems.filterNot { it.tab == PeopleSectionTab.COLLECTION } else peopleTabItems
     val hasVisiblePeopleSection = visiblePeopleTabItems.isNotEmpty()
     val hasVisiblePeopleTabs = visiblePeopleTabItems.size > 1
