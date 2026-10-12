@@ -10,21 +10,21 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.nuvio.tv.NuvioCFeatures
 
-// [fork] Nuvio C home synopsis fit (switch `home_synopsis_fit`, 2026-10-12). The home synopsis is
-// only as wide and as long as it needs to be:
-//  1. official width (42% of the space between the side paddings) if it fits in 5 lines,
-//  2. else our width (to the second landscape poster) if it fits in 5 lines,
-//  3. else our width + 80 dp, 5 lines if that fits, otherwise 6 (ellipsis after the 6th).
-// The block stays bottom-anchored with its top clearance; NuvioCHeroStack keeps the logo at least
-// [MIN_LOGO_HEIGHT] tall, so a 6th line that doesn't fit ellipsizes instead of squeezing the logo.
+// [fork] Nuvio C home synopsis fit (switch `home_synopsis_fit`). Up to 6 lines (round 6,
+// 2026-10-12: was 5, with a 6th only at the widest width), and only as wide as it needs to be:
+//  1. official width (42% of the space between the side paddings) if it fits in 6 lines,
+//  2. else our width (to the second landscape poster),
+//  3. else our width + 80 dp, ellipsis after the 6th line.
+// Lines are broken for even length (no lone last word). The block stays bottom-anchored with its
+// top clearance; NuvioCHeroStack keeps the logo at least [MIN_LOGO_HEIGHT] tall, so text that
+// doesn't fit the height ellipsizes instead of squeezing the logo away.
 
 data class NuvioCSynopsisFitResult(val width: Dp, val lines: Int)
 
 object NuvioCSynopsisFit {
     const val OFFICIAL_FRACTION = 0.42f
     val EXTRA_WIDTH: Dp = 80.dp
-    val MIN_LOGO_HEIGHT: Dp = 56.dp
-    const val BASE_LINES = 5
+    val MIN_LOGO_HEIGHT: Dp = 48.dp
     const val MAX_LINES = 6
 
     /** Widths to try, narrowest first, never past [available]. */
@@ -38,7 +38,7 @@ object NuvioCSynopsisFit {
 
     /** Pure choice from a "does it fit in n lines at width w" test (unit-tested). */
     fun choose(widths: List<Dp>, fits: (Dp, Int) -> Boolean): NuvioCSynopsisFitResult {
-        for (w in widths) if (fits(w, BASE_LINES)) return NuvioCSynopsisFitResult(w, BASE_LINES)
+        for (w in widths) if (fits(w, MAX_LINES)) return NuvioCSynopsisFitResult(w, MAX_LINES)
         return NuvioCSynopsisFitResult(widths.last(), MAX_LINES)
     }
 }
