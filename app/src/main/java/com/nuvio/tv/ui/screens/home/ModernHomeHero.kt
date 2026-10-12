@@ -684,8 +684,9 @@ private fun HeroTitleContent(
 
         preview.description?.let { if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.homeSynopsis(it) else it }?.takeIf { it.isNotBlank() }?.let { description -> // [fork] hero spec: no blank lines
             val nuvioCStyle = scaledDescriptionStyle.copy(textDirection = description.contentTextDirection())
-            // [fork] home synopsis fit: the narrowest width (official first) that shows it all in 5 lines;
-            // a 6th line only at the widest, and the logo keeps its minimum height (NuvioCHeroStack).
+                .let { if (com.nuvio.tv.NuvioCFeatures.HOME_SYNOPSIS_FIT) it.copy(lineBreak = androidx.compose.ui.text.style.LineBreak.Paragraph) else it } // [fork] even line lengths
+            // [fork] home synopsis fit: the narrowest width (official first) that shows it all in up to 6 lines;
+            // past that the widest with an ellipsis, and the logo keeps its minimum height (NuvioCHeroStack).
             val nuvioCFit = com.nuvio.tv.ui.components.rememberNuvioCSynopsisFit(description, nuvioCStyle, nuvioCTextWidths)
             Text(
                 text = description,
