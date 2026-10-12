@@ -914,7 +914,7 @@ private fun ProfileSelectionMainContent(
         verticalArrangement = if (nuvioCClean) Arrangement.Center else Arrangement.Top, // [fork]
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        if (nuvioCClean) NuvioCPlainWordmark(ProfileSelectionSpacing.LogoHeight, brandWordmarkRes) else // [fork] no supporter badge
+        if (!nuvioCClean) { // [fork] 2026-10-12: no Nuvio wordmark on the clean screen (splash keeps it)
         MemberBrandWordmark(
             height = ProfileSelectionSpacing.LogoHeight,
             contentDescription = stringResource(R.string.cd_nuvio_logo),
@@ -922,6 +922,7 @@ private fun ProfileSelectionMainContent(
         )
 
         Spacer(modifier = Modifier.height(ProfileSelectionSpacing.LogoToHeading))
+        } // [fork]
 
         if (!nuvioCClean) { // [fork] no "Who's watching?"
         Text(
