@@ -68,4 +68,28 @@ class NuvioCLogoContrastTest {
         NuvioCLogoContrast.lift(px, w, h)
         assertEquals(shadow, px[18 * w + 40])
     }
+
+    @Test
+    fun gradientLogoKeepsItsShading() {
+        // Dark metallic letters: neutral greys from very dark to mid grey (The Dark Knight style).
+        val w = 100; val h = 20
+        val px = img(w, h) { x, y ->
+            if (y in 2..17 && x in 2..97) { val v = 8 + x; (0xFF shl 24) or (v shl 16) or (v shl 8) or v } else clear
+        }
+        assertEquals(NuvioCLogoContrast.Mode.LIFT, NuvioCLogoContrast.decide(px, w, h))
+        NuvioCLogoContrast.lift(px, w, h)
+        val darkEnd = px[10 * w + 5] and 0xFF
+        val lightEnd = px[10 * w + 95] and 0xFF
+        assertTrue(darkEnd > 0x90) // readable on a dark background
+        assertTrue(lightEnd - darkEnd > 0x40) // shading kept, not flattened to one white
+    }
+
+    @Test
+    fun transparentBordersAreTrimmed() {
+        val px = img(100, 50) { x, y -> if (x in 30..69 && y in 20..29) white else clear }
+        val b = NuvioCLogoContrast.trimBounds(px, 100, 50)!!
+        assertEquals(29, b[0]); assertEquals(19, b[1]); assertEquals(42, b[2]); assertEquals(12, b[3])
+        val full = img(60, 20) { _, _ -> white }
+        assertEquals(null, NuvioCLogoContrast.trimBounds(full, 60, 20))
+    }
 }
