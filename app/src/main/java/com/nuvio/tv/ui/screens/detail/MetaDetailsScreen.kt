@@ -1103,7 +1103,8 @@ fun MetaDetailsScreen(
             val combinedTabs = listOf(nuvioListTab) + providerTabs
             LibraryListPickerDialog(
                 title = uiState.meta?.name ?: stringResource(R.string.detail_lists_fallback),
-                tabs = combinedTabs,
+                tabs = com.nuvio.tv.ui.components.NuvioCLibraryPicker.order(combinedTabs, uiState.librarySourceMode), // [fork] library source first
+                nuvioCSource = uiState.librarySourceMode, // [fork]
                 membership = uiState.pickerMembership,
                 isPending = uiState.pickerPending,
                 error = uiState.pickerError,
@@ -3497,7 +3498,8 @@ private fun LibraryListPickerDialog(
     error: String?,
     onToggle: (String) -> Unit,
     onSave: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    nuvioCSource: com.nuvio.tv.domain.model.LibrarySourceMode? = null // [fork] library_picker
 ) {
     val primaryFocusRequester = remember { FocusRequester() }
 
@@ -3519,6 +3521,9 @@ private fun LibraryListPickerDialog(
             )
         }
 
+        if (com.nuvio.tv.ui.components.NuvioCLibraryPicker.enabled) { // [fork] library source first, no zoom clipping
+            com.nuvio.tv.ui.components.NuvioCLibraryPickerList(tabs, nuvioCSource, membership, isPending, primaryFocusRequester, onToggle)
+        } else
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
