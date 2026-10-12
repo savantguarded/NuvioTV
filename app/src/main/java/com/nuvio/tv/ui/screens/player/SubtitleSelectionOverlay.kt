@@ -2,6 +2,8 @@
 
 package com.nuvio.tv.ui.screens.player
 
+import com.nuvio.tv.ui.components.nuvioCFocusRoom // [fork] focus room
+
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import android.util.Log
@@ -835,8 +837,9 @@ private fun SubtitleStyleRail(
         LazyColumn(
             state = listState,
             verticalArrangement = Arrangement.spacedBy(10.dp),
-            contentPadding = PaddingValues(bottom = NuvioTheme.spacing.sm),
+            contentPadding = com.nuvio.tv.ui.components.nuvioCFocusRoomPadding(horizontal = com.nuvio.tv.ui.components.NUVIO_C_FOCUS_ROOM, top = com.nuvio.tv.ui.components.NUVIO_C_FOCUS_ROOM, officialBottom = NuvioTheme.spacing.sm), // [fork] focus room
             modifier = Modifier
+                .nuvioCFocusRoom(horizontal = com.nuvio.tv.ui.components.NUVIO_C_FOCUS_ROOM, top = com.nuvio.tv.ui.components.NUVIO_C_FOCUS_ROOM) // [fork] focus room
                 .heightIn(max = 720.dp)
         ) {
             item {

@@ -5,6 +5,10 @@
 
 package com.nuvio.tv.ui.screens.player
 
+import com.nuvio.tv.ui.components.NUVIO_C_FOCUS_ROOM // [fork] focus room
+import com.nuvio.tv.ui.components.nuvioCFocusRoom // [fork] focus room
+import com.nuvio.tv.ui.components.nuvioCFocusRoomPadding // [fork] focus room
+
 import android.view.KeyEvent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -413,8 +417,9 @@ private fun EpisodeStreamsView(
             LazyColumn(
                 state = streamListState,
                 verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm),
-                contentPadding = PaddingValues(top = NuvioTheme.spacing.xs),
+                contentPadding = nuvioCFocusRoomPadding(horizontal = NUVIO_C_FOCUS_ROOM, bottom = 12.dp, officialTop = NuvioTheme.spacing.xs), // [fork] focus room
                 modifier = Modifier
+                    .nuvioCFocusRoom(horizontal = NUVIO_C_FOCUS_ROOM, bottom = 12.dp) // [fork] focus room
                     .fillMaxHeight()
                     .onFocusChanged { listHasFocus = it.hasFocus }
                     .onKeyEvent { event ->
@@ -600,8 +605,9 @@ private fun EpisodesListView(
                 LazyColumn(
                     state = episodesListState,
                     verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
-                    contentPadding = PaddingValues(top = NuvioTheme.spacing.xs),
+                    contentPadding = nuvioCFocusRoomPadding(horizontal = NUVIO_C_FOCUS_ROOM, bottom = 12.dp, officialTop = NuvioTheme.spacing.xs), // [fork] focus room
                     modifier = Modifier
+                        .nuvioCFocusRoom(horizontal = NUVIO_C_FOCUS_ROOM, bottom = 12.dp) // [fork] focus room
                         .fillMaxHeight()
                         .focusProperties { up = seasonTabFocusRequester }
                 ) {

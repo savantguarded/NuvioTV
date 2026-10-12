@@ -1085,6 +1085,7 @@ private fun IntegrationSettingsContent(
                     Box(modifier = Modifier.fillMaxSize()) {
                         LazyColumn(
                             state = integrationHubState,
+                            contentPadding = com.nuvio.tv.ui.components.nuvioCFocusRoomPadding(bottom = 24.dp), // [fork] focus room: last row's ring not cut
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             item(key = "integration_hub_debrid") {
