@@ -47,6 +47,7 @@ fun EssentialPlaybackSettingsContent(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
+            contentPadding = com.nuvio.tv.ui.components.nuvioCFocusRoomPadding(bottom = androidx.compose.ui.unit.Dp(24f)), // [fork] focus room: last card's ring not cut
             verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
         ) {
             item(key = "header") {

@@ -1,5 +1,9 @@
 package com.nuvio.tv.ui.screens.library
 
+import com.nuvio.tv.ui.components.NUVIO_C_FOCUS_ROOM // [fork] focus room
+import com.nuvio.tv.ui.components.nuvioCFocusRoom // [fork] focus room
+import com.nuvio.tv.ui.components.nuvioCFocusRoomPadding // [fork] focus room
+
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -1050,8 +1054,10 @@ private fun CloudFilePickerDialog(
     ) {
         LazyColumn(
             modifier = Modifier
+                .nuvioCFocusRoom(horizontal = NUVIO_C_FOCUS_ROOM, top = NUVIO_C_FOCUS_ROOM, bottom = NUVIO_C_FOCUS_ROOM) // [fork] focus room
                 .fillMaxWidth()
                 .heightIn(max = 420.dp),
+            contentPadding = nuvioCFocusRoomPadding(horizontal = NUVIO_C_FOCUS_ROOM, top = NUVIO_C_FOCUS_ROOM, bottom = NUVIO_C_FOCUS_ROOM), // [fork] focus room
             verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
         ) {
             items(item.playableFiles, key = { it.stableKey }) { file ->

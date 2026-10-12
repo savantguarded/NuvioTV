@@ -94,4 +94,6 @@ object NuvioCFeatures {
     const val BROWSE_CLOCK = true
     /** App font everywhere: the player's Episodes and Sources panels (and other Material 3 text) follow Settings > Appearance > Font. Off = those stay on the system font. */
     const val FONT_EVERYWHERE = true
+    /** Lists (subtitle style, Episodes / Sources panels, file picker, settings): room so a focused item's ring and zoom are never cut at the list edge. */
+    const val FOCUS_ROOM = true
 }
