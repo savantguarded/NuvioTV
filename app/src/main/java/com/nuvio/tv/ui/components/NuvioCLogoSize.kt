@@ -19,7 +19,7 @@ import kotlin.math.sqrt
 // is anchored so that box change moves nothing else (home and details grow upwards, the OSD logo
 // hangs from the top-left).
 //
-// Sizes (dp): Home 12,500 dp² (max 260 x 80), details 9,000 dp² (max 220 x 64),
+// Sizes (dp): Home 17,000 dp² (max 340 x 110, never more than the free height above the text), details 9,000 dp² (max 220 x 64),
 // player OSD 7,000 dp² (max 200 x 52). E.g. a 5:1 logo: home 250 x 50, details 212 x 42,
 // OSD 187 x 37; a 2.4:1 logo: home 173 x 72, details 147 x 61, OSD 125 x 52.
 
@@ -38,7 +38,7 @@ data class NuvioCLogoBox(val area: Float, val maxWidth: Dp, val maxHeight: Dp) {
 object NuvioCLogoSize {
     val enabled: Boolean get() = NuvioCFeatures.LOGO_WEIGHT
 
-    val HOME = NuvioCLogoBox(area = 12_500f, maxWidth = 260.dp, maxHeight = 80.dp)
+    val HOME = NuvioCLogoBox(area = 17_000f, maxWidth = 340.dp, maxHeight = 110.dp) // 2026-10-12: was 12,500 dp² / 260 x 80; still capped by the free height above the text (NuvioCHeroStack)
     val DETAIL = NuvioCLogoBox(area = 9_000f, maxWidth = 220.dp, maxHeight = 64.dp)
     val OSD = NuvioCLogoBox(area = 7_000f, maxWidth = 200.dp, maxHeight = 52.dp)
 
