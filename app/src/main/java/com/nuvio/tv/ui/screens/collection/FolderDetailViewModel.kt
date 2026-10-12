@@ -1417,6 +1417,8 @@ class FolderDetailViewModel @Inject constructor(
                 }
             }
 
+            nuvioCAddonDescription(item, tmdbSettings) // [fork] TMDB-built items: description from your meta add-on
+
             // Sync enriched tabs into followLayoutHomeState for FOLLOW_LAYOUT mode.
             if (_enrichingItemId.value == item.id) _enrichingItemId.value = null
             // Emit enriched preview for Modern expanded poster cards.
@@ -1429,6 +1431,31 @@ class FolderDetailViewModel @Inject constructor(
             }
             enrichedItemIds.add(item.id)
             rebuildFollowLayoutState()
+        }
+    }
+
+    /**
+     * [fork] Nuvio C (switch `folder_addon_description`, 2026-10-12): items of TMDB-built collections
+     * arrive with TMDB's own overview, and the TMDB "Basic info" switch only governs enrichment, so
+     * with Basic info off the hero still showed TMDB's text while the details page shows your meta
+     * add-on's. Here only the description is taken from the meta add-on, looked up by the IMDb id
+     * (the same conversion the details page does; add-ons often don't answer tmdb: ids). Everything
+     * else stays as enriched. One lookup per title (the item is then marked enriched), 4 s cap;
+     * nothing found = TMDB text kept.
+     */
+    private suspend fun nuvioCAddonDescription(item: MetaPreview, tmdbSettings: com.nuvio.tv.domain.model.TmdbSettings) {
+        if (!com.nuvio.tv.NuvioCFeatures.FOLDER_ADDON_DESCRIPTION) return
+        if (tmdbSettings.useBasicInfo || !item.id.startsWith("tmdb:", ignoreCase = true)) return
+        runCatching {
+            kotlinx.coroutines.withTimeoutOrNull(4_000L) {
+                val tmdbId = item.id.substringAfter(':').substringBefore(':').toIntOrNull() ?: return@withTimeoutOrNull
+                val imdbId = tmdbService.tmdbToImdb(tmdbId, item.apiType)?.takeIf { it.isNotBlank() } ?: return@withTimeoutOrNull
+                val result = metaRepository.getMetaFromAllAddons(type = item.apiType, id = imdbId)
+                    .first { it !is com.nuvio.tv.core.network.NetworkResult.Loading }
+                val text = (result as? com.nuvio.tv.core.network.NetworkResult.Success)?.data?.description
+                    ?.takeIf { it.isNotBlank() } ?: return@withTimeoutOrNull
+                updateItemInTabs(item.id) { merged -> merged.copy(description = text) }
+            }
         }
     }
 
