@@ -3361,7 +3361,7 @@ private fun PeopleSectionTabs(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 20.dp, start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl),
+            .padding(top = 20.dp, start = com.nuvio.tv.ui.components.nuvioCDetailMargin, end = com.nuvio.tv.ui.components.nuvioCDetailMargin), // [fork] page margin
         verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
     ) {
         @Composable
