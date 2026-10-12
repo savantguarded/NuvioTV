@@ -1017,9 +1017,12 @@ class MetaDetailsViewModel @Inject constructor(
         }
     }
 
+    private var nuvioCPendingTagline: String? = null // [fork] details tagline
+
     private suspend fun applyMetaWithEnrichment(meta: Meta) {
         // Fire all independent async jobs immediately — they run in parallel.
         loadMoreLikeThisAsync(meta)
+        nuvioCPendingTagline = null // [fork] details tagline, filled by enrichMeta
         val enriched = enrichMeta(meta)
         com.nuvio.tv.ui.screens.player.NuvioCEpisodeTitles.remember(enriched.videos) // [fork] episode names for Next / auto-play
 
@@ -1031,6 +1034,7 @@ class MetaDetailsViewModel @Inject constructor(
             contentType = enriched.apiType
         )?.resolveForMeta(enriched)
 
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_TAGLINE) _uiState.update { it.copy(nuvioCTagline = nuvioCPendingTagline) } // [fork] lands with the meta, so nothing shifts later
         applyMeta(
             meta = enriched,
             initialNextToWatch = cachedNextToWatch
@@ -1594,6 +1598,7 @@ class MetaDetailsViewModel @Inject constructor(
             } else null
             main.await() to episodes?.await()
         }
+        nuvioCPendingTagline = enrichment?.tagline // [fork] TMDB tagline (new info, add-on meta untouched)
 
         var updated = meta
 

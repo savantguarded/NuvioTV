@@ -888,6 +888,7 @@ fun MetaDetailsScreen(
                     isMdbListRatingsActive = uiState.isMdbListRatingsActive,
                     nuvioCMdbPending = uiState.nuvioCMdbPending, // [fork] hero ratings space
                     tmdbRating = uiState.tmdbRating,
+                    nuvioCTagline = uiState.nuvioCTagline, // [fork] tagline
                     comments = uiState.comments,
                     commentsCurrentPage = uiState.commentsCurrentPage,
                     commentsPageCount = uiState.commentsPageCount,
@@ -1241,6 +1242,7 @@ private fun MetaDetailsContent(
     isMdbListRatingsActive: Boolean,
     nuvioCMdbPending: Boolean = false, // [fork] hero ratings space
     tmdbRating: Float?,
+    nuvioCTagline: String? = null, // [fork] tagline
     comments: List<TraktCommentReview>,
     commentsCurrentPage: Int,
     commentsPageCount: Int,
@@ -2516,6 +2518,7 @@ private fun MetaDetailsContent(
                         nuvioCRatingsPending = isMdbListRatingsActive && nuvioCMdbPending, // [fork] hero ratings space
                         hideMetaInfoImdb = !showStandardOverallRatings,
                         tmdbRating = tmdbRating.takeIf { showStandardOverallRatings },
+                        nuvioCTagline = nuvioCTagline, // [fork] tagline
                         showFullReleaseDate = showFullReleaseDate,
                         trailerAvailable = trailerButtonEnabled && !trailerUrl.isNullOrBlank(),
                         onTrailerClick = onTrailerButtonClick,
