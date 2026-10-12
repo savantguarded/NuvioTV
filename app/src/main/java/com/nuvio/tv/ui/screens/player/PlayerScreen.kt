@@ -2398,6 +2398,27 @@ private fun PlayerControlsOverlay(
                         uiState.title
                     }
 
+                    val nuvioCYearInTitle = com.nuvio.tv.NuvioCFeatures.OSD_BADGES_LEFT && // [fork] movies: "Title (2008)", badges underneath
+                        (uiState.currentSeason == null || uiState.currentEpisode == null) && !uiState.releaseYear.isNullOrBlank()
+                    if (nuvioCYearInTitle) {
+                        Row(verticalAlignment = Alignment.Bottom) { // name ellipsizes, the year always shows
+                            Text(
+                                text = displayName,
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = nuvioCOsd(Color.White), // [fork] HDR dim
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            Text(
+                                text = " (${uiState.releaseYear})",
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = nuvioCOsd(Color.White), // [fork] HDR dim
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                    } else
                     Text(
                         text = displayName,
                         style = MaterialTheme.typography.headlineMedium,
@@ -2431,7 +2452,8 @@ private fun PlayerControlsOverlay(
                     }
 
                     val isEpisodePlayback = uiState.currentSeason != null && uiState.currentEpisode != null
-                    val hasYear = !uiState.releaseYear.isNullOrBlank() && !(com.nuvio.tv.NuvioCFeatures.SERIES_NO_YEAR && isEpisodePlayback) // [fork] no year for series
+                    val hasYear = !uiState.releaseYear.isNullOrBlank() && !(com.nuvio.tv.NuvioCFeatures.SERIES_NO_YEAR && isEpisodePlayback) && // [fork] no year for series
+                        !com.nuvio.tv.NuvioCFeatures.OSD_BADGES_LEFT // [fork] year sits in the title (movies) / hidden (series)
                     val showVia = !com.nuvio.tv.NuvioCFeatures.HIDE_VIA && !uiState.isPlaying && !uiState.currentStreamName.isNullOrBlank() // [fork] "via" line hidden; source is still in Stream info
                     val yearText = uiState.releaseYear.orEmpty()
 
@@ -2459,6 +2481,10 @@ private fun PlayerControlsOverlay(
                                 )
                             }
                         }
+                    }
+
+                    if (com.nuvio.tv.NuvioCFeatures.OSD_BADGES_LEFT) { // [fork] badges under the title block
+                        NuvioCOsdBadgeRow(viewModel, uiState, modifier = Modifier.padding(top = 8.dp))
                     }
                 }
             }
@@ -2726,7 +2752,7 @@ private fun PlayerControlsOverlay(
             }
         }
 
-        NuvioCOsdBadges(viewModel, uiState, nuvioCOsd, endPadding = NuvioTheme.spacing.xxl) // [fork]
+        if (!com.nuvio.tv.NuvioCFeatures.OSD_BADGES_LEFT) NuvioCOsdBadges(viewModel, uiState, nuvioCOsd, endPadding = NuvioTheme.spacing.xxl) // [fork] right side (old placement)
     }
 }
 

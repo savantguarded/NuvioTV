@@ -174,12 +174,35 @@ internal fun NuvioCOsdBadges(
     DisposableEffect(state) { onDispose { state.badgesWidthPx = 0 } }
 }
 
+/**
+ * Round 6 (2026-10-12, switch `osd_badges_left`): the badges as a plain row under the title block
+ * (movies: under "Title (2008)"; series: under the episode line), left-aligned with it. Same parts and
+ * order as before: resolution · HDR / DV · audio · source · size (size on a solid light tile).
+ */
+@Composable
+internal fun NuvioCOsdBadgeRow(viewModel: PlayerViewModel, uiState: PlayerUiState, modifier: Modifier = Modifier) {
+    if (!NuvioCFeatures.OSD_BADGES) return
+    val parts = remember(uiState.audioTracks, uiState.currentStreamName, uiState.isBuffering, uiState.internalPlayerEngine) {
+        runCatching { buildBadgeParts(viewModel.controller, uiState) }.getOrNull().orEmpty()
+    }
+    if (parts.isEmpty()) return
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+    ) {
+        parts.forEach { part -> NuvioCBadgeView(part) }
+    }
+}
+
 // 2026-10-11: one height for every badge (tiles, marks and the size text), so they share one
 // centre line; tile text is placed by its capital letters, not its line box (the line box keeps
 // room for descenders, which made caps sit high and the size text look offset).
 private val BADGE_HEIGHT = 14.dp
 private val BADGE_TILE_SHAPE = RoundedCornerShape(2.5.dp)
 private val BADGE_WHITE = Color(0xE6FFFFFF) // white 90%
+private val BADGE_TILE_FILL = Color(0xFFDCDCDC)
+private val BADGE_TILE_TEXT = Color(0xFF151515)
 private const val BADGE_CAP_HEIGHT_EM = 0.72f // cap height of the UI fonts, as a share of the font size
 
 @Composable
@@ -196,6 +219,12 @@ private fun NuvioCBadgeView(part: NuvioCBadge) {
             style = textStyle,
             color = nuvioCOsd(BADGE_WHITE),
             modifier = Modifier.border(1.2.dp, nuvioCOsd(BADGE_WHITE), BADGE_TILE_SHAPE).padding(horizontal = 3.5.dp)
+        )
+        NuvioCBadgeKind.FILLED -> NuvioCBadgeText( // round 6: solid light tile (file size)
+            text = part.text,
+            style = textStyle,
+            color = nuvioCOsd(BADGE_TILE_TEXT),
+            modifier = Modifier.background(nuvioCOsd(BADGE_TILE_FILL), BADGE_TILE_SHAPE).padding(horizontal = 4.dp)
         )
         NuvioCBadgeKind.PLAIN -> NuvioCBadgeText(
             text = part.text,
@@ -246,7 +275,7 @@ private fun rememberNuvioCCapHeightEm(style: androidx.compose.ui.text.TextStyle)
     }
 }
 
-internal enum class NuvioCBadgeKind { OUTLINED, PLAIN }
+internal enum class NuvioCBadgeKind { OUTLINED, FILLED, PLAIN }
 
 /** One OSD badge. */
 internal data class NuvioCBadge(
@@ -278,7 +307,7 @@ private fun buildBadgeParts(controller: PlayerRuntimeController, uiState: Player
         if (visual != "SDR") add(NuvioCBadge(visual)) // SDR: no HDR badge; Dolby Vision = "DV"
         addAll(nuvioCAudioBadges(audioLabel, names))
         NuvioCOsdBadges.sourceFromName(names)?.let { add(NuvioCBadge(it, NuvioCBadgeKind.OUTLINED)) }
-        NuvioCOsdBadges.sizeLabel(controller.currentVideoSize)?.let { add(NuvioCBadge(it, NuvioCBadgeKind.PLAIN)) }
+        NuvioCOsdBadges.sizeLabel(controller.currentVideoSize)?.let { add(NuvioCBadge(it, if (NuvioCFeatures.OSD_BADGES_LEFT) NuvioCBadgeKind.FILLED else NuvioCBadgeKind.PLAIN)) }
     }
 }
 
