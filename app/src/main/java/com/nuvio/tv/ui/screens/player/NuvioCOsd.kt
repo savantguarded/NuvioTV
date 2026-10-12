@@ -73,6 +73,8 @@ internal class NuvioCOsdState {
     var bottomBlockTop by mutableFloatStateOf(Float.NaN)
     /** Window Y of the last text baseline of the title block (year or episode line). NaN = hidden. */
     var titleLastBaseline by mutableFloatStateOf(Float.NaN)
+    /** Window Y of the top of the pause screen's progress line (round 6). NaN = not shown. */
+    var pauseTop by mutableFloatStateOf(Float.NaN)
     var badgesWidthPx by mutableIntStateOf(0)
 }
 
@@ -553,28 +555,33 @@ internal fun NuvioCSubtitleLiftEffect(
     viewModel: PlayerViewModel,
     osdShown: Boolean,
     state: NuvioCOsdState,
-    subtitleStyle: SubtitleStyleSettings
+    subtitleStyle: SubtitleStyleSettings,
+    pauseShown: Boolean = false // round 6: the pause screen's progress line is cleared the same way
 ) {
     if (!NuvioCFeatures.SUBTITLE_LIFT) return
     val controller = viewModel.controller
     val gapPx = with(LocalDensity.current) { SUBTITLE_OSD_GAP.toPx() }
+    val shown = osdShown || pauseShown
+    val usePause by rememberUpdatedState(!osdShown && pauseShown)
     val progress = animateFloatAsState(
-        targetValue = if (osdShown) 1f else 0f,
+        targetValue = if (shown) 1f else 0f,
         animationSpec = tween(LIFT_ANIM_MS),
         label = "nuvioCSubtitleLift"
     )
     val style by rememberUpdatedState(subtitleStyle)
 
     LaunchedEffect(controller) {
-        snapshotFlow { progress.value to state.bottomBlockTop }.collect { (p, top) ->
+        snapshotFlow { Triple(progress.value, state.bottomBlockTop, if (usePause) state.pauseTop else Float.NaN) }.collect { (p, osdTop, pauseTop) ->
+            val top = if (usePause) pauseTop else osdTop
             runCatching { controller.exoPlayerView?.nuvioCApplySubtitleLift(p, top, gapPx, style) }
         }
     }
 
     // mpv draws subtitles into its own surface, so it moves in one step at the start/end of the fade.
-    val mpvLifted = osdShown && !state.bottomBlockTop.isNaN()
+    val liftTop = if (!osdShown && pauseShown) state.pauseTop else state.bottomBlockTop
+    val mpvLifted = shown && !liftTop.isNaN()
     // Re-applied only when the block really moves (2 px steps): each apply is an mpv property set.
-    val topKey = if (state.bottomBlockTop.isNaN()) Int.MIN_VALUE else (state.bottomBlockTop / 2f).roundToInt()
+    val topKey = if (liftTop.isNaN()) Int.MIN_VALUE else (liftTop / 2f).roundToInt()
     LaunchedEffect(controller, mpvLifted, topKey, subtitleStyle) {
         val mpv = controller.mpvView ?: return@LaunchedEffect
         runCatching {
@@ -583,7 +590,7 @@ internal fun NuvioCSubtitleLiftEffect(
                 val h = mpv.height
                 if (h > 0) {
                     val bottom = loc[1] + h
-                    val wanted = (bottom - (state.bottomBlockTop - gapPx)) / h
+                    val wanted = (bottom - (liftTop - gapPx)) / h
                     mpv.nuvioCSetSubtitleLift(wanted.toDouble(), subtitleStyle)
                 }
             } else {
