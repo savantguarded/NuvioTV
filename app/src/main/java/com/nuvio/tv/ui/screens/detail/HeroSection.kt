@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.screens.detail
 
+import androidx.compose.foundation.layout.widthIn // [fork] hero spec
+
 // Nuvio C imports
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -199,7 +201,7 @@ fun HeroContentSection(
 
     // Animate logo properties for trailer mode
     val logoHeight by animateDpAsState(
-        targetValue = if (isTrailerPlaying) 60.dp else 100.dp,
+        targetValue = if (isTrailerPlaying) 60.dp else if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.logoHeight + NuvioTheme.spacing.lg else 100.dp, // [fork] hero spec: 90 dp logo + its 16 dp gap
         animationSpec = tween(600),
         label = "logoHeight"
     )
@@ -247,6 +249,7 @@ fun HeroContentSection(
                         .nuvioCFade(if (nuvioCFadeLogo) nuvioCLogoAlpha else 1f) // [fork] no offscreen layer, nothing clipped
                         .height(logoHeight)
                         .fillMaxWidth(logoMaxWidth)
+                        .then(if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) Modifier.widthIn(max = com.nuvio.tv.ui.components.NuvioCHeroSpec.logoMaxWidth) else Modifier) // [fork] hero spec
                         .padding(bottom = logoBottomPadding),
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.CenterStart
@@ -406,10 +409,11 @@ fun HeroContentSection(
                             upFocusRequester = playButtonFocusRequester,
                             onFocused = onHeroActionFocused,
                             onTruncationChanged = onTruncationChanged,
+                            nuvioCTextStyle = if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.synopsisStyle(MaterialTheme.typography.bodyMedium) else null, // [fork] hero spec
                             modifier = Modifier
                                 .nuvioCFade(nuvioCTextAlpha * nuvioCDescriptionAlpha) // [fork]
                                 .onFocusChanged { nuvioCSynopsisFocused = it.hasFocus } // [fork]
-                                .fillMaxWidth(0.6f)
+                                .fillMaxWidth(if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.DETAIL_TEXT_FRACTION else 0.6f) // [fork] hero spec
                                 .padding(bottom = NuvioTheme.spacing.md)
                         )
                     }

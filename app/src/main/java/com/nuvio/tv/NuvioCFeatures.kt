@@ -96,6 +96,8 @@ object NuvioCFeatures {
     const val FONT_EVERYWHERE = true
     /** Lists (subtitle style, Episodes / Sources panels, file picker, settings): room so a focused item's ring and zoom are never cut at the list edge. */
     const val FOCUS_ROOM = true
+    /** Home / collection folders (Modern) and details page: one hero spec (260 × 90 dp logo, 13 sp synopsis to half the screen, home 5 lines, darker home fade). */
+    const val HERO_SPEC = true
     /** Details page: the last rows (network / production) scroll the page to its end in one normal move (official stops short, then nudges). */
     const val DETAIL_SCROLL_END = true
     /** Details page: a movie collection always gets its own row (official puts it in the tabs when there are 3 tabs or fewer). */

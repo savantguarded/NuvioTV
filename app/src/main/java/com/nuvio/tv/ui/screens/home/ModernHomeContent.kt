@@ -1118,7 +1118,7 @@ fun ModernHomeContent(
                 Modifier
                     .align(Alignment.BottomStart)
                     .padding(start = rowHorizontalPadding, end = NuvioTheme.spacing.xxxl, bottom = NuvioTheme.spacing.none + rowsViewportHeight + NuvioTheme.spacing.lg)
-                    .fillMaxWidth(MODERN_HERO_TEXT_WIDTH_FRACTION)
+                    .fillMaxWidth(if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.HOME_TEXT_FRACTION else MODERN_HERO_TEXT_WIDTH_FRACTION) // [fork] hero spec
             }
 
             HeroTitleBlock(
