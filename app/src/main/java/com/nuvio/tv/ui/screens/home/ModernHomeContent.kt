@@ -6,7 +6,7 @@
 
 package com.nuvio.tv.ui.screens.home
 
-import androidx.compose.foundation.layout.wrapContentHeight // [fork] hero spec
+import androidx.compose.foundation.layout.widthIn // [fork] hero spec
 
 import com.nuvio.tv.ui.theme.NuvioTheme
 
@@ -675,7 +675,7 @@ fun ModernHomeContent(
 
     Box(modifier = Modifier.fillMaxSize().background(NuvioTheme.colors.Background)) {
             val posterCardCornerRadius = remember(uiState.posterCardCornerRadiusDp) { uiState.posterCardCornerRadiusDp.dp }
-            val rowHorizontalPadding = 52.dp
+            val rowHorizontalPadding = com.nuvio.tv.ui.components.nuvioCHomeMargin // [fork] page margin (official 52.dp)
 
             val activeCarouselItemState = remember(carouselRows, rowByKey) {
                 derivedStateOf {
@@ -1070,12 +1070,18 @@ fun ModernHomeContent(
             val shouldPlayTrailerLambda = remember { { shouldPlayCatalogHeroTrailerUpdated || shouldPlayCollectionHeroVideoUpdated } }
             val heroTrailerRenderedLambda = remember { { heroTrailerFirstFrameRenderedUpdated } }
 
-            val heroMetadataModifier = remember(rowHorizontalPadding, rowsViewportHeight) {
+            val nuvioCHeroTextWidth = landscapeCatalogCardWidth * 2 + NuvioTheme.spacing.md // [fork] hero spec: text ends at the second landscape poster's right edge
+            val heroMetadataModifier = remember(rowHorizontalPadding, rowsViewportHeight, nuvioCHeroTextWidth) {
                 Modifier
                     .align(Alignment.BottomStart)
                     .padding(start = rowHorizontalPadding, end = NuvioTheme.spacing.xxxl, bottom = NuvioTheme.spacing.none + rowsViewportHeight + NuvioTheme.spacing.lg)
-                    .fillMaxWidth(if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.HOME_TEXT_FRACTION else MODERN_HERO_TEXT_WIDTH_FRACTION) // [fork] hero spec
-                    .then(if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) Modifier.wrapContentHeight(Alignment.Bottom, unbounded = true) else Modifier) // [fork] hero spec: 5th synopsis line never squeezed out
+                    .then(
+                        if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) Modifier // [fork] hero spec: room above for the logo, never past the top clearance
+                            .padding(top = com.nuvio.tv.ui.components.NUVIO_C_HOME_HERO_TOP)
+                            .widthIn(max = nuvioCHeroTextWidth)
+                            .fillMaxWidth()
+                        else Modifier.fillMaxWidth(MODERN_HERO_TEXT_WIDTH_FRACTION)
+                    )
             }
 
             HeroTitleBlock(
