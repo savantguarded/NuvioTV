@@ -416,18 +416,19 @@ private fun HeroTitleContent(
         )
     }
 
-    Column(
-        modifier = if (highlighterEnabled) Modifier.recompositionHighlighter() else Modifier,
-        verticalArrangement = Arrangement.spacedBy(titleSpacing)
-    ) {
-        var logoLoadFailed by remember(preview.logo) { mutableStateOf(false) }
-        val showLogo = !preview.logo.isNullOrBlank() && !logoLoadFailed
+    var logoLoadFailed by remember(preview.logo) { mutableStateOf(false) }
+    val showLogo = !preview.logo.isNullOrBlank() && !logoLoadFailed
+    var nuvioCLogoAspect by remember(preview.logo) { mutableStateOf<Float?>(null) } // [fork] logo weight
+    val logoPart: @Composable () -> Unit = {
         if (showLogo) {
             AsyncImage(
                 model = logoModel,
                 contentDescription = preview.title,
                 onError = { logoLoadFailed = true },
-                modifier = if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) Modifier // [fork] hero spec: only the height the logo needs (bottom-anchored, so text never moves)
+                onSuccess = { nuvioCLogoAspect = com.nuvio.tv.ui.components.NuvioCLogoSize.aspectOf(it) }, // [fork] logo weight
+                modifier = if (com.nuvio.tv.ui.components.NuvioCLogoSize.enabled) Modifier // [fork] logo weight: same visual weight for every logo
+                    .size(com.nuvio.tv.ui.components.NuvioCLogoSize.HOME.sizeFor(nuvioCLogoAspect))
+                else if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) Modifier // [fork] hero spec: only the height the logo needs (bottom-anchored, so text never moves)
                     .heightIn(max = nuvioCLogoHeight)
                     .widthIn(max = nuvioCLogoWidth)
                 else Modifier
@@ -446,7 +447,8 @@ private fun HeroTitleContent(
                 overflow = TextOverflow.Ellipsis
             )
         }
-
+    }
+    val restPart: @Composable () -> Unit = {
         val strStatusEnded = stringResource(if (preview.isSeries) R.string.series_status_ended else R.string.movie_status_ended)
         val strStatusContinuing = stringResource(if (preview.isSeries) R.string.series_status_continuing else R.string.movie_status_continuing)
         val strStatusCurrent = stringResource(if (preview.isSeries) R.string.series_status_current else R.string.movie_status_current)
@@ -675,7 +677,7 @@ private fun HeroTitleContent(
             }
         }
 
-        preview.description?.takeIf { it.isNotBlank() }?.let { description ->
+        preview.description?.let { if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.homeSynopsis(it) else it }?.takeIf { it.isNotBlank() }?.let { description -> // [fork] hero spec: no blank lines
             Text(
                 text = description,
                 style = scaledDescriptionStyle.copy(textDirection = description.contentTextDirection()),
@@ -684,6 +686,25 @@ private fun HeroTitleContent(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.graphicsLayer { alpha = metaAlpha }
             )
+        }
+    }
+
+    val columnModifier = if (highlighterEnabled) Modifier.recompositionHighlighter() else Modifier
+    if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) {
+        // [fork] hero spec: text keeps its full height, the logo gets what is left above it
+        com.nuvio.tv.ui.components.NuvioCHeroStack(
+            gap = titleSpacing,
+            modifier = columnModifier,
+            logo = logoPart,
+            rest = { Column(verticalArrangement = Arrangement.spacedBy(titleSpacing)) { restPart() } }
+        )
+    } else {
+        Column(
+            modifier = columnModifier,
+            verticalArrangement = Arrangement.spacedBy(titleSpacing)
+        ) {
+            logoPart()
+            restPart()
         }
     }
 }

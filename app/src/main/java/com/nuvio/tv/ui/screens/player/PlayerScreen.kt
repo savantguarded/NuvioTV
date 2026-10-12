@@ -2338,6 +2338,8 @@ private fun PlayerControlsOverlay(
                 }
                 // Fixed 280x64 box, logo fitted inside it: wide logos hit the width, square/tall
                 // ones the height. Fit scales the whole image down, so nothing is ever cropped.
+                // With `logo_weight` on: same visual weight for every logo (max 200 x 52 dp).
+                var nuvioCOsdLogoAspect by remember(osdLogo) { mutableStateOf<Float?>(null) }
                 AsyncImage(
                     model = osdLogoRequest,
                     contentDescription = uiState.contentName ?: uiState.title,
@@ -2346,7 +2348,11 @@ private fun PlayerControlsOverlay(
                     colorFilter = nuvioCOsdColorFilter(), // [fork] HDR dim
                     modifier = Modifier
                         .padding(start = NuvioTheme.spacing.xxl, top = NuvioTheme.spacing.xl)
-                        .size(width = 280.dp, height = 64.dp),
+                        .then(
+                            if (com.nuvio.tv.ui.components.NuvioCLogoSize.enabled) Modifier.size(com.nuvio.tv.ui.components.NuvioCLogoSize.OSD.sizeFor(nuvioCOsdLogoAspect)) // [fork] logo weight
+                            else Modifier.size(width = 280.dp, height = 64.dp)
+                        ),
+                    onSuccess = { nuvioCOsdLogoAspect = com.nuvio.tv.ui.components.NuvioCLogoSize.aspectOf(it) }, // [fork] logo weight
                     onError = { osdLogoFailed = true }
                 )
             }

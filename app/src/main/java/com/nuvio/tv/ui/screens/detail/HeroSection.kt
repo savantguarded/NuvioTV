@@ -1,6 +1,8 @@
 package com.nuvio.tv.ui.screens.detail
 
 import androidx.compose.foundation.layout.widthIn // [fork] hero spec
+import androidx.compose.animation.core.VectorConverter // [fork] logo weight
+import kotlinx.coroutines.launch // [fork] logo weight
 
 // Nuvio C imports
 import androidx.compose.material.icons.filled.Star
@@ -80,7 +82,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.painter.Painter
 import coil3.request.ImageRequest
@@ -216,18 +217,32 @@ fun HeroContentSection(
         animationSpec = tween(600),
         label = "logoWidth"
     )
-    // During a trailer the hero fills the screen so the logo sits at the bottom
-    // on screens taller than the hero (lower-density TV boxes).
-    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
-    val heroHeight by animateDpAsState(
-        targetValue = if (isTrailerPlaying) maxOf(540.dp, screenHeight) else 540.dp,
-        animationSpec = tween(600),
-        label = "heroHeight"
-    )
+    // [fork] logo weight: same visual weight for every logo (Apple TV style), official sizes over a trailer.
+    // Box size snaps when the logo loads (aspect known) and animates only when the trailer starts / stops.
+    var nuvioCLogoAspect by remember(meta.logo) { mutableStateOf<Float?>(null) }
+    val nuvioCLogoNormal = com.nuvio.tv.ui.components.NuvioCLogoSize.DETAIL.sizeFor(nuvioCLogoAspect)
+    val nuvioCTrailerLogoWidth = (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp - com.nuvio.tv.ui.components.nuvioCDetailMargin * 2) * 0.25f
+    val nuvioCLogoTargetW = if (isTrailerPlaying) nuvioCTrailerLogoWidth else nuvioCLogoNormal.width
+    val nuvioCLogoTargetH = if (isTrailerPlaying) 60.dp else nuvioCLogoNormal.height + NuvioTheme.spacing.lg
+    val nuvioCLogoW = remember { androidx.compose.animation.core.Animatable(nuvioCLogoTargetW, androidx.compose.ui.unit.Dp.VectorConverter) }
+    val nuvioCLogoH = remember { androidx.compose.animation.core.Animatable(nuvioCLogoTargetH, androidx.compose.ui.unit.Dp.VectorConverter) }
+    val nuvioCLastTrailer = remember { mutableStateOf(isTrailerPlaying) }
+    LaunchedEffect(nuvioCLogoTargetW, nuvioCLogoTargetH, isTrailerPlaying) {
+        if (nuvioCLastTrailer.value != isTrailerPlaying) {
+            nuvioCLastTrailer.value = isTrailerPlaying
+            kotlinx.coroutines.coroutineScope {
+                launch { nuvioCLogoW.animateTo(nuvioCLogoTargetW, tween(600)) }
+                launch { nuvioCLogoH.animateTo(nuvioCLogoTargetH, tween(600)) }
+            }
+        } else {
+            nuvioCLogoW.snapTo(nuvioCLogoTargetW)
+            nuvioCLogoH.snapTo(nuvioCLogoTargetH)
+        }
+    }
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(heroHeight),
+            .height(540.dp),
         verticalArrangement = Arrangement.Bottom
     ) {
         Column(
@@ -237,7 +252,7 @@ fun HeroContentSection(
                     if (nuvioCFadeLogo) Modifier.nuvioCAnimateHeightNoClip(tween(600))
                     else Modifier.animateContentSize(animationSpec = tween(600))
                 )
-                .padding(start = NuvioTheme.spacing.xxxl, end = NuvioTheme.spacing.xxxl, bottom = NuvioTheme.spacing.lg),
+                .padding(start = com.nuvio.tv.ui.components.nuvioCDetailMargin, end = com.nuvio.tv.ui.components.nuvioCDetailMargin, bottom = NuvioTheme.spacing.lg), // [fork] page margin
             verticalArrangement = Arrangement.Bottom
         ) {
             // Logo/Title — always visible during trailer, animates size
@@ -246,11 +261,16 @@ fun HeroContentSection(
                     model = logoModel,
                     contentDescription = meta.name,
                     onError = { logoLoadFailed = true },
+                    onSuccess = { nuvioCLogoAspect = com.nuvio.tv.ui.components.NuvioCLogoSize.aspectOf(it) }, // [fork] logo weight
                     modifier = Modifier
                         .nuvioCFade(if (nuvioCFadeLogo) nuvioCLogoAlpha else 1f) // [fork] no offscreen layer, nothing clipped
-                        .height(logoHeight)
-                        .fillMaxWidth(logoMaxWidth)
-                        .then(if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) Modifier.widthIn(max = com.nuvio.tv.ui.components.NuvioCHeroSpec.logoMaxWidth) else Modifier) // [fork] hero spec
+                        .then(
+                            if (com.nuvio.tv.ui.components.NuvioCLogoSize.enabled) Modifier.width(nuvioCLogoW.value).height(nuvioCLogoH.value) // [fork] logo weight
+                            else Modifier
+                                .height(logoHeight)
+                                .fillMaxWidth(logoMaxWidth)
+                                .then(if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) Modifier.widthIn(max = com.nuvio.tv.ui.components.NuvioCHeroSpec.logoMaxWidth) else Modifier) // [fork] hero spec
+                        )
                         .padding(bottom = logoBottomPadding),
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.CenterStart

@@ -45,6 +45,16 @@ object NuvioCHeroSpec {
     /** Home fade (not full-screen backdrop): fade length as a share of the backdrop width (official 0.45). */
     const val HOME_FADE_END = 0.58f
 
+    /**
+     * Home synopsis as one clean paragraph: some add-ons end descriptions with blank lines (Below), which
+     * showed as an empty gap under the text, and a paragraph break would waste one of the 5 lines.
+     */
+    fun homeSynopsis(raw: String): String? =
+        raw.replace("\r\n", "\n")
+            .trim { it.isWhitespace() || it == '\u200B' || it == '\uFEFF' }
+            .replace(Regex("[\\h\u200B]*\n[\\s\u200B]*"), " ")
+            .takeIf { it.isNotEmpty() }
+
     fun synopsisStyle(base: TextStyle): TextStyle = base.copy(fontSize = 13.sp, lineHeight = 19.sp)
 
     /** Details synopsis, a step smaller than home (still 8 lines before "Read more"). */
