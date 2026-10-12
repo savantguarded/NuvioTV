@@ -221,13 +221,22 @@ internal fun ModernHeroGradientLayer(
             }
             .drawWithCache {
                 val fullScreen = isFullScreen()
-                val horizontalFadeEndX = size.width * if (fullScreen) 0.65f else 0.45f
+                val nuvioCSpec = com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled && !fullScreen // [fork] hero spec: longer, darker fade behind the wider text
+                val horizontalFadeEndX = size.width * if (fullScreen) 0.65f else if (nuvioCSpec) com.nuvio.tv.ui.components.NuvioCHeroSpec.HOME_FADE_END else 0.45f
                 val colorStops = if (fullScreen) {
                     arrayOf(
                         0.0f to bgColor,
                         0.22f to bgColor.copy(alpha = 0.90f),
                         0.46f to bgColor.copy(alpha = 0.80f),
                         0.76f to bgColor.copy(alpha = 0.42f),
+                        1.0f to Color.Transparent
+                    )
+                } else if (nuvioCSpec) {
+                    arrayOf( // [fork] hero spec
+                        0.0f to bgColor,
+                        0.22f to bgColor.copy(alpha = 0.90f),
+                        0.46f to bgColor.copy(alpha = 0.75f),
+                        0.76f to bgColor.copy(alpha = 0.30f),
                         1.0f to Color.Transparent
                     )
                 } else {
@@ -349,7 +358,7 @@ private fun HeroTitleContent(
 ) {
     val preview = previewProvider() ?: return
     val highlighterEnabled = LocalRecompositionHighlighterEnabled.current
-    val descriptionMaxLines = 4
+    val descriptionMaxLines = if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.HOME_SYNOPSIS_LINES else 4 // [fork] hero spec
     val descriptionScale = if (portraitMode) 0.90f else 1f
     val titleScale = if (portraitMode) 0.92f else 1f
     val metaScale = 1f
@@ -361,8 +370,10 @@ private fun HeroTitleContent(
     val headlineLarge = MaterialTheme.typography.headlineLarge
     val labelMedium = MaterialTheme.typography.labelMedium
     val bodyMedium = MaterialTheme.typography.bodyMedium
-    val logoMaxWidthPx = remember(density) { with(density) { 220.dp.roundToPx() } }
-    val logoHeightPx = remember(density) { with(density) { 100.dp.roundToPx() } }
+    val nuvioCLogoWidth = if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.logoMaxWidth else 220.dp // [fork] hero spec
+    val nuvioCLogoHeight = if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.logoHeight else 100.dp // [fork] hero spec
+    val logoMaxWidthPx = remember(density, nuvioCLogoWidth) { with(density) { nuvioCLogoWidth.roundToPx() } }
+    val logoHeightPx = remember(density, nuvioCLogoHeight) { with(density) { nuvioCLogoHeight.roundToPx() } }
 
     val logoModel = remember(context, preview.logo, logoMaxWidthPx, logoHeightPx) {
         preview.logo?.let {
@@ -386,6 +397,7 @@ private fun HeroTitleContent(
         )
     }
     val scaledDescriptionStyle = remember(bodyMedium, descriptionScale) {
+        if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) return@remember com.nuvio.tv.ui.components.NuvioCHeroSpec.synopsisStyle(bodyMedium) // [fork] hero spec: same 13 sp in every mode
         bodyMedium.copy(
             fontSize = bodyMedium.fontSize * descriptionScale,
             lineHeight = bodyMedium.lineHeight * descriptionScale
@@ -404,8 +416,8 @@ private fun HeroTitleContent(
                 contentDescription = preview.title,
                 onError = { logoLoadFailed = true },
                 modifier = Modifier
-                    .height(100.dp)
-                    .widthIn(min = 100.dp, max = 220.dp)
+                    .height(nuvioCLogoHeight) // [fork] hero spec
+                    .widthIn(min = 100.dp, max = nuvioCLogoWidth) // [fork] hero spec
                     .fillMaxWidth(),
                 contentScale = ContentScale.Fit,
                 alignment = Alignment.CenterStart

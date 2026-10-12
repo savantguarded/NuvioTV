@@ -74,7 +74,8 @@ fun SynopsisDescription(
     upFocusRequester: FocusRequester? = null,
     downFocusRequester: FocusRequester? = null,
     onFocused: () -> Unit = {},
-    onTruncationChanged: (Boolean) -> Unit = {}
+    onTruncationChanged: (Boolean) -> Unit = {},
+    nuvioCTextStyle: androidx.compose.ui.text.TextStyle? = null // [fork] hero spec: details hero passes its own size
 ) {
     var isFocused by remember { mutableStateOf(false) }
     var isTruncated by rememberSaveable(description, maxLines) { mutableStateOf(false) }
@@ -133,7 +134,7 @@ fun SynopsisDescription(
     ) {
         Text(
             text = description,
-            style = MaterialTheme.typography.bodyMedium.copy(
+            style = (nuvioCTextStyle ?: MaterialTheme.typography.bodyMedium).copy( // [fork] hero spec
                 textDirection = description.contentTextDirection()
             ),
             color = NuvioTheme.colors.TextPrimary,
