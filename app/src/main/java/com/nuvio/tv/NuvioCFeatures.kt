@@ -128,4 +128,6 @@ object NuvioCFeatures {
     const val LIBRARY_PICKER = true
     /** Player OSD: badges in a row under the title block (movies: "Title (2008)" with the year in the title), file size on a solid light tile. Off = badges bottom-right as before. */
     const val OSD_BADGES_LEFT = true
+    /** Player: Start over button uses a simpler restart icon (one unbroken arc with its arrow head, Shuffle's line style). */
+    const val START_OVER_ICON = true
 }
