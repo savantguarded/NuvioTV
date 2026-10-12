@@ -223,9 +223,10 @@ private fun NuvioCRatingDialog(
         }
         } // BoxWithConstraints
 
-        if (state.trakt != null) {
+        val nuvioCYourScore = state.trakt ?: state.saved // 2026-10-12: "You rated this 8/10" (Trakt copy is the fresher one, then this TV)
+        if (nuvioCYourScore != null) {
             Text(
-                text = stringResource(R.string.nuvio_c_rate_trakt_score, state.trakt),
+                text = stringResource(R.string.nuvio_c_rate_trakt_score, nuvioCYourScore),
                 style = MaterialTheme.typography.bodySmall,
                 color = NuvioTheme.colors.TextSecondary
             )
