@@ -144,7 +144,8 @@ fun HeroContentSection(
         label = "nuvioCTextAlpha"
     )
     val nuvioCDescriptionAlpha by animateFloatAsState(
-        targetValue = if (nuvioCBackgroundTrailer && !nuvioCSynopsisFocused) NUVIO_C_DESCRIPTION_ALPHA else 1f,
+        targetValue = if (!nuvioCSynopsisFocused && com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.DETAIL_SYNOPSIS_ALPHA // [fork] hero spec: Apple TV grey, always
+            else if (nuvioCBackgroundTrailer && !nuvioCSynopsisFocused) NUVIO_C_DESCRIPTION_ALPHA else 1f,
         animationSpec = tween(300),
         label = "nuvioCDescriptionAlpha"
     )
@@ -409,7 +410,7 @@ fun HeroContentSection(
                             upFocusRequester = playButtonFocusRequester,
                             onFocused = onHeroActionFocused,
                             onTruncationChanged = onTruncationChanged,
-                            nuvioCTextStyle = if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.synopsisStyle(MaterialTheme.typography.bodyMedium) else null, // [fork] hero spec
+                            nuvioCTextStyle = if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.detailSynopsisStyle(MaterialTheme.typography.bodyMedium) else null, // [fork] hero spec
                             modifier = Modifier
                                 .nuvioCFade(nuvioCTextAlpha * nuvioCDescriptionAlpha) // [fork]
                                 .onFocusChanged { nuvioCSynopsisFocused = it.hasFocus } // [fork]

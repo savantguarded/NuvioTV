@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.screens.home
 
+import androidx.compose.foundation.layout.heightIn // [fork] hero spec
+
 import com.nuvio.tv.ui.theme.NuvioMotion
 
 import com.nuvio.tv.ui.theme.NuvioTheme
@@ -425,9 +427,12 @@ private fun HeroTitleContent(
                 model = logoModel,
                 contentDescription = preview.title,
                 onError = { logoLoadFailed = true },
-                modifier = Modifier
-                    .height(nuvioCLogoHeight) // [fork] hero spec
-                    .widthIn(min = 100.dp, max = nuvioCLogoWidth) // [fork] hero spec
+                modifier = if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) Modifier // [fork] hero spec: only the height the logo needs (bottom-anchored, so text never moves)
+                    .heightIn(max = nuvioCLogoHeight)
+                    .widthIn(max = nuvioCLogoWidth)
+                else Modifier
+                    .height(nuvioCLogoHeight)
+                    .widthIn(min = 100.dp, max = nuvioCLogoWidth)
                     .fillMaxWidth(),
                 contentScale = ContentScale.Fit,
                 alignment = Alignment.CenterStart

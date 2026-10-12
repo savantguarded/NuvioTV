@@ -6,6 +6,8 @@
 
 package com.nuvio.tv.ui.screens.home
 
+import androidx.compose.foundation.layout.wrapContentHeight // [fork] hero spec
+
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import androidx.activity.compose.BackHandler
@@ -1119,6 +1121,7 @@ fun ModernHomeContent(
                     .align(Alignment.BottomStart)
                     .padding(start = rowHorizontalPadding, end = NuvioTheme.spacing.xxxl, bottom = NuvioTheme.spacing.none + rowsViewportHeight + NuvioTheme.spacing.lg)
                     .fillMaxWidth(if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.HOME_TEXT_FRACTION else MODERN_HERO_TEXT_WIDTH_FRACTION) // [fork] hero spec
+                    .then(if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) Modifier.wrapContentHeight(Alignment.Bottom, unbounded = true) else Modifier) // [fork] hero spec: 5th synopsis line never squeezed out
             }
 
             HeroTitleBlock(
