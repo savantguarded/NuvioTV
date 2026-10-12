@@ -96,4 +96,6 @@ object NuvioCFeatures {
     const val FONT_EVERYWHERE = true
     /** Lists (subtitle style, Episodes / Sources panels, file picker, settings): room so a focused item's ring and zoom are never cut at the list edge. */
     const val FOCUS_ROOM = true
+    /** Details page: a movie collection always gets its own row (official puts it in the tabs when there are 3 tabs or fewer). */
+    const val COLLECTION_OWN_ROW = true
 }
