@@ -3,6 +3,7 @@
 package com.nuvio.tv.ui.screens.player
 
 import com.nuvio.tv.ui.components.nuvioCFocusRoom // [fork] focus room
+import com.nuvio.tv.ui.components.nuvioCSwatchRing // [fork] focus ring shape
 
 import com.nuvio.tv.ui.theme.NuvioTheme
 
@@ -1662,6 +1663,7 @@ private fun ColorChip(
                 }
             }
             .then(
+                if (com.nuvio.tv.ui.components.nuvioCFocusRingShapeOn) Modifier.nuvioCSwatchRing(isFocused, isSelected, NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs), NuvioTheme.spacing.xxs) else // [fork] focus ring shape
                 when {
                     isSelected -> Modifier.border(NuvioTheme.spacing.xxs, Color.White, CircleShape)
                     isFocused -> Modifier.border(NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs), CircleShape)
@@ -1676,6 +1678,7 @@ private fun ColorChip(
             },
         shape = CardDefaults.shape(CircleShape)
         ,
+        border = if (com.nuvio.tv.ui.components.nuvioCFocusRingShapeOn) com.nuvio.tv.ui.components.nuvioCNoCardBorder() else CardDefaults.border(), // [fork] focus ring shape
         scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
     ) {}
 }
