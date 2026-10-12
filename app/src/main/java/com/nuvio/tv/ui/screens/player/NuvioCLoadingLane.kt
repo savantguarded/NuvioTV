@@ -1,8 +1,8 @@
 package com.nuvio.tv.ui.screens.player
 
-// [fork] Nuvio C: while the loading screen is up, a lane pinned to the bottom centre (same place as
-// ysosrs123's fork) shows which add-on / debrid service the stream comes from and its release
-// filename, so a wrong pick can be spotted before it starts. Official loading screen untouched.
+// [fork] Nuvio C: while the loading screen is up, the release filename sits bottom centre (same
+// place as ysosrs123's fork) in a soft pill, in full (wraps after dots / underscores, extension
+// dimmed), so a wrong pick can be spotted before it starts. Official loading screen untouched.
 // Switch: NuvioCFeatures.LOADING_FILENAME.
 
 import androidx.annotation.VisibleForTesting
@@ -10,20 +10,23 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.LineBreak
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -40,51 +43,43 @@ internal fun NuvioCLoadingLane(
 ) {
     if (!NuvioCFeatures.LOADING_FILENAME) return
     val controller = viewModel.controller
-    val sourceLine = remember(uiState.currentStreamAddonName, uiState.currentStreamName) {
-        NuvioCLoadingLaneText.sourceLine(uiState.currentStreamAddonName, uiState.currentStreamName)
-    }
+    // Round 6 (2026-10-12): filename only (no add-on / debrid line), shown in full, never shortened.
     val filename = remember(uiState.currentStreamName, uiState.currentStreamUrl, controller.currentFilename) {
         NuvioCLoadingLaneText.filename(controller.currentFilename, controller.currentStreamDescription)
     }
     AnimatedVisibility(
-        visible = visible && (sourceLine != null || filename != null),
+        visible = visible && filename != null,
         enter = fadeIn(animationSpec = tween(250)),
         exit = fadeOut(animationSpec = tween(200)),
         modifier = modifier
     ) {
-        val shadow = Shadow(color = Color.Black.copy(alpha = 0.85f), offset = Offset(0f, 2f), blurRadius = 6f)
+        val name = filename ?: return@AnimatedVisibility
+        val (base, ext) = remember(name) { NuvioCLoadingLaneText.splitExtension(name) }
+        val text = remember(base, ext) {
+            buildAnnotatedString {
+                append(NuvioCLoadingLaneText.wrapFriendly(base))
+                if (ext != null) withStyle(SpanStyle(color = Color.White.copy(alpha = 0.45f))) { append(ext) }
+            }
+        }
         Box(modifier = Modifier.fillMaxSize()) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
+            Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(horizontal = NuvioTheme.spacing.lg, vertical = NuvioTheme.spacing.xxl)
+                    .padding(horizontal = NuvioTheme.spacing.xxl, vertical = NuvioTheme.spacing.xxl)
+                    .widthIn(max = 760.dp)
+                    .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 16.dp, vertical = 9.dp)
             ) {
-                if (sourceLine != null) {
-                    Text(
-                        text = sourceLine,
-                        style = MaterialTheme.typography.labelMedium.copy(shadow = shadow),
-                        color = Color.White.copy(alpha = 0.72f),
-                        textAlign = TextAlign.Center,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                if (filename != null) {
-                    Text(
-                        text = filename,
-                        style = MaterialTheme.typography.labelMedium.copy(shadow = shadow),
-                        color = Color.White.copy(alpha = 0.62f),
-                        textAlign = TextAlign.Center,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 2.dp)
-                    )
-                }
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontFeatureSettings = "tnum",
+                        lineHeight = 20.sp,
+                        lineBreak = LineBreak.Paragraph
+                    ),
+                    color = Color.White.copy(alpha = 0.86f),
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
@@ -112,6 +107,20 @@ internal object NuvioCLoadingLaneText {
         val tag = Regex("""^\[?\s*([A-Za-z]{2,3})(?=[^A-Za-z]|$)""").find(name)?.groupValues?.get(1)
             ?.uppercase(Locale.US) ?: return null
         return PROVIDERS[tag]
+    }
+
+    /** "Name.2160p.mkv" -> ("Name.2160p", ".mkv"); no known video extension -> (name, null). */
+    fun splitExtension(name: String): Pair<String, String?> {
+        val m = VIDEO_EXT.find(name) ?: return name to null
+        return name.substring(0, m.range.first) to name.substring(m.range.first)
+    }
+
+    /** Lets a long release name wrap after dots, underscores and spaces' stand-ins instead of mid-word. */
+    fun wrapFriendly(name: String): String = buildString(name.length + 16) {
+        for (c in name) {
+            append(c)
+            if (c == '.' || c == '_') append('\u200B')
+        }
     }
 
     /** The release filename, else the first description line when it looks like one. */
