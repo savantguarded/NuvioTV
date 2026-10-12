@@ -130,4 +130,6 @@ object NuvioCFeatures {
     const val OSD_BADGES_LEFT = true
     /** Player: Start over button uses a simpler restart icon (one unbroken arc with its arrow head, Shuffle's line style). */
     const val START_OVER_ICON = true
+    /** Player: Netflix-style pause screen replaces official's (same trigger and keys): screen darkened a little, "You're watching" + logo + episode line on the left, clock, slim progress line with "Paused · ends at". */
+    const val PAUSE_SCREEN_C = true
 }
