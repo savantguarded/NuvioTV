@@ -1128,6 +1128,23 @@ fun PlayerScreen(
             )
         }
 
+        if (com.nuvio.tv.NuvioCFeatures.PAUSE_SCREEN_C) NuvioCPauseScreen( // [fork] Nuvio C pause screen replaces official's
+            visible = uiState.showPauseOverlay && uiState.error == null &&
+                !uiState.showLoadingOverlay && !postPlayRecommendationState.isVisible,
+            viewModel = viewModel,
+            title = (if (uiState.currentSeason != null && uiState.currentEpisode != null) uiState.contentName else null) ?: uiState.title,
+            logo = uiState.logo,
+            season = uiState.currentSeason,
+            episode = uiState.currentEpisode,
+            episodeTitle = uiState.currentEpisodeTitle,
+            year = uiState.releaseYear,
+            isLive = uiState.isLive,
+            hdrDim = nuvioCHdr,
+            onClose = { viewModel.onEvent(PlayerEvent.OnDismissPauseOverlay) },
+            modifier = Modifier
+                .fillMaxSize()
+                .zIndex(2.5f)
+        ) else
         PauseOverlay(
             visible = uiState.showPauseOverlay && uiState.error == null &&
                 !uiState.showLoadingOverlay && !postPlayRecommendationState.isVisible,
