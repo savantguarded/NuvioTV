@@ -129,7 +129,8 @@ fun PosterListPickerDialog(
     error: String?,
     onToggle: (String) -> Unit,
     onSave: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    nuvioCSource: com.nuvio.tv.domain.model.LibrarySourceMode? = null // [fork] library_picker
 ) {
     val primaryFocusRequester = remember { FocusRequester() }
 
@@ -151,6 +152,9 @@ fun PosterListPickerDialog(
             )
         }
 
+        if (com.nuvio.tv.ui.components.NuvioCLibraryPicker.enabled) { // [fork] library source first, no zoom clipping
+            com.nuvio.tv.ui.components.NuvioCLibraryPickerList(tabs, nuvioCSource, membership, isPending, primaryFocusRequester, onToggle)
+        } else
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
@@ -258,7 +262,8 @@ fun PosterOptionsHost(
         }
         PosterListPickerDialog(
             title = state.listPickerTitle.orEmpty(),
-            tabs = listOf(localTab) + destinationTabs,
+            tabs = com.nuvio.tv.ui.components.NuvioCLibraryPicker.order(listOf(localTab) + destinationTabs, state.librarySourceMode), // [fork] library source first
+            nuvioCSource = state.librarySourceMode, // [fork]
             membership = state.listPickerMembership,
             isPending = state.listPickerPending,
             error = state.listPickerError,
