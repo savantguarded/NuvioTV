@@ -106,4 +106,8 @@ object NuvioCFeatures {
     const val DIRECTOR_IN_CAST = true
     /** Focus ring always matches the focused item's shape: round subtitle colour swatches, add-on / catalog order buttons (incl. the disabled first / last arrows). */
     const val FOCUS_RING_SHAPE = true
+    /** Clearlogos (Home / collections, details, player OSD) sized to the same visual weight, Apple TV style: wide logos wide and short, tall ones compact. */
+    const val LOGO_WEIGHT = true
+    /** 40 dp side margin on Home / collections (official 52) and the details page (official 48). */
+    const val PAGE_MARGIN_40 = true
 }
