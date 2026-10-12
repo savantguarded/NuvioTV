@@ -2518,6 +2518,7 @@ private fun PlayerControlsOverlay(
                     if (com.nuvio.tv.NuvioCFeatures.START_OVER && !isLivePlayback && nuvioCHasDuration) {
                         ControlButton(
                             icon = androidx.compose.material.icons.Icons.Default.RestartAlt,
+                            iconPainter = if (com.nuvio.tv.NuvioCFeatures.START_OVER_ICON) androidx.compose.ui.res.painterResource(R.drawable.nuvio_c_ic_start_over) else null, // [fork] unbroken arc
                             contentDescription = stringResource(R.string.nuvio_c_start_over),
                             onClick = {
                                 onSeekTo(0L)
