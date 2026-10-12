@@ -391,6 +391,7 @@ fun AdvancedSettingsContent(
     LazyColumn(
         state = networkListState,
         modifier = Modifier.fillMaxSize(),
+        contentPadding = com.nuvio.tv.ui.components.nuvioCFocusRoomPadding(bottom = 24.dp), // [fork] focus room: last card's ring not cut
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item(key = "header") {
