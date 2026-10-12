@@ -685,9 +685,18 @@ private fun HeroTitleContent(
         preview.description?.let { if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.homeSynopsis(it) else it }?.takeIf { it.isNotBlank() }?.let { description -> // [fork] hero spec: no blank lines
             val nuvioCStyle = scaledDescriptionStyle.copy(textDirection = description.contentTextDirection())
                 .let { if (com.nuvio.tv.NuvioCFeatures.HOME_SYNOPSIS_FIT) it.copy(lineBreak = androidx.compose.ui.text.style.LineBreak.Paragraph) else it } // [fork] even line lengths
-            // [fork] home synopsis fit: the narrowest width (official first) that shows it all in up to 6 lines;
-            // past that the widest with an ellipsis, and the logo keeps its minimum height (NuvioCHeroStack).
-            val nuvioCFit = com.nuvio.tv.ui.components.rememberNuvioCSynopsisFit(description, nuvioCStyle, nuvioCTextWidths)
+            // [fork] home synopsis fit: lines from the height left (up to 6), narrowest width that shows it all,
+            // else the widest with an ellipsis; decided while laying out (NuvioCFitSynopsis).
+            if (com.nuvio.tv.NuvioCFeatures.HOME_SYNOPSIS_FIT && !nuvioCTextWidths.isNullOrEmpty()) {
+                com.nuvio.tv.ui.components.NuvioCFitSynopsis(
+                    text = description,
+                    style = nuvioCStyle,
+                    color = NuvioTheme.colors.TextPrimary,
+                    widths = nuvioCTextWidths,
+                    modifier = Modifier.graphicsLayer { alpha = metaAlpha }
+                )
+            } else {
+            val nuvioCFit: com.nuvio.tv.ui.components.NuvioCSynopsisFitResult? = null
             Text(
                 text = description,
                 style = nuvioCStyle,
@@ -698,6 +707,7 @@ private fun HeroTitleContent(
                     .then(if (nuvioCFit != null) Modifier.width(nuvioCFit.width) else Modifier)
                     .graphicsLayer { alpha = metaAlpha }
             )
+            } // [fork]
         }
     }
 

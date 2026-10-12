@@ -34,4 +34,20 @@ class NuvioCSynopsisFitTest {
     fun neverPastAvailable() {
         assertEquals(listOf(400.dp * 0.42f, 400.dp), NuvioCSynopsisFit.widths(400.dp, 470.dp))
     }
+
+    @Test
+    fun linesFollowTheHeightLeft() {
+        assertEquals(6, NuvioCSynopsisFit.linesFor(500, 50f, true))
+        assertEquals(4, NuvioCSynopsisFit.linesFor(210, 50f, true))
+        assertEquals(6, NuvioCSynopsisFit.linesFor(300, 50f, true)) // exactly 6 lines
+        assertEquals(1, NuvioCSynopsisFit.linesFor(10, 50f, true))
+        assertEquals(6, NuvioCSynopsisFit.linesFor(0, 50f, false))
+    }
+
+    @Test
+    fun narrowFitAtFewerLinesIsNotTakenWhenTextOverflows() {
+        // Only 5 lines of room: the narrow widths overflow at 5, the widest fits.
+        val r = NuvioCSynopsisFit.choose(widths, lines = 5) { w, lines -> lines == 5 && w >= 550.dp }
+        assertEquals(NuvioCSynopsisFitResult(550.dp, 5), r)
+    }
 }
