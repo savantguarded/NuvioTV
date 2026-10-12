@@ -15,18 +15,18 @@ class NuvioCSynopsisFitTest {
     @Test
     fun shortTextKeepsOfficialWidth() {
         val r = NuvioCSynopsisFit.choose(widths) { _, _ -> true }
-        assertEquals(NuvioCSynopsisFitResult(widths[0], 5), r)
+        assertEquals(NuvioCSynopsisFitResult(widths[0], 6), r)
     }
 
     @Test
     fun growsOnlyAsMuchAsNeeded() {
-        val r = NuvioCSynopsisFit.choose(widths) { w, lines -> w >= 470.dp && lines == 5 }
-        assertEquals(NuvioCSynopsisFitResult(470.dp, 5), r)
+        val r = NuvioCSynopsisFit.choose(widths) { w, lines -> w >= 470.dp && lines == 6 }
+        assertEquals(NuvioCSynopsisFitResult(470.dp, 6), r)
     }
 
     @Test
-    fun sixthLineOnlyAtWidest() {
-        val r = NuvioCSynopsisFit.choose(widths) { _, lines -> lines >= 6 }
+    fun tooLongUsesWidestAndEllipsizes() {
+        val r = NuvioCSynopsisFit.choose(widths) { _, _ -> false }
         assertEquals(NuvioCSynopsisFitResult(550.dp, 6), r)
     }
 

@@ -116,7 +116,7 @@ object NuvioCFeatures {
     const val BG_TRAILER_KEEP_FOCUS = true
     /** Details page: focus and layout stay put while scrolling (no jump to Play when the hero comes back into view or after a cast / filmography page, no synopsis slide when the logo or ratings land), and the last rows ease to the page end. */
     const val DETAIL_FOCUS_STABLE = true
-    /** Home / collections: the synopsis uses official's width when it fits in 5 lines, and only grows (our width, then 80 dp more, then a 6th line) when it needs to; the logo keeps at least 56 dp. */
+    /** Home / collections: synopsis up to 6 lines with even line lengths, at official's width when it fits, growing (our width, then 80 dp more) only when needed; the logo keeps at least 48 dp. */
     const val HOME_SYNOPSIS_FIT = true
     /** Clearlogos: transparent borders trimmed when the logo loads, so sizing uses the visible logo (padded TMDB logos looked small). */
     const val LOGO_TRIM = true
