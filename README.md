@@ -7,15 +7,16 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 ## Main features
 
 **Player**
-- Title logo top-left and stream badges (resolution, HDR / Dolby Vision, audio, source, size) on the controls.
+- Title logo top-left and stream badges (resolution, HDR / Dolby Vision, audio, source, size) under the title on the controls.
 - Bottom subtitles move up while the controls are open; focus goes back to the button that opened a panel.
 - Subtitles and controls dimmed to 60% during HDR and Dolby Vision.
 - Start over button, 8-second controls, next episode without the countdown.
-- Loading screen shows the add-on, debrid service and filename; short placeholder clips are caught and the Sources panel opens.
-- Prefer SDH subtitles and a subtitle font picker.
+- Netflix-style pause screen.
+- Loading screen shows the full release filename; short placeholder clips are caught and the Sources panel opens.
+- Prefer SDH subtitles (kept for the next episode) and a subtitle font picker; episode names on Next and auto-play.
 
 **Details page**
-- Rate a title (1 to 10) to Trakt and MDBList.
+- Rate a title (1 to 10) to Trakt and MDBList; TMDB tagline under the logo.
 - Same hero size and text scale as Home, a movie collection always on its own row, directors who act also listed in the cast.
 - Smooth scroll to the end of the page.
 
@@ -28,6 +29,8 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 
 **Appearance**
 - Extra app fonts, a clock on Home and in collections, a cleaner profile screen, focus rings that are never cut off.
+- Clearlogos trimmed of empty borders and sized to the same visual weight; dark logos made readable.
+- Add to library lists your Library service first.
 
 **Accounts**
 - Simkl device login with automatic renewal.
