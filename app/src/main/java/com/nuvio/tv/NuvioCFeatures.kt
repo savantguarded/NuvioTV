@@ -104,4 +104,6 @@ object NuvioCFeatures {
     const val COLLECTION_OWN_ROW = true
     /** Details page: a director (or writer) who also acts is listed under crew and in the cast (official drops the acting credit). */
     const val DIRECTOR_IN_CAST = true
+    /** Focus ring always matches the focused item's shape: round subtitle colour swatches, add-on / catalog order buttons (incl. the disabled first / last arrows). */
+    const val FOCUS_RING_SHAPE = true
 }

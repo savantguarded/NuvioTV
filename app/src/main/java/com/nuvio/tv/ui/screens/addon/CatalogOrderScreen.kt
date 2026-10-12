@@ -225,7 +225,7 @@ private fun CatalogOrderCard(
                         focusedContainerColor = NuvioTheme.colors.FocusBackground,
                         focusedContentColor = NuvioTheme.colors.Primary
                     ),
-                    border = ButtonDefaults.border(
+                    border = if (com.nuvio.tv.ui.components.nuvioCFocusRingShapeOn) com.nuvio.tv.ui.components.nuvioCButtonBorder(NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs), RoundedCornerShape(NuvioTheme.radii.md)) else ButtonDefaults.border( // [fork] focus ring shape
                         focusedBorder = Border(
                             border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
                             shape = RoundedCornerShape(NuvioTheme.radii.md)
@@ -248,7 +248,7 @@ private fun CatalogOrderCard(
                         focusedContainerColor = NuvioTheme.colors.FocusBackground,
                         focusedContentColor = NuvioTheme.colors.Primary
                     ),
-                    border = ButtonDefaults.border(
+                    border = if (com.nuvio.tv.ui.components.nuvioCFocusRingShapeOn) com.nuvio.tv.ui.components.nuvioCButtonBorder(NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs), RoundedCornerShape(NuvioTheme.radii.md)) else ButtonDefaults.border( // [fork] focus ring shape
                         focusedBorder = Border(
                             border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
                             shape = RoundedCornerShape(NuvioTheme.radii.md)
@@ -270,7 +270,7 @@ private fun CatalogOrderCard(
                         focusedContainerColor = NuvioTheme.colors.FocusBackground,
                         focusedContentColor = if (item.isDisabled) NuvioTheme.colors.Success else NuvioTheme.colors.Error
                     ),
-                    border = ButtonDefaults.border(
+                    border = if (com.nuvio.tv.ui.components.nuvioCFocusRingShapeOn) com.nuvio.tv.ui.components.nuvioCButtonBorder(NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs), RoundedCornerShape(NuvioTheme.radii.md)) else ButtonDefaults.border( // [fork] focus ring shape
                         focusedBorder = Border(
                             border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
                             shape = RoundedCornerShape(NuvioTheme.radii.md)

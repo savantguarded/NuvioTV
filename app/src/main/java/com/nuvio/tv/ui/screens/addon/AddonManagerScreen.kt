@@ -1431,7 +1431,8 @@ private fun AddonCardContent(
                                 focusedContainerColor = NuvioTheme.colors.FocusBackground,
                                 focusedContentColor = NuvioTheme.colors.Primary
                             ),
-                            shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md))
+                            shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
+                            border = if (com.nuvio.tv.ui.components.nuvioCFocusRingShapeOn) com.nuvio.tv.ui.components.nuvioCButtonBorder(NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs), RoundedCornerShape(NuvioTheme.radii.md), ringWhenEnabled = false) else ButtonDefaults.border() // [fork] focus ring shape
                         ) {
                             Icon(imageVector = Icons.Default.ArrowUpward, contentDescription = stringResource(R.string.cd_move_up))
                         }
@@ -1445,7 +1446,8 @@ private fun AddonCardContent(
                                 focusedContainerColor = NuvioTheme.colors.FocusBackground,
                                 focusedContentColor = NuvioTheme.colors.Primary
                             ),
-                            shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md))
+                            shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
+                            border = if (com.nuvio.tv.ui.components.nuvioCFocusRingShapeOn) com.nuvio.tv.ui.components.nuvioCButtonBorder(NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs), RoundedCornerShape(NuvioTheme.radii.md), ringWhenEnabled = false) else ButtonDefaults.border() // [fork] focus ring shape
                         ) {
                             Icon(imageVector = Icons.Default.ArrowDownward, contentDescription = stringResource(R.string.cd_move_down))
                         }
@@ -1459,7 +1461,8 @@ private fun AddonCardContent(
                             focusedContainerColor = NuvioTheme.colors.FocusBackground,
                             focusedContentColor = NuvioTheme.colors.Error
                         ),
-                        shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md))
+                        shape = ButtonDefaults.shape(RoundedCornerShape(NuvioTheme.radii.md)),
+                        border = if (com.nuvio.tv.ui.components.nuvioCFocusRingShapeOn) com.nuvio.tv.ui.components.nuvioCButtonBorder(NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs), RoundedCornerShape(NuvioTheme.radii.md), ringWhenEnabled = false) else ButtonDefaults.border() // [fork] focus ring shape
                     ) {
                         Text(text = stringResource(R.string.addon_remove))
                     }
