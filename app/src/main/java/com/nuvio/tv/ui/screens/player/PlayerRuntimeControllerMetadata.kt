@@ -69,6 +69,7 @@ internal fun PlayerRuntimeController.applyMetaDetails(meta: Meta) {
     val description = resolveDescription(meta)
 
     recomputeNextEpisode(resetVisibility = false)
+    nuvioCFillEpisodeTitles() // [fork] next_ep_title round 7: names the player finds itself when the meta has none
     _uiState.update { state ->
         state.copy(
             description = description ?: state.description,
@@ -279,7 +280,7 @@ internal fun PlayerRuntimeController.recomputeNextEpisode(resetVisibility: Boole
         videoId = resolvedNext.id,
         season = resolvedNext.season ?: return,
         episode = resolvedNext.episode ?: return,
-        title = resolvedNext.title,
+        title = NuvioCEpisodeTitles.known(resolvedNext) ?: resolvedNext.title, // [fork] next_ep_title: name for the Up next card
         thumbnail = resolvedNext.thumbnail,
         overview = resolvedNext.overview,
         released = resolvedNext.released,
