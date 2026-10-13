@@ -400,3 +400,48 @@ private fun isRailSelectKey(keyCode: Int): Boolean =
     keyCode == AndroidKeyEvent.KEYCODE_DPAD_CENTER ||
         keyCode == AndroidKeyEvent.KEYCODE_ENTER ||
         keyCode == AndroidKeyEvent.KEYCODE_NUMPAD_ENTER
+
+// ---- Profiles down the left (round 7, 2026-10-13, switch PROFILE_LEFT) --------------------------
+// The clean screen's own cards (same avatars, ring, focus zoom, press-and-hold menu, PIN) in one
+// column on the left, each name beside its avatar, so the rotating profile background stays clear.
+// Nothing written on the screen; a dark wash over the left third only. "Add profile" is the last
+// row (official add circle). Four rows fit a 540 dp screen; more scroll with focus.
+// Mockup: widget "nuvio_c_round7_profile_rail_and_subtitle_top", option A.
+
+internal val LocalNuvioCProfileLeft = androidx.compose.runtime.staticCompositionLocalOf { false }
+
+internal fun nuvioCProfileLeft(): Boolean = NuvioCFeatures.PROFILE_LEFT
+
+/** Gap between an avatar and its name in the left column. */
+internal val NUVIO_C_SIDE_NAME_GAP = 18.dp
+
+internal fun Modifier.nuvioCProfileSideWidth(): Modifier = widthIn(max = 420.dp)
+
+internal fun Modifier.nuvioCProfileLeftWash(): Modifier = drawBehind {
+    drawRect(
+        Brush.horizontalGradient(
+            0f to Color.Black.copy(alpha = 0.82f),
+            0.30f to Color.Black.copy(alpha = 0.45f),
+            0.55f to Color.Transparent
+        )
+    )
+}
+
+/** Card container: the official column (avatar over name), or a row (name beside) on the left rail. */
+@Composable
+internal fun NuvioCProfileCardLayout(side: Boolean, modifier: Modifier, content: @Composable () -> Unit) {
+    if (side) Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) { content() }
+    else Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) { content() }
+}
+
+@Composable
+internal fun NuvioCProfileLeftColumn(itemCount: Int, content: @Composable () -> Unit) {
+    Box(modifier = Modifier.fillMaxHeight(), contentAlignment = Alignment.CenterStart) {
+        Column(
+            modifier = Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 12.dp), // room for the 1.04 focus zoom at the ends
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) { content() }
+    }
+}

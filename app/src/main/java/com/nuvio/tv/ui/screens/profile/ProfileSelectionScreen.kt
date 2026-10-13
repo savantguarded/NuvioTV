@@ -904,15 +904,17 @@ private fun ProfileSelectionMainContent(
 ) {
     if (nuvioCProfileRail(isManagementMode)) { NuvioCProfileRail(profiles, activeProfileId, canAddProfile, profilePinEnabled, avatarImageUrlsById, brandWordmarkRes, onProfileFocused, onProfileSelected, onProfileLongPress, onAddProfileClick); return } // [fork] NuvioCProfileLayout.kt
     val nuvioCClean = nuvioCProfileClean(isManagementMode) // [fork] clean profile screen, see NuvioCProfileLayout.kt
+    val nuvioCLeft = nuvioCClean && nuvioCProfileLeft() // [fork] profile_left
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .then(if (nuvioCLeft) Modifier.nuvioCProfileLeftWash() else Modifier) // [fork] dark left third only
             .padding(
                 horizontal = ProfileSelectionSpacing.ScreenPaddingHorizontal,
-                vertical = ProfileSelectionSpacing.ScreenPaddingVertical
+                vertical = if (nuvioCLeft) 0.dp else ProfileSelectionSpacing.ScreenPaddingVertical // [fork]
             ),
         verticalArrangement = if (nuvioCClean) Arrangement.Center else Arrangement.Top, // [fork]
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = if (nuvioCClean && nuvioCProfileLeft()) Alignment.Start else Alignment.CenterHorizontally // [fork] profile_left
     ) {
         if (!nuvioCClean) { // [fork] 2026-10-12: no Nuvio wordmark on the clean screen (splash keeps it)
         MemberBrandWordmark(
@@ -936,13 +938,16 @@ private fun ProfileSelectionMainContent(
         Spacer(modifier = Modifier.height(ProfileSelectionSpacing.HeadingToSubheading))
         } // [fork]
 
+        if (!(nuvioCClean && nuvioCProfileLeft())) { // [fork] profile_left: nothing written on the left rail
         Text(
             text = screenSubtitle,
             color = NuvioTheme.colors.TextSecondary,
             fontSize = 18.sp,
             fontWeight = FontWeight.Medium
         )
+        } // [fork]
 
+        if (nuvioCClean && nuvioCProfileLeft()) Unit else // [fork] profile_left
         if (nuvioCClean) Spacer(modifier = Modifier.height(NUVIO_C_SUBTITLE_TO_PROFILES)) else // [fork]
         Spacer(modifier = Modifier.weight(1f, fill = true))
 
@@ -1015,6 +1020,32 @@ private fun ProfileGrid(
             fontSize = 18.sp,
             fontWeight = FontWeight.Medium
         )
+    } else if (nuvioCClean && nuvioCProfileLeft()) { // [fork] profile_left: one column down the left
+        NuvioCProfileLeftColumn(itemCount = totalItems) {
+            CompositionLocalProvider(LocalNuvioCProfileLeft provides true) {
+                profiles.forEachIndexed { index, profile ->
+                    ProfileCard(
+                        profile = profile,
+                        avatarImageUrl = profile.avatarUrl?.takeIf { it.isNotBlank() }
+                            ?: profile.avatarId?.let(avatarImageUrlsById::get),
+                        focusRequester = focusRequesters[index],
+                        compact = false,
+                        profileTheme = profileThemes[profile.id],
+                        onFocused = { onProfileFocused(profile) },
+                        onClick = { onProfileSelected(profile) },
+                        onLongPress = { onProfileLongPress(profile) }
+                    )
+                }
+                if (canAddProfile) {
+                    AddProfileCard(
+                        focusRequester = focusRequesters[profiles.size],
+                        compact = false,
+                        onFocused = { onProfileFocused(null) },
+                        onClick = onAddProfileClick
+                    )
+                }
+            }
+        }
     } else {
         BoxWithConstraints(
             modifier = Modifier.fillMaxWidth(),
@@ -1132,11 +1163,16 @@ private fun ProfileCard(
     )
     val nameWeight = if (isFocused) FontWeight.SemiBold else FontWeight.Medium
 
-    Column(
+    val nuvioCSide = LocalNuvioCProfileLeft.current // [fork] profile_left: avatar with the name beside it
+    NuvioCProfileCardLayout(
+        side = nuvioCSide,
         modifier = Modifier
-            .width(
+            .then(
+                if (nuvioCSide) Modifier.nuvioCProfileSideWidth()
+                else Modifier.width(
                 if (compact) ProfileSelectionSpacing.CompactCardWidth
                 else ProfileSelectionSpacing.CardWidth
+                )
             )
             .graphicsLayer {
                 scaleX = itemScale
@@ -1183,9 +1219,8 @@ private fun ProfileCard(
             .semantics { role = Role.Button }
             .padding(
                 horizontal = ProfileSelectionSpacing.CardPaddingHorizontal,
-                vertical = ProfileSelectionSpacing.CardPaddingVertical
-            ),
-        horizontalAlignment = Alignment.CenterHorizontally
+                vertical = if (nuvioCSide) 0.dp else ProfileSelectionSpacing.CardPaddingVertical // [fork]
+            )
     ) {
         Box(
             modifier = Modifier.size(
@@ -1248,7 +1283,7 @@ private fun ProfileCard(
             modifier = Modifier.height(
                 if (compact) ProfileSelectionSpacing.CompactAvatarToName
                 else ProfileSelectionSpacing.AvatarToName
-            )
+            ).then(if (nuvioCSide) Modifier.width(NUVIO_C_SIDE_NAME_GAP) else Modifier) // [fork]
         )
 
         Text(
@@ -1327,11 +1362,16 @@ private fun AddProfileCard(
         focusProgress
     )
 
-    Column(
+    val nuvioCSide = LocalNuvioCProfileLeft.current // [fork] profile_left: avatar with the name beside it
+    NuvioCProfileCardLayout(
+        side = nuvioCSide,
         modifier = Modifier
-            .width(
+            .then(
+                if (nuvioCSide) Modifier.nuvioCProfileSideWidth()
+                else Modifier.width(
                 if (compact) ProfileSelectionSpacing.CompactCardWidth
                 else ProfileSelectionSpacing.CardWidth
+                )
             )
             .graphicsLayer {
                 scaleX = itemScale
@@ -1350,9 +1390,8 @@ private fun AddProfileCard(
             .semantics { role = Role.Button }
             .padding(
                 horizontal = ProfileSelectionSpacing.CardPaddingHorizontal,
-                vertical = ProfileSelectionSpacing.CardPaddingVertical
-            ),
-        horizontalAlignment = Alignment.CenterHorizontally
+                vertical = if (nuvioCSide) 0.dp else ProfileSelectionSpacing.CardPaddingVertical // [fork]
+            )
     ) {
         Box(
             modifier = Modifier.size(
@@ -1403,7 +1442,7 @@ private fun AddProfileCard(
             modifier = Modifier.height(
                 if (compact) ProfileSelectionSpacing.CompactAvatarToName
                 else ProfileSelectionSpacing.AvatarToName
-            )
+            ).then(if (nuvioCSide) Modifier.width(NUVIO_C_SIDE_NAME_GAP) else Modifier) // [fork]
         )
 
         Text(
@@ -1416,8 +1455,10 @@ private fun AddProfileCard(
             overflow = TextOverflow.Ellipsis
         )
 
+        if (!nuvioCSide) { // [fork]
         Spacer(modifier = Modifier.height(ProfileSelectionSpacing.NameToMeta))
         Box(modifier = Modifier.height(ProfileSelectionSpacing.MetaSlotHeight))
+        } // [fork]
     }
 }
 
