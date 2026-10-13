@@ -8,7 +8,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 
 **Player**
 - Title logo top-left and stream badges (resolution, HDR / Dolby Vision, audio, source, size) under the title on the controls.
-- Bottom subtitles move up while the controls are open; focus goes back to the button that opened a panel.
+- Bottom subtitles jump to the top of the screen while the controls or the pause screen show; focus goes back to the button that opened a panel.
 - Subtitles and controls dimmed to 60% during HDR and Dolby Vision.
 - Start over button, 8-second controls, next episode without the countdown.
 - Netflix-style pause screen.
@@ -18,7 +18,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 **Details page**
 - Rate a title (1 to 10) to Trakt and MDBList; TMDB tagline under the logo.
 - Same hero size and text scale as Home, a movie collection always on its own row, directors who act also listed in the cast.
-- Smooth scroll to the end of the page.
+- Smooth scroll to the end of the page; a title opened from More like this or a cast page stays loaded when you come back from its sources.
 
 **Trailers**
 - Background trailers muted by default, paused behind popups and other pages, skipped for titles you've started.
@@ -28,8 +28,8 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - Real filmography with the character or job under each title.
 
 **Appearance**
-- Extra app fonts, a clock on Home and in collections, a cleaner profile screen, focus rings that are never cut off.
-- Clearlogos trimmed of empty borders and sized to the same visual weight; dark logos made readable.
+- Extra app fonts, a clock on Home and in collections, profiles down the left of the profile screen, focus rings that are never cut off, a start-up spinner that doesn't stutter.
+- Clearlogos trimmed of empty borders and sized to the same visual weight; dark logos made readable; the Home synopsis takes the width that needs the fewest lines (5 at most), so the logo stays large.
 - Add to library lists your Library service first.
 
 **Accounts**
