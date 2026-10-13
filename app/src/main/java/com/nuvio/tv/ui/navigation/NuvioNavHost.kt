@@ -996,7 +996,7 @@ private fun PlaybackNavHost(
                             logo = args?.getString("logo"),
                             season = nextSeason,
                             episode = nextEpisode,
-                            episodeName = null,
+                            episodeName = com.nuvio.tv.ui.screens.player.NuvioCEpisodeTitles.byId(nextVideoId), // [fork] next_ep_title: was null
                             genres = null,
                             year = args?.getString("year"),
                             contentId = contentId.takeIf { it.isNotBlank() },

@@ -35,7 +35,7 @@ internal object NuvioCEpisodeTitles {
     fun remember(videos: List<Video>) {
         if (!NuvioCFeatures.NEXT_EP_TITLE) return
         for (v in videos) {
-            val title = v.title.trim().takeIf { it.isNotEmpty() } ?: continue
+            val title = v.title.trim().takeIf { !isPlaceholder(it) } ?: continue // round 7b: never an "Episode 4" stand-in
             byVideoId.put(v.id, title)
             seriesKey(v.id, v.season, v.episode)?.let { bySeriesEpisode.put(it, title) }
         }
@@ -59,6 +59,12 @@ internal object NuvioCEpisodeTitles {
 
     /** Blank, or only the mapper's "Episode 4" stand-in (no real name). */
     fun isPlaceholder(title: String?): Boolean = title.isNullOrBlank() || placeholder.matches(title.trim())
+
+    /** Round 7b: a known name for a video id (Stream / new player after an episode ends). */
+    fun byId(videoId: String?): String? {
+        if (!NuvioCFeatures.NEXT_EP_TITLE || videoId.isNullOrBlank()) return null
+        return byVideoId.get(videoId)
+    }
 
     /** True when neither the details page nor the player's meta gave [video] a name. */
     fun missing(video: Video): Boolean = known(video) == null
@@ -95,6 +101,11 @@ internal fun PlayerRuntimeController.nuvioCFillEpisodeTitles() {
     if (type != "series" && type != "tv") return
     val id = contentId?.takeIf { it.isNotBlank() } ?: return
     val videos = metaVideos
+    // Round 7b (2026-10-13): a player opened after an episode ends (Stream screen, new player) gets
+    // no name in its arguments and, with the lookup already done for this series, never used the
+    // names it knew. Always put the known name (meta or looked up) on the current episode first.
+    NuvioCEpisodeTitles.remember(videos) // the meta's own real names, reachable by id (Stream screen, next player)
+    nuvioCApplyKnownEpisodeTitles()
     if (videos.isEmpty() || videos.none { NuvioCEpisodeTitles.missing(it) }) return
     if (!NuvioCEpisodeTitles.startFill(id)) return
     scope.launch {
