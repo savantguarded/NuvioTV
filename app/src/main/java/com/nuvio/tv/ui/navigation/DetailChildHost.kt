@@ -93,6 +93,19 @@ internal fun DetailChildHost(
     }
 
     LaunchedEffect(Unit) {
+        // [fork] nested_detail_keep (Nuvio C round 7): playing from a nested page sends the parent
+        // NavHost to the sources / player, which disposes this host. Coming back, rememberNavController
+        // has already restored the child stack (same entries, same ViewModels, kept by the parent
+        // details entry), but the replay below popped it and navigated again: new entries, new
+        // ViewModels, the nested page loaded from scratch. When the restored stack already is the
+        // saved one, keep it; otherwise (process restart, cap applied) replay as official.
+        if (com.nuvio.tv.NuvioCFeatures.NESTED_DETAIL_KEEP &&
+            savedChildRoutes.isNotEmpty() &&
+            childNav.currentBackStack.value.mapNotNull { it.toSavedChildRoute() } == applyNestedDetailCap(savedChildRoutes)
+        ) {
+            childRoutesRestored = true
+            return@LaunchedEffect
+        }
         childNav.popBackStack(DETAIL_CHILD_IDLE, inclusive = false)
         applyNestedDetailCap(savedChildRoutes).forEach { route ->
             childNav.navigate(route)
