@@ -106,7 +106,8 @@ fun StartupSplashScreen(
                 drawableOverride = brandWordmarkRes
             )
             Spacer(modifier = Modifier.height(NuvioTheme.spacing.xxl))
-            LoadingIndicator(modifier = Modifier.size(NuvioTheme.spacing.xxxl))
+            if (com.nuvio.tv.NuvioCFeatures.SPLASH_SPINNER_RT) NuvioCSplashSpinner() // [fork] keeps turning while Home is built
+            else LoadingIndicator(modifier = Modifier.size(NuvioTheme.spacing.xxxl))
         }
     }
 }

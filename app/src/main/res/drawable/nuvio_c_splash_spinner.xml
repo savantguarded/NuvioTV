@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  [fork] Nuvio C splash spinner (switch splash_spinner_rt, round 7). The same arc as the official
+  LoadingIndicator (Compose, 2 s loop: the tail starts at 1/6, the head ends at 5/6, the whole arc
+  turns 363 degrees), but as an AnimatedVectorDrawable: its trimPath / rotation animators run on the
+  graphics (render) thread, so the circle keeps turning while the main thread builds the home
+  screen. White stroke; the Compose side paints the theme's accent over it.
+-->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="48dp"
+            android:height="48dp"
+            android:viewportWidth="466.67"
+            android:viewportHeight="466.67">
+            <group
+                android:name="spin"
+                android:pivotX="233.33"
+                android:pivotY="233.33">
+                <path
+                    android:name="arc"
+                    android:pathData="M233.33,83.33 a150,150 0 1,1 0,300 a150,150 0 1,1 0,-300"
+                    android:strokeColor="#FFFFFFFF"
+                    android:strokeWidth="50"
+                    android:strokeLineCap="round"
+                    android:trimPathStart="0"
+                    android:trimPathEnd="0.01" />
+            </group>
+        </vector>
+    </aapt:attr>
+    <target android:name="spin">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="rotation"
+                android:duration="2000"
+                android:valueFrom="0"
+                android:valueTo="363"
+                android:valueType="floatType"
+                android:repeatCount="infinite"
+                android:repeatMode="restart"
+                android:interpolator="@android:interpolator/linear" />
+        </aapt:attr>
+    </target>
+    <target android:name="arc">
+        <aapt:attr name="android:animation">
+            <set android:ordering="together">
+                <objectAnimator
+                    android:duration="2000"
+                    android:repeatCount="infinite"
+                    android:repeatMode="restart"
+                    android:interpolator="@android:interpolator/linear">
+                    <propertyValuesHolder
+                        android:propertyName="trimPathEnd"
+                        android:valueType="floatType">
+                        <keyframe android:fraction="0" android:value="0.01" />
+                        <keyframe android:fraction="0.8333" android:value="1"
+                            android:interpolator="@interpolator/nuvio_c_spinner_easing" />
+                        <keyframe android:fraction="1" android:value="1" />
+                    </propertyValuesHolder>
+                </objectAnimator>
+                <objectAnimator
+                    android:duration="2000"
+                    android:repeatCount="infinite"
+                    android:repeatMode="restart"
+                    android:interpolator="@android:interpolator/linear">
+                    <propertyValuesHolder
+                        android:propertyName="trimPathStart"
+                        android:valueType="floatType">
+                        <keyframe android:fraction="0" android:value="0" />
+                        <keyframe android:fraction="0.1667" android:value="0" />
+                        <keyframe android:fraction="1" android:value="0.99"
+                            android:interpolator="@interpolator/nuvio_c_spinner_easing" />
+                    </propertyValuesHolder>
+                </objectAnimator>
+            </set>
+        </aapt:attr>
+    </target>
+</animated-vector>
