@@ -1493,6 +1493,7 @@ internal fun PlayerRuntimeController.switchToEpisodeStream(
     currentEpisode = targetVideo?.episode ?: _uiState.value.episodeStreamsEpisode ?: currentEpisode
     currentEpisodeTitle = if (com.nuvio.tv.NuvioCFeatures.NEXT_EP_TITLE && targetVideo != null) NuvioCEpisodeTitles.pick(targetVideo) else // [fork] details page names first, never the previous episode's
     targetVideo?.title ?: _uiState.value.episodeStreamsTitle ?: currentEpisodeTitle
+    if (com.nuvio.tv.NuvioCFeatures.NEXT_EP_TITLE && NuvioCEpisodeTitles.isPlaceholder(currentEpisodeTitle)) nuvioCFillEpisodeTitles() // [fork] round 7: no name yet, look it up once
     // Until the new file loads, MPV keeps reporting the old one, which is often at its end.
     hasRenderedFirstFrame = false
     mpvView?.markMediaRequested(playbackUrl)
@@ -1610,6 +1611,7 @@ private fun PlayerRuntimeController.switchToEpisodeStreamCommon(
     currentEpisode = targetVideo?.episode ?: _uiState.value.episodeStreamsEpisode ?: currentEpisode
     currentEpisodeTitle = if (com.nuvio.tv.NuvioCFeatures.NEXT_EP_TITLE && targetVideo != null) NuvioCEpisodeTitles.pick(targetVideo) else // [fork] details page names first, never the previous episode's
     targetVideo?.title ?: _uiState.value.episodeStreamsTitle ?: currentEpisodeTitle
+    if (com.nuvio.tv.NuvioCFeatures.NEXT_EP_TITLE && NuvioCEpisodeTitles.isPlaceholder(currentEpisodeTitle)) nuvioCFillEpisodeTitles() // [fork] round 7: no name yet, look it up once
     refreshScrobbleItem()
 
     lastSavedPosition = 0L
