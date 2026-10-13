@@ -28,7 +28,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - Real filmography with the character or job under each title.
 
 **Appearance**
-- Extra app fonts, a clock on Home and in collections, profiles down the left of the profile screen, focus rings that are never cut off, a start-up spinner that doesn't stutter.
+- Extra app fonts, a clock on Home and in collections, profiles down the left of the profile screen, focus rings that are never cut off.
 - Clearlogos trimmed of empty borders and sized to the same visual weight; dark logos made readable; the Home synopsis takes the width that needs the fewest lines (5 at most), so the logo stays large.
 - Add to library lists your Library service first.
 

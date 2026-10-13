@@ -140,8 +140,6 @@ object NuvioCFeatures {
     const val SUBTITLE_TOP = true
     /** Details: coming back from the sources / player to a title opened from More like this, a cast page or a company page keeps that page as it was (official throws it away and loads it again). */
     const val NESTED_DETAIL_KEEP = true
-    /** Start-up splash: the loading circle is drawn by the graphics thread, so it keeps turning smoothly while the home screen is being built (official's stutters just before Home appears). */
-    const val SPLASH_SPINNER_RT = true
     /** Profile screen (with profile_clean): the profiles in one column on the left, names beside the avatars, same cards; the rotating background stays clear. Off = clean row in the middle. */
     const val PROFILE_LEFT = true
 }
