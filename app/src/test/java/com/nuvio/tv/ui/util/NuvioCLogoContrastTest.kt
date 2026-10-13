@@ -85,6 +85,31 @@ class NuvioCLogoContrastTest {
     }
 
     @Test
+    fun colouredLettersWithDarkStrokeAndBevelAreLeftAlone() {
+        // Spider-Man: Brand New Day style: red letters, a navy bevel under them, a black stroke
+        // around both. Red isn't light by luma, so before round 7 this got an outline / lift.
+        val w = 120; val h = 47
+        val px = img(w, h) { x, y ->
+            when {
+                x !in 4..115 || y !in 4..42 -> clear
+                x in 6..113 && y in 6..37 -> red          // letter faces
+                x in 6..113 && y in 38..40 -> navy        // bevel / extrusion
+                else -> black                             // 2 px stroke around everything
+            }
+        }
+        assertEquals(NuvioCLogoContrast.Mode.NONE, NuvioCLogoContrast.decide(px, w, h))
+    }
+
+    @Test
+    fun vividColoursCountAsVisible() {
+        assertTrue(NuvioCLogoContrast.vivid(red))
+        assertTrue(NuvioCLogoContrast.vivid(0xFFF2C10E.toInt())) // yellow
+        assertEquals(false, NuvioCLogoContrast.vivid(navy))
+        assertEquals(false, NuvioCLogoContrast.vivid(0xFF701010.toInt())) // maroon
+        assertEquals(false, NuvioCLogoContrast.vivid(white))
+    }
+
+    @Test
     fun transparentBordersAreTrimmed() {
         val px = img(100, 50) { x, y -> if (x in 30..69 && y in 20..29) white else clear }
         val b = NuvioCLogoContrast.trimBounds(px, 100, 50)!!

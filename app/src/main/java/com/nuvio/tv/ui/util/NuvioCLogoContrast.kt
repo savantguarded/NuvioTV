@@ -21,7 +21,8 @@ import kotlin.math.sqrt
 //    red). Soft shadows away from the solid shapes are left alone, so no white halo.
 //  - OUTLINE (B): the dark parts are mostly coloured (navy, maroon...), lifting would change the
 //    branding -> a thin 70% white outline (~1 dp at display size) around the whole logo instead.
-//  - NONE: everything else (light logos, light letters with a black stroke / shadow).
+//  - NONE: everything else (light logos, light letters with a black stroke / shadow, and since
+//    round 7 bright coloured letters with a dark stroke / bevel, e.g. Spider-Man: Brand New Day).
 
 object NuvioCLogoContrast {
     enum class Mode { NONE, LIFT, OUTLINE }
@@ -41,6 +42,9 @@ object NuvioCLogoContrast {
     private const val FLAT_SPREAD = 0.08f
     private const val TRIM_ALPHA = 10
     private const val OUTLINE_ALPHA = 0.70f
+    private const val VIVID_MAX = 0.55f
+    private const val VIVID_CHROMA = 0.35f
+    private const val VIVID_RADIUS = 0.06f
     /** Largest side worked on; logos are drawn well under this, so nothing visible is lost. */
     const val MAX_SIDE = 720
 
@@ -85,7 +89,62 @@ object NuvioCLogoContrast {
             if (found) nearLight++
         }
         if (nearLight.toFloat() / darkSolid > OUTLINE_LIKE) return Mode.NONE
+        // Round 7 (2026-10-13, Spider-Man: Brand New Day): bright coloured letters (red, yellow)
+        // with a dark stroke, bevel or shading. Red isn't "light" by luma, so the test above missed
+        // it and the black stroke was lifted to grey, which changed the whole logo. Dark parts that
+        // mostly sit next to vivid colour are decoration and the logo already reads on black.
+        if (nearVividShare(px, w, h, darkSolid) > OUTLINE_LIKE) return Mode.NONE
         return if (neutralDark.toFloat() / darkSolid >= NEUTRAL_SHARE) Mode.LIFT else Mode.OUTLINE
+    }
+
+    /** Saturated and bright enough to stand out on black (red, yellow, mid blue; not navy / maroon). */
+    internal fun vivid(p: Int): Boolean {
+        if (a(p) < SOLID) return false
+        val mx = max(r(p), max(g(p), b(p))) / 255f
+        return mx >= VIVID_MAX && chroma(p) >= VIVID_CHROMA
+    }
+
+    /** Neighbourhood for [nearVividShare]: a stroke or bevel sits within ~6% of the logo's height. */
+    fun vividRadius(h: Int): Int = max(3, (h * VIVID_RADIUS).roundToInt())
+
+    /**
+     * Share of the dark solid pixels lying within [vividRadius] px (square) of a vivid pixel.
+     * A box dilation of the vivid mask, rows then columns, so the cost is linear in pixels.
+     */
+    fun nearVividShare(px: IntArray, w: Int, h: Int, darkSolid: Int): Float {
+        if (darkSolid <= 0) return 0f
+        val rad = vividRadius(h)
+        val vividMask = BooleanArray(px.size) { vivid(px[it]) }
+        if (vividMask.none { it }) return 0f
+        // Horizontal pass: any vivid pixel within rad in the row.
+        val rowNear = BooleanArray(px.size)
+        for (y in 0 until h) {
+            val row = y * w
+            var count = 0
+            for (x in 0..min(rad, w - 1)) if (vividMask[row + x]) count++
+            for (x in 0 until w) {
+                rowNear[row + x] = count > 0
+                val add = x + rad + 1
+                val drop = x - rad
+                if (add < w && vividMask[row + add]) count++
+                if (drop >= 0 && vividMask[row + drop]) count--
+            }
+        }
+        // Vertical pass over the row result, counting the dark pixels that end up near.
+        var near = 0
+        for (x in 0 until w) {
+            var count = 0
+            for (y in 0..min(rad, h - 1)) if (rowNear[y * w + x]) count++
+            for (y in 0 until h) {
+                val p = px[y * w + x]
+                if (count > 0 && a(p) >= SOLID && luma(p) < DARK) near++
+                val add = y + rad + 1
+                val drop = y - rad
+                if (add < h && rowNear[add * w + x]) count++
+                if (drop >= 0 && rowNear[drop * w + x]) count--
+            }
+        }
+        return near.toFloat() / darkSolid
     }
 
     /**
@@ -207,7 +266,7 @@ object NuvioCLogoContrast {
 
 /** Coil step for clearlogos (see [NuvioCLogoContrast]). */
 class NuvioCLogoContrastTransformation : Transformation() {
-    override val cacheKey: String = "nuvio_c_logo_contrast_v2" +
+    override val cacheKey: String = "nuvio_c_logo_contrast_v3" + // v3 (round 7): coloured letters with a dark stroke left alone
         (if (NuvioCFeatures.LOGO_DARK_LIFT) "_lift" else "") + (if (NuvioCFeatures.LOGO_TRIM) "_trim" else "")
 
     override suspend fun transform(input: Bitmap, size: Size): Bitmap {
