@@ -81,8 +81,13 @@ internal class NuvioCOsdState {
 private val BADGE_TITLE_GAP = 24.dp
 private val SUBTITLE_OSD_GAP = 12.dp
 private const val LIFT_ANIM_MS = 200 // same as the OSD fade
-/** subtitle_top: top of the subtitle band, below the OSD logo (24 dp + up to 64 dp) and clock. */
-private val SUBTITLE_TOP_CLEAR = 100.dp
+/**
+ * subtitle_top: where the subtitle band starts, from the top of the screen. Round 7b (Charles
+ * 2026-10-13: "higher, where top-of-screen subtitles show"): 24 dp, the same top margin as the OSD
+ * logo and clock (was 100 dp, below them). Two lines end at 24 dp + 2 lines; a single line sits
+ * one line lower, a third line grows up into the margin.
+ */
+private val SUBTITLE_TOP_CLEAR = 24.dp
 
 /** Bottom block hook: remembers where its top is, for the subtitle lift. */
 internal fun Modifier.nuvioCOsdBottomBlock(state: NuvioCOsdState): Modifier =
