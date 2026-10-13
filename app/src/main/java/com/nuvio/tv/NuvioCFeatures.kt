@@ -110,17 +110,17 @@ object NuvioCFeatures {
     const val LOGO_WEIGHT = true
     /** 40 dp side margin on Home / collections (official 52) and the details page (official 48). */
     const val PAGE_MARGIN_40 = true
-    /** Clearlogos (Home / collections, details, player OSD, trailer screen): black parts lifted to white so they show on the dark background (My Spy); dark coloured logos get a thin light outline instead. */
+    /** Clearlogos (Home / collections, details, player OSD, trailer screen): black parts lifted to white so they show on the dark background (My Spy); dark coloured logos get a thin light outline instead. Bright coloured letters with a dark stroke or bevel (Spider-Man: Brand New Day) are left as they are. */
     const val LOGO_DARK_LIFT = true
     /** Details page: a background trailer ending leaves focus where it is (official sends it to Play and scrolls to the top). Full-screen trailers still return to Play. */
     const val BG_TRAILER_KEEP_FOCUS = true
     /** Details page: focus and layout stay put while scrolling (no jump to Play when the hero comes back into view or after a cast / filmography page, no synopsis slide when the logo or ratings land), and the last rows ease to the page end. */
     const val DETAIL_FOCUS_STABLE = true
-    /** Home / collections: synopsis up to 6 lines with even line lengths, at official's width when it fits, growing (our width, then 80 dp more) only when needed; the logo keeps at least 48 dp. */
+    /** Home / collections: synopsis up to 5 lines with even line lengths; of the three widths (official, ours, ours + 80 dp) the one needing the fewest lines wins, so the logo keeps its height (a synopsis of 2 lines or less stays narrow); the logo keeps at least 48 dp. */
     const val HOME_SYNOPSIS_FIT = true
     /** Clearlogos: transparent borders trimmed when the logo loads, so sizing uses the visible logo (padded TMDB logos looked small). */
     const val LOGO_TRIM = true
-    /** Player: Next / auto-play shows the episode name the details page had (your meta add-on), never a blank or the previous episode's. */
+    /** Player: Next / auto-play shows the episode name the details page had (your meta add-on), never a blank or the previous episode's. Round 7: when no details page left names (Continue Watching, app restarted) the player looks them up itself: your meta add-on by IMDb id, then TMDB, names only. */
     const val NEXT_EP_TITLE = true
     /** Player: the automatic subtitle pick (Prefer SDH included) carries to the next episode in the same session instead of the series' older saved pick; a manual pick still wins and is saved. */
     const val SDH_SESSION_PICK = true
@@ -136,4 +136,12 @@ object NuvioCFeatures {
     const val DETAIL_TAGLINE = true
     /** Collections: with TMDB Basic info off, TMDB-built collections take the hero description from your meta add-on (like the details page); logo, backdrop and the rest stay TMDB-enriched. */
     const val FOLDER_ADDON_DESCRIPTION = true
+    /** Player: while the controls or the pause screen show, bottom subtitles jump to the top of the screen (under the logo and clock) instead of sitting just above the controls; one step, no slide. Needs subtitle_lift. */
+    const val SUBTITLE_TOP = true
+    /** Details: coming back from the sources / player to a title opened from More like this, a cast page or a company page keeps that page as it was (official throws it away and loads it again). */
+    const val NESTED_DETAIL_KEEP = true
+    /** Start-up splash: the loading circle is drawn by the graphics thread, so it keeps turning smoothly while the home screen is being built (official's stutters just before Home appears). */
+    const val SPLASH_SPINNER_RT = true
+    /** Profile screen (with profile_clean): the profiles in one column on the left, names beside the avatars, same cards; the rotating background stays clear. Off = clean row in the middle. */
+    const val PROFILE_LEFT = true
 }
