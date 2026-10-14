@@ -46,6 +46,7 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawscope.inset
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.drawText
@@ -861,7 +862,7 @@ internal fun Modifier.nuvioCProgressFill(
     }
     val played = progress().coerceIn(0f, 1f)
     if (played > 0f) {
-        androidx.compose.ui.graphics.drawscope.inset(left = 0f, top = 0f, right = size.width * (1f - played), bottom = 0f) {
+        inset(left = 0f, top = 0f, right = size.width * (1f - played), bottom = 0f) {
             drawRoundRect(brush = playedBrush, cornerRadius = radius)
             if (shade != null) drawRoundRect(color = shade, cornerRadius = radius)
         }
