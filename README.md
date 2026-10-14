@@ -8,7 +8,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 
 **Player**
 - Title logo top-left and stream badges (resolution, HDR / Dolby Vision, audio, source, size) under the title on the controls.
-- Bottom subtitles jump to the top of the screen while the controls or the pause screen show (top edge fixed, so long cues never run off screen); focus goes back to the button that opened a panel, whose name shows briefly under it.
+- Bottom subtitles move up just above the title block while the controls show (above the progress line on the pause screen); top subtitles stay put. Focus goes back to the button that opened a panel, whose name shows briefly under it.
 - Subtitles and controls dimmed to 60% during HDR and Dolby Vision.
 - Start over button, 8-second controls, next episode without the countdown.
 - Netflix-style pause screen.

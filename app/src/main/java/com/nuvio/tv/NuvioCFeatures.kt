@@ -136,8 +136,8 @@ object NuvioCFeatures {
     const val DETAIL_TAGLINE = true
     /** Collections: with TMDB Basic info off, TMDB-built collections take the hero description from your meta add-on (like the details page); logo, backdrop and the rest stay TMDB-enriched. */
     const val FOLDER_ADDON_DESCRIPTION = true
-    /** Player: while the controls or the pause screen show, bottom subtitles jump to the top of the screen (under the logo and clock) instead of sitting just above the controls; one step, no slide. Needs subtitle_lift. */
-    const val SUBTITLE_TOP = true
+    /** Player: while the controls or the pause screen show, bottom subtitles jump to the top of the screen (under the logo and clock) instead of sitting just above the controls; one step, no slide. Needs subtitle_lift. Off since 2026-10-14 (clashed with the OSD logo; subtitle_lift alone keeps them 12 dp above the title block). */
+    const val SUBTITLE_TOP = false
     /** Details: coming back from the sources / player to a title opened from More like this, a cast page or a company page keeps that page as it was (official throws it away and loads it again). */
     const val NESTED_DETAIL_KEEP = true
     /** Profile screen (with profile_clean): the profiles in one column on the left, names beside the avatars, same cards; the rotating background stays clear. Off = clean row in the middle. */
