@@ -731,6 +731,8 @@ internal fun nuvioCAboveSeekBar(anchor: NuvioCOsdAnchor, controlsVisible: Boolea
 /**
  * The focused control's name, drawn just under it in the OSD's bottom padding (2026-10-10). Drawn,
  * not laid out, so the button row never moves; nothing is drawn while unfocused.
+ * Since 2026-10-14 it shows for [FOCUS_LABEL_HOLD_MS] after focus lands (or the label changes, e.g.
+ * a new subtitle track), then fades out; the alpha is read at draw time, so no recomposition.
  */
 @Composable
 internal fun Modifier.nuvioCFocusLabel(focused: Boolean, label: String): Modifier {
@@ -741,20 +743,35 @@ internal fun Modifier.nuvioCFocusLabel(focused: Boolean, label: String): Modifie
         fontWeight = FontWeight.Medium,
         color = nuvioCOsd(Color.White.copy(alpha = 0.85f)) // HDR dim
     )
+    val alpha = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(focused, label) {
+        if (!focused) {
+            alpha.snapTo(0f)
+            return@LaunchedEffect
+        }
+        alpha.snapTo(1f)
+        kotlinx.coroutines.delay(FOCUS_LABEL_HOLD_MS)
+        alpha.animateTo(0f, tween(FOCUS_LABEL_FADE_MS))
+    }
     return drawWithCache {
         val text = if (focused) measurer.measure(label, style, maxLines = 1, softWrap = false) else null
         val gap = 7.dp.toPx() // clears the 1.1x focus zoom
         onDrawWithContent {
             drawContent()
-            if (text != null) {
+            val a = alpha.value
+            if (text != null && a > 0f) {
                 drawText(
                     textLayoutResult = text,
-                    topLeft = Offset((size.width - text.size.width) / 2f, size.height + gap)
+                    topLeft = Offset((size.width - text.size.width) / 2f, size.height + gap),
+                    alpha = a
                 )
             }
         }
     }
 }
+
+private const val FOCUS_LABEL_HOLD_MS = 2500L
+private const val FOCUS_LABEL_FADE_MS = 300
 
 /** "Subtitles · English SDH" / "Subtitles · Off" for the focus label. */
 internal fun nuvioCSubtitleLabel(uiState: PlayerUiState, title: String, off: String): String {
