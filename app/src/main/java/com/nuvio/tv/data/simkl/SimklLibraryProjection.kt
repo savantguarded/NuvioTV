@@ -48,7 +48,7 @@ val simklLibraryStatusDefinitions = listOf(
     SimklLibraryStatusDefinition(
         SimklListStatus.COMPLETED,
         "simkl:status:completed",
-        "Completed",
+        if (com.nuvio.tv.NuvioCFeatures.LIBRARY_WATCHED) "Watched" else "Completed", // [fork] library_watched: same name as the Trakt / MDBList tab
         TrackingListStatus.COMPLETED,
         setOf("movie", "series", "anime"),
         isMembershipDestination = false

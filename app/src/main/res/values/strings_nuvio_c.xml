@@ -24,4 +24,5 @@
     <string name="nuvio_c_prefer_imdb_trailers_sub">IMDb first for every trailer, YouTube only when IMDb has nothing in HD. IMDb trailers take a few seconds longer to start</string>
     <string name="nuvio_c_pause_watching">You\'re watching</string>
     <string name="nuvio_c_pause_paused">Paused</string>
+    <string name="nuvio_c_library_watched">Watched</string>
 </resources>

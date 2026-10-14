@@ -18,6 +18,10 @@ class TraktTrackingLibraryProvider @Inject constructor(
     private val service: TraktLibraryService,
     authDataStore: TraktAuthDataStore
 ) : TrackingLibraryProvider {
+    // [fork] library_watched: field-injected so the constructor stays official; tests that build this
+    // class directly get the official lists only.
+    @javax.inject.Inject lateinit var nuvioCWatched: com.nuvio.tv.data.nuvioc.NuvioCWatchedLibrary
+
     override val listManager = object : TrackingListManager {
         override val capabilities = TrackingListManagementCapabilities(
             privacyOptions = LibraryListPrivacy.entries,
@@ -45,9 +49,13 @@ class TraktTrackingLibraryProvider @Inject constructor(
     override val providerId = TrackingProviderId.TRAKT
     override val isAuthenticated = authDataStore.isEffectivelyAuthenticated
     override val isRefreshing = service.observeIsRefreshing()
-    override val items = service.observeAllItems()
-    override val tabs = service.observeListTabs().map { tabs ->
-        tabs.map { tab -> tab.copy(trackingProviderId = providerId.storageId) }
+    override val items by lazy { // [fork] + Watched tab (lazy: read after field injection)
+        service.observeAllItems().let { if (::nuvioCWatched.isInitialized) nuvioCWatched.traktItems(it) else it }
+    }
+    override val tabs by lazy {
+        service.observeListTabs().map { tabs ->
+            tabs.map { tab -> tab.copy(trackingProviderId = providerId.storageId) }
+        }.let { if (::nuvioCWatched.isInitialized) nuvioCWatched.traktTabs(it, providerId.storageId) else it } // [fork] + Watched tab
     }
 
     override fun recognizesListKey(key: String): Boolean =
@@ -72,5 +80,8 @@ class TraktTrackingLibraryProvider @Inject constructor(
         destructiveRemovalConfirmed: Boolean
     ) = service.applyMembershipChanges(item, changes)
 
-    override suspend fun refresh(intent: TrackingRefreshIntent) = service.refreshNow()
+    override suspend fun refresh(intent: TrackingRefreshIntent) {
+        if (::nuvioCWatched.isInitialized) nuvioCWatched.refreshTrakt(force = true) // [fork] library_watched
+        service.refreshNow()
+    }
 }
