@@ -112,6 +112,18 @@ fun HeroCarousel(
         items.getOrNull(activeIndex)?.let { currentOnActiveItemChanged(it) }
     }
 
+    // [fork] hero_autoadvance: idle-based timer (NuvioCHeroAutoAdvance.kt), official loop below when off
+    var nuvioCInteraction by remember { mutableIntStateOf(0) }
+    if (com.nuvio.tv.NuvioCFeatures.HERO_AUTOADVANCE) {
+        var nuvioCActiveId by remember { mutableStateOf(items.getOrNull(activeIndex)?.id) }
+        LaunchedEffect(items) {
+            activeIndex = NuvioCHeroAutoAdvance.indexAfterListChange(items, nuvioCActiveId, activeIndex)
+        }
+        LaunchedEffect(activeIndex) { nuvioCActiveId = items.getOrNull(activeIndex)?.id }
+        NuvioCHeroAutoAdvanceEffect(items.size, activeIndex, nuvioCInteraction) {
+            if (items.size > 1) activeIndex = (activeIndex + 1) % items.size
+        }
+    } else
     // Auto-advance when not focused — delay first advance to 20s so initial GPU load settles
     LaunchedEffect(isFocused, items.size) {
         if (items.size <= 1) return@LaunchedEffect
@@ -139,6 +151,7 @@ fun HeroCarousel(
             }
             .focusable()
             .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown) nuvioCInteraction++ // [fork] hero_autoadvance
                 if (event.type == KeyEventType.KeyDown) {
                     when (event.key) {
                         Key.DirectionLeft -> {
