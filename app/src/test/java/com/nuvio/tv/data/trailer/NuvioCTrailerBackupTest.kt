@@ -61,7 +61,7 @@ class NuvioCTrailerBackupTest {
 
     @Test
     fun rateLimitStillAsksYouTubeFirst() = runTest {
-        NuvioCYouTubeHealth.onWatchPageFailed(429)
+        NuvioCYouTubeHealth.blocked = { true }
         assertEquals(good, choose(good, imdb))
         assertEquals(1, youtubeCalls)
         assertEquals(0, imdbCalls)
@@ -69,33 +69,27 @@ class NuvioCTrailerBackupTest {
 
     @Test
     fun rateLimitUsesImdbWhenYouTubeFails() = runTest {
-        NuvioCYouTubeHealth.onWatchPageFailed(429)
+        NuvioCYouTubeHealth.blocked = { true }
         assertEquals(imdb, choose(null, imdb))
         assertEquals(1, imdbCalls)
     }
 
     @Test
     fun rateLimitLowQualityStillTriesImdb() = runTest {
-        NuvioCYouTubeHealth.onWatchPageFailed(429)
+        NuvioCYouTubeHealth.blocked = { true }
         NuvioCYouTubeHealth.markDegraded(low)
         assertEquals(imdb, choose(low, imdb))
     }
 
     @Test
-    fun backoffLastsFifteenMinutes() {
-        NuvioCYouTubeHealth.onWatchPageFailed(429)
-        assertTrue(NuvioCYouTubeHealth.backingOff())
-        assertEquals(15, NuvioCYouTubeHealth.backoffMinutesLeft())
-        clock += NuvioCYouTubeHealth.BACKOFF_MS - 1
-        assertTrue(NuvioCYouTubeHealth.backingOff())
-        clock += 1
+    fun backoffFollowsOfficialGate() {
+        var t = 0L
+        val gate = YouTubeRateLimitGate(now = { t })
+        NuvioCYouTubeHealth.attach(gate)
         assertFalse(NuvioCYouTubeHealth.backingOff())
-    }
-
-    @Test
-    fun otherWatchPageErrorsDoNotBackOff() {
-        NuvioCYouTubeHealth.onWatchPageFailed(500)
-        NuvioCYouTubeHealth.onWatchPageFailed(403)
+        val cooldown = gate.onRateLimited()
+        assertTrue(NuvioCYouTubeHealth.backingOff())
+        t += cooldown
         assertFalse(NuvioCYouTubeHealth.backingOff())
     }
 

@@ -3106,11 +3106,24 @@ private fun ProgressBar(
                 else if (isFocused) Color.White.copy(alpha = 0.45f)
                 else Color.White.copy(alpha = 0.3f)
             )
-            .playerProgressFill(
-                progress = { animatedProgress },
-                bufferedProgress = { animatedBufferedProgress },
-                bufferedColor = NuvioTheme.colors.Secondary,
-                playedBrush = accentBrush
+            .then(
+                if (com.nuvio.tv.NuvioCFeatures.SEEK_BAR_STYLE) {
+                    // [fork] YouTube style: light grey buffered part, accent played part (+ HDR dim shade)
+                    Modifier.nuvioCProgressFill(
+                        progress = { animatedProgress },
+                        bufferedProgress = { animatedBufferedProgress },
+                        bufferedColor = nuvioCOsd(Color.White.copy(alpha = 0.4f)),
+                        playedBrush = accentBrush,
+                        shade = nuvioCShade
+                    )
+                } else {
+                    Modifier.playerProgressFill(
+                        progress = { animatedProgress },
+                        bufferedProgress = { animatedBufferedProgress },
+                        bufferedColor = NuvioTheme.colors.Secondary,
+                        playedBrush = accentBrush
+                    )
+                }
             )
     )
 }
