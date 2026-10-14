@@ -142,4 +142,8 @@ object NuvioCFeatures {
     const val NESTED_DETAIL_KEEP = true
     /** Profile screen (with profile_clean): the profiles in one column on the left, names beside the avatars, same cards; the rotating background stays clear. Off = clean row in the middle. */
     const val PROFILE_LEFT = true
+    /** Home hero carousel (Classic, Grid, Featured): changes slide after 10 s without a key press, also while it has focus (official only moved when unfocused, so it sat still at app start); keeps the same title when the list refreshes; stops while the app is in the background. */
+    const val HERO_AUTOADVANCE = true
+    /** Home: fourth layout "Featured" in Settings > Layout: a full-screen carousel (Play / Details) from your hero catalogs on top of Modern home; Down shows the rows, Up on the first row returns. Stored as Modern + a flag, so official installs on the account just show Modern. */
+    const val HOME_FEATURED = true
 }
