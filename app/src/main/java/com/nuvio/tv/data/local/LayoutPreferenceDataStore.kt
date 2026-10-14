@@ -499,6 +499,21 @@ class LayoutPreferenceDataStore @Inject constructor(
         }
     }
 
+    // [fork] Nuvio C home_featured: the "Featured" layout is stored as selected_layout = MODERN plus this
+    // flag (same per-profile store, so it syncs between Nuvio C installs; official ignores the key and
+    // shows plain Modern). Every Modern code path keeps working with it.
+    private val nuvioCHomeFeaturedKey = booleanPreferencesKey("nuvio_c_home_featured")
+
+    val nuvioCHomeFeatured: Flow<Boolean> = profileFlow { prefs ->
+        prefs[nuvioCHomeFeaturedKey] ?: false
+    }
+
+    suspend fun setNuvioCHomeFeatured(enabled: Boolean) {
+        store().edit { prefs ->
+            if (enabled) prefs[nuvioCHomeFeaturedKey] = true else prefs.remove(nuvioCHomeFeaturedKey)
+        }
+    }
+
     suspend fun setLayout(layout: HomeLayout) {
         store().edit { prefs ->
             val hadChosenLayout = prefs[hasChosenKey] ?: false
