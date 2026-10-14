@@ -95,7 +95,8 @@ fun HomeScreen(
     onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit = onContinueWatchingClick,
     onContinueWatchingPlayManually: (ContinueWatchingItem) -> Unit = onContinueWatchingClick,
     onNavigateToCatalogSeeAll: (String, String, String) -> Unit = { _, _, _ -> },
-    onNavigateToFolderDetail: (String, String) -> Unit = { _, _ -> }
+    onNavigateToFolderDetail: (String, String) -> Unit = { _, _ -> },
+    nuvioCOnPlayFromDetails: ((String, String, String?) -> Unit)? = null // [fork] home_featured: Play on the Featured carousel (details "play on load")
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -395,7 +396,15 @@ fun HomeScreen(
                                 onCatalogItemLongPress = onCatalogItemLongPress
                             )
 
-                            HomeLayout.MODERN -> ModernHomeRoute(
+                            HomeLayout.MODERN -> NuvioCFeaturedGate( // [fork] home_featured: Featured = Modern + carousel on top
+                                uiState = uiState,
+                                modernPresentation = modernPresentation,
+                                scrollToTopTrigger = scrollToTopTrigger,
+                                onNavigateToDetail = onNavigateToDetailStable,
+                                onContinueWatchingClick = onContinueWatchingClickStable,
+                                onPlayFromDetails = nuvioCOnPlayFromDetails
+                            ) {
+                            ModernHomeRoute(
                                 viewModel = viewModel,
                                 uiState = uiState,
                                 onNavigateToDetail = onNavigateToDetailStable,
@@ -407,6 +416,7 @@ fun HomeScreen(
                                 isCatalogItemWatched = isCatalogItemWatched,
                                 onCatalogItemLongPress = onCatalogItemLongPress
                             )
+                            }
                         }
                     }
                 }

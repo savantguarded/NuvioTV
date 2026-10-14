@@ -52,6 +52,7 @@ internal fun LayoutHomeLayoutSection(
     onEvent: (LayoutSettingsEvent) -> Unit
 ) {
     val firstHomeLayoutFocusRequester = remember { FocusRequester() }
+    val (nuvioCFeatured, nuvioCSetFeatured) = com.nuvio.tv.ui.screens.home.rememberNuvioCFeaturedSetting() // [fork] home_featured
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -61,11 +62,21 @@ internal fun LayoutHomeLayoutSection(
         listOf(HomeLayout.MODERN, HomeLayout.GRID, HomeLayout.CLASSIC).forEachIndexed { index, layout ->
             LayoutCard(
                 layout = layout,
-                isSelected = uiState.selectedLayout == layout,
-                onClick = { onEvent(LayoutSettingsEvent.SelectLayout(layout)) },
+                isSelected = uiState.selectedLayout == layout && !(layout == HomeLayout.MODERN && nuvioCFeatured), // [fork] home_featured
+                onClick = {
+                    if (nuvioCFeatured) nuvioCSetFeatured(false) // [fork] home_featured: any other card turns Featured off
+                    onEvent(LayoutSettingsEvent.SelectLayout(layout))
+                },
                 modifier = Modifier
                     .weight(1f)
                     .then(if (index == 0) Modifier.focusRequester(firstHomeLayoutFocusRequester) else Modifier)
+            )
+        }
+        if (com.nuvio.tv.NuvioCFeatures.HOME_FEATURED) { // [fork] home_featured: fourth card
+            com.nuvio.tv.ui.screens.home.NuvioCFeaturedLayoutCard(
+                isSelected = uiState.selectedLayout == HomeLayout.MODERN && nuvioCFeatured,
+                onClick = { nuvioCSetFeatured(true) },
+                modifier = Modifier.weight(1f)
             )
         }
     }
@@ -92,7 +103,7 @@ internal fun LayoutHomeLayoutSection(
         )
     }
 
-    if (uiState.selectedLayout != HomeLayout.MODERN) {
+    if (uiState.selectedLayout != HomeLayout.MODERN || nuvioCFeatured) { // [fork] home_featured: hero catalogs pick the carousel
         SettingsToggleRow(
             title = stringResource(R.string.layout_show_hero),
             subtitle = stringResource(R.string.layout_show_hero_sub),

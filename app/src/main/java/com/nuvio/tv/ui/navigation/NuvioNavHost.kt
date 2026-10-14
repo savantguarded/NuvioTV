@@ -256,6 +256,11 @@ private fun PlaybackNavHost(
                 },
                 onNavigateToFolderDetail = { collectionId, folderId ->
                     navController.navigate(Screen.FolderDetail.createRoute(collectionId, folderId))
+                },
+                nuvioCOnPlayFromDetails = { itemId, itemType, backdrop -> // [fork] home_featured: Play = details with play on load
+                    navController.navigate(
+                        Screen.Detail.createRoute(itemId = itemId, itemType = itemType, heroBackdropUrl = backdrop, playOnLoad = true)
+                    )
                 }
             )
         }

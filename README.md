@@ -6,6 +6,10 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 
 ## Main features
 
+**Home**
+- Fourth layout, Featured (Settings > Layout): a full-screen carousel of your hero catalogs with Play and Details on top of Modern home; Down shows the rows, Up on the first row or Back returns.
+- The hero carousel (Classic, Grid, Featured) changes title every 10 seconds you don't press a key, including while it has focus.
+
 **Player**
 - Title logo top-left and stream badges (resolution, HDR / Dolby Vision, audio, source, size) under the title on the controls.
 - Bottom subtitles move up just above the title block while the controls show (above the progress line on the pause screen); top subtitles stay put. Focus goes back to the button that opened a panel, whose name shows briefly under it.
