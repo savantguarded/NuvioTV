@@ -576,10 +576,33 @@ internal fun NuvioCSubtitleLiftEffect(
     // sitting just above the controls, so the middle of the picture stays clear (paused frame
     // included). No animation: one step when the OSD / pause screen opens, one when it closes.
     val toTop = NuvioCFeatures.SUBTITLE_TOP
-    val topBottomPx = with(density) {
-        // Bottom edge of the subtitle block: under the top chrome (OSD logo / clock) plus room for
-        // two lines at the user's subtitle size (24 sp x size %, ~1.25 line height, as PlayerScreen).
-        SUBTITLE_TOP_CLEAR.toPx() + 2f * (24f * subtitleStyle.size / 100f).sp.toPx() * 1.25f
+    val topClearPx = with(density) { SUBTITLE_TOP_CLEAR.toPx() }
+    val textSizePx = with(density) { (24f * subtitleStyle.size / 100f).sp.toPx() }
+    // Fallback (libass, nothing measured yet): two lines at the user's size, ~1.25 line height.
+    val topBottomPx = topClearPx + 2f * textSizePx * 1.25f
+    // 2026-10-14: real height of the bottom cues on screen (ExoPlayer text / PGS), so the block's TOP
+    // edge sits at 24 dp however many lines it has (NuvioCSubtitleTop.kt).
+    val cueBlockPx = remember(controller) { androidx.compose.runtime.mutableFloatStateOf(Float.NaN) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    if (toTop && shown) {
+        DisposableEffect(controller, textSizePx, subtitleStyle.bold) {
+            val player = controller.exoPlayer
+            fun measure(cues: List<androidx.media3.common.text.Cue>) {
+                val sv = controller.exoPlayerView?.subtitleView
+                cueBlockPx.floatValue = if (sv == null) Float.NaN else runCatching {
+                    NuvioCSubtitleTop.bottomBlockHeight(cues, sv, textSizePx, NuvioCSubtitleFont.typeface(context, subtitleStyle.bold)
+                        ?: if (subtitleStyle.bold) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT)
+                }.getOrDefault(Float.NaN)
+            }
+            val listener = object : androidx.media3.common.Player.Listener {
+                override fun onCues(cueGroup: androidx.media3.common.text.CueGroup) = measure(cueGroup.cues)
+            }
+            player?.let {
+                measure(runCatching { it.currentCues.cues }.getOrDefault(emptyList()))
+                it.addListener(listener)
+            }
+            onDispose { player?.removeListener(listener) }
+        }
     }
     val topBottom by rememberUpdatedState(topBottomPx)
     val progress = animateFloatAsState(
@@ -590,10 +613,15 @@ internal fun NuvioCSubtitleLiftEffect(
     val style by rememberUpdatedState(subtitleStyle)
 
     LaunchedEffect(controller) {
-        snapshotFlow { Triple(progress.value, state.bottomBlockTop, if (usePause) state.pauseTop else Float.NaN) }.collect { (p, osdTop, pauseTop) ->
+        snapshotFlow { Triple(progress.value, state.bottomBlockTop, if (usePause) state.pauseTop else Float.NaN) to cueBlockPx.floatValue }.collect { (t, block) ->
+            val (p, osdTop, pauseTop) = t
             val top = if (usePause) pauseTop else osdTop
             runCatching {
-                controller.exoPlayerView?.nuvioCApplySubtitleLift(p, top, gapPx, style, targetBottom = if (toTop) topBottom else Float.NaN)
+                controller.exoPlayerView?.nuvioCApplySubtitleLift(
+                    p, top, gapPx, style,
+                    targetBottom = if (toTop) topBottom else Float.NaN,
+                    textTargetBottom = if (toTop && !block.isNaN()) topClearPx + block else Float.NaN
+                )
             }
         }
     }
@@ -606,7 +634,16 @@ internal fun NuvioCSubtitleLiftEffect(
     LaunchedEffect(controller, mpvLifted, topKey, subtitleStyle) {
         val mpv = controller.mpvView ?: return@LaunchedEffect
         runCatching {
-            if (mpvLifted) {
+            if (mpvLifted && toTop) {
+                // 2026-10-14: text subtitles aligned by their top edge at 24 dp (any number of lines)
+                val loc = IntArray(2).also { mpv.getLocationInWindow(it) }
+                val h = mpv.height
+                if (h > 0) {
+                    val top = ((topClearPx - loc[1]).coerceAtLeast(0f) / h).toDouble()
+                    val bottom = loc[1] + h
+                    mpv.nuvioCSetSubtitleTop(top, ((bottom - topBottomPx) / h).toDouble(), subtitleStyle)
+                }
+            } else if (mpvLifted) {
                 val loc = IntArray(2).also { mpv.getLocationInWindow(it) }
                 val h = mpv.height
                 if (h > 0) {
@@ -633,9 +670,11 @@ private fun PlayerView.nuvioCApplySubtitleLift(
     osdTop: Float,
     gapPx: Float,
     style: SubtitleStyleSettings,
-    targetBottom: Float = Float.NaN // [fork] subtitle_top: window Y the subtitle bottom goes to
+    targetBottom: Float = Float.NaN, // [fork] subtitle_top: window Y the subtitle bottom goes to
+    textTargetBottom: Float = Float.NaN // 2026-10-14: same, from the measured cues (text / PGS view only)
 ) {
     val limit = if (!targetBottom.isNaN()) targetBottom else osdTop - gapPx
+    val textLimit = if (!textTargetBottom.isNaN()) textTargetBottom else limit
     fun View.windowTop(): Float {
         val loc = IntArray(2)
         getLocationInWindow(loc)
@@ -656,7 +695,7 @@ private fun PlayerView.nuvioCApplySubtitleLift(
         val fraction = (0.06f + (style.verticalOffset / 250f)).coerceIn(0f, 0.4f)
         val usable = sv.height - sv.paddingTop - sv.paddingBottom
         val subsBottom = sv.windowTop() + sv.height - sv.paddingBottom - usable * fraction
-        val lift = (subsBottom - limit).coerceAtLeast(0f) * progress
+        val lift = (subsBottom - textLimit).coerceAtLeast(0f) * progress
         frame.setSubtitleLift(lift, sv.top + sv.paddingTop + usable / 2f)
     }
 
