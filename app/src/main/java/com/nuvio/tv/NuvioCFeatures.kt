@@ -82,6 +82,8 @@ object NuvioCFeatures {
     const val DETAIL_TABS_PILLS = true
     /** Details page: Rate button (1-10) sent to Trakt and / or MDBList, one way, remembered on this TV. */
     const val DETAIL_RATING = true
+    /** Library: read-only "Watched" tab for Trakt and MDBList (newest first, Movies / Series filter); Simkl's Completed tab is named Watched. */
+    const val LIBRARY_WATCHED = true
     /** Player: "Switch player engine" sits in the More row (the hidden buttons) instead of the main row. */
     const val ENGINE_IN_MORE = true
     /** Subtitles: "Font" picker (player subtitle style panel and Settings) with the app's extra fonts. Off = official default font. */

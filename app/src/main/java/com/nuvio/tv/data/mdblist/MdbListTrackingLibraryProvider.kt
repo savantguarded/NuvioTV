@@ -13,13 +13,16 @@ class MdbListTrackingLibraryProvider @Inject constructor(
     private val service: MdbListLibraryService,
     tracking: MdbListTrackingProvider
 ) : TrackingLibraryProvider {
+    // [fork] library_watched: field-injected so the constructor stays official
+    @javax.inject.Inject lateinit var nuvioCWatched: com.nuvio.tv.data.nuvioc.NuvioCWatchedLibrary
+
     override val providerId = TrackingProviderId.MDBLIST
     override val listManager = service.listManager
     override val listSorter = service.listSorter
     override val isAuthenticated = tracking.isAuthenticated
     override val isRefreshing = service.isRefreshing
-    override val items = service.items
-    override val tabs = service.tabs
+    override val items by lazy { if (::nuvioCWatched.isInitialized) nuvioCWatched.mdbListItems(service.items) else service.items } // [fork] + Watched tab
+    override val tabs by lazy { if (::nuvioCWatched.isInitialized) nuvioCWatched.mdbListTabs(service.tabs, providerId.storageId) else service.tabs } // [fork] + Watched tab
 
     override fun recognizesListKey(key: String): Boolean =
         key == MDBLIST_WATCHLIST_KEY || key.startsWith(MDBLIST_LIST_KEY_PREFIX) || isMdbListReadOnlyListKey(key)
