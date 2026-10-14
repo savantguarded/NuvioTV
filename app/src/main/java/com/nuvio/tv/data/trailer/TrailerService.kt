@@ -77,6 +77,34 @@ class TrailerService(
      */
     fun isRateLimited(): Boolean = inAppYouTubeExtractor.isRateLimited()
 
+    // [fork] Nuvio C: IMDb backup (NuvioCTrailerBackup.kt) on top of official's YouTube rate-limit
+    // gate. Field-injected so the constructors stay official; tests that build this class directly
+    // skip the backup.
+    @Inject lateinit var nuvioCBackup: NuvioCTrailerBackup
+    // title|year -> (tmdbId, type), so the addon's own YouTube links can find the IMDb id too.
+    private val nuvioCIds = ConcurrentHashMap<String, Pair<String, String?>>()
+
+    private fun nuvioCBackupOn(): Boolean =
+        com.nuvio.tv.NuvioCFeatures.IMDB_TRAILER_BACKUP && ::nuvioCBackup.isInitialized
+
+    private fun nuvioCRememberIds(title: String, year: String?, tmdbId: String?, type: String?) {
+        if (tmdbId.isNullOrBlank()) return
+        if (nuvioCIds.size > 500) nuvioCIds.clear()
+        nuvioCIds["$title|$year"] = tmdbId to type
+    }
+
+    /** Every YouTube trailer (TMDB candidates and addon links) passes through here. */
+    suspend fun getTrailerPlaybackSourceFromYouTubeUrl(
+        youtubeUrl: String,
+        title: String? = null,
+        year: String? = null
+    ): TrailerPlaybackSource? {
+        val official: suspend () -> TrailerPlaybackSource? = { nuvioCOfficialFromYouTubeUrl(youtubeUrl, title, year) }
+        if (!nuvioCBackupOn()) return official()
+        val ids = title?.let { nuvioCIds["$it|$year"] }
+        return nuvioCBackup.pick(ids?.first, ids?.second, official)
+    }
+
     /**
      * Search for a trailer by title, year, tmdbId, and type.
      * Returns the trailer playback source (video URL + optional separate audio URL) or null.
@@ -88,6 +116,7 @@ class TrailerService(
         type: String? = null,
         ignoreUseTrailersGate: Boolean = false
     ): TrailerPlaybackSource? = withContext(Dispatchers.IO) {
+        nuvioCRememberIds(title, year, tmdbId, type) // [fork] Nuvio C: IMDb backup needs the id on the addon-link path
         // Read the TMDB settings once and reuse for both the "Disable Trailers"
         // gate and the trailer language lookup below. The gate respects the
         // user's "Disable Trailers in TMDB Enrichment" toggle: the TMDB path
@@ -124,7 +153,7 @@ class TrailerService(
                 languageOverride = tmdbLanguage
             )
             if (tmdbSource != null) {
-                cache[cacheKey] = tmdbSource
+                if (NuvioCYouTubeHealth.cacheable(tmdbSource)) cache[cacheKey] = tmdbSource // [fork] Nuvio C: never pin 360p/IMDb links
                 return@withContext tmdbSource
             }
             Log.w(TAG, "TMDB path exhausted; no YouTube trailer key resolved for backend /trailer fallback")
@@ -220,6 +249,11 @@ class TrailerService(
         val candidates = rankTmdbVideoCandidates(tmdbResults, preferredLanguageCode = tmdbLanguage)
         Log.d(TAG, "TMDB candidate count: ${candidates.size}")
 
+        // [fork] Nuvio C: official stops asking YouTube while it rate-limits; the backup asks IMDb instead.
+        if (nuvioCBackupOn() && (inAppYouTubeExtractor.isRateLimited() || nuvioCBackup.preferImdb())) {
+            nuvioCBackup.imdb(tmdbId, type)?.let { return@withContext it }
+        }
+
         // Big titles list a dozen trailers and teasers. When the best few all fail, the rest
         // almost always fail the same way, and trying them only adds YouTube requests.
         for (candidate in candidates.take(MAX_YOUTUBE_CANDIDATES)) {
@@ -257,7 +291,7 @@ class TrailerService(
     /**
      * Resolve a YouTube trailer URL to a playback source (prefers in-app extraction).
      */
-    suspend fun getTrailerPlaybackSourceFromYouTubeUrl(
+    private suspend fun nuvioCOfficialFromYouTubeUrl( // [fork] Nuvio C: official body, wrapped above
         youtubeUrl: String,
         title: String? = null,
         year: String? = null
@@ -329,7 +363,7 @@ class TrailerService(
         Log.d(TAG, "Attempting in-app YouTube extraction for ${summarizeUrl(youtubeUrl)}")
         val localSource = inAppYouTubeExtractor.extractPlaybackSource(youtubeUrl, maxHeight)
         if (localSource != null) {
-            if (sourceCacheKey != null) {
+            if (sourceCacheKey != null && NuvioCYouTubeHealth.cacheable(localSource)) { // [fork] Nuvio C: don't cache the low-quality fallback
                 youtubeSourceCache[sourceCacheKey] = CachedTrailerPlaybackSource(
                     playbackSource = localSource,
                     cachedAt = Instant.now(clock),

@@ -62,8 +62,6 @@ object NuvioCFeatures {
     const val SKIP_INTRO_FOCUS = true
     /** Details page: Shuffle / random episode is a round icon button next to Play, same size, colour and focus as Watched / Rate / Trailer (white with a stop icon while shuffle is on). */
     const val SHUFFLE_BUTTON_SIZE = true
-    /** Trailers: picked at 1080p or below (official takes the highest, up to 4K60), for smoother pages. */
-    const val TRAILER_MAX_1080P = false
     /** Profile screen: Netflix-style (wordmark top-left, round profiles down the left, pencil for the menu). Manage profiles stays official. */
     const val PROFILE_MINIMAL = false
     /** Player: HDR read from the video's own header (and mpv's gamma) too, so HDR titles whose file/name don't say so still get the badge and HDR dim. */

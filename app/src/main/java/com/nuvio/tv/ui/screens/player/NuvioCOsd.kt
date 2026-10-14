@@ -45,6 +45,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.drawText
@@ -783,4 +784,30 @@ internal fun nuvioCAudioLabel(uiState: PlayerUiState, title: String): String {
         else -> track.name.takeIf { it.isNotBlank() }
     }
     return label?.let { "$title · $it" } ?: title
+}
+
+/**
+ * Seek bar fill for `seek_bar_style` (rebased on official's draw-phase fill, 1.1.0-beta.6): same
+ * drawing as official's playerProgressFill, but the buffered colour keeps its own alpha (light grey)
+ * and the played part gets the HDR dim shade. Animation state is read during drawing only.
+ */
+internal fun Modifier.nuvioCProgressFill(
+    progress: () -> Float,
+    bufferedProgress: () -> Float,
+    bufferedColor: Color,
+    playedBrush: androidx.compose.ui.graphics.Brush,
+    shade: Color?
+): Modifier = drawBehind {
+    val radius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx())
+    val buffered = bufferedProgress().coerceIn(0f, 1f)
+    if (buffered > 0f) {
+        drawRoundRect(color = bufferedColor, size = androidx.compose.ui.geometry.Size(size.width * buffered, size.height), cornerRadius = radius)
+    }
+    val played = progress().coerceIn(0f, 1f)
+    if (played > 0f) {
+        androidx.compose.ui.graphics.drawscope.inset(left = 0f, top = 0f, right = size.width * (1f - played), bottom = 0f) {
+            drawRoundRect(brush = playedBrush, cornerRadius = radius)
+            if (shade != null) drawRoundRect(color = shade, cornerRadius = radius)
+        }
+    }
 }

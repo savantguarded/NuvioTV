@@ -234,6 +234,8 @@ class InAppYouTubeExtractor internal constructor(
      */
     fun isRateLimited(): Boolean = rateLimitGate.isBlocked()
 
+    init { NuvioCYouTubeHealth.attach(rateLimitGate) } // [fork] Nuvio C: IMDb backup follows official's back-off
+
     /**
      * Returns cached watch config, fetching from watch page only if:
      *  - No cached config exists yet (first call)
@@ -594,6 +596,7 @@ class InAppYouTubeExtractor internal constructor(
                     val resolvedVideo = bestVideo?.url?.let { resolveReachableUrl(it) }
                     val resolvedAudio = if (resolvedVideo != null) bestAudio?.url?.let { resolveReachableUrl(it) } else null
                     resolvedVideo?.let { TrailerPlaybackSource(videoUrl = it, audioUrl = resolvedAudio) }
+                        ?.also { if ((bestVideo?.height ?: 0) in 1..719) NuvioCYouTubeHealth.markDegraded(it) } // [fork] Nuvio C: under 720p, IMDb may do better
                 }
                 // HLS manifest (1080p, always works for COPPA/kids content). The manifests are
                 // only downloaded here, once the adaptive streams have failed.
@@ -604,6 +607,7 @@ class InAppYouTubeExtractor internal constructor(
                 PlaybackSourceKind.PROGRESSIVE ->
                     sortCandidates(streams.progressive).firstOrNull()?.url?.let { resolveReachableUrl(it) }
                         ?.let { TrailerPlaybackSource(videoUrl = it, audioUrl = null) }
+                        ?.also(NuvioCYouTubeHealth::markDegraded) // [fork] Nuvio C: ~360p fallback, IMDb may do better
             }
             if (source != null) return source
         }

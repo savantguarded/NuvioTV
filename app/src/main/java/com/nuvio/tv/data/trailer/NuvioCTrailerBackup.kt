@@ -15,12 +15,9 @@ import kotlinx.coroutines.sync.withLock
 // - YouTube answers normally (adaptive or HLS): used as is, IMDb is never touched.
 // - YouTube hands back its low-quality fallback (the ~360p combined file): IMDb is tried for that
 //   title; if IMDb has nothing at 720p or better, the 360p YouTube trailer still plays.
-// - YouTube's website (the watch page) answers 429 ("too many requests"): back-off for 15 minutes.
-//   During it the app stops asking the YouTube website (so the limit can clear) but still asks
-//   YouTube's player first: the website and the player are limited separately, and the player
-//   usually keeps giving full-quality trailers (2026-10-08: IMDb-first during the back-off made
-//   trailers slower, rarer and often 720p). Only if the player then fails for that title is IMDb
-//   tried. Another 429 after the 15 minutes starts a new 15 minutes.
+// - YouTube rate-limits (429 / bot check): since 2026-10-14 official's own gate (YouTubeRateLimitGate,
+//   1.1.0-beta.6) pauses YouTube, doubling up to 15 minutes. While it is paused the backup asks IMDb
+//   for every title instead; official's gate decides when YouTube is asked again.
 //
 // - YouTube's best video stream is under 720p (old or low-res uploads): treated like the fallback
 //   above, IMDb is tried first (2026-10-11).
@@ -37,28 +34,27 @@ private const val TAG = "NuvioCTrailerBackup"
 
 /** Shared YouTube state the extractor reports into. Plain object so the extractor needs no new wiring. */
 internal object NuvioCYouTubeHealth {
-    const val BACKOFF_MS = 15 * 60 * 1000L
     private const val MAX_TRACKED_URLS = 200
 
-    /** Overridable clock for unit tests. */
+    /** Overridable clock for unit tests (IMDb cache ages). */
     @Volatile internal var now: () -> Long = System::currentTimeMillis
 
-    @Volatile private var backoffUntil = 0L
+    // Official's rate-limit gate, attached by InAppYouTubeExtractor (one [fork] line). Tests set these.
+    @Volatile internal var blocked: () -> Boolean = { false }
+    @Volatile internal var remainingMs: () -> Long = { 0L }
 
     // Links that must not be cached: YouTube's low-quality fallback, and IMDb links.
     private val degradedUrls = Collections.synchronizedSet(LinkedHashSet<String>())
     private val uncacheableUrls = Collections.synchronizedSet(LinkedHashSet<String>())
 
-    /** The YouTube watch page failed; a 429 starts (or restarts) the back-off. */
-    fun onWatchPageFailed(status: Int) {
-        if (!com.nuvio.tv.NuvioCFeatures.IMDB_TRAILER_BACKUP || status != 429) return
-        backoffUntil = now() + BACKOFF_MS
-        Log.w(TAG, "YouTube website rate limit (429): not asking it again for 15 min; player still first, IMDb if it fails")
+    internal fun attach(gate: YouTubeRateLimitGate) {
+        blocked = gate::isBlocked
+        remainingMs = gate::remainingMs
     }
 
-    fun backingOff(): Boolean = now() < backoffUntil
+    fun backingOff(): Boolean = blocked()
 
-    fun backoffMinutesLeft(): Long = ((backoffUntil - now()).coerceAtLeast(0L) + 59_999L) / 60_000L
+    fun backoffMinutesLeft(): Long = (remainingMs().coerceAtLeast(0L) + 59_999L) / 60_000L
 
     /** The extractor fell back to the progressive (~360p) stream for this link. */
     fun markDegraded(source: TrailerPlaybackSource) {
@@ -74,7 +70,8 @@ internal object NuvioCYouTubeHealth {
     fun cacheable(source: TrailerPlaybackSource): Boolean = source.videoUrl !in uncacheableUrls
 
     internal fun resetForTest() {
-        backoffUntil = 0L
+        blocked = { false }
+        remainingMs = { 0L }
         degradedUrls.clear()
         uncacheableUrls.clear()
         now = System::currentTimeMillis
@@ -109,8 +106,13 @@ class NuvioCTrailerBackup @Inject constructor(
     ): TrailerPlaybackSource? = choose(
         youtube = youtube,
         imdb = { imdbFor(tmdbId, type) },
-        preferImdb = com.nuvio.tv.data.local.NuvioCTrailerPrefs.preferImdb(appContext)
+        preferImdb = preferImdb()
     )
+
+    fun preferImdb(): Boolean = com.nuvio.tv.data.local.NuvioCTrailerPrefs.preferImdb(appContext)
+
+    /** IMDb only: used while official's gate keeps YouTube paused, or with Prefer IMDb on. */
+    suspend fun imdb(tmdbId: String?, type: String?): TrailerPlaybackSource? = imdbFor(tmdbId, type)
 
     private suspend fun imdbFor(tmdbId: String?, type: String?): TrailerPlaybackSource? {
         val numericId = tmdbId?.toIntOrNull() ?: run {
