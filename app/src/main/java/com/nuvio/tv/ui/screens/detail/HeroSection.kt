@@ -322,15 +322,10 @@ fun HeroContentSection(
                     // [fork] tagline: between the logo and Play, details text style, one line (two if long),
                     // hidden with the buttons while a trailer plays; absent = no gap at all.
                     if (com.nuvio.tv.NuvioCFeatures.DETAIL_TAGLINE && !nuvioCTagline.isNullOrBlank()) {
-                        Text(
-                            text = nuvioCTagline,
-                            style = MaterialTheme.typography.bodyLarge.copy(fontSize = androidx.compose.ui.unit.TextUnit(14f, androidx.compose.ui.unit.TextUnitType.Sp), lineHeight = androidx.compose.ui.unit.TextUnit(19f, androidx.compose.ui.unit.TextUnitType.Sp)),
-                            color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.72f),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier
-                                .widthIn(max = 560.dp)
-                                .padding(bottom = 14.dp)
+                        NuvioCTagline( // [fork] style A: italic, hanging quotes, synopsis width
+                            tagline = nuvioCTagline,
+                            widthFraction = if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.DETAIL_TEXT_FRACTION else 0.6f,
+                            modifier = Modifier.padding(bottom = 14.dp)
                         )
                     }
                     Row(
