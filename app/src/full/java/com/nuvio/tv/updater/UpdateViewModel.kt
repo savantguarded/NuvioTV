@@ -85,7 +85,8 @@ class UpdateViewModel @Inject constructor(
 
             result
                 .onSuccess { update ->
-                    val remoteNewer = VersionUtils.isRemoteNewer(update.tag, BuildConfig.VERSION_NAME)
+                    val remoteNewer = VersionUtils.isRemoteNewer(update.tag, BuildConfig.VERSION_NAME) ||
+                        NuvioCUpdateBuild.isNewerRebuild(update.tag, BuildConfig.VERSION_NAME, BuildConfig.NUVIO_C_BUILD) // [fork]
                     val shouldShow = UpdateBannerPolicy.shouldShow(
                         isRemoteNewer = remoteNewer,
                         force = force,

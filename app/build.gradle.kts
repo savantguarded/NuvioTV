@@ -150,6 +150,8 @@ android {
         // In-app updater (GitHub Releases)
         buildConfigField("String", "GITHUB_OWNER", "\"NuvioMedia\"")
         buildConfigField("String", "GITHUB_REPO", "\"NuvioTV\"")
+        // [fork] Nuvio C: GitHub Actions run number of this build, so the updater can offer a rebuild of the same official release
+        buildConfigField("int", "NUVIO_C_BUILD", (System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 0).toString())
     }
 
     flavorDimensions += "distribution"
