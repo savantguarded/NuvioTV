@@ -67,7 +67,7 @@ import java.util.concurrent.TimeUnit
 // HDR: text and logo drawn through the same colour dim as the player controls.
 
 /** Pause-screen logo box: bigger than the OSD logo (same visual-weight rules). */
-private val PAUSE_LOGO = NuvioCLogoBox(area = 16_000f, maxWidth = 340.dp, maxHeight = 110.dp)
+private val PAUSE_LOGO = NuvioCLogoBox(area = 16_000f, maxWidth = 340.dp, maxHeight = 110.dp, tallMaxHeight = 140.dp)
 
 @Composable
 internal fun NuvioCPauseScreen(

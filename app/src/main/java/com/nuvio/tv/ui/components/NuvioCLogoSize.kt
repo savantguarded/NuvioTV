@@ -22,25 +22,43 @@ import kotlin.math.sqrt
 // Sizes (dp): Home 17,000 dp² (max 340 x 110, never more than the free height above the text), details 9,000 dp² (max 220 x 64),
 // player OSD 7,000 dp² (max 200 x 52). E.g. a 5:1 logo: home 250 x 50, details 212 x 42,
 // OSD 187 x 37; a 2.4:1 logo: home 173 x 72, details 147 x 61, OSD 125 x 52.
+// Square / tall logos (logo_tall_boost, 2026-10-15): a 1:1 logo is home 140 x 140, details 92 x 92,
+// OSD 68 x 68 (was 110, 64 and 52 tall).
 
-data class NuvioCLogoBox(val area: Float, val maxWidth: Dp, val maxHeight: Dp) {
+data class NuvioCLogoBox(
+    val area: Float,
+    val maxWidth: Dp,
+    val maxHeight: Dp,
+    /** 2026-10-15 (switch `logo_tall_boost`): height cap for square / tall logos (aspect 1.0 or less). */
+    val tallMaxHeight: Dp = maxHeight
+) {
     /** Size for a logo with this width / height ratio; null (not loaded yet) = the max box. */
     fun sizeFor(aspect: Float?): DpSize {
         if (aspect == null || !aspect.isFinite() || aspect <= 0f) return DpSize(maxWidth, maxHeight)
-        var w = sqrt(area * aspect)
+        // 2026-10-15: equal area made square / tall logos look small (we judge them by height) and the
+        // wide-logo height cap shrank them further. Below 1.6:1 the area grows up to +25% and the
+        // height cap rises towards tallMaxHeight; wide logos are unchanged.
+        val t = if (NuvioCFeatures.LOGO_TALL_BOOST) ((TALL_FROM - aspect) / (TALL_FROM - 1f)).coerceIn(0f, 1f) else 0f
+        val a = area * (1f + 0.25f * t)
+        val capH = maxHeight.value + (tallMaxHeight.value - maxHeight.value).coerceAtLeast(0f) * t
+        var w = sqrt(a * aspect)
         var h = w / aspect
         if (w > maxWidth.value) { w = maxWidth.value; h = w / aspect }
-        if (h > maxHeight.value) { h = maxHeight.value; w = h * aspect }
+        if (h > capH) { h = capH; w = h * aspect }
         return DpSize(w.dp, h.dp)
+    }
+
+    private companion object {
+        const val TALL_FROM = 1.6f
     }
 }
 
 object NuvioCLogoSize {
     val enabled: Boolean get() = NuvioCFeatures.LOGO_WEIGHT
 
-    val HOME = NuvioCLogoBox(area = 17_000f, maxWidth = 340.dp, maxHeight = 110.dp) // 2026-10-12: was 12,500 dp² / 260 x 80; still capped by the free height above the text (NuvioCHeroStack)
-    val DETAIL = NuvioCLogoBox(area = 9_000f, maxWidth = 220.dp, maxHeight = 64.dp)
-    val OSD = NuvioCLogoBox(area = 7_000f, maxWidth = 200.dp, maxHeight = 52.dp)
+    val HOME = NuvioCLogoBox(area = 17_000f, maxWidth = 340.dp, maxHeight = 110.dp, tallMaxHeight = 140.dp) // 2026-10-12: was 12,500 dp² / 260 x 80; still capped by the free height above the text (NuvioCHeroStack)
+    val DETAIL = NuvioCLogoBox(area = 9_000f, maxWidth = 220.dp, maxHeight = 64.dp, tallMaxHeight = 92.dp)
+    val OSD = NuvioCLogoBox(area = 7_000f, maxWidth = 200.dp, maxHeight = 52.dp, tallMaxHeight = 68.dp)
 
     /** Width / height of a loaded logo, from Coil's success state (also remembered for [known]). */
     fun aspectOf(state: AsyncImagePainter.State.Success): Float? {

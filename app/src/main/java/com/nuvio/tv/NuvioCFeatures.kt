@@ -148,4 +148,6 @@ object NuvioCFeatures {
     const val HOME_FEATURED = true
     /** Featured home: Down focuses the first card of the first row at once (the 260 ms slide runs underneath, keys work during it). Off = focus waits for the 380 ms slide to end. */
     const val FEATURED_FAST_FOCUS = true
+    /** Clearlogos (with logo_weight): square and tall logos get up to 25% more area and a taller height cap (1:1 logo: Home 140, details 92, OSD 68 dp tall; was 110 / 64 / 52), so they no longer look small next to wide ones. Wide logos unchanged. */
+    const val LOGO_TALL_BOOST = true
 }
