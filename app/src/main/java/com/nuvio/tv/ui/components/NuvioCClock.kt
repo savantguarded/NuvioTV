@@ -13,7 +13,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -68,8 +67,12 @@ fun NuvioCBrowseClock(route: String?) {
                 maxLines = 1,
                 modifier = Modifier
                     .padding(top = 20.dp, end = 28.dp)
-                    .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .background(
+                        Color.Black.copy(alpha = 0.45f),
+                        // 2026-10-15: app's pill shape (chips, nav items, season tabs, sidebar) instead of a 10 dp square-ish box.
+                        com.nuvio.tv.ui.theme.NuvioShapes.tokens.chip
+                    )
+                    .padding(horizontal = 14.dp, vertical = 6.dp)
             )
         }
     }
