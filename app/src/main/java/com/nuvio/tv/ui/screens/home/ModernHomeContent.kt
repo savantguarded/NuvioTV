@@ -1071,12 +1071,15 @@ fun ModernHomeContent(
                 }.coerceAtLeast(1)
             }
 
-            val heroMediaModifier = remember(heroBackdropHeight, screenHeight, fullScreenBackdrop) {
+            val nuvioCFeaturedHeroAlpha = LocalNuvioCFeaturedHeroAlpha.current // [fork] home_featured: hidden under the carousel
+            val heroMediaModifier = remember(heroBackdropHeight, screenHeight, fullScreenBackdrop, nuvioCFeaturedHeroAlpha) {
                 if (fullScreenBackdrop) {
                     Modifier.align(Alignment.TopStart).fillMaxWidth().height(screenHeight)
                 } else {
                     Modifier.align(Alignment.TopEnd).offset(x = NuvioTheme.spacing.huge).fillMaxWidth(MODERN_HERO_MEDIA_WIDTH_FRACTION).height(heroBackdropHeight)
-                }
+                }.then(
+                    if (nuvioCFeaturedHeroAlpha != null) Modifier.graphicsLayer { alpha = nuvioCFeaturedHeroAlpha() } else Modifier
+                )
             }
 
             val fullScreenBackdropUpdated by rememberUpdatedState(fullScreenBackdrop)
