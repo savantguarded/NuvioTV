@@ -623,8 +623,9 @@ internal suspend fun HomeViewModel.updateCatalogRowsPipeline() {
         }
         fun slotShuffled(rows: List<CatalogRow>, filter: (MetaPreview) -> Boolean, currentOrder: List<String>): List<MetaPreview> {
             val totalCatalogs = rows.size.coerceAtLeast(1)
-            val baseSlot = 7 / totalCatalogs
-            val remainder = 7 % totalCatalogs
+            val pool = NuvioCHeroPool.size // [fork] hero_pool_shuffle (official 7)
+            val baseSlot = pool / totalCatalogs
+            val remainder = pool % totalCatalogs
             val seen = mutableSetOf<String>()
             val result = mutableListOf<MetaPreview>()
             rows.forEachIndexed { index, row ->
@@ -640,7 +641,7 @@ internal suspend fun HomeViewModel.updateCatalogRowsPipeline() {
                 val unique = (ordered + new).filter { seen.add(it.id) }
                 result += unique.take(slot)
             }
-            return result
+            return NuvioCHeroPool.order(result, currentOrder) // [fork] hero_pool_shuffle
         }
 
         val currentHeroOrder = heroItemOrder
@@ -939,7 +940,7 @@ private fun stableHeroSortKey(
     row: CatalogRow,
     item: MetaPreview
 ): Int {
-    return "${row.addonId}|${row.apiType}|${row.catalogId}|${item.id}".hashCode()
+    return "${row.addonId}|${row.apiType}|${row.catalogId}|${item.id}".hashCode() xor NuvioCHeroPool.seed // [fork] hero_pool_shuffle: new pick each launch
 }
 
 internal fun HomeViewModel.schedulePosterStatusReconcilePipeline(rows: List<CatalogRow>) {

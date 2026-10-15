@@ -156,4 +156,6 @@ object NuvioCFeatures {
     const val HOME_RATINGS_BATCH = true
     /** Details page rows (cast, more like this, collection, trailers, companies) and cast page filmography: holding Left / Right steps one card per 80 ms, like official Home and collections, so a fast scroll no longer stalls. */
     const val DETAIL_ROW_THROTTLE = true
+    /** Home hero carousel (Featured, Classic, Grid): 18 titles from your hero catalogs instead of official's 7, a new random pick and order on every app launch, mixed across catalogs (official took the same 7 by a fixed hash, so it showed the same few all day). Order stays put within a run. */
+    const val HERO_POOL_SHUFFLE = true
 }
