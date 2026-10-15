@@ -76,6 +76,8 @@ private suspend fun HomeViewModel.batchFetchRatingsForRowAndNext(focusedRowKey: 
 private suspend fun HomeViewModel.batchFetchRatingsForItems(items: List<MetaPreview>) {
     if (items.isEmpty()) return
 
+    // [fork] home_ratings_batch: ratings collected, then applied in one state update (official: one per title).
+    val nuvioCBatch = if (com.nuvio.tv.NuvioCFeatures.HOME_RATINGS_BATCH) java.util.concurrent.ConcurrentHashMap<String, com.nuvio.tv.domain.model.MDBListRatings>() else null
     try {
         coroutineScope {
             items.map { item ->
@@ -86,7 +88,9 @@ private suspend fun HomeViewModel.batchFetchRatingsForItems(items: List<MetaPrev
                             fallbackItemId = item.id,
                             fallbackItemType = item.apiType
                         )
-                        if (result != null) {
+                        if (result != null && nuvioCBatch != null) {
+                            nuvioCBatch[item.id] = result.ratings
+                        } else if (result != null) {
                             updateCatalogItemMdbListRatings(item.id, result.ratings)
                         } else {
                             mdbBatchNegativeIds.add(item.id)
@@ -98,8 +102,10 @@ private suspend fun HomeViewModel.batchFetchRatingsForItems(items: List<MetaPrev
             }.awaitAll()
         }
     } catch (e: CancellationException) {
+        if (!nuvioCBatch.isNullOrEmpty()) nuvioCUpdateCatalogItemsMdbListRatings(nuvioCBatch)
         throw e
     } catch (_: Exception) { }
+    if (!nuvioCBatch.isNullOrEmpty()) nuvioCUpdateCatalogItemsMdbListRatings(nuvioCBatch)
 }
 
 private fun HomeViewModel.isMdbBatchPrefetchEnabled(): Boolean {
