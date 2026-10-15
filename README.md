@@ -7,7 +7,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 ## Main features
 
 **Home**
-- Fourth layout, Featured (Settings > Layout): a full-screen carousel of your hero catalogs with Play and Details on top of Modern home; Down shows the rows, Up on the first row or Back returns.
+- Fourth layout, Featured (Settings > Layout): a full-screen carousel of your hero catalogs on top of Modern home, with tagline, MDBList ratings, Play (hold for the play options), Details and a next-title arrow. The real first row peeks at the bottom; Down slides into the rows, Up on the first row or Back returns.
 - The hero carousel (Classic, Grid, Featured) changes title every 10 seconds you don't press a key, including while it has focus.
 
 **Player**
@@ -38,6 +38,9 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 
 **Library**
 - A Watched tab for Trakt, MDBList and Simkl (newest first, with the Movies / Series filter).
+
+**Updates**
+- Forced rebuilds of the same official release are offered by the in-app updater too.
 
 **Accounts**
 - Simkl device login with automatic renewal.

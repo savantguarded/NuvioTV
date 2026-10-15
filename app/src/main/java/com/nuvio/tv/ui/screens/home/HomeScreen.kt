@@ -96,7 +96,7 @@ fun HomeScreen(
     onContinueWatchingPlayManually: (ContinueWatchingItem) -> Unit = onContinueWatchingClick,
     onNavigateToCatalogSeeAll: (String, String, String) -> Unit = { _, _, _ -> },
     onNavigateToFolderDetail: (String, String) -> Unit = { _, _ -> },
-    nuvioCOnPlayFromDetails: ((String, String, String?) -> Unit)? = null // [fork] home_featured: Play on the Featured carousel (details "play on load")
+    nuvioCOnPlayFromDetails: ((String, String, String?, Boolean) -> Unit)? = null // [fork] home_featured: Play on the Featured carousel (details "play on load")
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -398,11 +398,15 @@ fun HomeScreen(
 
                             HomeLayout.MODERN -> NuvioCFeaturedGate( // [fork] home_featured: Featured = Modern + carousel on top
                                 uiState = uiState,
-                                modernPresentation = modernPresentation,
                                 scrollToTopTrigger = scrollToTopTrigger,
-                                onNavigateToDetail = onNavigateToDetailStable,
-                                onContinueWatchingClick = onContinueWatchingClickStable,
-                                onPlayFromDetails = nuvioCOnPlayFromDetails
+                                actions = NuvioCFeaturedActions(
+                                    onNavigateToDetail = onNavigateToDetailStable,
+                                    onContinueWatchingClick = onContinueWatchingClickStable,
+                                    onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginningStable,
+                                    onContinueWatchingPlayManually = onContinueWatchingPlayManuallyStable,
+                                    onPlayFromDetails = nuvioCOnPlayFromDetails,
+                                    autoplayEnabled = effectiveAutoplayEnabled
+                                )
                             ) {
                             ModernHomeRoute(
                                 viewModel = viewModel,
