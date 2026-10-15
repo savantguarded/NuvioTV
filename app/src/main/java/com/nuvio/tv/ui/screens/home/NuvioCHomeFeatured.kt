@@ -280,7 +280,7 @@ internal fun NuvioCFeaturedGate(
     }
 }
 
-private const val SLIDE_MS = 380
+private val SLIDE_MS = if (com.nuvio.tv.NuvioCFeatures.FEATURED_FAST_FOCUS) 260 else 380
 private val PEEK = 76.dp
 
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
@@ -325,10 +325,19 @@ private fun NuvioCFeaturedHome(
         scope.launch {
             sliding = true
             shown = false
-            progress.animateTo(1f, tween(SLIDE_MS, easing = FastOutSlowInEasing))
-            sliding = false
-            withFrameNanos { }
-            runCatching { rowsRequester.requestFocus() }
+            if (com.nuvio.tv.NuvioCFeatures.FEATURED_FAST_FOCUS) {
+                // Focus goes to the rows at once (the slide only moves pictures), so the first card is
+                // focused on the first frame and Right / OK work while the rows are still rising.
+                withFrameNanos { }
+                runCatching { rowsRequester.requestFocus() }
+                progress.animateTo(1f, tween(SLIDE_MS, easing = FastOutSlowInEasing))
+                sliding = false
+            } else {
+                progress.animateTo(1f, tween(SLIDE_MS, easing = FastOutSlowInEasing))
+                sliding = false
+                withFrameNanos { }
+                runCatching { rowsRequester.requestFocus() }
+            }
         }
     }
 
@@ -452,7 +461,12 @@ private fun NuvioCFeaturedHome(
                     }
                 }
                 .onFocusChanged { rowsFocused = it.hasFocus }
-                .focusProperties { onEnter = { if (shown || sliding) cancelFocusChange() } }
+                .focusProperties {
+                    onEnter = {
+                        val blocked = if (com.nuvio.tv.NuvioCFeatures.FEATURED_FAST_FOCUS) shown else (shown || sliding)
+                        if (blocked) cancelFocusChange()
+                    }
+                }
                 .focusGroup()
                 .onKeyEvent { event ->
                     // Up with nothing above (first row) = back to the carousel.
