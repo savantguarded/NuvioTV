@@ -146,4 +146,6 @@ object NuvioCFeatures {
     const val HERO_AUTOADVANCE = true
     /** Home: fourth layout "Featured" in Settings > Layout: a full-screen carousel (Play / Details) from your hero catalogs on top of Modern home; Down shows the rows, Up on the first row returns. Stored as Modern + a flag, so official installs on the account just show Modern. */
     const val HOME_FEATURED = true
+    /** Featured home: Down focuses the first card of the first row at once (the 260 ms slide runs underneath, keys work during it). Off = focus waits for the 380 ms slide to end. */
+    const val FEATURED_FAST_FOCUS = true
 }
