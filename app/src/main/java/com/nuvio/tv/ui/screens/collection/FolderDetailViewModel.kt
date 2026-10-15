@@ -666,6 +666,9 @@ class FolderDetailViewModel @Inject constructor(
 
             if (itemsToFetch.isEmpty()) return@launch
             val ratingOrder = settings.enabledRatingOrder()
+            // [fork] folder_ratings_batch: collect every rating of the batch, then one state update
+            // (official updates the whole screen once per title: 20-40 recompositions per row move).
+            val nuvioCBatch = if (com.nuvio.tv.NuvioCFeatures.FOLDER_RATINGS_BATCH) java.util.concurrent.ConcurrentHashMap<String, com.nuvio.tv.domain.model.MDBListRatings>() else null
             kotlinx.coroutines.coroutineScope {
                 itemsToFetch.map { item ->
                     async(kotlinx.coroutines.Dispatchers.IO) {
@@ -684,7 +687,9 @@ class FolderDetailViewModel @Inject constructor(
                             val result = mdbListRepository.getRatingsForMeta(
                                 meta = meta, fallbackItemId = item.id, fallbackItemType = item.apiType
                             )
-                            if (result != null) {
+                            if (result != null && nuvioCBatch != null) {
+                                nuvioCBatch[item.id] = result.ratings
+                            } else if (result != null) {
                                 updateItemInTabs(item.id) { current ->
                                     current.copy(
                                         mdbListRatings = result.ratings,
@@ -708,7 +713,43 @@ class FolderDetailViewModel @Inject constructor(
                     }
                 }.awaitAll()
             }
+            if (nuvioCBatch != null && nuvioCBatch.isNotEmpty()) nuvioCApplyRatingsBatch(nuvioCBatch, ratingOrder)
             rebuildFollowLayoutState()
+        }
+    }
+
+    // [fork] folder_ratings_batch: one tabs update for a whole MDBList batch, then the hero previews.
+    private fun nuvioCApplyRatingsBatch(
+        batch: Map<String, com.nuvio.tv.domain.model.MDBListRatings>,
+        ratingOrder: List<String>
+    ) {
+        _uiState.update { state ->
+            var changed = false
+            val updatedTabs = state.tabs.map { tab ->
+                val row = tab.catalogRow ?: return@map tab
+                var rowChanged = false
+                val items = row.items.map { item ->
+                    val ratings = batch[item.id] ?: return@map item
+                    val merged = item.copy(
+                        mdbListRatings = ratings,
+                        mdbListRatingOrder = ratingOrder,
+                        imdbRating = ratings.imdb?.toFloat() ?: item.imdbRating
+                    )
+                    if (merged != item) rowChanged = true
+                    merged
+                }
+                if (!rowChanged) return@map tab
+                changed = true
+                tab.copy(catalogRow = row.copy(items = items))
+            }
+            if (changed) state.copy(tabs = updatedTabs) else state
+        }
+        val previews = _enrichedPreviews.value
+        for (id in batch.keys) {
+            if (previews[id] == null) continue
+            val enriched = _uiState.value.tabs
+                .firstNotNullOfOrNull { tab -> tab.catalogRow?.items?.firstOrNull { it.id == id } }
+            if (enriched != null) publishEnrichedPreview(id, enriched)
         }
     }
 
