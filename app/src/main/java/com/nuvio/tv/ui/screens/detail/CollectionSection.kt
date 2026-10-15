@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.screens.detail
 
+import com.nuvio.tv.ui.util.nuvioCRowThrottle
+
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -133,6 +135,7 @@ fun CollectionSection(
         LazyRow(
             state = listState,
             modifier = Modifier
+                .nuvioCRowThrottle() // [fork] detail_row_throttle
                 .fillMaxWidth()
                 .then(if (sectionFocusRequester != null) Modifier.focusRequester(sectionFocusRequester) else Modifier)
                 .focusRestorer {

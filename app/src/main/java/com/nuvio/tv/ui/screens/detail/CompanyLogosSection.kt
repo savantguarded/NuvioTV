@@ -5,6 +5,8 @@
 
 package com.nuvio.tv.ui.screens.detail
 
+import com.nuvio.tv.ui.util.nuvioCRowThrottle
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
@@ -165,6 +167,7 @@ fun CompanyLogosSection(
 
         LazyRow(
             modifier = Modifier
+                .nuvioCRowThrottle() // [fork] detail_row_throttle
                 .fillMaxWidth()
                 .then(if (sectionFocusRequester != null) Modifier.focusRequester(sectionFocusRequester) else Modifier)
                 .focusRestorer {

@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.screens.detail
 
+import com.nuvio.tv.ui.util.nuvioCRowThrottle
+
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.domain.model.CardDepthSurface
 import com.nuvio.tv.ui.components.LocalCardDepthStyle
@@ -236,6 +238,7 @@ fun CastSection(
 
         LazyRow(
             modifier = Modifier
+                .nuvioCRowThrottle() // [fork] detail_row_throttle
                 .fillMaxWidth()
                 .then(if (sectionFocusRequester != null) Modifier.focusRequester(sectionFocusRequester) else Modifier)
                 .onFocusChanged { state ->

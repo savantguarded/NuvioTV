@@ -154,4 +154,6 @@ object NuvioCFeatures {
     const val FOLDER_RATINGS_BATCH = true
     /** Home (Modern / Featured): MDBList ratings for the focused row and the next one land in one update instead of one per title, so moving between rows doesn't redraw Home dozens of times. */
     const val HOME_RATINGS_BATCH = true
+    /** Details page rows (cast, more like this, collection, trailers, companies) and cast page filmography: holding Left / Right steps one card per 80 ms, like official Home and collections, so a fast scroll no longer stalls. */
+    const val DETAIL_ROW_THROTTLE = true
 }

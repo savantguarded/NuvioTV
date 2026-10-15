@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.screens.cast
 
+import com.nuvio.tv.ui.util.nuvioCRowThrottle
+
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import androidx.activity.compose.BackHandler
@@ -619,6 +621,7 @@ private fun FilmographyRow(
 
     LazyRow(
         modifier = Modifier
+            .nuvioCRowThrottle() // [fork] detail_row_throttle
             .fillMaxWidth()
             .then(nuvioCBack.rowModifier()) // [fork]
             .focusRestorer { if (restorePending) restoreFocusRequester else firstItemFocusRequester },
