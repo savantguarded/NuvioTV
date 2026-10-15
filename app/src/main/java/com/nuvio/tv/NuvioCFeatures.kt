@@ -150,4 +150,6 @@ object NuvioCFeatures {
     const val FEATURED_FAST_FOCUS = true
     /** Clearlogos (with logo_weight): square and tall logos get up to 25% more area and a taller height cap (1:1 logo: Home 140, details 92, OSD 68 dp tall; was 110 / 64 / 52), so they no longer look small next to wide ones. Wide logos unchanged. */
     const val LOGO_TALL_BOOST = true
+    /** Collections (Follow home layout = Modern): MDBList ratings for a row land in one screen update instead of one per title (official redrew the whole folder 20-40 times per row move). */
+    const val FOLDER_RATINGS_BATCH = true
 }
