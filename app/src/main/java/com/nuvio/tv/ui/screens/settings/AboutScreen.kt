@@ -138,6 +138,8 @@ fun AboutSettingsContent(
                                 textAlign = TextAlign.Center
                             )
 
+                            NuvioCAboutCredit() // [fork] Nuvio C attribution
+
                             Spacer(modifier = Modifier.height(NuvioTheme.spacing.xxs))
 
                             if (AppFeaturePolicy.inAppUpdatesEnabled) {
