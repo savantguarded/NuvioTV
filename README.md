@@ -7,8 +7,12 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 ## Main features
 
 **Home**
-- Fourth layout, Featured (Settings > Layout): a full-screen carousel of your hero catalogs on top of Modern home, with tagline, MDBList ratings, Play (hold for the play options), Details and a next-title arrow. The real first row peeks at the bottom; Down slides into the rows, Up on the first row or Back returns.
-- The hero carousel (Classic, Grid, Featured) changes title every 10 seconds you don't press a key, including while it has focus.
+- Fourth layout, Featured (Settings > Layout): a full-screen carousel of your hero catalogs on top of Modern home, with tagline, MDBList ratings, Play (hold for the play options), Details and a next-title arrow. The real first row peeks at the bottom; Down focuses the first card at once while the rows slide in, Up on the first row returns.
+- The hero carousel (Classic, Grid, Featured) changes title every 10 seconds you don't press a key, including while it has focus, and draws 18 titles from your hero catalogs (official 7), picked and ordered afresh on every app launch.
+
+**Smoothness**
+- MDBList ratings for a row land in one screen update on Home and in collections (official redrew the screen once per title).
+- Holding Left / Right on details-page rows and cast-page filmography steps one card at a time, like official Home, instead of stalling.
 
 **Player**
 - Title logo top-left and stream badges (resolution, HDR / Dolby Vision, audio, source, size) under the title on the controls.
@@ -32,14 +36,15 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - Real filmography with the character or job under each title.
 
 **Appearance**
-- Extra app fonts, a clock on Home and in collections, profiles down the left of the profile screen, focus rings that are never cut off.
-- Clearlogos trimmed of empty borders and sized to the same visual weight; dark logos made readable; the Home synopsis takes the width that needs the fewest lines (5 at most), so the logo stays large.
+- Extra app fonts, a pill-shaped clock on Home and in collections, profiles down the left of the profile screen, focus rings that are never cut off.
+- Clearlogos trimmed of empty borders and sized to the same visual weight, with square and tall logos given more height; dark logos made readable; the Home synopsis takes the width that needs the fewest lines (5 at most), so the logo stays large.
 - Add to library lists your Library service first.
 
 **Library**
 - A Watched tab for Trakt, MDBList and Simkl (newest first, with the Movies / Series filter).
 
 **Updates**
+- Settings > About shows the Nuvio C build and maintainer, above official's credits.
 - Forced rebuilds of the same official release are offered by the in-app updater too.
 
 **Accounts**
