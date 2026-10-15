@@ -462,6 +462,10 @@ jobs:
           if [ -n "${{ steps.switches.outputs.off }}" ]; then
             notes="${notes} Switched off in this build: ${{ steps.switches.outputs.off }}."
           fi
+          # Hidden run number: the in-app updater offers a rebuild of the same official release when it is newer than the installed APK
+          notes="${notes}
+
+<!-- nuvioc-build:${GITHUB_RUN_NUMBER} -->"
           gh release create "$tag" "$out" --target "$GITHUB_SHA" \
             --title "Nuvio C ${rel}" \
             --notes "$notes" --latest

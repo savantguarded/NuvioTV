@@ -45,14 +45,15 @@ class UpdateRepository @Inject constructor(
                 ?: throw NoEligibleUpdateException(channel)
             val (dto, asset) = releaseWithAsset
 
-            val tag = dto.tagName?.takeIf { it.isNotBlank() }
+            val tag = (dto.tagName?.takeIf { it.isNotBlank() }
                 ?: dto.name?.takeIf { it.isNotBlank() }
-                ?: error("Release has no tag/name")
+                ?: error("Release has no tag/name"))
+                .let { NuvioCUpdateBuild.tagWithBuild(it, dto.body) } // [fork] rebuild number in the tag's build metadata
 
             AppUpdate(
                 tag = tag,
                 title = dto.name?.takeIf { it.isNotBlank() } ?: tag,
-                notes = dto.body.orEmpty(),
+                notes = NuvioCUpdateBuild.stripMarker(dto.body.orEmpty()), // [fork]
                 releaseUrl = dto.htmlUrl,
                 assetName = asset.name,
                 assetUrl = asset.browserDownloadUrl,
