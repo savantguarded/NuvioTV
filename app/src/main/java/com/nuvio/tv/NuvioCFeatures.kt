@@ -152,4 +152,6 @@ object NuvioCFeatures {
     const val LOGO_TALL_BOOST = true
     /** Collections (Follow home layout = Modern): MDBList ratings for a row land in one screen update instead of one per title (official redrew the whole folder 20-40 times per row move). */
     const val FOLDER_RATINGS_BATCH = true
+    /** Home (Modern / Featured): MDBList ratings for the focused row and the next one land in one update instead of one per title, so moving between rows doesn't redraw Home dozens of times. */
+    const val HOME_RATINGS_BATCH = true
 }

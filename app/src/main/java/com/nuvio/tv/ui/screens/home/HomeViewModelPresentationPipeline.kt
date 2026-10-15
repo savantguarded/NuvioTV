@@ -972,6 +972,42 @@ internal fun HomeViewModel.updateCatalogItemMdbListRatings(
     }
 }
 
+/** [fork] home_ratings_batch: [updateCatalogItemMdbListRatings] for many titles with one `_uiState` update. */
+internal fun HomeViewModel.nuvioCUpdateCatalogItemsMdbListRatings(
+    batch: Map<String, com.nuvio.tv.domain.model.MDBListRatings>
+) {
+    val order = currentMdbListSettings.ratingOrder
+    fun merge(currentItem: MetaPreview, ratings: com.nuvio.tv.domain.model.MDBListRatings): MetaPreview =
+        currentItem.copy(
+            mdbListRatings = ratings,
+            mdbListRatingOrder = order,
+            imdbRating = ratings.imdb?.toFloat() ?: currentItem.imdbRating
+        )
+    batch.forEach { (id, ratings) -> updateIndexedCatalogItem(id) { merge(it, ratings) } }
+    _uiState.update { state ->
+        var changed = false
+        val updatedRows = state.catalogRows.map { row ->
+            var rowChanged = false
+            val items = row.items.map { item ->
+                val ratings = batch[item.id] ?: return@map item
+                val merged = merge(item, ratings)
+                if (merged != item) rowChanged = true
+                merged
+            }
+            if (rowChanged) { changed = true; row.copy(items = items) } else row
+        }
+        if (changed) state.copy(catalogRows = updatedRows) else state
+    }
+    batch.keys.forEach { id ->
+        val existing = _enrichedPreviews.value[id] ?: return@forEach
+        val enriched = findCatalogItemById(id)
+        if (enriched != null && enriched != existing) {
+            _lastEnrichedPreview.value = enriched
+            addEnrichedPreview(id, enriched)
+        }
+    }
+}
+
 internal fun HomeViewModel.updateCatalogItemImdbRating(itemId: String, rating: Float) {
     updateIndexedCatalogItem(itemId) { currentItem ->
         currentItem.copy(imdbRating = rating)
