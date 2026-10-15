@@ -11,7 +11,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -22,14 +21,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +57,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -80,6 +84,8 @@ import androidx.tv.material3.ButtonDefaults
 import androidx.tv.material3.Card
 import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.Icon
+import androidx.tv.material3.IconButton
+import androidx.tv.material3.IconButtonDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
@@ -90,12 +96,18 @@ import coil3.request.crossfade
 import com.nuvio.tv.LocalContentFocusRequester
 import com.nuvio.tv.NuvioCFeatures
 import com.nuvio.tv.R
+import com.nuvio.tv.core.di.NuvioCFeaturedTagline
 import com.nuvio.tv.data.local.LayoutPreferenceDataStore
+import com.nuvio.tv.data.repository.MDBListRepository
 import com.nuvio.tv.domain.model.HomeLayout
+import com.nuvio.tv.domain.model.MDBListRatings
+import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.domain.model.MetaPreview
+import com.nuvio.tv.ui.components.MDBListRatingsRow
 import com.nuvio.tv.ui.components.NuvioCHeroAutoAdvanceEffect
 import com.nuvio.tv.ui.components.NuvioCHeroSpec
 import com.nuvio.tv.ui.components.NuvioCLogoSize
+import com.nuvio.tv.ui.components.PlayManualOverrideDialog
 import com.nuvio.tv.ui.components.nuvioCHomeMargin
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.util.formatHeroRuntime
@@ -103,23 +115,27 @@ import com.nuvio.tv.ui.util.localizedContentType
 import com.nuvio.tv.ui.util.localizedGenreLabel
 import com.nuvio.tv.ui.util.nuvioCLogoContrast
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 // [fork] Nuvio C home_featured (2026-10-15): fourth home layout "Featured".
 // A full-screen carousel of your hero catalogs (Settings > Layout > Hero catalogs) sits on top of
-// Modern home. Play / Details buttons; Left / Right move between them and page past the ends
-// (Right from Details = next title, Left from Play = previous; on the first title Left reaches the
-// sidebar as usual). Down slides the carousel away and focuses the rows; Up on the first row, or
-// Back when Modern has nothing of its own to do, brings it back on the same title.
+// Modern home. Play / Details / next-title arrow; Left / Right also page past the ends (Right from the
+// arrow = next title, Left from Play = previous; on the first title Left reaches the sidebar).
+// The real Modern rows show in the strip under the carousel (pushed down, drawn only below the
+// carousel), so Down is one draw-only move of things already on screen: the carousel slides up, the
+// rows slide into their usual place, then focus lands on them. Up on the first row, Back when Modern
+// has nothing of its own to undo, or sidebar Home bring the carousel back on the same title.
 // Stored as Modern + the `nuvio_c_home_featured` flag, so every Modern behaviour stays as it is.
-// While the carousel covers the screen Modern is composed but not drawn, and it can't take focus.
 
-/** True inside the Featured layout: the Modern hero synopsis uses the details-page text style. */
+/** True inside the Featured layout: Modern hero synopsis in the details style, fade-through between titles. */
 val LocalNuvioCHomeDetailText = staticCompositionLocalOf { false }
 
 internal object NuvioCFeaturedRules {
@@ -136,9 +152,7 @@ internal object NuvioCFeaturedRules {
         return items.firstOrNull { contentIdOf(it) in wanted }
     }
 
-    fun isMovie(apiType: String): Boolean = apiType.equals("movie", ignoreCase = true)
-
-    /** Play button text: kind 0 = Play, 1 = Resume; season / episode when known. */
+    /** Play button text: resume or play; season / episode when known. */
     data class Label(val resume: Boolean, val season: Int?, val episode: Int?)
 
     fun labelFor(cw: ContinueWatchingItem?): Label = when (cw) {
@@ -151,11 +165,16 @@ internal object NuvioCFeaturedRules {
 
     fun nextIndex(index: Int, count: Int): Int = if (count <= 0) 0 else (index + 1) % count
     fun previousIndex(index: Int, count: Int): Int = if (count <= 0) 0 else (index - 1 + count) % count
+
+    /** Modern's rows viewport share of the screen (same numbers as ModernHomeContent). */
+    fun rowsViewportFraction(landscapePosters: Boolean): Float = if (landscapePosters) 0.49f else 0.52f
 }
 
 @HiltViewModel
 class NuvioCHomeFeaturedViewModel @Inject constructor(
-    private val layoutStore: LayoutPreferenceDataStore
+    private val layoutStore: LayoutPreferenceDataStore,
+    private val mdbListRepository: MDBListRepository,
+    private val taglineSources: Set<@JvmSuppressWildcards NuvioCFeaturedTagline>
 ) : ViewModel() {
 
     /** null until the store has answered, so Home never flashes plain Modern first. */
@@ -169,7 +188,67 @@ class NuvioCHomeFeaturedViewModel @Inject constructor(
             layoutStore.setNuvioCHomeFeatured(enabled)
         }
     }
+
+    internal val taglineSource: NuvioCFeaturedTagline? = taglineSources.firstOrNull()
+
+    private val _ratings = MutableStateFlow<Map<String, MDBListRatings>>(emptyMap())
+    val ratings: StateFlow<Map<String, MDBListRatings>> = _ratings.asStateFlow()
+    private val _taglines = MutableStateFlow<Map<String, String>>(emptyMap())
+    val taglines: StateFlow<Map<String, String>> = _taglines.asStateFlow()
+    private val asked = HashSet<String>()
+
+    /** Ratings (MDBList, when shown on the hero) and tagline for a title, once per title per visit. */
+    fun prefetch(item: MetaPreview, wantRatings: Boolean) {
+        if (!asked.add(item.id)) return
+        if (wantRatings) {
+            viewModelScope.launch {
+                val result = runCatching {
+                    mdbListRepository.getRatingsForMeta(item.toMdbMeta(), fallbackItemId = item.id, fallbackItemType = item.apiType)
+                }.getOrNull()
+                val ratings = result?.ratings?.takeIf { !it.isEmpty() } ?: return@launch
+                _ratings.update { it + (item.id to ratings) }
+            }
+        }
+        val source = taglineSource ?: return
+        viewModelScope.launch {
+            val tagline = runCatching { source.taglineFor(item) }.getOrNull()?.takeIf { it.isNotBlank() } ?: return@launch
+            _taglines.update { it + (item.id to tagline) }
+        }
+    }
+
+    private fun MetaPreview.toMdbMeta(): Meta = Meta(
+        id = id,
+        type = type,
+        name = name,
+        poster = poster,
+        posterShape = posterShape,
+        background = background,
+        logo = logo,
+        description = description,
+        releaseInfo = releaseInfo,
+        imdbRating = imdbRating,
+        genres = genres,
+        runtime = runtime,
+        director = director,
+        cast = emptyList(),
+        videos = emptyList(),
+        country = country,
+        awards = null,
+        language = language,
+        links = links
+    )
 }
+
+/** Callbacks Home already has, passed through to the carousel. */
+internal class NuvioCFeaturedActions(
+    val onNavigateToDetail: (String, String, String) -> Unit,
+    val onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
+    val onContinueWatchingStartFromBeginning: (ContinueWatchingItem) -> Unit,
+    val onContinueWatchingPlayManually: (ContinueWatchingItem) -> Unit,
+    /** itemId, type, backdrop, manual source selection: details page with official "play on load". */
+    val onPlayFromDetails: ((String, String, String?, Boolean) -> Unit)?,
+    val autoplayEnabled: Boolean
+)
 
 /**
  * Home's Modern branch goes through here. Off (switch, or Modern chosen in settings) = [content]
@@ -178,11 +257,8 @@ class NuvioCHomeFeaturedViewModel @Inject constructor(
 @Composable
 internal fun NuvioCFeaturedGate(
     uiState: HomeUiState,
-    modernPresentation: ModernHomePresentationState,
     scrollToTopTrigger: Int,
-    onNavigateToDetail: (String, String, String) -> Unit,
-    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
-    onPlayFromDetails: ((String, String, String?) -> Unit)?,
+    actions: NuvioCFeaturedActions,
     content: @Composable () -> Unit
 ) {
     if (!NuvioCFeatures.HOME_FEATURED) {
@@ -194,33 +270,20 @@ internal fun NuvioCFeaturedGate(
     when (featured) {
         null -> Box(Modifier.fillMaxSize())
         false -> content()
-        true -> NuvioCFeaturedHome(
-            uiState = uiState,
-            firstRow = modernPresentation.rows.list.firstOrNull(),
-            scrollToTopTrigger = scrollToTopTrigger,
-            viewModel = viewModel,
-            onNavigateToDetail = onNavigateToDetail,
-            onContinueWatchingClick = onContinueWatchingClick,
-            onPlayFromDetails = onPlayFromDetails,
-            content = content
-        )
+        true -> NuvioCFeaturedHome(uiState, scrollToTopTrigger, viewModel, actions, content)
     }
 }
 
-private const val SLIDE_MS = 450
-private val PEEK_TITLE = 22.dp
-private val PEEK_POSTERS = 24.dp
+private const val SLIDE_MS = 380
+private val PEEK = 76.dp
 
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun NuvioCFeaturedHome(
     uiState: HomeUiState,
-    firstRow: HeroCarouselRow?,
     scrollToTopTrigger: Int,
     viewModel: NuvioCHomeFeaturedViewModel,
-    onNavigateToDetail: (String, String, String) -> Unit,
-    onContinueWatchingClick: (ContinueWatchingItem) -> Unit,
-    onPlayFromDetails: ((String, String, String?) -> Unit)?,
+    actions: NuvioCFeaturedActions,
     content: @Composable () -> Unit
 ) {
     val items = uiState.heroItems
@@ -231,15 +294,19 @@ private fun NuvioCFeaturedHome(
     val rowsRequester = remember { FocusRequester() }
     val playRequester = remember { FocusRequester() }
     val detailsRequester = remember { FocusRequester() }
+    val nextRequester = remember { FocusRequester() }
 
     var shown by rememberSaveable { mutableStateOf(true) }
     var index by rememberSaveable { mutableIntStateOf(0) }
     var activeId by rememberSaveable { mutableStateOf<String?>(null) }
-    var detailsHadFocus by rememberSaveable { mutableStateOf(false) }
+    var lastButton by rememberSaveable { mutableIntStateOf(0) } // 0 Play, 1 Details, 2 next arrow
     var rowsFocused by remember { mutableStateOf(false) }
+    var sliding by remember { mutableStateOf(false) }
     var interaction by remember { mutableIntStateOf(0) }
     val carouselOn = shown && available
     val progress = remember { Animatable(if (carouselOn) 0f else 1f) } // 0 = carousel, 1 = rows
+
+    fun buttonRequester(i: Int) = when (i) { 1 -> detailsRequester; 2 -> nextRequester; else -> playRequester }
 
     // Same title kept when the list is rebuilt (enrichment, catalogs arriving, refresh).
     LaunchedEffect(items) {
@@ -247,38 +314,46 @@ private fun NuvioCFeaturedHome(
     }
     LaunchedEffect(index, items) { activeId = items.getOrNull(index)?.id }
 
-    fun focusCarousel() {
-        scope.launch {
-            repeat(2) { withFrameNanos { } }
-            runCatching { (if (detailsHadFocus) detailsRequester else playRequester).requestFocus() }
-        }
-    }
-
     fun goToRows() {
-        if (!shown) return
-        shown = false
+        if (!shown || sliding) return
         scope.launch {
-            repeat(2) { withFrameNanos { } }
+            sliding = true
+            shown = false
+            progress.animateTo(1f, tween(SLIDE_MS, easing = FastOutSlowInEasing))
+            sliding = false
+            withFrameNanos { }
             runCatching { rowsRequester.requestFocus() }
         }
     }
 
     fun goToCarousel() {
-        if (shown || !available) return
-        shown = true
-        focusCarousel()
+        if (shown || !available || sliding) return
+        scope.launch {
+            sliding = true
+            shown = true
+            withFrameNanos { }
+            runCatching { buttonRequester(lastButton).requestFocus() }
+            progress.animateTo(0f, tween(SLIDE_MS, easing = FastOutSlowInEasing))
+            sliding = false
+        }
     }
 
     // Hero items arriving after you already moved into the rows never pop the carousel over you.
     LaunchedEffect(available) {
-        if (available && rowsFocused) shown = false
+        if (available && rowsFocused) {
+            shown = false
+            progress.snapTo(1f)
+        }
     }
+    // Opening / coming back to Home with the carousel up: focus its last button (Modern can't take it).
     LaunchedEffect(carouselOn) {
-        progress.animateTo(if (carouselOn) 0f else 1f, tween(SLIDE_MS, easing = FastOutSlowInEasing))
-    }
-    // Opening / coming back to Home with the carousel up: focus its button (Modern can't take it).
-    LaunchedEffect(carouselOn) {
-        if (carouselOn) focusCarousel()
+        if (carouselOn && !sliding) {
+            if (progress.value != 0f) progress.snapTo(0f)
+            repeat(2) { withFrameNanos { } }
+            runCatching { buttonRequester(lastButton).requestFocus() }
+        } else if (!carouselOn && !sliding && progress.value != 1f) {
+            progress.snapTo(1f)
+        }
     }
     // Sidebar "Home" again (scroll to top) = back to the carousel.
     var lastScrollTrigger by rememberSaveable { mutableIntStateOf(scrollToTopTrigger) }
@@ -294,50 +369,87 @@ private fun NuvioCFeaturedHome(
 
     val activeItem = items.getOrNull(index.coerceIn(0, (items.size - 1).coerceAtLeast(0)))
     val cwItems = uiState.continueWatchingItems
+    val activeCw = remember(activeItem?.id, activeItem?.imdbId, cwItems) {
+        activeItem?.let { NuvioCFeaturedRules.continueItemFor(listOf(it.id, it.imdbId), cwItems) }
+    }
     // Play: a Continue Watching title resumes exactly as its CW card would; anything else opens the
     // details page with official "play on load" (as post-play "Play" does), so its own logic picks
     // the resume point / next unwatched episode / first episode and the sources.
-    val play: () -> Unit = play@{
-        val item = activeItem ?: return@play
-        val cw = NuvioCFeaturedRules.continueItemFor(listOf(item.id, item.imdbId), cwItems)
+    fun play(manual: Boolean) {
+        val item = activeItem ?: return
+        val cw = activeCw
         when {
-            cw != null -> onContinueWatchingClick(cw)
-            onPlayFromDetails != null -> onPlayFromDetails(item.id, item.apiType, item.backdropUrl)
-            else -> onNavigateToDetail(item.id, item.apiType, "")
+            cw != null && manual -> actions.onContinueWatchingPlayManually(cw)
+            cw != null -> actions.onContinueWatchingClick(cw)
+            actions.onPlayFromDetails != null -> actions.onPlayFromDetails.invoke(item.id, item.apiType, item.backdropUrl, manual)
+            else -> actions.onNavigateToDetail(item.id, item.apiType, "")
         }
     }
+    var showPlayOptions by remember { mutableStateOf(false) }
+    val canResumeFromStart = activeCw is ContinueWatchingItem.InProgress
+    val playLongPress: (() -> Unit)? = if (actions.autoplayEnabled || canResumeFromStart) {
+        { showPlayOptions = true }
+    } else null
+
+    // Ratings and tagline for this title and the next, so a slide change finds them ready.
+    val wantRatings = uiState.mdbListShowOnHero
+    LaunchedEffect(index, items, wantRatings) {
+        if (items.isEmpty()) return@LaunchedEffect
+        items.getOrNull(index)?.let { viewModel.prefetch(it, wantRatings) }
+        if (items.size > 1) viewModel.prefetch(items[NuvioCFeaturedRules.nextIndex(index, items.size)], wantRatings)
+    }
+    val ratings by viewModel.ratings.collectAsStateWithLifecycle()
+    val taglines by viewModel.taglines.collectAsStateWithLifecycle()
 
     val atRest by remember { derivedStateOf { progress.value == 0f } }
-    val carouselDrawn by remember { derivedStateOf { progress.value < 1f } }
     NuvioCHeroAutoAdvanceEffect(
-        count = if (carouselOn && atRest) items.size else 0,
+        count = if (carouselOn && atRest && !showPlayOptions) items.size else 0,
         activeIndex = index,
         interaction = interaction
     ) { index = NuvioCFeaturedRules.nextIndex(index, items.size) }
 
-    val screenHeightPx = with(LocalDensity.current) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
+    val density = LocalDensity.current
+    val configuration = LocalConfiguration.current
+    val screenH = configuration.screenHeightDp.dp
+    val screenHeightPx = with(density) { screenH.toPx() }
+    val peekPx = with(density) { PEEK.toPx() }
+    val carouselHeight = screenH - PEEK
+    val carouselHeightPx = screenHeightPx - peekPx
+    // How far Modern sits lower while the carousel is up: its first row then starts PEEK above the bottom.
+    val rowsDropPx = (screenHeightPx * NuvioCFeaturedRules.rowsViewportFraction(uiState.modernLandscapePostersEnabled) - peekPx)
+        .coerceAtLeast(0f)
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .focusRequester(outerRequester)
             .focusProperties {
-                enter = { if (carouselOn) (if (detailsHadFocus) detailsRequester else playRequester) else FocusRequester.Default }
+                enter = { if (carouselOn) buttonRequester(lastButton) else FocusRequester.Default }
             }
             .focusGroup()
     ) {
-        // Modern home, as always. Not drawn and not focusable while the carousel covers it.
+        // Modern home, as always. While the carousel is up it sits lower and is drawn only below the
+        // carousel (the peek strip), and it can't take focus.
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .graphicsLayer { translationY = (1f - progress.value) * screenHeightPx * 0.35f }
-                .drawWithContent { if (progress.value > 0f) drawContent() }
+                .graphicsLayer { translationY = (1f - progress.value) * rowsDropPx }
+                .drawWithContent {
+                    val p = progress.value
+                    if (p >= 1f) {
+                        drawContent()
+                    } else {
+                        // Carousel bottom edge, in Modern's own (dropped) coordinates.
+                        val top = (1f - p) * (carouselHeightPx - rowsDropPx)
+                        clipRect(top = top) { this@drawWithContent.drawContent() }
+                    }
+                }
                 .onFocusChanged { rowsFocused = it.hasFocus }
-                .focusProperties { onEnter = { if (carouselOn) cancelFocusChange() } }
+                .focusProperties { onEnter = { if (shown || sliding) cancelFocusChange() } }
                 .focusGroup()
                 .onKeyEvent { event ->
                     // Up with nothing above (first row) = back to the carousel.
-                    if (available && !shown && event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
+                    if (available && !shown && !sliding && event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
                         if (!focusManager.moveFocus(FocusDirection.Up)) goToCarousel()
                         true
                     } else {
@@ -353,51 +465,74 @@ private fun NuvioCFeaturedHome(
             }
         }
 
-        if (available && (carouselOn || carouselDrawn)) {
+        if (available) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { translationY = -progress.value * screenHeightPx }
+                    .fillMaxWidth()
+                    .height(carouselHeight)
+                    .graphicsLayer { translationY = -progress.value * carouselHeightPx }
+                    .drawWithContent { if (progress.value < 1f) drawContent() }
                     .background(NuvioTheme.colors.Background)
                     .onPreviewKeyEvent { event ->
                         if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        if (sliding) return@onPreviewKeyEvent true // keys during the slide are dropped
                         interaction++
-                        if (event.key == Key.DirectionDown) {
-                            goToRows()
-                            true
-                        } else if (event.key == Key.DirectionUp) {
-                            true
-                        } else {
-                            false
+                        when (event.key) {
+                            Key.DirectionDown -> { goToRows(); true }
+                            Key.DirectionUp -> true
+                            else -> false
                         }
                     }
             ) {
                 NuvioCFeaturedSlide(
                     items = items,
                     index = index.coerceIn(0, items.size - 1),
-                    cwItems = cwItems,
-                    focusable = carouselOn,
+                    cw = activeCw,
+                    ratings = if (wantRatings) ratings else emptyMap(),
+                    ratingOrder = uiState.mdbListRatingOrder,
+                    taglines = taglines,
+                    tagline = viewModel.taglineSource,
+                    focusable = shown || sliding,
                     playRequester = playRequester,
                     detailsRequester = detailsRequester,
-                    peekRow = firstRow,
-                    landscapePeek = uiState.modernLandscapePostersEnabled,
-                    posterWidthDp = uiState.posterCardWidthDp,
-                    onPlay = play,
-                    onDetails = { activeItem?.let { onNavigateToDetail(it.id, it.apiType, "") } },
-                    onButtonFocused = { details -> detailsHadFocus = details },
-                    onNext = {
+                    nextRequester = nextRequester,
+                    onPlay = { play(manual = false) },
+                    onPlayLongPress = playLongPress,
+                    onDetails = { activeItem?.let { actions.onNavigateToDetail(it.id, it.apiType, "") } },
+                    onButtonFocused = { lastButton = it },
+                    onNext = { focusFirst ->
                         index = NuvioCFeaturedRules.nextIndex(index, items.size)
-                        detailsHadFocus = false
-                        runCatching { playRequester.requestFocus() }
+                        if (focusFirst) {
+                            lastButton = 0
+                            runCatching { playRequester.requestFocus() }
+                        }
                     },
                     onPrevious = {
                         index = NuvioCFeaturedRules.previousIndex(index, items.size)
-                        detailsHadFocus = true
-                        runCatching { detailsRequester.requestFocus() }
+                        lastButton = 2
+                        runCatching { nextRequester.requestFocus() }
                     }
                 )
             }
         }
+    }
+
+    if (showPlayOptions && activeItem != null) {
+        PlayManualOverrideDialog(
+            title = activeItem.name,
+            subtitle = null,
+            onDismiss = { showPlayOptions = false },
+            showPlayManually = actions.autoplayEnabled,
+            onPlayManually = {
+                showPlayOptions = false
+                play(manual = true)
+            },
+            showStartFromBeginning = canResumeFromStart,
+            onStartFromBeginning = {
+                showPlayOptions = false
+                activeCw?.let(actions.onContinueWatchingStartFromBeginning)
+            }
+        )
     }
 }
 
@@ -420,17 +555,20 @@ private fun logoRequest(context: Context, url: String?): ImageRequest =
 private fun NuvioCFeaturedSlide(
     items: List<MetaPreview>,
     index: Int,
-    cwItems: List<ContinueWatchingItem>,
+    cw: ContinueWatchingItem?,
+    ratings: Map<String, MDBListRatings>,
+    ratingOrder: List<String>,
+    taglines: Map<String, String>,
+    tagline: NuvioCFeaturedTagline?,
     focusable: Boolean,
     playRequester: FocusRequester,
     detailsRequester: FocusRequester,
-    peekRow: HeroCarouselRow?,
-    landscapePeek: Boolean,
-    posterWidthDp: Int,
+    nextRequester: FocusRequester,
     onPlay: () -> Unit,
+    onPlayLongPress: (() -> Unit)?,
     onDetails: () -> Unit,
-    onButtonFocused: (Boolean) -> Unit,
-    onNext: () -> Unit,
+    onButtonFocused: (Int) -> Unit,
+    onNext: (focusFirst: Boolean) -> Unit,
     onPrevious: () -> Unit
 ) {
     val context = LocalContext.current
@@ -441,7 +579,6 @@ private fun NuvioCFeaturedSlide(
     val item = items[index]
     val bg = NuvioTheme.colors.Background
     val margin = nuvioCHomeMargin
-    val peekHeight = if (peekRow != null) PEEK_TITLE + PEEK_POSTERS + 6.dp else 0.dp
 
     // Next title's pictures fetched ahead, so a slide change shows them at once.
     LaunchedEffect(index, items) {
@@ -454,7 +591,8 @@ private fun NuvioCFeaturedSlide(
     }
 
     Box(Modifier.fillMaxSize()) {
-        Crossfade(targetState = index, animationSpec = tween(400), label = "nuvioCFeaturedBackdrop") { i ->
+        // Backdrop: the full-screen picture, cut where the peek strip starts (the box ends there).
+        Crossfade(targetState = index, animationSpec = tween(420), label = "nuvioCFeaturedBackdrop") { i ->
             val slide = items.getOrNull(i) ?: return@Crossfade
             val model = remember(slide.backdropUrl, widthPx, heightPx) { backdropRequest(context, slide.backdropUrl, widthPx, heightPx) }
             AsyncImage(
@@ -465,7 +603,7 @@ private fun NuvioCFeaturedSlide(
                 modifier = Modifier.fillMaxSize()
             )
         }
-        // Scrims: left for the text, bottom into the page colour under the peek row. Plain draws, no layer.
+        // Scrims: left for the text, bottom into the page colour where the rows start. Plain draws, no layer.
         Box(
             Modifier
                 .fillMaxSize()
@@ -478,9 +616,8 @@ private fun NuvioCFeaturedSlide(
                         endX = size.width
                     )
                     val bottom = Brush.verticalGradient(
-                        0.50f to Color.Transparent,
-                        0.78f to bg.copy(alpha = 0.70f),
-                        0.92f to bg,
+                        0.55f to Color.Transparent,
+                        0.86f to bg.copy(alpha = 0.75f),
                         1f to bg,
                         endY = size.height
                     )
@@ -494,17 +631,16 @@ private fun NuvioCFeaturedSlide(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = margin, bottom = peekHeight + 22.dp)
+                .padding(start = margin, bottom = 18.dp)
                 .fillMaxWidth(0.46f),
             verticalArrangement = Arrangement.Bottom
         ) {
-            Crossfade(targetState = index, animationSpec = tween(300), label = "nuvioCFeaturedText") { i ->
-                items.getOrNull(i)?.let { NuvioCFeaturedText(it) }
+            // Text block bottom-anchored: the buttons never move. Titles swap with a short fade-through,
+            // so a taller or shorter block never visibly jumps.
+            NuvioCFadeThrough(target = item, key = { it.id }, contentAlignment = Alignment.BottomStart) { slide ->
+                NuvioCFeaturedText(slide, ratings[slide.id], ratingOrder, taglines[slide.id], tagline)
             }
             Spacer(Modifier.height(18.dp))
-            val cw = remember(item.id, item.imdbId, cwItems) {
-                NuvioCFeaturedRules.continueItemFor(listOf(item.id, item.imdbId), cwItems)
-            }
             val label = NuvioCFeaturedRules.labelFor(cw)
             val playText = when {
                 label.season != null && label.episode != null -> stringResource(
@@ -516,8 +652,7 @@ private fun NuvioCFeaturedSlide(
             }
             val latestNext by rememberUpdatedState(onNext)
             val latestPrevious by rememberUpdatedState(onPrevious)
-            var playFocused by remember { mutableStateOf(false) }
-            var detailsFocused by remember { mutableStateOf(false) }
+            var focusedButton by remember { mutableIntStateOf(-1) }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
                 verticalAlignment = Alignment.CenterVertically,
@@ -526,8 +661,8 @@ private fun NuvioCFeaturedSlide(
                     .onPreviewKeyEvent { event ->
                         if (event.type != KeyEventType.KeyDown || items.size < 2) return@onPreviewKeyEvent false
                         when {
-                            event.key == Key.DirectionRight && detailsFocused -> { latestNext(); true }
-                            event.key == Key.DirectionLeft && playFocused && index > 0 -> { latestPrevious(); true }
+                            event.key == Key.DirectionRight && focusedButton == 2 -> { latestNext(true); true }
+                            event.key == Key.DirectionLeft && focusedButton == 0 && index > 0 -> { latestPrevious(); true }
                             else -> false
                         }
                     }
@@ -536,10 +671,10 @@ private fun NuvioCFeaturedSlide(
                     text = playText,
                     enabled = focusable,
                     onClick = onPlay,
+                    onLongPress = onPlayLongPress,
                     focusRequester = playRequester,
                     modifier = Modifier.onFocusChanged {
-                        playFocused = it.isFocused
-                        if (it.isFocused) onButtonFocused(false)
+                        if (it.isFocused) { focusedButton = 0; onButtonFocused(0) } else if (focusedButton == 0) focusedButton = -1
                     }
                 )
                 NuvioCFeaturedDetailsButton(
@@ -548,32 +683,75 @@ private fun NuvioCFeaturedSlide(
                     modifier = Modifier
                         .focusRequester(detailsRequester)
                         .onFocusChanged {
-                            detailsFocused = it.isFocused
-                            if (it.isFocused) onButtonFocused(true)
+                            if (it.isFocused) { focusedButton = 1; onButtonFocused(1) } else if (focusedButton == 1) focusedButton = -1
                         }
                 )
+                if (items.size > 1) {
+                    NuvioCFeaturedNextButton(
+                        enabled = focusable,
+                        onClick = { latestNext(false) },
+                        modifier = Modifier
+                            .focusRequester(nextRequester)
+                            .onFocusChanged {
+                                if (it.isFocused) { focusedButton = 2; onButtonFocused(2) } else if (focusedButton == 2) focusedButton = -1
+                            }
+                    )
+                }
             }
             if (items.size > 1) {
                 Spacer(Modifier.height(16.dp))
                 NuvioCFeaturedDots(count = items.size, active = index)
             }
         }
+    }
+}
 
-        if (peekRow != null) {
-            NuvioCFeaturedPeek(
-                row = peekRow,
-                landscape = landscapePeek || peekRow.key == "continue_watching",
-                posterWidthDp = posterWidthDp,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = margin)
-            )
-        }
+/**
+ * Lightweight title change: the old content fades out ([outMs]), the new one is swapped in while
+ * invisible and fades in ([inMs]). Only one copy is ever composed and the fade is ModulateAlpha
+ * (no offscreen buffer), so a block of a different height never slides or jumps on screen. A new
+ * version of the same title (enrichment, ratings landing) is shown straight away.
+ */
+@Composable
+internal fun <T> NuvioCFadeThrough(
+    target: T,
+    key: (T) -> Any?,
+    modifier: Modifier = Modifier,
+    outMs: Int = 110,
+    inMs: Int = 200,
+    contentAlignment: Alignment = Alignment.TopStart,
+    content: @Composable (T) -> Unit
+) {
+    var shown by remember { mutableStateOf(target) }
+    val alpha = remember { Animatable(1f) }
+    val targetKey = key(target)
+    SideEffect { if (key(shown) == targetKey && shown != target) shown = target }
+    LaunchedEffect(targetKey) {
+        if (key(shown) == targetKey) return@LaunchedEffect
+        if (outMs > 0) alpha.animateTo(0f, tween(outMs)) else alpha.snapTo(0f)
+        shown = target
+        withFrameNanos { }
+        alpha.animateTo(1f, tween(inMs))
+    }
+    Box(
+        modifier = modifier.graphicsLayer {
+            this.alpha = alpha.value
+            compositingStrategy = CompositingStrategy.ModulateAlpha
+        },
+        contentAlignment = contentAlignment
+    ) {
+        content(shown)
     }
 }
 
 @Composable
-private fun NuvioCFeaturedText(item: MetaPreview) {
+private fun NuvioCFeaturedText(
+    item: MetaPreview,
+    ratings: MDBListRatings?,
+    ratingOrder: List<String>,
+    taglineText: String?,
+    tagline: NuvioCFeaturedTagline?
+) {
     val context = LocalContext.current
     Column(verticalArrangement = Arrangement.Bottom) {
         var aspect by remember(item.logo) { mutableStateOf(NuvioCLogoSize.known(item.logo)) }
@@ -604,13 +782,16 @@ private fun NuvioCFeaturedText(item: MetaPreview) {
                 overflow = TextOverflow.Ellipsis
             )
         }
-        val meta = remember(item.id, item.apiType, item.genres, item.releaseInfo, item.runtime, item.imdbRating) {
+        if (tagline != null && !taglineText.isNullOrBlank()) {
+            Spacer(Modifier.height(12.dp))
+            tagline.Draw(taglineText, 0.92f, Modifier)
+        }
+        val meta = remember(item.id, item.apiType, item.genres, item.releaseInfo, item.runtime) {
             listOfNotNull(
                 localizedContentType(context, item.apiType).takeIf { it.isNotBlank() },
                 item.genres.firstOrNull()?.takeIf { it.isNotBlank() }?.let { localizedGenreLabel(context, it) },
                 NuvioCFeaturedRules.year(item.releaseInfo),
-                formatHeroRuntime(item.runtime),
-                item.imdbRating?.takeIf { it > 0f }?.let { String.format("%.1f", it) }
+                formatHeroRuntime(item.runtime)
             ).joinToString("  ·  ")
         }
         if (meta.isNotBlank()) {
@@ -622,6 +803,10 @@ private fun NuvioCFeaturedText(item: MetaPreview) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+        if (ratings != null) {
+            Spacer(Modifier.height(8.dp))
+            MDBListRatingsRow(ratings = ratings, order = ratingOrder)
         }
         val synopsis = item.description?.let { NuvioCHeroSpec.homeSynopsis(it) }
         if (!synopsis.isNullOrBlank()) {
@@ -666,6 +851,36 @@ private fun NuvioCFeaturedDetailsButton(enabled: Boolean, onClick: () -> Unit, m
     }
 }
 
+/** Round "next title" button, in the details page's round-button style (Apple TV's arrow). */
+@Composable
+private fun NuvioCFeaturedNextButton(enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+            .size(NuvioTheme.spacing.xxxl)
+            .focusProperties { up = FocusRequester.Cancel },
+        colors = IconButtonDefaults.colors(
+            containerColor = NuvioTheme.colors.BackgroundCard,
+            focusedContainerColor = NuvioTheme.colors.Secondary,
+            contentColor = NuvioTheme.colors.TextPrimary,
+            focusedContentColor = NuvioTheme.colors.OnSecondary,
+            disabledContainerColor = NuvioTheme.colors.BackgroundCard,
+            disabledContentColor = NuvioTheme.colors.TextPrimary
+        ),
+        border = IconButtonDefaults.border(
+            focusedBorder = Border(border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs), shape = CircleShape)
+        ),
+        shape = IconButtonDefaults.shape(shape = CircleShape)
+    ) {
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = stringResource(R.string.nuvio_c_featured_next),
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
 @Composable
 private fun NuvioCFeaturedDots(count: Int, active: Int) {
     val ring = NuvioTheme.focusRing.brush()
@@ -678,52 +893,6 @@ private fun NuvioCFeaturedDots(count: Int, active: Int) {
                     .clip(RoundedCornerShape(3.dp))
                     .then(if (on) Modifier.background(ring) else Modifier.background(Color.White.copy(alpha = 0.3f)))
             )
-        }
-    }
-}
-
-@Composable
-private fun NuvioCFeaturedPeek(row: HeroCarouselRow, landscape: Boolean, posterWidthDp: Int, modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val density = LocalDensity.current
-    val cardWidth = if (landscape) 176.dp else posterWidthDp.dp
-    val cardHeightFull = if (landscape) cardWidth * 0.5625f else cardWidth * 1.5f
-    Column(modifier) {
-        Text(
-            text = row.title,
-            style = MaterialTheme.typography.titleMedium,
-            color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.85f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.height(PEEK_TITLE)
-        )
-        Spacer(Modifier.height(6.dp))
-        BoxWithConstraints(Modifier.fillMaxWidth().height(PEEK_POSTERS)) {
-            val count = ((maxWidth / (cardWidth + 12.dp)).toInt() + 1).coerceAtMost(row.items.size).coerceAtLeast(0)
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                row.items.list.take(count).forEach { card ->
-                    val w = with(density) { cardWidth.roundToPx() }
-                    val h = with(density) { cardHeightFull.roundToPx() }
-                    val model = remember(card.imageUrl, w, h) {
-                        ImageRequest.Builder(context).data(card.imageUrl).size(w, h).crossfade(false).build()
-                    }
-                    Box(
-                        Modifier
-                            .width(cardWidth)
-                            .height(PEEK_POSTERS)
-                            .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
-                            .background(NuvioTheme.colors.BackgroundCard)
-                    ) {
-                        AsyncImage(
-                            model = model,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            alignment = Alignment.TopCenter,
-                            modifier = Modifier.width(cardWidth).height(cardHeightFull)
-                        )
-                    }
-                }
-            }
         }
     }
 }

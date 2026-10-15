@@ -336,6 +336,26 @@ internal fun HeroTitleBlock(
     val displayPreview = if (!isEnriching && currentPreview != null) currentPreview else stablePreview
     if (displayPreview == null) return
     
+    // [fork] home_featured: in the Featured layout a new title fades through instead of resizing on screen.
+    if (LocalNuvioCHomeDetailText.current) {
+        NuvioCFadeThrough(
+            target = displayPreview,
+            key = { it.title to it.yearText },
+            modifier = modifier,
+            contentAlignment = Alignment.BottomStart
+        ) { shownPreview ->
+            HeroTitleContent(
+                previewProvider = { shownPreview },
+                portraitMode = portraitMode,
+                showImdbRatings = showImdbRatings,
+                mdbListShowOnHero = mdbListShowOnHero,
+                mdbListRatingOrder = mdbListRatingOrder,
+                trailerPlaying = trailerPlaying,
+                nuvioCTextWidths = nuvioCTextWidths
+            )
+        }
+        return
+    }
     Box(
         modifier = modifier,
         contentAlignment = Alignment.BottomStart
