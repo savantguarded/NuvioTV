@@ -1,7 +1,6 @@
 package com.nuvio.tv.ui.screens.home
 
 import android.content.Context
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -137,6 +136,13 @@ import javax.inject.Inject
 
 /** True inside the Featured layout: Modern hero synopsis in the details style, fade-through between titles. */
 val LocalNuvioCHomeDetailText = staticCompositionLocalOf { false }
+
+/**
+ * [fork] home_featured: alpha for Modern's hero picture while it sits under the carousel. 0 with the
+ * carousel up (the peek strip then shows the page colour the carousel fades into, not the top edge
+ * of Modern's own backdrop), rising to 1 as the rows slide into place. Read at draw time.
+ */
+val LocalNuvioCFeaturedHeroAlpha = staticCompositionLocalOf<(() -> Float)?> { null }
 
 internal object NuvioCFeaturedRules {
     private val YEAR = Regex("""\b(19|20)\d{2}\b""")
@@ -363,9 +369,8 @@ private fun NuvioCFeaturedHome(
             goToCarousel()
         }
     }
-    // Back from the rows (when Modern itself has nothing to undo) returns to the carousel. Declared
-    // before Modern's own handlers, so theirs still win while they are enabled.
-    BackHandler(enabled = available && !shown && rowsFocused) { goToCarousel() }
+    // Back from the rows keeps official behaviour (sidebar); the carousel comes back through Up on the
+    // first row or the sidebar's Home.
 
     val activeItem = items.getOrNull(index.coerceIn(0, (items.size - 1).coerceAtLeast(0)))
     val cwItems = uiState.continueWatchingItems
@@ -407,6 +412,8 @@ private fun NuvioCFeaturedHome(
         activeIndex = index,
         interaction = interaction
     ) { index = NuvioCFeaturedRules.nextIndex(index, items.size) }
+
+    val heroAlpha = remember(progress) { { progress.value } }
 
     val density = LocalDensity.current
     val configuration = LocalConfiguration.current
@@ -459,7 +466,8 @@ private fun NuvioCFeaturedHome(
         ) {
             CompositionLocalProvider(
                 LocalContentFocusRequester provides rowsRequester,
-                LocalNuvioCHomeDetailText provides true
+                LocalNuvioCHomeDetailText provides true,
+                LocalNuvioCFeaturedHeroAlpha provides (if (available) heroAlpha else null)
             ) {
                 content()
             }
@@ -861,14 +869,18 @@ private fun NuvioCFeaturedNextButton(enabled: Boolean, onClick: () -> Unit, modi
             .size(NuvioTheme.spacing.xxxl)
             .focusProperties { up = FocusRequester.Cancel },
         colors = IconButtonDefaults.colors(
-            containerColor = NuvioTheme.colors.BackgroundCard,
+            containerColor = Color.Transparent,
             focusedContainerColor = NuvioTheme.colors.Secondary,
             contentColor = NuvioTheme.colors.TextPrimary,
             focusedContentColor = NuvioTheme.colors.OnSecondary,
-            disabledContainerColor = NuvioTheme.colors.BackgroundCard,
+            disabledContainerColor = Color.Transparent,
             disabledContentColor = NuvioTheme.colors.TextPrimary
         ),
+        // Apple TV arrow: a bare chevron until focused, then the filled circle with the focus ring.
         border = IconButtonDefaults.border(
+            border = Border.None,
+            disabledBorder = Border.None,
+            focusedDisabledBorder = Border.None,
             focusedBorder = Border(border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs), shape = CircleShape)
         ),
         shape = IconButtonDefaults.shape(shape = CircleShape)
