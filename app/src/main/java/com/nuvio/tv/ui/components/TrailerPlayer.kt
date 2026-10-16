@@ -181,13 +181,21 @@ fun TrailerPlayer(
         val player = trailerPlayer ?: return@LaunchedEffect
         val tracker = LetterboxTracker()
         val sampler = LetterboxSampler()
+        val nuvioCSmooth = com.nuvio.tv.NuvioCFeatures.BG_TRAILER_SMOOTH // [fork] bg_trailer_smooth
+        var nuvioCClean = 0 // [fork] frames in a row with picture and no bars
         try {
             while (true) {
                 delay(LetterboxDetector.SAMPLE_INTERVAL_MS)
                 if (LetterboxDetector.isSampleWindowOver(player.currentPosition, player.duration)) break
                 if (!player.isPlaying) continue
+                // [fork] the sample is a GPU read-back on the UI thread (dearer on HD frames): skip it while the user is moving
+                if (nuvioCSmooth && com.nuvio.tv.core.NuvioCInput.recentlyActive(NUVIO_C_SAMPLE_QUIET_MS)) continue
                 val textureView = playerViewRef.value?.videoSurfaceView as? TextureView ?: continue
                 val bar = sampler.sample(textureView) ?: continue
+                if (nuvioCSmooth) { // [fork] no bars on 10 real frames in a row: full-frame trailer, stop checking
+                    nuvioCClean = if (bar <= 0f) nuvioCClean + 1 else 0
+                    if (nuvioCClean >= NUVIO_C_CLEAN_SAMPLES_TO_STOP) break
+                }
                 letterboxZoom = tracker.onSample(bar) ?: continue
                 break
             }
@@ -343,3 +351,8 @@ fun TrailerPlayer(
         }
     }
 }
+
+// [fork] bg_trailer_smooth: black-bar sampling waits this long after a key press, and gives up after
+// this many frames with picture and no bars (about 4 s of a full-frame trailer).
+private const val NUVIO_C_SAMPLE_QUIET_MS = 900L
+private const val NUVIO_C_CLEAN_SAMPLES_TO_STOP = 10

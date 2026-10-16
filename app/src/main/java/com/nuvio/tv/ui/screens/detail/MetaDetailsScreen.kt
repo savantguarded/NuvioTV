@@ -2321,7 +2321,7 @@ private fun MetaDetailsContent(
         NuvioCTrailerAutostartInputs( // [fork]
             nuvioCTrailer,
             overlayOpen = nuvioCOverlayOpen || isSharedTrailerOverlayVisible,
-            scrolling = listState.isScrollInProgress
+            scrolling = { listState.isScrollInProgress } // [fork] read in snapshotFlow, not here
         )
         // Sticky background — backdrop or trailer
         BackdropLayer(
@@ -3301,8 +3301,7 @@ private fun BackdropLayer(
             AsyncImage(
                 model = heroBackdropRequest,
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                alpha = backdropAlphaState.value,
+                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = backdropAlphaState.value }, // [fork] draw-time alpha
                 contentScale = ContentScale.Crop,
                 alignment = Alignment.TopEnd
             )
@@ -3310,8 +3309,7 @@ private fun BackdropLayer(
         AsyncImage(
             model = backdropRequest,
             contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            alpha = backdropAlphaState.value,
+            modifier = Modifier.fillMaxSize().graphicsLayer { alpha = backdropAlphaState.value }, // [fork] draw-time alpha: the 800 ms crossfade no longer recomposes the backdrop and trailer layer
             onSuccess = { showHeroBackdropUnderlay = false },
             contentScale = ContentScale.Crop,
             alignment = Alignment.TopEnd

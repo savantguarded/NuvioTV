@@ -1324,6 +1324,7 @@ open class MainActivity : ComponentActivity() {
     override fun onUserInteraction() {
         super.onUserInteraction()
         ambientIdleController.onInteraction()
+        com.nuvio.tv.core.NuvioCInput.onInteraction() // [fork] bg_trailer_smooth
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {

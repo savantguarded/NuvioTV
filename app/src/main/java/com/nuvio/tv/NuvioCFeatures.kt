@@ -160,4 +160,6 @@ object NuvioCFeatures {
     const val HERO_POOL_SHUFFLE = true
     /** Featured home: Left from Play on the first title goes to the last (Right from the arrow already wraps to the first), so the carousel loops both ways. The sidebar is reached with Back. Off = Left on the first title goes to the sidebar. */
     const val FEATURED_WRAP = true
+    /** Details background trailer: no stutter while moving around as it starts. The black-bar check (official, a GPU read-back on the UI thread, dearer on HD trailers) waits while a key was pressed in the last 0.9 s and stops after 10 clean frames with no bars. Off = official sampling. (Hero dim, backdrop crossfade and scroll state now redraw at draw time in both cases.) */
+    const val BG_TRAILER_SMOOTH = true
 }
