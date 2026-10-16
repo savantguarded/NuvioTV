@@ -16,6 +16,17 @@ import com.nuvio.tv.R
 
 @Composable
 internal fun EpisodeShuffleBadge(modifier: Modifier = Modifier) {
+    // [fork] cw_shuffle_icon: Nuvio C line shuffle icon (same as the details Shuffle button)
+    if (com.nuvio.tv.NuvioCFeatures.CW_SHUFFLE_ICON) {
+        Icon(
+            painter = androidx.compose.ui.res.painterResource(R.drawable.nuvio_c_ic_shuffle),
+            contentDescription = stringResource(R.string.shuffle_badge),
+            tint = Color.White,
+            modifier = modifier.padding(8.dp).background(Color.Black.copy(alpha = 0.8f), CircleShape)
+                .padding(6.dp).size(18.dp)
+        )
+        return
+    }
     Icon(
         imageVector = Icons.Default.Shuffle,
         contentDescription = stringResource(R.string.shuffle_badge),

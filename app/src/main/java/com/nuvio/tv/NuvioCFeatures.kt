@@ -166,4 +166,6 @@ object NuvioCFeatures {
     const val DETAIL_SECTION_SMOOTH = true
     /** Pill buttons (details Play / Resume, Featured Play and Details): on focus they grow by the same 2.4 dp per side as the round buttons, so the gap to the next button stays even (~8 dp). Official 1.1x zoom made a wide pill swallow the gap. */
     const val PILL_FOCUS_GROWTH = true
+    /** Continue Watching: the shuffle badge on a shuffled series uses the Nuvio C line shuffle icon (same as the details Shuffle button). Off = official Material icon. */
+    const val CW_SHUFFLE_ICON = true
 }
