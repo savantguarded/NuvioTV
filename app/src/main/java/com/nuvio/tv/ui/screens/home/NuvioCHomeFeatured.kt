@@ -127,7 +127,8 @@ import javax.inject.Inject
 // [fork] Nuvio C home_featured (2026-10-15): fourth home layout "Featured".
 // A full-screen carousel of your hero catalogs (Settings > Layout > Hero catalogs) sits on top of
 // Modern home. Play / Details / next-title arrow; Left / Right also page past the ends (Right from the
-// arrow = next title, Left from Play = previous; on the first title Left reaches the sidebar).
+// arrow = next title, Left from Play = previous; both wrap round the ends with featured_wrap, so the
+// sidebar is reached with Back; without it, Left on the first title reaches the sidebar).
 // The real Modern rows show in the strip under the carousel (pushed down, drawn only below the
 // carousel), so Down is one draw-only move of things already on screen: the carousel slides up, the
 // rows slide into their usual place, then focus lands on them. Up on the first row, Back when Modern
@@ -684,7 +685,7 @@ private fun NuvioCFeaturedSlide(
                         if (event.type != KeyEventType.KeyDown || items.size < 2) return@onPreviewKeyEvent false
                         when {
                             event.key == Key.DirectionRight && focusedButton == 2 -> { latestNext(true); true }
-                            event.key == Key.DirectionLeft && focusedButton == 0 && index > 0 -> { latestPrevious(); true }
+                            event.key == Key.DirectionLeft && focusedButton == 0 && (com.nuvio.tv.NuvioCFeatures.FEATURED_WRAP || index > 0) -> { latestPrevious(); true } // [fork] featured_wrap: first title wraps to the last
                             else -> false
                         }
                     }
