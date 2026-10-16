@@ -26,6 +26,21 @@ class NuvioCFeaturedTaglineImpl @Inject constructor(
     private val tmdbSettings: TmdbSettingsDataStore
 ) : NuvioCFeaturedTagline {
 
+    override suspend fun infoFor(item: MetaPreview): com.nuvio.tv.core.di.NuvioCFeaturedInfo? {
+        val settings = tmdbSettings.settings.value
+        if (!settings.enabled) return null
+        val tmdbId = runCatching { tmdbService.ensureTmdbId(item.id, item.apiType) }.getOrNull() ?: return null
+        val enrichment = runCatching {
+            tmdbMetadataService.fetchEnrichment(tmdbId = tmdbId, contentType = item.type, language = settings.language)
+        }.getOrNull() ?: return null
+        return com.nuvio.tv.core.di.NuvioCFeaturedInfo(
+            tagline = if (NuvioCFeatures.DETAIL_TAGLINE) enrichment.tagline?.let { nuvioCTaglineText(it) } else null,
+            releaseDate = enrichment.nuvioCReleaseDate,
+            latestSeason = enrichment.nuvioCLatestSeason?.first,
+            latestSeasonAirDate = enrichment.nuvioCLatestSeason?.second
+        )
+    }
+
     override suspend fun taglineFor(item: MetaPreview): String? {
         if (!NuvioCFeatures.DETAIL_TAGLINE) return null
         val settings = tmdbSettings.settings.value

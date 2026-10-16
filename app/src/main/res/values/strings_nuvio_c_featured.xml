@@ -8,4 +8,8 @@
     <string name="nuvio_c_featured_resume_episode">Resume S%1$d E%2$d</string>
     <string name="nuvio_c_featured_details">Details</string>
     <string name="nuvio_c_featured_next">Next title</string>
+    <!-- featured_badges -->
+    <string name="nuvio_c_featured_rank">#%1$d in %2$s</string>
+    <string name="nuvio_c_featured_new">New</string>
+    <string name="nuvio_c_featured_new_season">New season</string>
 </resources>

@@ -170,4 +170,6 @@ object NuvioCFeatures {
     const val CW_SHUFFLE_ICON = true
     /** App font on every text style: the ambient screen title, stream screen headings, collection folders and some dialogs used the system font (official left two text styles out of the font setting). Off = official. */
     const val FONT_ALL_STYLES = true
+    /** Featured carousel: "#3 in Top 20" line above the logo (titles from a top / trending / popular hero catalog, ranks 1-20, top-10 tile for 1-10) and a NEW / NEW SEASON chip (aired in the last 60 days). From catalogs and TMDB data already loaded, no extra requests. */
+    const val FEATURED_BADGES = true
 }

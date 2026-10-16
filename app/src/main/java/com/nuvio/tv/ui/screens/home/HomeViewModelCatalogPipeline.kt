@@ -678,6 +678,7 @@ internal suspend fun HomeViewModel.updateCatalogRowsPipeline() {
             fallbackHeroItemsWithArtwork.isNotEmpty() -> fallbackHeroItemsWithArtwork
             else -> emptyList()
         }
+        NuvioCHeroSource.record(computedHeroItems, selectedHeroRows + allHeroFallbackRows) // [fork] featured_badges
 
         val computedDisplayRows = orderedRows.map { row ->
             val shouldKeepFullRowInModern = currentLayout == HomeLayout.MODERN

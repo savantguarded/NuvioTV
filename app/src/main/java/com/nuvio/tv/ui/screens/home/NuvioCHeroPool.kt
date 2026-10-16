@@ -34,3 +34,27 @@ object NuvioCHeroPool {
         return h
     }
 }
+
+// [fork] Nuvio C featured_badges (2026-10-17): which hero catalog each carousel title came from and
+// its position there, for the "#3 in Top 20" line. Filled when the hero list is built from rows
+// already loaded (no request); read when a slide is drawn.
+object NuvioCHeroSource {
+    data class Entry(val catalogName: String, val rank: Int)
+
+    private val entries = java.util.concurrent.ConcurrentHashMap<String, Entry>()
+
+    fun record(items: List<MetaPreview>, rows: List<com.nuvio.tv.domain.model.CatalogRow>) {
+        if (!NuvioCFeatures.FEATURED_BADGES) return
+        items.forEach { item ->
+            for (row in rows) {
+                val index = row.items.indexOfFirst { it.id == item.id }
+                if (index >= 0) {
+                    entries[item.id] = Entry(row.catalogName, index + 1)
+                    break
+                }
+            }
+        }
+    }
+
+    fun of(id: String): Entry? = entries[id]
+}

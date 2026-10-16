@@ -202,6 +202,8 @@ class NuvioCHomeFeaturedViewModel @Inject constructor(
     val ratings: StateFlow<Map<String, MDBListRatings>> = _ratings.asStateFlow()
     private val _taglines = MutableStateFlow<Map<String, String>>(emptyMap())
     val taglines: StateFlow<Map<String, String>> = _taglines.asStateFlow()
+    private val _infos = MutableStateFlow<Map<String, com.nuvio.tv.core.di.NuvioCFeaturedInfo>>(emptyMap()) // featured_badges
+    val infos: StateFlow<Map<String, com.nuvio.tv.core.di.NuvioCFeaturedInfo>> = _infos.asStateFlow()
     private val asked = HashSet<String>()
 
     /** Ratings (MDBList, when shown on the hero) and tagline for a title, once per title per visit. */
@@ -218,7 +220,10 @@ class NuvioCHomeFeaturedViewModel @Inject constructor(
         }
         val source = taglineSource ?: return
         viewModelScope.launch {
-            val tagline = runCatching { source.taglineFor(item) }.getOrNull()?.takeIf { it.isNotBlank() } ?: return@launch
+            // featured_badges: one TMDB answer (cached) gives the tagline and the release facts for the chip
+            val info = runCatching { source.infoFor(item) }.getOrNull() ?: return@launch
+            if (com.nuvio.tv.NuvioCFeatures.FEATURED_BADGES) _infos.update { it + (item.id to info) }
+            val tagline = info.tagline?.takeIf { it.isNotBlank() } ?: return@launch
             _taglines.update { it + (item.id to tagline) }
         }
     }
@@ -415,6 +420,7 @@ private fun NuvioCFeaturedHome(
     }
     val ratings by viewModel.ratings.collectAsStateWithLifecycle()
     val taglines by viewModel.taglines.collectAsStateWithLifecycle()
+    val infos by viewModel.infos.collectAsStateWithLifecycle()
 
     val atRest by remember { derivedStateOf { progress.value == 0f } }
     NuvioCHeroAutoAdvanceEffect(
@@ -514,6 +520,7 @@ private fun NuvioCFeaturedHome(
                     ratings = if (wantRatings) ratings else emptyMap(),
                     ratingOrder = uiState.mdbListRatingOrder,
                     taglines = taglines,
+                    infos = infos,
                     tagline = viewModel.taglineSource,
                     focusable = shown || sliding,
                     playRequester = playRequester,
@@ -582,6 +589,7 @@ private fun NuvioCFeaturedSlide(
     ratings: Map<String, MDBListRatings>,
     ratingOrder: List<String>,
     taglines: Map<String, String>,
+    infos: Map<String, com.nuvio.tv.core.di.NuvioCFeaturedInfo>,
     tagline: NuvioCFeaturedTagline?,
     focusable: Boolean,
     playRequester: FocusRequester,
@@ -661,7 +669,7 @@ private fun NuvioCFeaturedSlide(
             // Text block bottom-anchored: the buttons never move. Titles swap with a short fade-through,
             // so a taller or shorter block never visibly jumps.
             NuvioCFadeThrough(target = item, key = { it.id }, contentAlignment = Alignment.BottomStart) { slide ->
-                NuvioCFeaturedText(slide, ratings[slide.id], ratingOrder, taglines[slide.id], tagline)
+                NuvioCFeaturedText(slide, ratings[slide.id], ratingOrder, taglines[slide.id], tagline, infos[slide.id])
             }
             Spacer(Modifier.height(18.dp))
             val label = NuvioCFeaturedRules.labelFor(cw)
@@ -773,10 +781,15 @@ private fun NuvioCFeaturedText(
     ratings: MDBListRatings?,
     ratingOrder: List<String>,
     taglineText: String?,
-    tagline: NuvioCFeaturedTagline?
+    tagline: NuvioCFeaturedTagline?,
+    info: com.nuvio.tv.core.di.NuvioCFeaturedInfo? = null
 ) {
     val context = LocalContext.current
     Column(verticalArrangement = Arrangement.Bottom) {
+        if (com.nuvio.tv.NuvioCFeatures.FEATURED_BADGES && NuvioCFeaturedBadgeRules.rank(NuvioCHeroSource.of(item.id)) != null) {
+            NuvioCFeaturedRankLine(item) // featured_badges A
+            Spacer(Modifier.height(10.dp))
+        }
         var aspect by remember(item.logo) { mutableStateOf(NuvioCLogoSize.known(item.logo)) }
         var logoFailed by remember(item.logo) { mutableStateOf(false) }
         if (!item.logo.isNullOrBlank() && !logoFailed) {
@@ -817,15 +830,19 @@ private fun NuvioCFeaturedText(
                 formatHeroRuntime(item.runtime)
             ).joinToString("  ·  ")
         }
-        if (meta.isNotBlank()) {
+        val status = if (com.nuvio.tv.NuvioCFeatures.FEATURED_BADGES) NuvioCFeaturedBadgeRules.status(item, info) else null // featured_badges B
+        if (meta.isNotBlank() || status != null) {
             Spacer(Modifier.height(10.dp))
-            Text(
-                text = meta,
-                style = MaterialTheme.typography.labelMedium,
-                color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.78f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (status != null) NuvioCFeaturedStatusChip(status)
+                if (meta.isNotBlank()) Text(
+                    text = meta,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.78f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
         if (ratings != null) {
             Spacer(Modifier.height(8.dp))
