@@ -523,6 +523,7 @@ internal fun PlayButton(
         context = context,
         rawRes = com.nuvio.tv.R.raw.ic_player_play
     )
+    val nuvioCPill = com.nuvio.tv.ui.components.rememberNuvioCPillScale() // [fork] pill_focus_growth
 
     Button(
         enabled = enabled,
@@ -534,6 +535,7 @@ internal fun PlayButton(
             }
         },
         modifier = modifier
+            .then(nuvioCPill?.modifier ?: Modifier) // [fork] pill_focus_growth
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onFocusChanged {
                 if (it.isFocused) {
@@ -588,6 +590,7 @@ internal fun PlayButton(
                 shape = RoundedCornerShape(NuvioTheme.spacing.xxl)
             )
         ),
+        scale = nuvioCPill?.scale ?: ButtonDefaults.scale(), // [fork] pill_focus_growth
         contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xl, vertical = 14.dp)
     ) {
         Row(

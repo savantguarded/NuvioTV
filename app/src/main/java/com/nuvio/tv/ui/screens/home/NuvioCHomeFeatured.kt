@@ -849,10 +849,12 @@ private fun NuvioCFeaturedText(
 @Composable
 private fun NuvioCFeaturedDetailsButton(enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(NuvioTheme.spacing.xxl)
+    val nuvioCPill = com.nuvio.tv.ui.components.rememberNuvioCPillScale() // pill_focus_growth
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.focusProperties { up = FocusRequester.Cancel },
+        modifier = modifier.then(nuvioCPill?.modifier ?: Modifier).focusProperties { up = FocusRequester.Cancel },
+        scale = nuvioCPill?.scale ?: ButtonDefaults.scale(),
         colors = ButtonDefaults.colors(
             containerColor = NuvioTheme.colors.BackgroundCard,
             focusedContainerColor = NuvioTheme.colors.Secondary,

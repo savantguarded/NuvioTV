@@ -164,4 +164,6 @@ object NuvioCFeatures {
     const val BG_TRAILER_SMOOTH = true
     /** Details page: moving between sections (hero, seasons / episodes, cast and the rows below) no longer rebuilds the whole page. Official rebuilt it on every episode focus, every change of D-pad direction and when the hero scrolled away; Up into the hero / back to the episodes now uses the page's normal scroll motion. Off = official. */
     const val DETAIL_SECTION_SMOOTH = true
+    /** Pill buttons (details Play / Resume, Featured Play and Details): on focus they grow by the same 2.4 dp per side as the round buttons, so the gap to the next button stays even (~8 dp). Official 1.1x zoom made a wide pill swallow the gap. */
+    const val PILL_FOCUS_GROWTH = true
 }
