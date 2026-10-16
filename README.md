@@ -7,7 +7,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 ## What's different
 
 **Home**
-- **Featured layout** (Settings > Layout): a full-screen carousel of your hero catalogs on top of Modern home, with Play, Details and a next-title arrow. It loops both ways; Down goes to the rows, Up comes back.
+- **Featured layout** (Settings > Layout): a full-screen carousel of your hero catalogs on top of Modern home, with Play, Details and a next-title arrow, a "#3 in Top 20" line for ranked catalogs and a NEW / NEW SEASON tag. It loops both ways; Down goes to the rows, Up comes back.
 - The hero carousel actually rotates (every 10 s without a key press) and draws a fresh mix of 18 titles each launch.
 
 **Player**
@@ -31,7 +31,8 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 **Look and feel**
 - Clearlogos at a consistent size, dark logos made readable.
 - Extra app fonts, clock on Home, cleaner profile screen.
-- Smoother scrolling on Home, collections and the details page.
+- Smoother scrolling on Home, collections and the details page, including moving between its sections.
+- Even spacing next to a focused button; the app font everywhere, ambient screen included.
 
 **Accounts and updates**
 - Simkl device login with automatic renewal.
