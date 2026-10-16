@@ -1471,12 +1471,16 @@ private fun MetaDetailsContent(
     }
     var lastDetailDpadKey by rememberSaveable(meta.id) { mutableIntStateOf(0) }
     val tapScroll = remember { DetailTapScroll() }
-    val episodeRowStayVerticalResponder = remember(lastDetailDpadKey, pendingRestoreType) {
+    val nuvioCHeroSize = remember { NuvioCSizeHolder() } // [fork] detail_section_smooth
+    // [fork] detail_section_smooth: last key read from the plain holder, so a change of direction no longer rebuilds the page
+    val nuvioCKeyForResponder = if (NuvioCDetailSmooth.enabled) 0 else lastDetailDpadKey
+    val episodeRowStayVerticalResponder = remember(nuvioCKeyForResponder, pendingRestoreType) {
         object : BringIntoViewResponder {
             override fun calculateRectForParent(localRect: Rect): Rect {
+                val key = if (NuvioCDetailSmooth.enabled) tapScroll.lastKey else lastDetailDpadKey
                 val stayVertical = pendingRestoreType == RestoreTarget.EPISODE ||
-                    lastDetailDpadKey == KeyEvent.KEYCODE_DPAD_LEFT ||
-                    lastDetailDpadKey == KeyEvent.KEYCODE_DPAD_RIGHT
+                    key == KeyEvent.KEYCODE_DPAD_LEFT ||
+                    key == KeyEvent.KEYCODE_DPAD_RIGHT
                 return if (stayVertical) {
                     Rect(localRect.left, 0f, localRect.right, 0f)
                 } else {
@@ -2027,7 +2031,25 @@ private fun MetaDetailsContent(
         byEpisodeId.keys.retainAll(episodesForSeason.map { it.id }.toSet())
         byEpisodeId
     }
-    val seasonDownFocusRequester = remember(selectedSeason, episodesForSeason, seasonEpisodeFocusRequesters, lastFocusedEpisodeIdBySeason[selectedSeason], nextToWatch, defaultSeriesVideo, pendingRestoreType, pendingRestoreEpisodeId) {
+    // [fork] detail_section_smooth: one stable entry point into the episodes row (NuvioCEpisodeEntry) picks the
+    // episode when focus arrives, so the page no longer reads the last-focused episode (rebuilt on every focus).
+    val nuvioCEpisodeEntry = remember(meta.id) { FocusRequester() }
+    val nuvioCResolveEpisode by rememberUpdatedState(newValue = {
+        val nextEpisodeId = if (pendingRestoreType == RestoreTarget.EPISODE) {
+            null
+        } else {
+            nextToWatch?.nextVideoId
+                ?: nextToWatch?.let { ntw -> episodesForSeason.firstOrNull { it.season == ntw.nextSeason && it.episode == ntw.nextEpisode }?.id }
+                ?: defaultSeriesVideo?.id?.takeIf { defaultId -> episodesForSeason.any { it.id == defaultId } }
+        }
+        val preferredEpisodeId = lastFocusedEpisodeIdBySeason[selectedSeason]
+            ?: nextEpisodeId?.takeIf { episodesForSeason.any { ep -> ep.id == it } }
+        (preferredEpisodeId?.let { seasonEpisodeFocusRequesters[it] })
+            ?: episodesForSeason.firstOrNull()?.id?.let { seasonEpisodeFocusRequesters[it] }
+    })
+    val seasonDownFocusRequester = if (NuvioCDetailSmooth.enabled) {
+        nuvioCEpisodeEntry.takeIf { isSeries && episodesForSeason.isNotEmpty() }
+    } else remember(selectedSeason, episodesForSeason, seasonEpisodeFocusRequesters, lastFocusedEpisodeIdBySeason[selectedSeason], nextToWatch, defaultSeriesVideo, pendingRestoreType, pendingRestoreEpisodeId) {
         val nextEpisodeId = if (pendingRestoreType == RestoreTarget.EPISODE) {
             null
         } else {
@@ -2351,7 +2373,7 @@ private fun MetaDetailsContent(
             onTrailerControlKey = onTrailerControlKey,
             onTrailerProgressChanged = onTrailerProgressChanged,
             onTrailerEnded = onTrailerEnded,
-            isScrolledPastHero = isScrolledPastHero,
+            isScrolledPastHeroState = { isScrolledPastHero }, // [fork] read only by the backdrop, not the whole page
             leftGradient = leftGradientBitmap,
             bottomGradient = bottomGradientBitmap,
         )
@@ -2381,7 +2403,7 @@ private fun MetaDetailsContent(
                             KeyEvent.KEYCODE_DPAD_DOWN,
                             KeyEvent.KEYCODE_DPAD_LEFT,
                             KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                                lastDetailDpadKey = native.keyCode
+                                if (!NuvioCDetailSmooth.enabled) lastDetailDpadKey = native.keyCode // [fork] detail_section_smooth: holder only
                                 tapScroll.lastKey = native.keyCode
                             }
                         }
@@ -2508,7 +2530,8 @@ private fun MetaDetailsContent(
         ) {
             // Hero as first item in the lazy column
             item(key = "hero", contentType = "hero") {
-                Box(modifier = Modifier.bringIntoViewResponder(heroNoScrollResponder)) {
+                Box(modifier = Modifier.bringIntoViewResponder(heroNoScrollResponder)
+                    .then(if (NuvioCDetailSmooth.enabled) Modifier.onSizeChanged { nuvioCHeroSize.px = it.height } else Modifier)) { // [fork]
                     HeroContentSection(
                         meta = meta,
                         nextEpisode = nextEpisode,
@@ -2561,7 +2584,10 @@ private fun MetaDetailsContent(
                         onHeroActionFocused = {
                             if (listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0) {
                                 coroutineScope.launch {
-                                    listState.animateScrollToItem(0)
+                                    // [fork] detail_section_smooth: exact distance, page scroll motion
+                                    if (!NuvioCDetailSmooth.enabled || !nuvioCScrollPageToTop(listState, nuvioCHeroSize.px, nuvioCPageScrollSpec)) {
+                                        listState.animateScrollToItem(0)
+                                    }
                                 }
                             }
                             initialHeroFocusRequested = true
@@ -2618,6 +2644,7 @@ private fun MetaDetailsContent(
                         null
                     }
                     Box(modifier = Modifier.bringIntoViewResponder(episodeRowStayVerticalResponder)) {
+                        if (NuvioCDetailSmooth.enabled) NuvioCEpisodeEntry(nuvioCEpisodeEntry) { nuvioCResolveEpisode() } // [fork]
                         EpisodesRow(
                             episodes = episodesForSeason,
                             episodeProgressMap = episodeProgressMap,
@@ -2660,13 +2687,16 @@ private fun MetaDetailsContent(
                             },
                             onEpisodeFocused = { episodeId ->
                                 lastFocusedEpisodeIdBySeason[selectedSeason] = episodeId
-                                if (lastDetailDpadKey == KeyEvent.KEYCODE_DPAD_UP) {
+                                if ((if (NuvioCDetailSmooth.enabled) tapScroll.lastKey else lastDetailDpadKey) == KeyEvent.KEYCODE_DPAD_UP) {
                                     val episodeListItemIndex = 1 + if (showSeasonTabs) 1 else 0
                                     val episodeItem = listState.layoutInfo.visibleItemsInfo
                                         .firstOrNull { it.index == episodeListItemIndex }
                                     if (episodeItem == null || episodeItem.offset < 0) {
                                         coroutineScope.launch {
-                                            listState.animateScrollToItem(episodeListItemIndex)
+                                            // [fork] detail_section_smooth: exact distance, page scroll motion
+                                            if (!NuvioCDetailSmooth.enabled || !nuvioCScrollItemToTop(listState, episodeListItemIndex, nuvioCPageScrollSpec)) {
+                                                listState.animateScrollToItem(episodeListItemIndex)
+                                            }
                                         }
                                     }
                                 }
@@ -3300,11 +3330,12 @@ private fun BackdropLayer(
     onTrailerControlKey: (keyCode: Int, action: Int, repeatCount: Int) -> Boolean,
     onTrailerProgressChanged: (Long, Long) -> Unit,
     onTrailerEnded: () -> Unit,
-    isScrolledPastHero: Boolean,
+    isScrolledPastHeroState: () -> Boolean, // [fork] lambda: only the backdrop recomposes when it flips
     leftGradient: ImageBitmap,
     bottomGradient: ImageBitmap,
 ) {
     val nuvioCBackgroundMuted = com.nuvio.tv.data.local.rememberNuvioCBackgroundTrailerMuted() // [fork]
+    val isScrolledPastHero = isScrolledPastHeroState()
     var showHeroBackdropUnderlay by remember(heroBackdropRequest, backdropRequest) {
         mutableStateOf(heroBackdropRequest != null)
     }

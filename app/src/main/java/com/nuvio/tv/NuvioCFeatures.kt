@@ -162,4 +162,6 @@ object NuvioCFeatures {
     const val FEATURED_WRAP = true
     /** Details background trailer: no stutter while moving around as it starts. The black-bar check (official, a GPU read-back on the UI thread, dearer on HD trailers) waits while a key was pressed in the last 0.9 s and stops after 10 clean frames with no bars. Off = official sampling. (Hero dim, backdrop crossfade and scroll state now redraw at draw time in both cases.) */
     const val BG_TRAILER_SMOOTH = true
+    /** Details page: moving between sections (hero, seasons / episodes, cast and the rows below) no longer rebuilds the whole page. Official rebuilt it on every episode focus, every change of D-pad direction and when the hero scrolled away; Up into the hero / back to the episodes now uses the page's normal scroll motion. Off = official. */
+    const val DETAIL_SECTION_SMOOTH = true
 }
