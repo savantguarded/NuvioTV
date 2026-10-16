@@ -80,7 +80,24 @@ data class NuvioTextStyleTokens(
 )
 
 @OptIn(ExperimentalTvMaterial3Api::class)
-fun buildNuvioTypography(fontFamily: FontFamily): Typography = Typography(
+fun buildNuvioTypography(fontFamily: FontFamily): Typography =
+    nuvioCAllStyles(buildNuvioTypographyOfficial(fontFamily), fontFamily) // [fork] font_all_styles
+
+// [fork] font_all_styles (2026-10-17): official sets the app font on 13 of the 15 text styles; displaySmall
+// and headlineSmall fell back to the TV Material default (system font), so the ambient screen title and
+// ~39 other places (stream screen, collection folders, parts of the player, dialogs) ignored
+// Settings > Appearance > Font. Same sizes as before, only the font changes.
+@OptIn(ExperimentalTvMaterial3Api::class)
+private fun nuvioCAllStyles(t: Typography, fontFamily: FontFamily): Typography {
+    if (!com.nuvio.tv.NuvioCFeatures.FONT_ALL_STYLES) return t
+    return t.copy(
+        displaySmall = t.displaySmall.copy(fontFamily = fontFamily),
+        headlineSmall = t.headlineSmall.copy(fontFamily = fontFamily)
+    )
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+private fun buildNuvioTypographyOfficial(fontFamily: FontFamily): Typography = Typography(
     displayLarge = TextStyle(
         fontFamily = fontFamily,
         fontWeight = FontWeight.Bold,

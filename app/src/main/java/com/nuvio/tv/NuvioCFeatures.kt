@@ -168,4 +168,6 @@ object NuvioCFeatures {
     const val PILL_FOCUS_GROWTH = true
     /** Continue Watching: the shuffle badge on a shuffled series uses the Nuvio C line shuffle icon (same as the details Shuffle button). Off = official Material icon. */
     const val CW_SHUFFLE_ICON = true
+    /** App font on every text style: the ambient screen title, stream screen headings, collection folders and some dialogs used the system font (official left two text styles out of the font setting). Off = official. */
+    const val FONT_ALL_STYLES = true
 }
