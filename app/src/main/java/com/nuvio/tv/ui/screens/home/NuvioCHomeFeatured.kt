@@ -134,7 +134,7 @@ import javax.inject.Inject
 // has nothing of its own to undo, or sidebar Home bring the carousel back on the same title.
 // Stored as Modern + the `nuvio_c_home_featured` flag, so every Modern behaviour stays as it is.
 
-/** True inside the Featured layout: Modern hero synopsis in the details style, fade-through between titles. */
+/** True inside the Featured layout: Modern hero fades through between titles (synopsis style same as Collections). */
 val LocalNuvioCHomeDetailText = staticCompositionLocalOf { false }
 
 /**
