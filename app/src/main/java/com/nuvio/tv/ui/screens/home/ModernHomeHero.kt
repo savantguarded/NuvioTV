@@ -423,9 +423,7 @@ private fun HeroTitleContent(
             lineHeight = headlineLarge.lineHeight * titleScale
         )
     }
-    val nuvioCDetailText = LocalNuvioCHomeDetailText.current // [fork] home_featured: details-page synopsis style
-    val scaledDescriptionStyle = remember(bodyMedium, descriptionScale, nuvioCDetailText) {
-        if (nuvioCDetailText) return@remember com.nuvio.tv.ui.components.NuvioCHeroSpec.detailSynopsisStyle(bodyMedium)
+    val scaledDescriptionStyle = remember(bodyMedium, descriptionScale) {
         if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) return@remember com.nuvio.tv.ui.components.NuvioCHeroSpec.synopsisStyle(bodyMedium) // [fork] hero spec: same 13 sp in every mode
         bodyMedium.copy(
             fontSize = bodyMedium.fontSize * descriptionScale,
@@ -703,7 +701,7 @@ private fun HeroTitleContent(
                 com.nuvio.tv.ui.components.NuvioCFitSynopsis(
                     text = description,
                     style = nuvioCStyle,
-                    color = if (nuvioCDetailText) NuvioTheme.colors.TextPrimary.copy(alpha = com.nuvio.tv.ui.components.NuvioCHeroSpec.DETAIL_SYNOPSIS_ALPHA) else NuvioTheme.colors.TextPrimary,
+                    color = NuvioTheme.colors.TextPrimary,
                     widths = nuvioCTextWidths,
                     modifier = Modifier.graphicsLayer { alpha = metaAlpha }
                 )
@@ -712,7 +710,7 @@ private fun HeroTitleContent(
             Text(
                 text = description,
                 style = nuvioCStyle,
-                color = if (nuvioCDetailText) NuvioTheme.colors.TextPrimary.copy(alpha = com.nuvio.tv.ui.components.NuvioCHeroSpec.DETAIL_SYNOPSIS_ALPHA) else NuvioTheme.colors.TextPrimary,
+                color = NuvioTheme.colors.TextPrimary,
                 maxLines = nuvioCFit?.lines ?: descriptionMaxLines,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier
