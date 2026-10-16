@@ -74,6 +74,12 @@ internal fun Modifier.nuvioCFade(alpha: Float): Modifier = graphicsLayer {
     compositingStrategy = CompositingStrategy.ModulateAlpha
 }
 
+/** Same fade, alpha read at draw time: an animating alpha redraws only this layer, never recomposes the hero. */
+internal fun Modifier.nuvioCFade(alpha: () -> Float): Modifier = graphicsLayer {
+    this.alpha = alpha()
+    compositingStrategy = CompositingStrategy.ModulateAlpha
+}
+
 /**
  * Like animateContentSize (height only, content pinned to the top) but without clipToBounds,
  * so the hero's logo and focused buttons are never cropped while the hero resizes.

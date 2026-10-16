@@ -143,8 +143,11 @@ internal fun NuvioCTrailerAutostartEffect(autostart: NuvioCTrailerAutostart, chi
 
 /** Content-level inputs: in-page overlays and row scrolling. */
 @Composable
-internal fun NuvioCTrailerAutostartInputs(trailer: NuvioCTrailerUi, overlayOpen: Boolean, scrolling: Boolean) {
+internal fun NuvioCTrailerAutostartInputs(trailer: NuvioCTrailerUi, overlayOpen: Boolean, scrolling: () -> Boolean) {
     val autostart = trailer.autostart ?: return
     LaunchedEffect(autostart, overlayOpen) { autostart.setOverlayOpen(overlayOpen) }
-    LaunchedEffect(autostart, scrolling) { autostart.setScrolling(scrolling) }
+    // Read through snapshotFlow, not in composition: scroll start / stop must not recompose the page.
+    LaunchedEffect(autostart) {
+        androidx.compose.runtime.snapshotFlow(scrolling).collect { autostart.setScrolling(it) }
+    }
 }
