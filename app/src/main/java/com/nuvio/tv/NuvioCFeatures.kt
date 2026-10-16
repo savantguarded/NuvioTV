@@ -158,4 +158,6 @@ object NuvioCFeatures {
     const val DETAIL_ROW_THROTTLE = true
     /** Home hero carousel (Featured, Classic, Grid): 18 titles from your hero catalogs instead of official's 7, a new random pick and order on every app launch, mixed across catalogs (official took the same 7 by a fixed hash, so it showed the same few all day). Order stays put within a run. */
     const val HERO_POOL_SHUFFLE = true
+    /** Featured home: Left from Play on the first title goes to the last (Right from the arrow already wraps to the first), so the carousel loops both ways. The sidebar is reached with Back. Off = Left on the first title goes to the sidebar. */
+    const val FEATURED_WRAP = true
 }
