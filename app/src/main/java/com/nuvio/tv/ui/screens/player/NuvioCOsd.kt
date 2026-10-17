@@ -566,7 +566,8 @@ internal fun NuvioCSubtitleLiftEffect(
     state: NuvioCOsdState,
     subtitleStyle: SubtitleStyleSettings,
     pauseShown: Boolean = false, // round 6: the pause screen's progress line is cleared the same way
-    officialLiftPx: Float = 0f // 2026-10-17 blend: official's mpv apply resets sub-pos, so ours re-applies after it
+    officialLiftPx: Float = 0f, // 2026-10-17 blend: official's mpv apply resets sub-pos, so ours re-applies after it
+    officialLift: (() -> Float)? = null // player_lift_light: same, read here (only this effect reacts), in 2 px steps
 ) {
     if (!NuvioCFeatures.SUBTITLE_LIFT) return
     val controller = viewModel.controller
@@ -633,7 +634,8 @@ internal fun NuvioCSubtitleLiftEffect(
     val mpvLifted = shown && (toTop || !liftTop.isNaN())
     // Re-applied only when the block really moves (2 px steps): each apply is an mpv property set.
     val topKey = if (toTop) (topBottomPx / 2f).roundToInt() else if (liftTop.isNaN()) Int.MIN_VALUE else (liftTop / 2f).roundToInt()
-    LaunchedEffect(controller, mpvLifted, topKey, subtitleStyle, officialLiftPx) {
+    val officialKey = officialLift?.let { (it() / 2f).roundToInt() } ?: officialLiftPx
+    LaunchedEffect(controller, mpvLifted, topKey, subtitleStyle, officialKey) {
         val mpv = controller.mpvView ?: return@LaunchedEffect
         runCatching {
             if (mpvLifted && toTop) {

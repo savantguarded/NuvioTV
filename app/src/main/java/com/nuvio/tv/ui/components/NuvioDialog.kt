@@ -1,5 +1,6 @@
 package com.nuvio.tv.ui.components
 
+import com.nuvio.tv.ui.screens.player.nuvioCHdrDim // [fork]
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.ui.util.contentTextDirection
 
@@ -74,6 +75,7 @@ fun NuvioDialog(
         AmbientDialogEffect(onDismiss)
         Box(
             modifier = Modifier
+                .nuvioCHdrDim(com.nuvio.tv.ui.screens.player.LocalNuvioCHdrDim.current) // [fork] HDR dim when opened over HDR playback (watch party)
                 .width(width)
                 .heightIn(max = maxDialogHeight)
                 .clip(containerShape)

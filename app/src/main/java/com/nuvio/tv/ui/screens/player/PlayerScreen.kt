@@ -231,6 +231,8 @@ fun PlayerScreen(
     val nuvioCOsdAnchor = remember { NuvioCOsdAnchor() } // [fork] where the seek bar is, for Skip Intro
     val nuvioCLift = remember { NuvioCOsdState() } // [fork] OSD layout facts + subtitle lift (OSD and pause screen share it)
     var nuvioCOfficialLiftKey by remember { mutableFloatStateOf(0f) } // [fork] official subtitle lift, so the Nuvio C lift re-applies after it
+    // [fork] player_lift_light: read only inside the lift effect, so a change doesn't rebuild this whole screen
+    val nuvioCOfficialLiftRead: () -> Float = remember { { nuvioCOfficialLiftKey } }
     val progressBarFocusRequester = remember { FocusRequester() }
     val episodesFocusRequester = remember { FocusRequester() }
     val streamsFocusRequester = remember { FocusRequester() }
@@ -1501,7 +1503,7 @@ fun PlayerScreen(
 
         // Controls overlay
         val nuvioCControlsVisible = playerControlsVisible // [fork] also drives the Nuvio C subtitle lift
-        NuvioCSubtitleLiftEffect(viewModel, nuvioCControlsVisible, nuvioCLift, uiState.subtitleStyle, pauseShown = com.nuvio.tv.NuvioCFeatures.PAUSE_SCREEN_C && nuvioCPauseVisible, officialLiftPx = nuvioCOfficialLiftKey) // [fork] subtitles clear the OSD / the pause screen's progress line
+        NuvioCSubtitleLiftEffect(viewModel, nuvioCControlsVisible, nuvioCLift, uiState.subtitleStyle, pauseShown = com.nuvio.tv.NuvioCFeatures.PAUSE_SCREEN_C && nuvioCPauseVisible, officialLiftPx = if (com.nuvio.tv.NuvioCFeatures.PLAYER_LIFT_LIGHT) 0f else nuvioCOfficialLiftKey, officialLift = if (com.nuvio.tv.NuvioCFeatures.PLAYER_LIFT_LIGHT) nuvioCOfficialLiftRead else null) // [fork] subtitles clear the OSD / the pause screen's progress line
         AnimatedVisibility(
             visible = playerControlsVisible,
             enter = fadeIn(animationSpec = tween(200)),
@@ -1644,6 +1646,7 @@ fun PlayerScreen(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = 28.dp)
+                    .nuvioCHdrDim(nuvioCHdr) // [fork] HDR dim (watch party pill)
             )
         }
 
@@ -1831,6 +1834,7 @@ fun PlayerScreen(
             )
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
+                CompositionLocalProvider(LocalNuvioCHdrDim provides nuvioCHdr) { // [fork] party dialogs dim too
                 PartyPanel(
                     state = partyState,
                     profile = partyProfile,
@@ -1864,8 +1868,9 @@ fun PlayerScreen(
                         viewModel.onEvent(PlayerEvent.OnDismissPartyPanel)
                     },
                     onClose = { viewModel.onEvent(PlayerEvent.OnDismissPartyPanel) },
-                    modifier = Modifier.align(Alignment.CenterEnd)
+                    modifier = Modifier.align(Alignment.CenterEnd).nuvioCHdrDim(nuvioCHdr) // [fork] HDR dim (watch party panel)
                 )
+                } // [fork]
             }
         }
 
