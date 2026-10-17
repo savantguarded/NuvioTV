@@ -172,4 +172,14 @@ object NuvioCFeatures {
     const val FONT_ALL_STYLES = true
     /** Featured carousel: "#3 in Top 20" line above the logo (titles from a top / trending / popular hero catalog, ranks 1-20, top-10 tile for 1-10) and a NEW / NEW SEASON chip (aired in the last 60 days). From catalogs and TMDB data already loaded, no extra requests. */
     const val FEATURED_BADGES = true
+    /** Featured carousel: a title opened with Details (or Play without Continue Watching) shows its own backdrop while the details page loads. Before, the page opened on the first Continue Watching card's picture (Modern's hidden hero) and then switched. */
+    const val FEATURED_SEED = true
+    /** Hero carousel timer (Featured, Classic, Grid): a key press restarts the 10 s wait without redrawing the carousel (it counted presses in screen state, so every press rebuilt the carousel). Off = previous counter. */
+    const val IDLE_TIMER_LIGHT = true
+    /** Featured home: while you browse the rows the hidden carousel is not kept built, so Home updates (ratings, Continue Watching, hero enrichment) no longer rebuild it each time. Up / sidebar Home builds it again before it slides down. Off = carousel always built. */
+    const val FEATURED_ROWS_LIGHT = true
+    /** Player: official's subtitle lift (Skip Intro, next-episode card, seek-only bar) no longer rebuilds the whole player screen each time it moves; only the Nuvio C lift reacts, and mpv is re-told only on 2 px steps. Off = previous wiring. */
+    const val PLAYER_LIFT_LIGHT = true
+    /** IMDb trailer backup: the hidden browser starts once the remote has been still for a moment (at most 4 s wait) and runs at low priority, so opening a details page while YouTube is rate-limited doesn't stall. Off = starts at once. */
+    const val IMDB_QUIET_START = true
 }
