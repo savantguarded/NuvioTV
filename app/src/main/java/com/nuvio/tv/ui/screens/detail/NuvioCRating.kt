@@ -91,10 +91,14 @@ class NuvioCRatingViewModel @Inject constructor(
         _state.value = NuvioCRatingUiState(target = target)
         if (target == null) return
         viewModelScope.launch {
-            val connected = service.connected()
-            _state.update { it.copy(connected = connected, saved = service.savedScore(target)) }
+            // [fork] off the UI thread: prefs load, the Trakt copy file and the ratings JSON (up to ~150 KB)
+            // were read / parsed on the main thread as the details page opened.
+            val (connected, saved) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                service.connected() to service.savedScore(target)
+            }
+            _state.update { it.copy(connected = connected, saved = saved) }
             // Trakt copy: memory lookup, refreshed at most every 15 min (tiny request)
-            val trakt = service.traktScore(target)
+            val trakt = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { service.traktScore(target) }
             if (trakt != null && _state.value.target == target) {
                 _state.update { if (it.open) it.copy(trakt = trakt) else it.copy(trakt = trakt, saved = trakt) }
             }

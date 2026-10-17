@@ -67,6 +67,10 @@ class NuvioCImdbTrailerResolver @Inject constructor(
     private data class VideoInfo(val contentType: String?, val name: String?, val encodings: List<Encoding>)
     private data class Hero(val vi: String, val name: String?, val runtime: Int?, val encodings: List<Encoding>)
     private data class Page(val html: String, val nextData: String?)
+    private val QUIET_MIN_MS = 600L
+    private val QUIET_WINDOW_MS = 900L
+    private val QUIET_MAX_WAIT_MS = 4_000L
+
     private class NetFlag { @Volatile var tripped = false }
 
     /**
@@ -79,6 +83,15 @@ class NuvioCImdbTrailerResolver @Inject constructor(
         if (!imdbId.startsWith("tt")) {
             Log.w(TAG, "resolve called with non-imdb id: $imdbId")
             return null
+        }
+        // [fork] imdb_quiet_start (2026-10-17): building a WebView and running IMDb's scripts competes with the
+        // details page as it opens (and with focus moves). Wait until the remote has been still for a moment.
+        if (com.nuvio.tv.NuvioCFeatures.IMDB_QUIET_START) {
+            delay(QUIET_MIN_MS)
+            val until = android.os.SystemClock.uptimeMillis() + QUIET_MAX_WAIT_MS
+            while (com.nuvio.tv.core.NuvioCInput.recentlyActive(QUIET_WINDOW_MS) && android.os.SystemClock.uptimeMillis() < until) {
+                delay(250)
+            }
         }
         repeat(LOAD_ATTEMPTS) { attempt ->
             val flag = NetFlag()
@@ -104,6 +117,10 @@ class NuvioCImdbTrailerResolver @Inject constructor(
         try {
             val wv = WebView(appContext)
             configureWebView(wv, flag)
+            if (com.nuvio.tv.NuvioCFeatures.IMDB_QUIET_START && android.os.Build.VERSION.SDK_INT >= 26) {
+                // [fork] low-priority renderer: never wins CPU over the app's own drawing
+                runCatching { wv.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_WAIVED, false) }
+            }
             val w = 1280
             val h = 720
             wv.layoutParams = ViewGroup.LayoutParams(w, h)
