@@ -238,6 +238,7 @@ private fun PlaybackNavHost(
 
             HomeScreen(
                 onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
+                    com.nuvio.tv.core.NuvioCPerf.markDetailOpen() // [fork] timing log
                     val heroBackdrop = HeroBackdropState.consumeAndClear()
                     navController.navigate(
                         Screen.Detail.createRoute(

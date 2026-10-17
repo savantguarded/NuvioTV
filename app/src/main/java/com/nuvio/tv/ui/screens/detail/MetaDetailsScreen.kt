@@ -463,6 +463,10 @@ fun MetaDetailsScreen(
 ) {
     val playbackAvailability = LocalPlaybackAvailability.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // [fork] timing log (NuvioCPerf): first frame and meta arriving after a Home / carousel press
+    LaunchedEffect(Unit) { withFrameNanos { }; com.nuvio.tv.core.NuvioCPerf.detailStage("first frame") }
+    val nuvioCMetaReady = uiState.meta != null
+    LaunchedEffect(nuvioCMetaReady) { if (nuvioCMetaReady) com.nuvio.tv.core.NuvioCPerf.detailStage("meta shown", last = true) }
     val posterCardCornerRadiusDp by viewModel.posterCardCornerRadiusDp.collectAsStateWithLifecycle()
     val effectiveAutoplayEnabled by viewModel.effectiveAutoplayEnabled.collectAsStateWithLifecycle(
         initialValue = false
