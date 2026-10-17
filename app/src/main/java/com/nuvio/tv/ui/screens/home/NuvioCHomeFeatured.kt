@@ -315,6 +315,7 @@ private fun NuvioCFeaturedHome(
     var rowsFocused by remember { mutableStateOf(false) }
     var sliding by remember { mutableStateOf(false) }
     var interaction by remember { mutableIntStateOf(0) }
+    val idleClock = com.nuvio.tv.ui.components.rememberNuvioCIdleClock() // [fork] idle_timer_light
     val carouselOn = shown && available
     val progress = remember { Animatable(if (carouselOn) 0f else 1f) } // 0 = carousel, 1 = rows
 
@@ -353,6 +354,8 @@ private fun NuvioCFeaturedHome(
             sliding = true
             shown = true
             withFrameNanos { }
+            // featured_rows_light: the slide is built in the frame after `shown` flips; ask once it exists
+            if (com.nuvio.tv.NuvioCFeatures.FEATURED_ROWS_LIGHT) withFrameNanos { }
             runCatching { buttonRequester(lastButton).requestFocus() }
             progress.animateTo(0f, tween(SLIDE_MS, easing = FastOutSlowInEasing))
             sliding = false
@@ -402,7 +405,10 @@ private fun NuvioCFeaturedHome(
             cw != null && manual -> actions.onContinueWatchingPlayManually(cw)
             cw != null -> actions.onContinueWatchingClick(cw)
             actions.onPlayFromDetails != null -> actions.onPlayFromDetails.invoke(item.id, item.apiType, item.backdropUrl, manual)
-            else -> actions.onNavigateToDetail(item.id, item.apiType, "")
+            else -> {
+                if (com.nuvio.tv.NuvioCFeatures.FEATURED_SEED) HeroBackdropState.seedNext(item.backdropUrl)
+                actions.onNavigateToDetail(item.id, item.apiType, "")
+            }
         }
     }
     var showPlayOptions by remember { mutableStateOf(false) }
@@ -423,11 +429,19 @@ private fun NuvioCFeaturedHome(
     val infos by viewModel.infos.collectAsStateWithLifecycle()
 
     val atRest by remember { derivedStateOf { progress.value == 0f } }
-    NuvioCHeroAutoAdvanceEffect(
-        count = if (carouselOn && atRest && !showPlayOptions) items.size else 0,
-        activeIndex = index,
-        interaction = interaction
-    ) { index = NuvioCFeaturedRules.nextIndex(index, items.size) }
+    if (com.nuvio.tv.NuvioCFeatures.IDLE_TIMER_LIGHT) {
+        com.nuvio.tv.ui.components.NuvioCHeroAutoAdvanceEffect(
+            count = if (carouselOn && atRest && !showPlayOptions) items.size else 0,
+            activeIndex = index,
+            clock = idleClock
+        ) { index = NuvioCFeaturedRules.nextIndex(index, items.size) }
+    } else {
+        NuvioCHeroAutoAdvanceEffect(
+            count = if (carouselOn && atRest && !showPlayOptions) items.size else 0,
+            activeIndex = index,
+            interaction = interaction
+        ) { index = NuvioCFeaturedRules.nextIndex(index, items.size) }
+    }
 
     val heroAlpha = remember(progress) { { progress.value } }
 
@@ -505,7 +519,7 @@ private fun NuvioCFeaturedHome(
                     .onPreviewKeyEvent { event ->
                         if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                         if (sliding) return@onPreviewKeyEvent true // keys during the slide are dropped
-                        interaction++
+                        if (com.nuvio.tv.NuvioCFeatures.IDLE_TIMER_LIGHT) idleClock.touch() else interaction++
                         when (event.key) {
                             Key.DirectionDown -> { goToRows(); true }
                             Key.DirectionUp -> true
@@ -513,7 +527,9 @@ private fun NuvioCFeaturedHome(
                         }
                     }
             ) {
-                NuvioCFeaturedSlide(
+                // [fork] featured_rows_light: fully in the rows (carousel slid away and not coming back) =
+                // nothing built here, so Home updates while browsing don't rebuild the hidden carousel.
+                if (!com.nuvio.tv.NuvioCFeatures.FEATURED_ROWS_LIGHT || shown || sliding) NuvioCFeaturedSlide(
                     items = items,
                     index = index.coerceIn(0, items.size - 1),
                     cw = activeCw,
@@ -528,7 +544,13 @@ private fun NuvioCFeaturedHome(
                     nextRequester = nextRequester,
                     onPlay = { play(manual = false) },
                     onPlayLongPress = playLongPress,
-                    onDetails = { activeItem?.let { actions.onNavigateToDetail(it.id, it.apiType, "") } },
+                    onDetails = {
+                        activeItem?.let {
+                            // [fork] featured_seed: open on this title's picture, not Modern's hidden hero (first CW card)
+                            if (com.nuvio.tv.NuvioCFeatures.FEATURED_SEED) HeroBackdropState.seedNext(it.backdropUrl)
+                            actions.onNavigateToDetail(it.id, it.apiType, "")
+                        }
+                    },
                     onButtonFocused = { lastButton = it },
                     onNext = { focusFirst ->
                         index = NuvioCFeaturedRules.nextIndex(index, items.size)

@@ -8,6 +8,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
 import com.nuvio.tv.domain.model.MetaPreview
+import android.os.SystemClock
+import androidx.compose.runtime.remember
 import kotlinx.coroutines.delay
 
 // [fork] Nuvio C hero_autoadvance (2026-10-15). Official HeroCarousel only advanced while it did NOT
@@ -39,6 +41,46 @@ internal fun NuvioCHeroAutoAdvanceEffect(
     LaunchedEffect(count > 1, resumed, activeIndex, interaction) {
         if (count <= 1 || !resumed) return@LaunchedEffect
         delay(NuvioCHeroAutoAdvance.INTERVAL_MS)
+        advance()
+    }
+}
+
+/**
+ * [fork] idle_timer_light (2026-10-17): when the last key press happened, kept outside Compose state, so
+ * a press doesn't rebuild the carousel (the old counter was screen state read by the timer effect).
+ */
+internal class NuvioCIdleClock {
+    @Volatile var lastMs: Long = SystemClock.uptimeMillis()
+        private set
+
+    fun touch() {
+        lastMs = SystemClock.uptimeMillis()
+    }
+}
+
+@Composable
+internal fun rememberNuvioCIdleClock(): NuvioCIdleClock = remember { NuvioCIdleClock() }
+
+/** Same rule as above (10 s without a key press, only while resumed), timed from [clock]. */
+@Composable
+internal fun NuvioCHeroAutoAdvanceEffect(
+    count: Int,
+    activeIndex: Int,
+    clock: NuvioCIdleClock,
+    onAdvance: () -> Unit
+) {
+    val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    val resumed = lifecycleState.isAtLeast(Lifecycle.State.RESUMED)
+    val advance by rememberUpdatedState(onAdvance)
+    LaunchedEffect(count > 1, resumed, activeIndex) {
+        if (count <= 1 || !resumed) return@LaunchedEffect
+        val startedMs = SystemClock.uptimeMillis()
+        while (true) {
+            val from = maxOf(startedMs, clock.lastMs)
+            val waitMs = from + NuvioCHeroAutoAdvance.INTERVAL_MS - SystemClock.uptimeMillis()
+            if (waitMs <= 0) break
+            delay(waitMs)
+        }
         advance()
     }
 }
