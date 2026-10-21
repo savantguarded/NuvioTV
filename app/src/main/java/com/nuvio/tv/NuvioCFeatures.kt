@@ -240,4 +240,6 @@ object NuvioCFeatures {
     // ---- Round 18 (2026-10-21) ----
     /** Library list picker (details plus button, Home and poster long-press): the ticks sit in one column at the right edge, whatever the list name's length (a fixed slot, kept even on unticked rows). Off = round-12 layout. */
     const val LIBRARY_PICKER_TICKS = true
+    /** Calendar reminder popup (one title): Watch now / Open show / Later take the width their text needs, in a full-width row under the poster and text, so no label is cut off. The several-titles popup's Show / Film button gets a minimum width too. Off = ysosrs123's layout. */
+    const val CALENDAR_REMINDER_BUTTONS = true
 }

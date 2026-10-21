@@ -236,7 +236,56 @@ private fun CalendarReminderDialog(
         title = calendarReminderTitle(card.items, card.total),
         width = if (card.single) 640.dp else 700.dp
     ) {
-        if (card.single) {
+        if (card.single && com.nuvio.tv.NuvioCFeatures.CALENDAR_REMINDER_BUTTONS) { // [fork] calendar_reminder_buttons: full-width button row, labels never cut off
+            val reminder = card.items.first()
+            Row(horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.lg)) {
+                CalendarPoster(url = reminder.title.poster, width = 96.dp, height = 144.dp)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)) {
+                    Text(
+                        text = reminder.title.name ?: stringResource(R.string.calendar_unknown_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = NuvioTheme.colors.TextPrimary,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = calendarReminderLine(reminder),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = NuvioTheme.colors.TextPrimary,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = calendarAiredText(reminder, formats, card.zone, card.now),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = NuvioTheme.colors.TextSecondary,
+                        maxLines = 1
+                    )
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)) {
+                DialogButton(
+                    text = stringResource(R.string.calendar_reminder_watch_now),
+                    onClick = { onWatch(reminder) },
+                    isPrimary = true,
+                    modifier = Modifier.focusRequester(first)
+                )
+                DialogButton(
+                    text = stringResource(
+                        if (reminder.title.type == CalendarTitleType.MOVIE) R.string.calendar_action_open_film
+                        else R.string.calendar_action_open_show
+                    ),
+                    onClick = { onOpenTitle(reminder) },
+                    isPrimary = false
+                )
+                DialogButton(
+                    text = stringResource(R.string.calendar_reminder_later),
+                    onClick = onLater,
+                    isPrimary = false
+                )
+            }
+        } else if (card.single) {
             val reminder = card.items.first()
             Row(horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.lg)) {
                 CalendarPoster(url = reminder.title.poster, width = 96.dp, height = 144.dp)
@@ -391,7 +440,8 @@ private fun CalendarReminderRow(
                 else R.string.calendar_reminder_row_show
             ),
             onClick = onOpenTitle,
-            isPrimary = false
+            isPrimary = false,
+            modifier = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_REMINDER_BUTTONS) Modifier.widthIn(min = 96.dp) else Modifier // [fork] calendar_reminder_buttons
         )
     }
 }
