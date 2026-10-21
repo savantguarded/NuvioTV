@@ -1,243 +1,117 @@
 package com.nuvio.tv.data.trailer
 
-import android.content.Context
 import android.util.Log
-import android.view.View
-import android.view.ViewGroup
-import android.webkit.CookieManager
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.coroutines.resume
 
 // [fork] Nuvio C: IMDb trailer lookup, used only as a backup when YouTube rate-limits
-// (see NuvioCTrailerBackup.kt). Ported from ysosrs123/NuvioTV-Fork (ImdbTrailerResolver.kt,
-// branch nuvio-test, GPL-3.0) with these changes: class renamed, 2 load attempts instead of 3,
-// 30 s budget per attempt instead of 45 s, so a backup lookup never stalls a page for minutes.
+// (see NuvioCTrailerBackup.kt). First ported from ysosrs123/NuvioTV-Fork (ImdbTrailerResolver.kt,
+// GPL-3.0), which loaded the IMDb title page in a hidden WebView to pass IMDb's bot check.
 //
-// How it works: a hidden, application-context WebView loads the IMDb title page (a real browser
-// is needed to pass IMDb's bot check), reads the video IMDb features in its own "Play trailer"
-// slot (primaryVideos.edges[0]) and returns its best progressive mp4 between 720p and 1080p.
-// Below 720p, or on any failure, it returns null and the caller keeps the YouTube result.
-// A fresh WebView is built and destroyed per attempt, always on the main thread.
+// Round 14 (2026-10-21, `imdb_no_browser`): the hidden WebView is gone. Its renderer is a separate
+// process that Android kills first when memory runs low, and an unhandled renderer kill takes the
+// whole app down with it (WebView's rule) -- that was the 4K DV crash at ~80% of an episode, when
+// the post-play prefetch asked for trailers. IMDb's own GraphQL endpoint (the one imdb.com calls)
+// answers without the bot check and returns the same hero video ("Play trailer" slot =
+// primaryVideos.edges[0]) with the same signed mp4 rungs. One ~2 KB request, no browser, no process.
+// Picks the best progressive mp4 between 720p and 1080p; below 720p or on any failure returns null
+// and the caller keeps the YouTube result.
 @Singleton
-class NuvioCImdbTrailerResolver @Inject constructor(
-    @ApplicationContext private val appContext: Context
-) {
+class NuvioCImdbTrailerResolver @Inject constructor() {
     private companion object {
         const val TAG = "NuvioCImdbTrailer"
         const val UA =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
                 "(KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
-        const val REFERER = "https://www.imdb.com/"
-        const val POLL_MS = 300L           // finer cadence (cheap probe, not full-DOM marshalling)
-        const val POLL_MAX = 60            // 60 * 300ms = ~18s ceiling (unchanged wall-clock)
-        const val DEAD_STALL_POLLS = 24    // 24 * 300ms = ~7s of no progress before dead-fast bail
-        const val MAX_EVAL_MS = 4_000L
-        const val TITLE_BUDGET_MS = 30_000L
-        const val MAX_NULL_STREAK = 10     // scaled to 300ms polls (~3s of null probes)
-        const val LOAD_ATTEMPTS = 2
+        const val GRAPHQL_URL = "https://caching.graphql.imdb.com/"
+        const val ATTEMPTS = 2
 
         const val RES_FLOOR = 720          // never serve below this from IMDb
-        const val RES_CAP = 1080           // cap picks at 1080p even when 4K exists (throwaway hero backdrop)
+        const val RES_CAP = 1080           // cap picks at 1080p even when 4K exists
 
-        val VI_ID = Regex("""^vi\d{6,}$""")
-        val CDN_MP4 = Regex("""https://imdb-video\.media-imdb\.com/[^\s"'<>\\]+?\.mp4[^\s"'<>\\]*""")
-
-        // Static sub-resources we never need for __NEXT_DATA__. Extension-only: never matches scripts,
-        // XHR/fetch (extensionless), the main document, or the awsWaf challenge.
-        val BLOCK_EXT = Regex("""\.(?:css|woff2?|ttf|otf|eot|jpe?g|png|gif|webp|bmp|ico|svg|mp4|m3u8|ts|mp3|aac)(?:[?#].*)?$""", RegexOption.IGNORE_CASE)
+        val TT_ID = Regex("""^tt\d{6,}$""")
+        val JSON = "application/json".toMediaType()
     }
 
-    private val blockedAssets = AtomicInteger(0)
+    private val http: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(8, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .callTimeout(15, TimeUnit.SECONDS)
+            .build()
+    }
 
     private data class Encoding(val def: String, val height: Int, val mp4: Boolean, val url: String)
-    private data class VideoInfo(val contentType: String?, val name: String?, val encodings: List<Encoding>)
-    private data class Hero(val vi: String, val name: String?, val runtime: Int?, val encodings: List<Encoding>)
-    private data class Page(val html: String, val nextData: String?)
-    private val QUIET_MIN_MS = 600L
-    private val QUIET_WINDOW_MS = 900L
-    private val QUIET_MAX_WAIT_MS = 4_000L
-
-    private class NetFlag { @Volatile var tripped = false }
 
     /**
      * Resolve the IMDb hero trailer for [imdbId] (a `tt...` id). Returns a playback source pointing at a
-     * signed CloudFront mp4 (>=720p, <=1080p), or null if discovery failed / the hero video has no
-     * acceptable mp4 (caller should fall back to YouTube on null). [type] is unused (kept for source
-     * compatibility) -- mirror-IMDb selects the hero regardless of title type.
+     * signed CloudFront mp4 (>=720p, <=1080p), or null (caller keeps YouTube). [type] is unused.
      */
     suspend fun resolve(imdbId: String, type: String? = null): TrailerPlaybackSource? {
-        if (!imdbId.startsWith("tt")) {
+        if (!TT_ID.matches(imdbId)) {
             Log.w(TAG, "resolve called with non-imdb id: $imdbId")
             return null
         }
-        // [fork] imdb_quiet_start (2026-10-17): building a WebView and running IMDb's scripts competes with the
-        // details page as it opens (and with focus moves). Wait until the remote has been still for a moment.
-        if (com.nuvio.tv.NuvioCFeatures.IMDB_QUIET_START) {
-            delay(QUIET_MIN_MS)
-            val until = android.os.SystemClock.uptimeMillis() + QUIET_MAX_WAIT_MS
-            while (com.nuvio.tv.core.NuvioCInput.recentlyActive(QUIET_WINDOW_MS) && android.os.SystemClock.uptimeMillis() < until) {
-                delay(250)
-            }
+        repeat(ATTEMPTS) { attempt ->
+            val body = runCatching { withContext(Dispatchers.IO) { query(imdbId) } }
+                .onFailure { Log.w(TAG, "[$imdbId] request failed (attempt ${attempt + 1}): ${it.message}") }
+                .getOrNull()
+            if (body != null) return pick(imdbId, body)
         }
-        repeat(LOAD_ATTEMPTS) { attempt ->
-            val flag = NetFlag()
-            val result = withTimeoutOrNull(TITLE_BUDGET_MS) {
-                val wv = buildWebView(flag) ?: return@withTimeoutOrNull null
-                try {
-                    resolveInternal(imdbId, wv, flag)
-                } finally {
-                    withContext(Dispatchers.Main) { runCatching { wv.stopLoading(); wv.destroy() } }
-                }
-            }
-            if (result != null) return result
-            if (attempt < LOAD_ATTEMPTS - 1) {
-                Log.w(TAG, "[$imdbId] resolve attempt ${attempt + 1}/$LOAD_ATTEMPTS produced nothing; fresh WebView + retry")
-                delay(500)
-            }
-        }
-        Log.w(TAG, "[$imdbId] resolve exhausted $LOAD_ATTEMPTS attempts -> null (keep YouTube)")
+        Log.w(TAG, "[$imdbId] no answer from IMDb -> null (keep YouTube)")
         return null
     }
 
-    private suspend fun buildWebView(flag: NetFlag): WebView? = withContext(Dispatchers.Main) {
-        try {
-            val wv = WebView(appContext)
-            configureWebView(wv, flag)
-            if (com.nuvio.tv.NuvioCFeatures.IMDB_QUIET_START && android.os.Build.VERSION.SDK_INT >= 26) {
-                // [fork] low-priority renderer: never wins CPU over the app's own drawing
-                runCatching { wv.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_WAIVED, false) }
+    private fun query(imdbId: String): String? {
+        val gql = "query { title(id: \"$imdbId\") { primaryVideos(first: 1) { edges { node { " +
+            "id name { value } runtime { value } " +
+            "playbackURLs { url videoMimeType videoDefinition displayName { value } } } } } } }"
+        val payload = JSONObject().put("query", gql).toString()
+        val request = Request.Builder()
+            .url(GRAPHQL_URL)
+            .post(payload.toRequestBody(JSON))
+            .header("User-Agent", UA)
+            .header("Accept", "application/json")
+            .header("Origin", "https://www.imdb.com")
+            .header("Referer", "https://www.imdb.com/")
+            .header("x-imdb-client-name", "imdb-web-next-localized")
+            .build()
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                Log.w(TAG, "[$imdbId] IMDb answered HTTP ${response.code}")
+                return null
             }
-            val w = 1280
-            val h = 720
-            wv.layoutParams = ViewGroup.LayoutParams(w, h)
-            wv.measure(
-                View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY)
-            )
-            wv.layout(0, 0, w, h)
-            wv.visibility = View.VISIBLE
-            runCatching { wv.resumeTimers() }
-            wv
-        } catch (e: Exception) {
-            Log.e(TAG, "application-context WebView construction failed: ${e.message}")
-            null
+            return response.body?.string()
         }
     }
 
-    private suspend fun resolveInternal(imdbId: String, wv: WebView, flag: NetFlag): TrailerPlaybackSource? {
-        val titleUrl = "https://www.imdb.com/title/$imdbId/"
-        val titlePage = loadAndSettle(wv, titleUrl, imdbId, flag)
-        if (titlePage == null) {
-            Log.w(TAG, "[$imdbId] title page never committed")
+    private fun pick(imdbId: String, body: String): TrailerPlaybackSource? {
+        val node = runCatching {
+            JSONObject(body).optJSONObject("data")?.optJSONObject("title")
+                ?.optJSONObject("primaryVideos")?.optJSONArray("edges")
+                ?.optJSONObject(0)?.optJSONObject("node")
+        }.getOrNull()
+        if (node == null) {
+            Log.i(TAG, "[$imdbId] no hero video on IMDb -> null (keep YouTube)")
             return null
         }
-
-        // Mirror IMDb: the hero "Play trailer" video is primaryVideos.edges[0]. Take exactly that node
-        // -- no ranking, scoring or runtime gate.
-        val hero = withContext(Dispatchers.Default) { readHeroVideo(titlePage.nextData) }
-        if (hero == null) {
-            Log.w(TAG, "[$imdbId] no primaryVideos edge[0] hero node -> null (keep YouTube)")
-            return null
-        }
-        Log.i(TAG, "[$imdbId] hero video ${hero.vi} \"${hero.name ?: "?"}\" rt=${hero.runtime ?: "-"} inlineEncs=${hero.encodings.size}")
-
-        // Fast path: the title page usually embeds the hero's mp4 rungs -> resolve with one page load.
-        val inlineBest = pickBestMp4(hero.encodings)
-        if (inlineBest != null && inlineBest.height >= RES_FLOOR) {
-            Log.i(TAG, "[$imdbId] SELECTED ${hero.vi} (title-page) def=${inlineBest.def} h=${inlineBest.height}")
-            return TrailerPlaybackSource(videoUrl = normalise(inlineBest.url))
-        }
-
-        // Fallback: load only the hero's video page and parse its playback data (mp4 rung not inline).
-        val videoUrl = "https://www.imdb.com/video/${hero.vi}"
-        val videoPage = loadAndSettle(wv, videoUrl, hero.vi, flag)
-        if (videoPage == null) {
-            Log.w(TAG, "[$imdbId] hero video page never committed -> null (keep YouTube)")
-            return null
-        }
-        val vinfo = withContext(Dispatchers.Default) { parseVideo(videoPage.nextData, videoPage.html) }
-        val best = vinfo?.let { pickBestMp4(it.encodings) }
+        val vi = node.optString("id", "?")
+        val best = pickBestMp4(parsePlaybackURLs(node.optJSONArray("playbackURLs")))
         if (best == null || best.height < RES_FLOOR) {
-            val why = when {
-                best == null -> "no mp4"
-                best.height <= 0 -> "unverified-res(${best.def})"
-                else -> "${best.height}p"
-            }
-            Log.i(TAG, "[$imdbId] hero ${hero.vi} best mp4 $why < ${RES_FLOOR}p floor -> null (keep YouTube)")
+            Log.i(TAG, "[$imdbId] hero $vi best mp4 ${best?.height ?: "none"} < ${RES_FLOOR}p -> null (keep YouTube)")
             return null
         }
-        Log.i(TAG, "[$imdbId] SELECTED ${hero.vi} (video-page) def=${best.def} h=${best.height}")
+        Log.i(TAG, "[$imdbId] SELECTED $vi def=${best.def} h=${best.height}")
         return TrailerPlaybackSource(videoUrl = normalise(best.url))
-    }
-
-    // ---- hero extraction (mirror IMDb: primaryVideos.edges[0]) ----
-
-    private fun readHeroVideo(nextData: String?): Hero? {
-        if (nextData == null) return null
-        val root = try { JSONObject(nextData) } catch (_: Exception) { return null }
-        val node = findPrimaryVideosEdge0(root) ?: return null
-        val vi = node.optString("id", "")
-        if (!VI_ID.matches(vi)) return null
-        val name = deep(node, "name", "value") ?: node.optString("name", null)
-        val runtime = deepInt(node, "runtime", "value") ?: deepInt(node, "runtime", "seconds")
-        val encs = parsePlaybackURLs(node.optJSONArray("playbackURLs"))
-        return Hero(vi, name, runtime, encs)
-    }
-
-    /** Depth-first search for the first primaryVideos.edges[0].node in the __NEXT_DATA__ tree. */
-    private fun findPrimaryVideosEdge0(any: Any?): JSONObject? {
-        when (any) {
-            is JSONObject -> {
-                val pv = any.optJSONObject("primaryVideos")
-                if (pv != null) {
-                    val node = pv.optJSONArray("edges")?.optJSONObject(0)?.optJSONObject("node")
-                    if (node != null && VI_ID.matches(node.optString("id", ""))) return node
-                }
-                val it = any.keys()
-                while (it.hasNext()) {
-                    val found = findPrimaryVideosEdge0(any.opt(it.next()))
-                    if (found != null) return found
-                }
-            }
-            is JSONArray -> for (i in 0 until any.length()) {
-                val found = findPrimaryVideosEdge0(any.opt(i))
-                if (found != null) return found
-            }
-        }
-        return null
-    }
-
-    // ---- video-page parse (fallback path) ----
-
-    private fun parseVideo(nextData: String?, html: String): VideoInfo? {
-        if (nextData != null) {
-            try {
-                val root = JSONObject(nextData)
-                val video = deepObj(root, "props", "pageProps", "videoPlaybackData", "video")
-                if (video != null) {
-                    val type = deep(video, "contentType", "displayName", "value") ?: deep(video, "contentType", "id")
-                    val name = deep(video, "name", "value")
-                    val encs = parsePlaybackURLs(video.optJSONArray("playbackURLs"))
-                    if (encs.isNotEmpty()) return VideoInfo(type, name, encs)
-                }
-            } catch (_: Exception) {}
-        }
-        val u = CDN_MP4.find(normalise(html))?.value ?: return null
-        return VideoInfo(null, null, listOf(Encoding("unknown", 0, true, u)))
     }
 
     /**
@@ -277,140 +151,6 @@ class NuvioCImdbTrailerResolver @Inject constructor(
         val overCap = mp4s.filter { it.height > RES_CAP }
         if (overCap.isNotEmpty()) return overCap.minByOrNull { it.height }
         return mp4s.maxByOrNull { it.height } // all unknown height
-    }
-
-    // ---- webview + settle ----
-
-    private fun configureWebView(wv: WebView, flag: NetFlag) {
-        CookieManager.getInstance().apply {
-            setAcceptCookie(true); setAcceptThirdPartyCookies(wv, true)
-        }
-        wv.settings.apply {
-            javaScriptEnabled = true
-            domStorageEnabled = true
-            databaseEnabled = true
-            userAgentString = UA
-            loadsImagesAutomatically = false
-            cacheMode = WebSettings.LOAD_NO_CACHE
-        }
-        wv.webViewClient = object : WebViewClient() {
-            override fun shouldInterceptRequest(view: WebView?, request: android.webkit.WebResourceRequest?): android.webkit.WebResourceResponse? {
-                // Never intercept the main document; block only static assets by extension.
-                if (request?.isForMainFrame == true) return null
-                val u = request?.url?.toString() ?: return null
-                if (BLOCK_EXT.containsMatchIn(u)) {
-                    blockedAssets.incrementAndGet()
-                    return android.webkit.WebResourceResponse("text/plain", "utf-8", java.io.ByteArrayInputStream(ByteArray(0)))
-                }
-                return null
-            }
-
-            override fun onReceivedError(view: WebView?, request: android.webkit.WebResourceRequest?, error: android.webkit.WebResourceError?) {
-                if (request?.isForMainFrame == true) {
-                    when (error?.errorCode) {
-                        ERROR_HOST_LOOKUP, ERROR_CONNECT, ERROR_TIMEOUT, ERROR_IO -> flag.tripped = true
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Load [url] and settle when the target data has arrived. The per-poll cost is a tiny in-WebView
-     * probe (returns a short status string, not the DOM); the ~1.4 MB DOM is marshalled once, on settle.
-     * Progress is tracked via a monotonic signal (navigation -> __NEXT_DATA__ present -> data growing);
-     * no progress for DEAD_STALL_POLLS polls -> dead-fast bail.
-     */
-    private suspend fun loadAndSettle(wv: WebView, url: String, expectKey: String, flag: NetFlag): Page? {
-        flag.tripped = false
-        blockedAssets.set(0)
-        withContext(Dispatchers.Main) { wv.loadUrl("about:blank") }
-        delay(200)
-        withContext(Dispatchers.Main) { wv.loadUrl(url, mapOf("Referer" to REFERER)) }
-        var lastSignal = -1L
-        var nullStreak = 0
-        var lastProgressPoll = 0
-        repeat(POLL_MAX) { pollIndex ->
-            delay(POLL_MS)
-            if (flag.tripped) {
-                Log.w(TAG, "main-frame net error during load ($url) -> abandon (fail-fast)")
-                return null
-            }
-            val status = probe(wv, expectKey)
-            if (status == null || status == "err") {
-                if (++nullStreak >= MAX_NULL_STREAK) return null
-                if (pollIndex - lastProgressPoll >= DEAD_STALL_POLLS) {
-                    Log.w(TAG, "[$expectKey] load stalled (probe null) after ${pollIndex + 1} polls -> abandon (dead-fast)")
-                    return null
-                }
-                return@repeat
-            }
-            nullStreak = 0
-            if (status.startsWith("ready:")) {
-                return Page(readOuterHtml(wv) ?: "", readNextData(wv))
-            }
-            // Monotonic progress signal: nav(0) < nonext(1) < wait+len(2+). Any forward move = progress.
-            val signal = when {
-                status == "nav" -> 0L
-                status == "nonext" -> 1L
-                status.startsWith("wait:") -> 2L + (status.substringAfter(':').toLongOrNull() ?: 0L)
-                else -> 0L
-            }
-            if (signal > lastSignal) {
-                lastSignal = signal
-                lastProgressPoll = pollIndex
-            }
-            if (pollIndex - lastProgressPoll >= DEAD_STALL_POLLS) {
-                Log.w(TAG, "[$expectKey] load stalled (no data progress) after ${pollIndex + 1} polls -> abandon (dead-fast)")
-                return null
-            }
-        }
-        val s = probe(wv, expectKey)
-        return if (s != null && (s.startsWith("wait:") || s.startsWith("ready:"))) {
-            Page(readOuterHtml(wv) ?: "", readNextData(wv))
-        } else null
-    }
-
-    /**
-     * Small in-WebView probe. Returns a short status string (never the DOM):
-     *   "nav"       navigation hasn't reached the expected URL yet
-     *   "nonext"    navigated, but __NEXT_DATA__ not in the DOM yet
-     *   "wait:N"    __NEXT_DATA__ present (length N), target data not yet
-     *   "ready:N"   target data (playbackURLs / CDN mp4) present -> settle
-     *   "err"/null  probe failed
-     */
-    private suspend fun probe(wv: WebView, expectKey: String): String? = evalJs(
-        wv,
-        "(function(){try{" +
-            "if(location.href.indexOf('$expectKey')<0)return 'nav';" +
-            "var e=document.getElementById('__NEXT_DATA__');" +
-            "if(!e)return 'nonext';" +
-            "var t=e.textContent||'';" +
-            "if(t.indexOf('imdb-video.media-imdb.com')>=0||t.indexOf('\"playbackURLs\"')>=0)return 'ready:'+t.length;" +
-            "return 'wait:'+t.length;" +
-            "}catch(x){return 'err';}})()"
-    )
-
-    private suspend fun readOuterHtml(wv: WebView): String? = evalJs(wv, "(function(){return document.documentElement.outerHTML})()")
-    private suspend fun readNextData(wv: WebView): String? =
-        evalJs(wv, "(function(){var e=document.getElementById('__NEXT_DATA__');return e?e.textContent:''})()")
-            ?.takeIf { it.isNotBlank() }
-
-    private suspend fun evalJs(wv: WebView, js: String): String? = withTimeoutOrNull(MAX_EVAL_MS) {
-        withContext(Dispatchers.Main) {
-            suspendCancellableCoroutine { cont: CancellableContinuation<String?> ->
-                try {
-                    wv.evaluateJavascript(js) { raw -> if (cont.isActive) cont.resume(decodeJsString(raw)) }
-                } catch (e: Exception) {
-                    if (cont.isActive) cont.resume(null)
-                }
-            }
-        }
-    }
-
-    private fun decodeJsString(raw: String?): String? {
-        if (raw == null || raw == "null") return null
-        return try { JSONArray("[$raw]").getString(0) } catch (e: Exception) { raw }
     }
 
     // ---- json helpers ----

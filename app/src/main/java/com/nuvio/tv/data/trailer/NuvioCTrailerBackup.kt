@@ -22,8 +22,9 @@ import kotlinx.coroutines.sync.withLock
 // - YouTube's best video stream is under 720p (old or low-res uploads): treated like the fallback
 //   above, IMDb is tried first (2026-10-11).
 // - "Prefer IMDb Trailers" on (Settings > Layout > Detail Page, 2026-10-11): IMDb is asked first for
-//   every trailer; YouTube only when IMDb has nothing at 720p or better. IMDb lookups take about
-//   5-15 s; on the details page this happens while the page opens, before the countdown starts.
+//   every trailer; YouTube only when IMDb has nothing at 720p or better. Since round 14 an IMDb
+//   lookup is one small request to IMDb's own data service (under a second), not a hidden browser.
+// - Never while the full-screen player is open (round 14).
 //
 // Low-quality YouTube links and IMDb links are never put in the trailer caches, so once the
 // limit clears a title gets its full-quality YouTube trailer again.
@@ -115,6 +116,12 @@ class NuvioCTrailerBackup @Inject constructor(
     suspend fun imdb(tmdbId: String?, type: String?): TrailerPlaybackSource? = imdbFor(tmdbId, type)
 
     private suspend fun imdbFor(tmdbId: String?, type: String?): TrailerPlaybackSource? {
+        // Round 14 (2026-10-21): no IMDb lookups while the full-screen player is open. The post-play
+        // prefetch asks for trailers at ~80% of an episode; the YouTube result is used as is then.
+        if (com.nuvio.tv.NuvioCFeatures.IMDB_NO_BROWSER && com.nuvio.tv.core.NuvioCPlayback.active) {
+            Log.i(TAG, "Player open: skipping the IMDb lookup, keeping YouTube")
+            return null
+        }
         val numericId = tmdbId?.toIntOrNull() ?: run {
             Log.i(TAG, "No TMDB id for this trailer, can't look it up on IMDb")
             return null

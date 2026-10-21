@@ -180,6 +180,32 @@ object NuvioCFeatures {
     const val FEATURED_ROWS_LIGHT = true
     /** Player: official's subtitle lift (Skip Intro, next-episode card, seek-only bar) no longer rebuilds the whole player screen each time it moves; only the Nuvio C lift reacts, and mpv is re-told only on 2 px steps. Off = previous wiring. */
     const val PLAYER_LIFT_LIGHT = true
-    /** IMDb trailer backup: the hidden browser starts once the remote has been still for a moment (at most 4 s wait) and runs at low priority, so opening a details page while YouTube is rate-limited doesn't stall. Off = starts at once. */
+    /** Retired in round 14 (the IMDb backup no longer uses a hidden browser). Kept so an old NUVIO_C_OFF list still builds; does nothing. */
     const val IMDB_QUIET_START = true
+
+    // ---- Round 14 (2026-10-21): stability and smoothness, measured over adb on the TCL C655 ----
+    /** IMDb trailer backup without a hidden browser: one request to IMDb's own data service. The browser's renderer was killed for memory during 4K playback and took the app with it (the crash at ~80% of an episode). Also: no IMDb lookups at all while the player is open. Off = no-op (the browser code is gone). */
+    const val IMDB_NO_BROWSER = true
+    /** Player open: the in-memory picture cache is cut to a quarter (refills as you browse). Frees memory for 4K playback on the 2 GB TV. */
+    const val PLAYER_MEMORY_TRIM = true
+    /** The shared trailer player is not rebuilt behind the full-screen film (only post-play, which asks explicitly). */
+    const val TRAILER_POOL_GUARD = true
+    /** HDR dim, same coverage, lighter method: subtitle text / background / outline in dimmed colours, and one "multiply" pass over each dimmed element instead of an offscreen copy (GPU time per frame had doubled against official). Off = previous layers. */
+    const val HDR_DIM_LIGHT = true
+    /** Subtitle lift: bottom subtitles move above the OSD in one step when it opens (and back when it closes) instead of a 200 ms slide that redrew the whole subtitle area twice every frame. */
+    const val OSD_LIFT_SNAP = true
+    /** OSD focus label (the button name under the focused button): only the focused button carries the text measurer, timer and draw step; the other buttons add nothing. */
+    const val OSD_FOCUS_LABEL_SHARED = true
+    /** Featured carousel only: synopsis up to six lines (was five), same width. The text block can't rise above a 40 dp top margin; when a tall logo, tagline, rank line and ratings leave less room, the synopsis drops lines (never under three) instead of anything being cut off. */
+    const val FEATURED_SYNOPSIS_SIX = true
+    /** Player OSD: the Watch Party button sits in the hidden More row like speed and aspect ratio; while a party is running it shows in the main row (highlight colour) so you can see it and leave quickly. */
+    const val PARTY_IN_MORE = true
+    /** Featured home: sidebar Home from deep in the rows brings the carousel back the same way Up from the first row does, so the Continue Watching row in the peek strip isn't left in its enlarged look with its title cut off. */
+    const val FEATURED_HOME_CLEAN = true
+    /** Source picker (source screen, player Sources and Episodes panels): with only one source the "All" tab is hidden; Refresh and the source's tab stay. A second source brings "All" back. */
+    const val SINGLE_SOURCE_NO_ALL = true
+    /** Trakt: a failed token refresh only removes the login when Trakt clearly says it's dead (invalid_grant and similar); a 403, server error or rate limit keeps it and retries later. The reason for the last disconnect shows under Trakt in Settings > Tracking (and in logcat, tag NuvioCTrakt). Official wiped the login on any 400 / 401 / 403. */
+    const val TRAKT_KEEP_LOGIN = true
+    /** In-app updater: installs the APK together with its compile profile (.dm), so Android pre-compiles Nuvio C during the install (Android 9+). Falls back to the system installer screen when there's no profile or the session fails. */
+    const val INSTALL_PROFILE = true
 }

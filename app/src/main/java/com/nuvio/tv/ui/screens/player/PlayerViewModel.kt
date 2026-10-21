@@ -109,6 +109,8 @@ class PlayerViewModel @Inject constructor(
         // Release trailer player codec resources so the full-screen player can
         // claim hardware decoders without contention (prevents black screen).
         trailerPlayerPool.yield()
+        com.nuvio.tv.core.NuvioCPlayback.onPlayerOpened() // [fork] round 14: background work holds off while a film plays
+        com.nuvio.tv.core.NuvioCPlayerMemory.onPlayerOpened(context) // [fork] player_memory_trim
     }
 
     internal val controller = PlayerRuntimeController(
@@ -304,6 +306,7 @@ class PlayerViewModel @Inject constructor(
         postPlayRecommendationController.stop()
         controller.onCleared()
         NuvioCSubtitleSession.end(controller) // [fork] the automatic-pick carry-over never outlives this player
+        com.nuvio.tv.core.NuvioCPlayback.onPlayerClosed() // [fork] round 14
         // Allow the trailer player to be re-created when returning to home screen.
         trailerPlayerPool.reclaim()
         super.onCleared()

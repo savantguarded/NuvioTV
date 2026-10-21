@@ -99,6 +99,12 @@ class TrailerPlayerPool @Inject constructor(
     fun acquire(): ExoPlayer? {
         if (released.get()) return null
         if (yielded.get()) {
+            // [fork] Nuvio C trailer_pool_guard: never rebuild a second video decoder behind the
+            // full-screen film. Post-play calls reclaim() itself before asking, so it still works.
+            if (com.nuvio.tv.NuvioCFeatures.TRAILER_POOL_GUARD && com.nuvio.tv.core.NuvioCPlayback.active) {
+                Log.d(TAG, "acquire() while the player holds the decoders: refused")
+                return null
+            }
             // Reclaim was not called yet but someone wants the player — rebuild.
             reclaim()
         }
