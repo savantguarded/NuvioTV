@@ -388,7 +388,8 @@ private fun dataAttributionItems() = listOf(
     LicenseAttributionItem( // [fork] library_calendar: TVmaze asks for credit
         title = stringResource(R.string.licenses_attributions_tvmaze_title),
         body = stringResource(R.string.calendar_credit),
-        url = TvMazeUrl
+        url = TvMazeUrl,
+        logo = LicenseLogo.Drawable(R.drawable.nuvio_c_tvmaze) // [fork] round 17: TVmaze's own icon (tvmaze.com favicon)
     ),
     LicenseAttributionItem(
         title = stringResource(R.string.licenses_attributions_simkl_title),

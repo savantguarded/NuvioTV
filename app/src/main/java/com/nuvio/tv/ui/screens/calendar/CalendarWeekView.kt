@@ -462,7 +462,7 @@ private fun CalendarWeekHero(row: CalendarRow, details: CalendarRowDetails?, for
             overflow = TextOverflow.Ellipsis
         )
         Spacer(Modifier.height(4.dp))
-        CalendarMetaLine(row, details, formats, today, style = CalendarText.heroMeta)
+        CalendarMetaLine(row, details, formats, today, style = CalendarText.heroMeta, withRating = !com.nuvio.tv.NuvioCFeatures.CALENDAR_WEEK_NO_RATING) // [fork] calendar_week_no_rating
         Spacer(Modifier.height(6.dp))
         Text(
             text = details?.synopsis.orEmpty(),
@@ -483,13 +483,14 @@ internal fun CalendarMetaLine(
     formats: CalendarFormats,
     today: LocalDate?,
     withWhen: Boolean = true,
-    style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyLarge
+    style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyLarge,
+    withRating: Boolean = true // [fork] calendar_week_no_rating
 ) {
     val whenText = if (withWhen) calendarWhenLine(row, formats, today) else null
     val rest = listOfNotNull(
         row.network,
         details?.let { calendarRuntimeText(it) },
-        calendarRatingGenre(row.rating ?: details?.rating, row.genre ?: details?.genre)
+        calendarRatingGenre((row.rating ?: details?.rating).takeIf { withRating }, row.genre ?: details?.genre) // [fork] calendar_week_no_rating
     )
     if (whenText == null && rest.isEmpty()) return
     val accent = NuvioTheme.colors.Secondary

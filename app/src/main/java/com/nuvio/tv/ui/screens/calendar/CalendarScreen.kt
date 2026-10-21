@@ -136,6 +136,9 @@ fun CalendarScreen(
     var finding by remember { mutableStateOf<CalendarRow?>(null) }
     LaunchedEffect(Unit) { viewModel.onScreenShown() }
     BackHandler(enabled = finding != null) { finding = null }
+    val nuvioCContent = remember { FocusRequester() } // [fork] calendar_tab_focus
+    var nuvioCContentFocused by remember { mutableStateOf(false) } // [fork] calendar_tab_focus
+    NuvioCCalendarBackToTabs(nuvioCContentFocused, finding != null, modeFocusRequester) // [fork] calendar_tab_focus
 
     val backdrop = focus?.details?.backdrop ?: focus?.row?.backdrop
     // [nuvio c] ysosrs123's v2 page artwork (HeroBackdropState.selectPageArtwork) only runs with his v2 look.
@@ -176,10 +179,11 @@ fun CalendarScreen(
                 formats = formats,
                 viewMode = viewMode,
                 modeFocusRequester = modeFocusRequester,
-                onViewMode = viewModel::setViewMode
+                onViewMode = viewModel::setViewMode,
+                nuvioCContent = nuvioCContent // [fork] calendar_tab_focus
             )
             Spacer(Modifier.height(NuvioTheme.spacing.lg))
-            Box(Modifier.fillMaxWidth().weight(1f)) {
+            Box(Modifier.fillMaxWidth().weight(1f).nuvioCCalendarContent(nuvioCContent) { nuvioCContentFocused = it }) { // [fork] calendar_tab_focus
                 when (uiState.phase) {
                     CalendarPhase.READY -> when (viewMode) {
                         CalendarViewMode.WEEK -> CalendarWeekView(
@@ -247,7 +251,8 @@ private fun CalendarHeader(
     formats: CalendarFormats,
     viewMode: CalendarViewMode,
     modeFocusRequester: FocusRequester,
-    onViewMode: (CalendarViewMode) -> Unit
+    onViewMode: (CalendarViewMode) -> Unit,
+    nuvioCContent: FocusRequester? = null // [fork] calendar_tab_focus
 ) {
     val v2 = LocalV2Appearance.current != null
     Row(
@@ -279,7 +284,10 @@ private fun CalendarHeader(
                 )
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
+            modifier = nuvioCContent?.let { Modifier.nuvioCCalendarTabs(modeFocusRequester, it) } ?: Modifier // [fork] calendar_tab_focus
+        ) {
             CalendarViewMode.entries.forEach { mode ->
                 val selected = mode == viewMode
                 val pill = RoundedCornerShape(NuvioTheme.radii.full)

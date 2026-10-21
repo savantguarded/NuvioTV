@@ -377,8 +377,9 @@ fun HeroContentSection(
                                 null
                             },
                             contentDescription = if (isInLibrary) stringResource(R.string.hero_remove_from_library) else stringResource(R.string.hero_add_to_library),
-                            onClick = onToggleLibrary,
-                            onLongPress = onLibraryLongPress,
+                            // [fork] detail_plus_picker: click opens the library list, hold does the one-step add/remove
+                            onClick = if (com.nuvio.tv.NuvioCFeatures.DETAIL_PLUS_PICKER) onLibraryLongPress else onToggleLibrary,
+                            onLongPress = if (com.nuvio.tv.NuvioCFeatures.DETAIL_PLUS_PICKER) onToggleLibrary else onLibraryLongPress,
                             onFocused = onHeroActionFocused
                         )
 

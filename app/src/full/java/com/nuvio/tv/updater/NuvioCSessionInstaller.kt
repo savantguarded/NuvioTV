@@ -62,6 +62,7 @@ internal object NuvioCSessionInstaller {
                 val flags = PendingIntent.FLAG_UPDATE_CURRENT or
                     (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0)
                 val pending = PendingIntent.getBroadcast(app, sessionId, intent, flags)
+                NuvioCUpdatedReceiver.mark(app) // [fork] update_reopen: reopen once the new version is in
                 session.commit(pending.intentSender)
             }
             Log.i(TAG, "session $sessionId committed: ${apk.name} + ${profile.name}")
@@ -90,6 +91,12 @@ internal object NuvioCSessionInstaller {
                         @Suppress("DEPRECATION")
                         val confirm = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
                         if (confirm != null) {
+                            // [fork] update_reopen: say what happens next, since Android shows no progress screen here
+                            if (NuvioCFeatures.UPDATE_REOPEN) {
+                                android.widget.Toast.makeText(
+                                    ctx, ctx.getString(com.nuvio.tv.R.string.nuvio_c_update_installing), android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            }
                             ctx.startActivity(confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                         } else {
                             Log.w(TAG, "no confirmation screen from the installer")

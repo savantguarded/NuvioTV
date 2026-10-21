@@ -565,3 +565,13 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
+
+// [fork] Nuvio C round 17 `english_only`: ship English text only (the app's and its libraries'), read from the
+// switch in NuvioCFeatures.kt so NUVIO_C_OFF=english_only brings every language back. Smaller APK; Android only
+// ever reads the active language, so speed and memory are unchanged.
+if (Regex("""const val ENGLISH_ONLY = true""").containsMatchIn(
+        file("src/main/java/com/nuvio/tv/NuvioCFeatures.kt").takeIf { it.exists() }?.readText().orEmpty()
+    )
+) {
+    android { androidResources { localeFilters += "en" } }
+}

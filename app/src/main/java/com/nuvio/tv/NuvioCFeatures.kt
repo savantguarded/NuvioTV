@@ -158,8 +158,8 @@ object NuvioCFeatures {
     const val DETAIL_ROW_THROTTLE = true
     /** Home hero carousel (Featured, Classic, Grid): 18 titles from your hero catalogs instead of official's 7, a new random pick and order on every app launch, mixed across catalogs (official took the same 7 by a fixed hash, so it showed the same few all day). Order stays put within a run. */
     const val HERO_POOL_SHUFFLE = true
-    /** Featured home: Left from Play on the first title goes to the last (Right from the arrow already wraps to the first), so the carousel loops both ways. The sidebar is reached with Back. Off = Left on the first title goes to the sidebar. */
-    const val FEATURED_WRAP = true
+    /** Featured home: Left from Play on the first title goes to the last (Right from the arrow already wraps to the first), so the carousel loops both ways. The sidebar is reached with Back. Off = Left on the first title goes to the sidebar (official; Right on the last title still wraps to the first). Off since round 17 (Charles: Left at the edge should open the sidebar). */
+    const val FEATURED_WRAP = false
     /** Details background trailer: no stutter while moving around as it starts. The black-bar check (official, a GPU read-back on the UI thread, dearer on HD trailers) waits while a key was pressed in the last 0.9 s and stops after 10 clean frames with no bars. Off = official sampling. (Hero dim, backdrop crossfade and scroll state now redraw at draw time in both cases.) */
     const val BG_TRAILER_SMOOTH = true
     /** Details page: moving between sections (hero, seasons / episodes, cast and the rows below) no longer rebuilds the whole page. Official rebuilt it on every episode focus, every change of D-pad direction and when the hero scrolled away; Up into the hero / back to the episodes now uses the page's normal scroll motion. Off = official. */
@@ -224,4 +224,14 @@ object NuvioCFeatures {
     const val CALENDAR_IN_DAYS = true
     /** Calendar "Start in" setting (Settings > Layout > Calendar): Last used (default), List, Week or Month. Off = always Week, as in ysosrs123's fork. */
     const val CALENDAR_START_VIEW = true
+    /** Calendar: Back from any card jumps to the List / Week / Month buttons (Back again leaves), Up onto the buttons always lands on the current view's button, Down from them returns to the card you left. Off = ysosrs123's focus. */
+    const val CALENDAR_TAB_FOCUS = true
+    /** Calendar Week view: no star rating in the info block above the days (genre, network, runtime stay). List view keeps it. */
+    const val CALENDAR_WEEK_NO_RATING = true
+    /** Details page plus button: click opens the library list picker, press-and-hold does the one-step add/remove to your default library (official: the other way round). */
+    const val DETAIL_PLUS_PICKER = true
+    /** English only: the APK leaves out the app's and its libraries' other languages (localeFilters "en" in app/build.gradle.kts, which reads this line). Smaller APK; no effect on speed or memory. */
+    const val ENGLISH_ONLY = true
+    /** In-app updater (with INSTALL_PROFILE): a message when you confirm the update ("Nuvio C will close while Android installs and optimises it, then reopen"), and Nuvio C opens itself again once the new version is installed (only after in-app updates, within 15 min). */
+    const val UPDATE_REOPEN = true
 }
