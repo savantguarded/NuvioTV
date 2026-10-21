@@ -14,7 +14,7 @@
 # His edits to official files (Home, settings, MainActivity hooks...) are listed, not merged: port by hand.
 set -euo pipefail
 
-YSOS_URL="https://github.com/ysosrs123/NuvioTV-Fork"
+YSOS_URL="${YSOS_URL:-https://github.com/ysosrs123/NuvioTV-Fork}"
 LIST=scripts/nuvio-c-calendar-files.txt
 PIN=scripts/nuvio-c-calendar-upstream.txt
 VENDOR=ysos-calendar
