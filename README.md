@@ -7,10 +7,10 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 ## What's different
 
 **Home**
-- **Featured layout** (Settings > Layout): a full-screen carousel of your hero catalogs on top of Modern home, with Play, Details and a next-title arrow, a "#3 in Top 20" line for ranked catalogs, a NEW / NEW SEASON tag and up to six lines of synopsis. Right on the last title loops to the first, Left on the first opens the sidebar; Down goes to the rows, Up or the sidebar's Home comes back.
+- **Featured layout** (Settings > Layout): a full-screen carousel of your hero catalogs on top of Modern home, with Play, Details and a next-title arrow, a "#3 in Top 20" line for ranked catalogs, a NEW / NEW SEASON tag and up to six lines of synopsis. The carousel only moves forward: Right from the arrow goes to the next title and loops from the last to the first, and Left from Play opens the sidebar on any title; Down goes to the rows, Up or the sidebar's Home comes back.
 - The hero carousel actually rotates (every 10 s without a key press) and draws a fresh mix of 18 titles each launch.
 - Featured carousel: up to three ratings, a small five-dot page indicator, and the sidebar's Home always lands back on Continue Watching.
-- **Calendar** (from [ysosrs123's fork](https://github.com/ysosrs123/NuvioTV-Fork)): a Calendar page in the menu (List, Week and Month) with the next episodes and film dates of everything in your library, in your time zone. Bell a title for a reminder card on Home when something new is out. Optional **Calendar in Upcoming** (Settings > Layout > Home Content): the Calendar fills the one Upcoming row, with official-style tags (Tonight 9:00 pm, Tomorrow, In 3 Days). Calendar options, including your own lists and which view it opens in (**Start in**: last used, List, Week or Month), under Settings > Layout > Calendar. Back jumps to the List / Week / Month buttons, Up always lands on the current one; no star rating in Week view. Episode times from TVmaze. New calendar code from ysosrs123 is watched daily and merged with `scripts/nuvio-c-calendar-sync.sh`, keeping these tweaks.
+- **Calendar** (from [ysosrs123's fork](https://github.com/ysosrs123/NuvioTV-Fork)): a Calendar page in the menu (List, Week and Month) with the next episodes and film dates of everything in your library, in your time zone. Bell a title for a reminder card on Home when something new is out. Optional **Calendar in Upcoming** (Settings > Layout > Home Content): the Calendar fills the one Upcoming row, with official-style tags (Tonight 9:00 pm, Tomorrow, In 3 Days). Calendar options, including your own lists and which view it opens in (**Start in**: last used, List, Week or Month), under Settings > Layout > Calendar. Back jumps to the List / Week / Month buttons, Up always lands on the current one; no star rating in Week or List view. The reminder popup's buttons always show their full labels. Episode times from TVmaze. New calendar code from ysosrs123 is watched daily and merged with `scripts/nuvio-c-calendar-sync.sh`, keeping these tweaks.
 
 **Player**
 - Title logo and stream badges (resolution, HDR / Dolby Vision, audio, source, size) on the controls.
@@ -23,7 +23,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 
 **Details page**
 - Rate titles 1 to 10 to Trakt and MDBList.
-- The plus button opens your library lists; hold it for the one-step add.
+- The plus button opens your library lists (ticks lined up in one column); hold it for the one-step add.
 - TMDB tagline under the logo; collections on their own row.
 - Background trailers: muted by default, pause behind popups and other pages, skipped for titles you've started, no stutter as they start.
 - IMDb trailers when YouTube rate-limits or only offers low quality (one small request, no hidden browser, never during playback).
