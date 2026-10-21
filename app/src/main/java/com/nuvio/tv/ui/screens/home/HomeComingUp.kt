@@ -152,9 +152,15 @@ val ContinueWatchingItem.isComingUp: Boolean
 /**
  * While the Coming up row is on, the episodes of the Upcoming row are shown there instead. One without a release date
  * cannot be placed there and stays in the Upcoming row.
+ * [fork] Nuvio C: only once the Calendar's row has cards, so Upcoming stays full until then (no empty gap at start-up);
+ * the leftovers are then folded into the end of that single "Upcoming" row (see buildModernHomePresentation).
  */
 val HomeUiState.shownUpcomingItems: List<ContinueWatchingItem>
-    get() = if (upcomingInComingUp) upcomingItems.filter { upcomingAirDate(it, ZoneId.systemDefault()) == null } else upcomingItems
+    get() = if (upcomingInComingUp && comingUpItems.isNotEmpty()) {
+        upcomingItems.filter { upcomingAirDate(it, ZoneId.systemDefault()) == null }
+    } else {
+        upcomingItems
+    }
 
 /** The day an Upcoming episode airs, read the way the Calendar reads add-on dates. Null for films and undated items. */
 fun upcomingAirDate(item: ContinueWatchingItem, zone: ZoneId): LocalDate? {
@@ -379,3 +385,20 @@ internal fun HomeViewModel.hideFromComingUp(card: ContinueWatchingItem) {
 private const val COMING_UP_WAIT_MS = 10_000L
 private const val WATCH_PROGRESS_SETTLE_MS = 2_000L
 private const val COMING_UP_START_DELAY_MS = 1_500L
+
+/**
+ * [fork] Nuvio C: the single Upcoming row. The Calendar's cards come first; then the Upcoming episodes it could not place
+ * (no release date), skipping any show that already has a card, so a show is never shown twice.
+ */
+internal fun nuvioCMergeUpcomingIntoComingUp(
+    comingUp: List<ContinueWatchingItem>,
+    upcomingLeft: List<ContinueWatchingItem>
+): List<ContinueWatchingItem> {
+    if (upcomingLeft.isEmpty()) return comingUp
+    val shown = comingUp.mapNotNullTo(HashSet()) { (it as? ContinueWatchingItem.NextUp)?.info?.contentId }
+    val extra = upcomingLeft.filter { item ->
+        val id = (item as? ContinueWatchingItem.NextUp)?.info?.contentId
+        id == null || shown.add(id)
+    }
+    return if (extra.isEmpty()) comingUp else comingUp + extra
+}

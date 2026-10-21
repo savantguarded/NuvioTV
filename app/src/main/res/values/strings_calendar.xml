@@ -114,17 +114,17 @@
     <string name="calendar_hidden_dialog_subtitle">Select a title to show it in the Calendar again</string>
     <string name="calendar_hidden_none">No hidden shows</string>
 
-    <string name="calendar_setting_coming_up">From Your Library row</string>
-    <string name="calendar_setting_coming_up_sub">A row under Upcoming with new and upcoming episodes and films from your Calendar</string>
-    <string name="calendar_coming_up_title">From Your Library</string>
-    <string name="calendar_coming_up_takes_upcoming">While the Calendar\'s From Your Library row is on, these episodes are shown there instead.</string>
+    <string name="calendar_setting_coming_up">Calendar in Upcoming</string>
+    <string name="calendar_setting_coming_up_sub">The Upcoming row also shows new and upcoming episodes and films from your Calendar</string>
+    <string name="calendar_coming_up_title">Upcoming</string>
+    <string name="calendar_coming_up_takes_upcoming">While Calendar in Upcoming is on, the Calendar fills the Upcoming row.</string>
     <string name="calendar_coming_up_new">New</string>
     <string name="calendar_coming_up_today_at">Today %1$s</string>
     <string name="calendar_coming_up_tonight_at">Tonight %1$s</string>
-    <string name="calendar_coming_up_hide">Hide from From Your Library</string>
-    <string name="calendar_coming_up_hidden">Hidden from From Your Library</string>
-    <string name="calendar_coming_up_hidden_sub">Shows you hid from the From Your Library row. They stay in the Calendar and your Library.</string>
-    <string name="calendar_coming_up_hidden_dialog_subtitle">Select a show to bring it back to From Your Library</string>
+    <string name="calendar_coming_up_hide">Hide from Upcoming</string>
+    <string name="calendar_coming_up_hidden">Hidden from Upcoming</string>
+    <string name="calendar_coming_up_hidden_sub">Shows you hid from the Upcoming row. They stay in the Calendar and your Library.</string>
+    <string name="calendar_coming_up_hidden_dialog_subtitle">Select a show to bring it back to Upcoming</string>
     <string name="calendar_coming_up_unhide_all">Unhide all</string>
 
     <string name="calendar_reminder_title_one">New episode</string>

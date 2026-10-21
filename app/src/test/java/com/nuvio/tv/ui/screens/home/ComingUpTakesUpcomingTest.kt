@@ -168,19 +168,36 @@ class ComingUpTakesUpcomingTest {
         assertSame(titles, calendarTitlesWithUpcoming(titles, emptyList(), sydney))
     }
 
+    // [fork] Nuvio C: dated Upcoming episodes move only once the Calendar's row has cards (no empty gap at start-up).
     @Test fun theUpcomingRowHidesOnlyWhileComingUpIsOn() {
         val items = listOf<ContinueWatchingItem>(upcoming("tt100", 1, 3, "2026-10-22"))
         val off = HomeUiState(upcomingItems = items)
         assertSame(items, off.shownUpcomingItems)
-        val on = off.copy(upcomingInComingUp = true)
+        val waiting = off.copy(upcomingInComingUp = true)
+        assertSame(items, waiting.shownUpcomingItems)
+        val on = waiting.copy(comingUpItems = listOf(upcoming("tt300", 1, 1, "2026-10-23")))
         assertTrue(on.shownUpcomingItems.isEmpty())
         assertSame(items, on.upcomingItems)
     }
 
     @Test fun anUndatedEpisodeStaysInTheUpcomingRow() {
         val undated = upcoming("tt200", 1, 2, null)
-        val state = HomeUiState(upcomingItems = listOf(upcoming("tt100", 1, 3, "2026-10-22"), undated), upcomingInComingUp = true)
+        val state = HomeUiState(
+            upcomingItems = listOf(upcoming("tt100", 1, 3, "2026-10-22"), undated),
+            upcomingInComingUp = true,
+            comingUpItems = listOf(upcoming("tt300", 1, 1, "2026-10-23"))
+        )
         assertEquals(listOf<ContinueWatchingItem>(undated), state.shownUpcomingItems)
+    }
+
+    // [fork] Nuvio C: one Upcoming row, the Calendar's cards first, then leftovers for shows without a card.
+    @Test fun leftoversJoinTheEndOfTheOneUpcomingRow() {
+        val card = upcoming("tt300", 1, 1, "2026-10-23")
+        val sameShow = upcoming("tt300", 1, 2, null)
+        val other = upcoming("tt200", 1, 2, null)
+        assertEquals(listOf<ContinueWatchingItem>(card, other), nuvioCMergeUpcomingIntoComingUp(listOf(card), listOf(sameShow, other)))
+        val alone = listOf<ContinueWatchingItem>(card)
+        assertSame(alone, nuvioCMergeUpcomingIntoComingUp(alone, emptyList()))
     }
 
     @Test fun aShowHiddenInTheCalendarStaysOut() {

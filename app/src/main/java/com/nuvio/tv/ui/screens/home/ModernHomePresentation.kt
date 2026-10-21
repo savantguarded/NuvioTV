@@ -93,7 +93,8 @@ internal fun buildModernHomePresentation(
 
         // Upcoming row (SPLIT_UPCOMING mode)
         val strUpcomingSectionTitle = localizedContext.getString(R.string.upcoming_section_title)
-        if (input.upcomingItems.isNotEmpty()) {
+        // [fork] library_calendar: while the Calendar's row has cards it is the one Upcoming row (official's is folded in below).
+        if (input.upcomingItems.isNotEmpty() && input.comingUpItems.isEmpty()) {
             val reuseUpcomingRow =
                 cache.upcomingRow != null &&
                     cache.upcomingItems == input.upcomingItems &&
@@ -131,13 +132,15 @@ internal fun buildModernHomePresentation(
             cache.upcomingRow = null
         }
 
-        // [fork] library_calendar: the Calendar's row (ysosrs123's "Coming up", named From Your Library here),
-        // right under the Upcoming row, built like it from Continue Watching cards.
+        // [fork] library_calendar: the Calendar's row (ysosrs123's "Coming up"), in official Upcoming's place and named
+        // like it, built like it from Continue Watching cards. Official's Upcoming row is not drawn while this one has
+        // cards; the episodes it would still hold (no release date) go at the end, so there is only ever one Upcoming row.
         val strComingUpTitle = localizedContext.getString(R.string.calendar_coming_up_title)
         if (input.comingUpItems.isNotEmpty()) {
+            val comingUpItems = nuvioCMergeUpcomingIntoComingUp(input.comingUpItems, input.upcomingItems)
             val reuseComingUpRow =
                 cache.comingUpRow != null &&
-                    cache.comingUpItems == input.comingUpItems &&
+                    cache.comingUpItems == comingUpItems &&
                     cache.comingUpTitle == strComingUpTitle &&
                     cache.comingUpUseLandscapePosters == input.useLandscapePosters
             val comingUpRow = if (reuseComingUpRow) {
@@ -147,7 +150,7 @@ internal fun buildModernHomePresentation(
                     key = MODERN_COMING_UP_ROW_KEY,
                     title = strComingUpTitle,
                     globalRowIndex = -1,
-                    items = input.comingUpItems.map { item ->
+                    items = comingUpItems.map { item ->
                         buildContinueWatchingItem(
                             item = item,
                             useLandscapePosters = input.useLandscapePosters,
@@ -160,7 +163,7 @@ internal fun buildModernHomePresentation(
                     }.asStable()
                 )
             }
-            cache.comingUpItems = input.comingUpItems
+            cache.comingUpItems = comingUpItems
             cache.comingUpTitle = strComingUpTitle
             cache.comingUpUseLandscapePosters = input.useLandscapePosters
             cache.comingUpRow = comingUpRow
