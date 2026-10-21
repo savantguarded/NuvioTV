@@ -750,7 +750,7 @@ private fun NuvioCFeaturedSlide(
                         if (event.type != KeyEventType.KeyDown || items.size < 2) return@onPreviewKeyEvent false
                         when {
                             event.key == Key.DirectionRight && focusedButton == 2 -> { latestNext(true); true }
-                            event.key == Key.DirectionLeft && focusedButton == 0 && (com.nuvio.tv.NuvioCFeatures.FEATURED_WRAP || index > 0) -> { latestPrevious(); true } // [fork] featured_wrap: first title wraps to the last
+                            event.key == Key.DirectionLeft && focusedButton == 0 && !com.nuvio.tv.NuvioCFeatures.FEATURED_RIGHT_ONLY && (com.nuvio.tv.NuvioCFeatures.FEATURED_WRAP || index > 0) -> { latestPrevious(); true } // [fork] featured_wrap / featured_right_only: right_only = Left always goes to the sidebar
                             else -> false
                         }
                     }
