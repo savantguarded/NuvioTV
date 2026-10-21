@@ -1124,7 +1124,7 @@ fun PlayerScreen(
                             tunneledSurfaceFill = uiState.tunneledSurfaceFill,
                             useLibass = uiState.useLibass,
                             libassRenderType = uiState.libassRenderType,
-                            subtitleStyle = uiState.subtitleStyle,
+                            subtitleStyle = nuvioCHdrSubtitleStyle(uiState.subtitleStyle, nuvioCHdr), // [fork] hdr_dim_light, was uiState.subtitleStyle
                             subtitleLiftPx = subtitleLiftPx,
                             onBindSubtitleView = viewModel::bindExoSubtitleView,
                             modifier = Modifier.fillMaxSize()
@@ -2567,6 +2567,7 @@ private fun PlayerControlsOverlay(
                     ImageRequest.Builder(osdContext)
                         .data(osdLogo)
                         .crossfade(true)
+                        .size(640, 200) // [fork] round 14: one fixed decode size, so the box adapting to the logo's shape doesn't decode and process it a second time
                         .nuvioCLogoContrast() // [fork] dark logos
                         .build()
                 }

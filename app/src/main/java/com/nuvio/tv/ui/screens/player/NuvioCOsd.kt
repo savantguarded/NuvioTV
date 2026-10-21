@@ -354,8 +354,14 @@ internal fun nuvioCVisualTag(controller: PlayerRuntimeController, uiState: Playe
     )
 }
 
-/** One line per OSD open (tag NuvioCOsdBadges): what the badge rules were given. For checking files. */
+@Volatile private var nuvioCLastVisualLog: String? = null
+
+/** One line per file (tag NuvioCOsdBadges): what the badge rules were given. For checking files. */
 internal fun nuvioCLogVisualInputs(controller: PlayerRuntimeController, uiState: PlayerUiState, tag: String) {
+    // round 14: once per file and badge, not on every OSD open (each line also read mpv properties)
+    val key = "${controller.currentFilename}|$tag|${controller.currentInternalPlayerEngine}"
+    if (key == nuvioCLastVisualLog) return
+    nuvioCLastVisualLog = key
     runCatching {
         val exo = if (controller.currentInternalPlayerEngine == InternalPlayerEngine.MVP_PLAYER) null else controller._exoPlayer?.videoFormat
         android.util.Log.i(
@@ -395,12 +401,12 @@ internal object NuvioCOsdBadges {
     fun resolutionFromName(names: String): String? {
         val n = names.lowercase(Locale.US)
         return when {
-            Regex("""\b(2160p|4k|uhd)\b""").containsMatchIn(n) -> "4K"
-            Regex("""\b1440p\b""").containsMatchIn(n) -> "1440p"
-            Regex("""\b1080[pi]\b""").containsMatchIn(n) -> "1080p"
-            Regex("""\b720p\b""").containsMatchIn(n) -> "720p"
-            Regex("""\b576[pi]\b""").containsMatchIn(n) -> "576p"
-            Regex("""\b480[pi]\b""").containsMatchIn(n) -> "480p"
+            nuvioCRe("""\b(2160p|4k|uhd)\b""").containsMatchIn(n) -> "4K"
+            nuvioCRe("""\b1440p\b""").containsMatchIn(n) -> "1440p"
+            nuvioCRe("""\b1080[pi]\b""").containsMatchIn(n) -> "1080p"
+            nuvioCRe("""\b720p\b""").containsMatchIn(n) -> "720p"
+            nuvioCRe("""\b576[pi]\b""").containsMatchIn(n) -> "576p"
+            nuvioCRe("""\b480[pi]\b""").containsMatchIn(n) -> "480p"
             else -> null
         }
     }
@@ -409,10 +415,10 @@ internal object NuvioCOsdBadges {
     fun visualFromName(names: String): String? {
         val n = names.lowercase(Locale.US)
         return when {
-            Regex("""(\b|[._ ])(dv|dovi|dolby[ ._-]?vision)(\b|[._ ])""").containsMatchIn(n) -> "DV"
-            Regex("""hdr10(\+|plus|p\b)""").containsMatchIn(n) -> "HDR10+"
-            Regex("""\bhdr(10)?\b""").containsMatchIn(n) -> "HDR10"
-            Regex("""\bhlg\b""").containsMatchIn(n) -> "HLG"
+            nuvioCRe("""(\b|[._ ])(dv|dovi|dolby[ ._-]?vision)(\b|[._ ])""").containsMatchIn(n) -> "DV"
+            nuvioCRe("""hdr10(\+|plus|p\b)""").containsMatchIn(n) -> "HDR10+"
+            nuvioCRe("""\bhdr(10)?\b""").containsMatchIn(n) -> "HDR10"
+            nuvioCRe("""\bhlg\b""").containsMatchIn(n) -> "HLG"
             else -> null
         }
     }
@@ -462,7 +468,7 @@ internal object NuvioCOsdBadges {
     /** Release source from the stream title / filename; null when it doesn't say. REMUX wins over BluRay. */
     fun sourceFromName(names: String): String? {
         val n = names.lowercase(Locale.US)
-        fun has(re: String) = Regex(re).containsMatchIn(n)
+        fun has(re: String) = nuvioCRe(re).containsMatchIn(n)
         return when {
             has("""(\b|[._ -])(bd)?remux(\b|[._ -])""") -> "REMUX"
             has("""web[ ._-]?dl""") -> "WEB-DL"
@@ -479,7 +485,7 @@ internal object NuvioCOsdBadges {
     /** Short audio name plus channels, e.g. "DD+ 5.1", "Atmos 7.1", "TrueHD 7.1". */
     fun audioLabel(codec: String?, channelCount: Int?, names: String = ""): String? {
         val raw = codec?.trim()?.takeIf { it.isNotEmpty() }
-        val atmosInName = Regex("""\batmos\b""").containsMatchIn(names.lowercase(Locale.US))
+        val atmosInName = nuvioCRe("""\batmos\b""").containsMatchIn(names.lowercase(Locale.US))
         val name = when (raw?.lowercase(Locale.US)) {
             null -> null
             "e-ac-3-joc" -> "Atmos"
@@ -524,9 +530,9 @@ internal object NuvioCOsdBadges {
         val n = names.lowercase(Locale.US)
         val l = audioLabel.lowercase(Locale.US)
         return when {
-            Regex("""dts[ ._-]?x(\b|[._ ])""").containsMatchIn(n) || Regex("""dts[:]x""").containsMatchIn(n) -> "X"
-            Regex("""dts[ ._-]?hd[ ._-]?ma""").containsMatchIn(n) -> "HD MA"
-            l.startsWith("dts-hd") || Regex("""dts[ ._-]?hd""").containsMatchIn(n) -> "HD"
+            nuvioCRe("""dts[ ._-]?x(\b|[._ ])""").containsMatchIn(n) || nuvioCRe("""dts[:]x""").containsMatchIn(n) -> "X"
+            nuvioCRe("""dts[ ._-]?hd[ ._-]?ma""").containsMatchIn(n) -> "HD MA"
+            l.startsWith("dts-hd") || nuvioCRe("""dts[ ._-]?hd""").containsMatchIn(n) -> "HD"
             else -> null
         }
     }
@@ -535,7 +541,7 @@ internal object NuvioCOsdBadges {
     fun audioTile(audioLabel: String, names: String = ""): String {
         val upper = audioLabel.uppercase(Locale.ROOT)
         if (audioMark(audioLabel, names) != "DTS") return upper
-        val channels = Regex("""\s(\d\.\d|\d+CH)$""").find(upper)?.groupValues?.get(1)
+        val channels = nuvioCRe("""\s(\d\.\d|\d+CH)$""").find(upper)?.groupValues?.get(1)
         val name = when (dtsSuffix(audioLabel, names)) {
             "X" -> "DTS:X"
             "HD MA" -> "DTS-HD MA"
@@ -610,7 +616,7 @@ internal fun NuvioCSubtitleLiftEffect(
     val topBottom by rememberUpdatedState(topBottomPx)
     val progress = animateFloatAsState(
         targetValue = if (shown) 1f else 0f,
-        animationSpec = if (toTop) androidx.compose.animation.core.snap() else tween(LIFT_ANIM_MS),
+        animationSpec = if (toTop || NuvioCFeatures.OSD_LIFT_SNAP) androidx.compose.animation.core.snap() else tween(LIFT_ANIM_MS), // round 14 osd_lift_snap: one step (a 200 ms slide redrew the full-screen subtitle frame twice per frame)
         label = "nuvioCSubtitleLift"
     )
     val style by rememberUpdatedState(subtitleStyle)
@@ -780,6 +786,9 @@ internal fun nuvioCAboveSeekBar(anchor: NuvioCOsdAnchor, controlsVisible: Boolea
 @Composable
 internal fun Modifier.nuvioCFocusLabel(focused: Boolean, label: String): Modifier {
     if (!NuvioCFeatures.OSD_FOCUS_LABEL) return this
+    // round 14: only the focused button carries a text measurer, fade timer and draw step; the other
+    // buttons of the row add nothing (the label already vanished at once on focus loss).
+    if (!focused && NuvioCFeatures.OSD_FOCUS_LABEL_SHARED) return this
     val measurer = rememberTextMeasurer()
     val style = MaterialTheme.typography.labelSmall.copy(
         fontSize = 10.sp,
@@ -871,3 +880,8 @@ internal fun Modifier.nuvioCProgressFill(
         }
     }
 }
+
+// [fork] round 14 osd_badges_light: the badge rules run on every OSD open and in the once-a-second HDR
+// check; each Regex(...) used to be compiled again on every call. Compiled once and kept here.
+private val nuvioCRegexCache = java.util.concurrent.ConcurrentHashMap<String, Regex>()
+private fun nuvioCRe(pattern: String): Regex = nuvioCRegexCache.getOrPut(pattern) { Regex(pattern) }

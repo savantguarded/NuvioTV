@@ -454,8 +454,8 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
             mpv.setPropertyDouble("sub-shadow-offset", shadowOffset)
             mpv.setPropertyString("sub-border-style", borderStyle)
             mpv.setPropertyString("sub-color", toMpvColor(NuvioCHdrDim.dimArgb(style.textColor, nuvioCSubDim))) // [fork] HDR dim, was style.textColor
-            mpv.setPropertyString("sub-back-color", toMpvColor(style.backgroundColor))
-            mpv.setPropertyString("sub-outline-color", toMpvColor(style.outlineColor))
+            mpv.setPropertyString("sub-back-color", toMpvColor(nuvioCDimLight(style.backgroundColor))) // [fork] hdr_dim_light, was style.backgroundColor
+            mpv.setPropertyString("sub-outline-color", toMpvColor(nuvioCDimLight(style.outlineColor))) // [fork] hdr_dim_light, was style.outlineColor
             mpv.setPropertyBoolean("sub-filter-sdh", style.stripSdh)
             mpv.setPropertyBoolean("sub-filter-sdh-harder", style.stripSdh)
         }.onFailure {
@@ -469,8 +469,17 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
         if (factor == nuvioCSubDim) return
         nuvioCSubDim = factor
         if (!initialized) return
-        runCatching { mpv.setPropertyString("sub-color", toMpvColor(NuvioCHdrDim.dimArgb(style.textColor, factor))) }
+        runCatching {
+            mpv.setPropertyString("sub-color", toMpvColor(NuvioCHdrDim.dimArgb(style.textColor, factor)))
+            if (com.nuvio.tv.NuvioCFeatures.HDR_DIM_LIGHT) { // background and outline too, like official's HDR style
+                mpv.setPropertyString("sub-back-color", toMpvColor(NuvioCHdrDim.dimArgb(style.backgroundColor, factor)))
+                mpv.setPropertyString("sub-outline-color", toMpvColor(NuvioCHdrDim.dimArgb(style.outlineColor, factor)))
+            }
+        }
     }
+
+    private fun nuvioCDimLight(argb: Int): Int =
+        if (com.nuvio.tv.NuvioCFeatures.HDR_DIM_LIGHT) NuvioCHdrDim.dimArgb(argb, nuvioCSubDim) else argb
 
     /** [fork] true for PQ / HLG video as mpv decoded it, null when mpv can't say yet. */
     fun nuvioCIsHdrVideo(): Boolean? {
