@@ -228,7 +228,7 @@ object NuvioCFeatures {
     const val CALENDAR_START_VIEW = true
     /** Calendar: Back from any card jumps to the List / Week / Month buttons (Back again leaves), Up onto the buttons always lands on the current view's button, Down from them returns to the card you left. Off = ysosrs123's focus. */
     const val CALENDAR_TAB_FOCUS = true
-    /** Calendar Week view: no star rating in the info block above the days (genre, network, runtime stay). List view keeps it. */
+    /** Calendar Week view: no star rating in the info block above the days (genre, network, runtime stay). Since round 18 also covers the List view's info panel. */
     const val CALENDAR_WEEK_NO_RATING = true
     /** Details page plus button: click opens the library list picker, press-and-hold does the one-step add/remove to your default library (official: the other way round). */
     const val DETAIL_PLUS_PICKER = true

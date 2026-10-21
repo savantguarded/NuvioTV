@@ -961,7 +961,7 @@ private fun CalendarSidePanel(
                     calendarLabelText(row.label),
                     row.network,
                     details?.let { calendarRuntimeText(it) },
-                    calendarRatingGenre(row.rating ?: details?.rating, row.genre ?: details?.genre)
+                    calendarRatingGenre((row.rating ?: details?.rating).takeIf { !com.nuvio.tv.NuvioCFeatures.CALENDAR_WEEK_NO_RATING }, row.genre ?: details?.genre) // [fork] calendar_week_no_rating: List view too
                 )
                 if (meta.isNotEmpty()) {
                     Text(
