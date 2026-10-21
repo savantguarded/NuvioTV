@@ -236,4 +236,8 @@ object NuvioCFeatures {
     const val ENGLISH_ONLY = true
     /** In-app updater (with INSTALL_PROFILE): a message when you confirm the update ("Nuvio C will close while Android installs and optimises it, then reopen"), and Nuvio C opens itself again once the new version is installed (only after in-app updates, within 15 min). */
     const val UPDATE_REOPEN = true
+
+    // ---- Round 18 (2026-10-21) ----
+    /** Library list picker (details plus button, Home and poster long-press): the ticks sit in one column at the right edge, whatever the list name's length (a fixed slot, kept even on unticked rows). Off = round-12 layout. */
+    const val LIBRARY_PICKER_TICKS = true
 }

@@ -1,6 +1,7 @@
 package com.nuvio.tv.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -94,6 +95,33 @@ fun NuvioCLibraryPickerList(
                     contentColor = NuvioTheme.colors.TextPrimary
                 )
             ) {
+                if (com.nuvio.tv.NuvioCFeatures.LIBRARY_PICKER_TICKS) { // [fork] library_picker_ticks: fixed tick column
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = tab.localizedMembershipTitle(),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            if (isSource) {
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = stringResource(R.string.library_title),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = LocalContentColor.current.copy(alpha = 0.6f),
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Box(modifier = Modifier.size(18.dp), contentAlignment = Alignment.Center) {
+                            if (selected) {
+                                Icon(imageVector = Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    }
+                } else
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = tab.localizedMembershipTitle(),
