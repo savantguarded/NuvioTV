@@ -178,6 +178,7 @@ internal fun LayoutHomeContentSection(
         checked = uiState.hideUnreleasedContent,
         onToggle = { onEvent(LayoutSettingsEvent.SetHideUnreleasedContent(!uiState.hideUnreleasedContent)) }
     )
+    if (com.nuvio.tv.NuvioCFeatures.LIBRARY_CALENDAR) CalendarComingUpRowSetting() // [fork] From Your Library row
     SettingsToggleRow(
         title = stringResource(R.string.layout_overall_ratings),
         subtitle = stringResource(

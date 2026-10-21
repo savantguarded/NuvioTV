@@ -214,4 +214,10 @@ object NuvioCFeatures {
     const val FEATURED_TOP3_RATINGS = true
     /** Featured carousel: five-dot page indicator that slides along (edge dots smaller) instead of one dash per title. */
     const val FEATURED_DOTS_FIVE = true
+    /** Calendar (ported from ysosrs123's fork): follows the titles in your library, fetches episode and release dates (Trakt, TVmaze, TMDB) and powers the From Your Library row. Off = none of the calendar runs. */
+    const val LIBRARY_CALENDAR = true
+    /** Calendar page in the sidebar (needs LIBRARY_CALENDAR). */
+    const val CALENDAR_PAGE = true
+    /** Calendar bells: per-title reminders shown as a card on Home and a corner message (needs LIBRARY_CALENDAR). */
+    const val CALENDAR_BELLS = true
 }

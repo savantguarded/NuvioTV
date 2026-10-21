@@ -576,6 +576,13 @@ class TraktProgressService @Inject constructor(
      */
     fun getWatchedShowEpisodes(): Map<String, Set<Pair<Int, Int>>> = watchedShowEpisodesMap
 
+    /** [fork] library_calendar (from ysosrs123): the watched shows already loaded, without asking Trakt; null before the first load. */
+    fun currentWatchedShowSeeds(): List<WatchProgress>? =
+        if (hasLoadedWatchedShowSeeds) watchedShowSeedsState.value else null
+
+    /** [fork] library_calendar (from ysosrs123): content ids of the shows dropped on Trakt, as last loaded. */
+    fun currentDroppedShowIds(): Set<String> = hiddenProgressShowIds.value
+
     /**
      * Returns sibling ID mapping from Trakt: each content ID maps to its
      * alternate IDs from the same show (e.g. IMDB ↔ TMDB ↔ Trakt).

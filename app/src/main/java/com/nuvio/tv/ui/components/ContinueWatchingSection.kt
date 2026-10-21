@@ -1,5 +1,6 @@
 package com.nuvio.tv.ui.components
 
+import com.nuvio.tv.ui.screens.home.showsEpisodeCode
 import com.nuvio.tv.ui.screens.home.shuffleFocusKey
 
 import android.view.KeyEvent as AndroidKeyEvent
@@ -472,7 +473,7 @@ fun ContinueWatchingCard(
     val nextUp = remember(item) { (item as? ContinueWatchingItem.NextUp)?.info }
     val cardContext = LocalContext.current
     val episodeStr = remember(progress, nextUp, cardContext) {
-        val season = progress?.season ?: nextUp?.season
+        val season = progress?.season ?: nextUp?.season?.takeIf { nextUp.showsEpisodeCode } // [fork] library_calendar
         val episode = progress?.episode ?: nextUp?.episode
         if (season != null && episode != null) {
             cardContext.getString(R.string.season_episode_format, season, episode)
@@ -495,7 +496,9 @@ fun ContinueWatchingCard(
     val effectiveNextUpLabel = if (useShortLabels) strNextUpShort else strNextUp
     val effectiveNewEpisodeLabel = if (useShortLabels) strNewEpisodeShort else strNewEpisode
     val nextUpBadgeText = nextUp?.let { info ->
-        if (info.isReleaseAlert) {
+        if (info.badgeLabel != null) { // [fork] library_calendar
+            info.badgeLabel
+        } else if (info.isReleaseAlert) {
             if (info.isNewSeasonRelease) strNewSeason else effectiveNewEpisodeLabel
         } else if (!info.hasAired) {
             val airDateText = if (useShortLabels) {
@@ -1121,7 +1124,9 @@ fun ContinueWatchingOptionsDialog(
     onDetails: () -> Unit,
     onStartFromBeginning: () -> Unit = {},
     showPlayManually: Boolean = false,
-    onPlayManually: () -> Unit = {}
+    onPlayManually: () -> Unit = {},
+    showRemove: Boolean = true, // [fork] library_calendar
+    onHideFromComingUp: (() -> Unit)? = null // [fork] library_calendar
 ) {
     val isPlayEnabled = LocalPlaybackAvailability.current.canStream(item)
     val title = when (item) {
@@ -1179,15 +1184,30 @@ fun ContinueWatchingOptionsDialog(
             }
         }
 
-        Button(
-            onClick = onRemove,
-            colors = ButtonDefaults.colors(
-                containerColor = NuvioTheme.colors.BackgroundCard,
-                contentColor = NuvioTheme.colors.TextPrimary
-            ),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(stringResource(R.string.cw_action_remove))
+        if (onHideFromComingUp != null) { // [fork] library_calendar: "Hide from From Your Library"
+            Button(
+                onClick = onHideFromComingUp,
+                colors = ButtonDefaults.colors(
+                    containerColor = NuvioTheme.colors.BackgroundCard,
+                    contentColor = NuvioTheme.colors.TextPrimary
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.calendar_coming_up_hide))
+            }
+        }
+
+        if (showRemove) {
+            Button(
+                onClick = onRemove,
+                colors = ButtonDefaults.colors(
+                    containerColor = NuvioTheme.colors.BackgroundCard,
+                    contentColor = NuvioTheme.colors.TextPrimary
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(stringResource(R.string.cw_action_remove))
+            }
         }
     }
 }

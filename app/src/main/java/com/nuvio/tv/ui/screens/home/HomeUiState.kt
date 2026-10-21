@@ -20,6 +20,10 @@ data class HomeUiState(
     val catalogRows: List<CatalogRow> = emptyList(),
     val continueWatchingItems: List<ContinueWatchingItem> = emptyList(),
     val upcomingItems: List<ContinueWatchingItem> = emptyList(),
+    /** [fork] library_calendar: the Calendar's row (From Your Library), empty while the row is switched off. */
+    val comingUpItems: List<ContinueWatchingItem> = emptyList(),
+    /** [fork] library_calendar: true while that row is on: dated Upcoming episodes move into it (ysosrs123's behaviour). */
+    val upcomingInComingUp: Boolean = false,
     val isLoading: Boolean = true,
     val layoutPreferencesReady: Boolean = false,
     val error: String? = null,
@@ -139,7 +143,13 @@ data class NextUpInfo(
     val seedSeason: Int? = null,
     val seedEpisode: Int? = null,
     val contentLanguage: String? = null,
-    val mdbListRatings: com.nuvio.tv.domain.model.MDBListRatings? = null
+    val mdbListRatings: com.nuvio.tv.domain.model.MDBListRatings? = null,
+    /** [fork] library_calendar: shown on the card in place of the usual Next up or air date text. */
+    val badgeLabel: String? = null,
+    /** [fork] library_calendar: a row card for a show only the Upcoming row knows, so removing it works like there. */
+    val upcomingOnly: Boolean = false,
+    /** [fork] library_calendar: the Calendar's key for the card's title, used to hide it from the row. */
+    val comingUpKey: String? = null
 )
 
 @Immutable

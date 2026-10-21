@@ -134,6 +134,7 @@ fun ModernHomeContent(
     onRequestTrailerPreview: (String, String, String?, String) -> Unit,
     onLoadMoreCatalog: (String, String, String) -> Unit,
     onRemoveContinueWatching: (String, Int?, Int?, Boolean) -> Unit,
+    onHideFromComingUp: (ContinueWatchingItem) -> Unit = {}, // [fork] library_calendar
     isCatalogItemWatched: (MetaPreview) -> Boolean = { false },
     onCatalogItemLongPress: (MetaPreview, String) -> Unit = { _, _ -> },
     onNavigateToFolderDetail: (String, String) -> Unit = { _, _ -> },
@@ -1307,10 +1308,20 @@ fun ModernHomeContent(
 
     val selectedOptionsItem = optionsItem.value
     if (selectedOptionsItem != null) {
+        // [fork] library_calendar: a From Your Library card (it carries the Calendar's key) can be hidden from the
+        // row; only one that came from the Upcoming row can also be removed, as that row would allow.
+        val comingUpInfo = (selectedOptionsItem as? ContinueWatchingItem.NextUp)?.info?.takeIf { it.comingUpKey != null }
+        val comingUp = comingUpInfo != null
         ContinueWatchingOptionsDialog(
             item = selectedOptionsItem,
             onDismiss = { optionsItem.value = null },
             onRemove = {
+                if (comingUp) {
+                    val removed = uiState.upcomingItems.firstOrNull { it.contentId() == selectedOptionsItem.contentId() } ?: selectedOptionsItem
+                    onRemoveContinueWatching(removed.contentId(), removed.season(), removed.episode(), removed is ContinueWatchingItem.NextUp)
+                    optionsItem.value = null
+                    return@ContinueWatchingOptionsDialog
+                }
                 val targetIndex = if (uiState.continueWatchingItems.size <= 1) null
                 else (lastFocusedContinueWatchingIndex.intValue).coerceAtMost(uiState.continueWatchingItems.size - 2).coerceAtLeast(0)
                 pendingRowFocusKey.value = if (targetIndex != null) "continue_watching" else null
@@ -1332,11 +1343,18 @@ fun ModernHomeContent(
                 onContinueWatchingStartFromBeginning(selectedOptionsItem)
                 optionsItem.value = null
             },
-            showPlayManually = showContinueWatchingManualPlayOption,
+            showPlayManually = showContinueWatchingManualPlayOption && !comingUp,
             onPlayManually = {
                 onContinueWatchingPlayManually(selectedOptionsItem)
                 optionsItem.value = null
-            }
+            },
+            showRemove = !comingUp || comingUpInfo?.upcomingOnly == true,
+            onHideFromComingUp = if (comingUp) {
+                {
+                    onHideFromComingUp(selectedOptionsItem)
+                    optionsItem.value = null
+                }
+            } else null
         )
     }
 }

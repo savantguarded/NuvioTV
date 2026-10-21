@@ -30,6 +30,7 @@ import com.nuvio.tv.ui.screens.CatalogSeeAllScreen
 import com.nuvio.tv.ui.screens.ExperienceModeSelectionScreen
 import com.nuvio.tv.ui.screens.LayoutSelectionScreen
 import com.nuvio.tv.ui.screens.detail.MetaDetailsScreen
+import com.nuvio.tv.ui.screens.calendar.openCalendarWatchTarget
 import com.nuvio.tv.ui.screens.home.HomeScreen
 import com.nuvio.tv.ui.screens.addon.AddonManagerScreen
 import com.nuvio.tv.ui.screens.addon.CatalogOrderScreen
@@ -1225,6 +1226,18 @@ private fun PlaybackNavHost(
                         )
                     )
                 }
+            )
+        }
+
+        // [fork] calendar_page: ysosrs123's Calendar page (classic look).
+        composable(Screen.Calendar.route) {
+            com.nuvio.tv.ui.screens.calendar.CalendarScreen(
+                showBuiltInHeader = !hideBuiltInHeaders,
+                onOpenTitle = { row ->
+                    val itemId = row.contentId ?: return@CalendarScreen
+                    navController.navigate(Screen.Detail.createRoute(itemId, row.apiType))
+                },
+                onWatch = { target -> navController.openCalendarWatchTarget(target) }
             )
         }
 

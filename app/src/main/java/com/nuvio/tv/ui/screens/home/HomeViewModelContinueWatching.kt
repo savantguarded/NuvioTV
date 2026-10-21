@@ -3244,6 +3244,11 @@ internal fun HomeViewModel.removeContinueWatchingPipeline(
                             ) == dismissKey
                         is ContinueWatchingItem.InProgress -> false
                     }
+                },
+                // [fork] library_calendar: a row card that came from the Upcoming row goes with it.
+                comingUpItems = state.comingUpItems.filterNot { item ->
+                    item is ContinueWatchingItem.NextUp && item.info.upcomingOnly &&
+                        nextUpDismissKey(item.info.contentId, item.info.seedSeason, item.info.seedEpisode) == dismissKey
                 }
             )
         }

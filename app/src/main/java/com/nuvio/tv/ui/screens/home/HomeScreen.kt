@@ -109,9 +109,15 @@ fun HomeScreen(
                 viewModel.beginShuffleHomeVisit()
                 viewModel.refreshHomeCatalogsIfStale()
             }
+            // [fork] library_calendar: the From Your Library row's clock runs only while Home is in front.
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.nuvioCSetHomeInFront(true)
+            if (event == Lifecycle.Event.ON_PAUSE) viewModel.nuvioCSetHomeInFront(false)
         }
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            viewModel.nuvioCSetHomeInFront(false) // [fork] library_calendar
+        }
     }
     val modernPresentation by viewModel.modernHomePresentation.collectAsStateWithLifecycle()
     val initialCwResolved by viewModel.initialCwResolved.collectAsStateWithLifecycle()
@@ -243,6 +249,7 @@ fun HomeScreen(
 
     // Reports the home screen as fully drawn once it leaves the loading state so startup timing is measurable and post-launch work can be deferred.
     ReportDrawnWhen { !showStartupLoader }
+    com.nuvio.tv.ui.screens.calendar.CalendarHomeSignal(contentShown = !showStartupLoader) // [fork] library_calendar: settled refresh + bells wait for Home
 
     val startupLoadingState = LocalStartupLoadingState.current
     val showHomeLoader = shouldShowHomeStartupLoader(
@@ -709,6 +716,7 @@ private fun ModernHomeRoute(
         onRequestTrailerPreview = requestTrailerPreview,
         onLoadMoreCatalog = loadMoreCatalog,
         onRemoveContinueWatching = removeContinueWatching,
+        onHideFromComingUp = remember(viewModel) { { item: ContinueWatchingItem -> viewModel.hideFromComingUp(item) } }, // [fork] library_calendar
         isCatalogItemWatched = isCatalogItemWatched,
         onCatalogItemLongPress = onCatalogItemLongPress,
         onNavigateToFolderDetail = onNavigateToFolderDetail,

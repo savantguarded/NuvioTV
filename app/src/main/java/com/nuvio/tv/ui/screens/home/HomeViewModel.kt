@@ -88,6 +88,7 @@ class HomeViewModel @Inject constructor(
     internal val profileManager: com.nuvio.tv.core.profile.ProfileManager,
     internal val tvRecommendationManager: TvRecommendationManager,
     internal val serverCatalog: ServerCatalog,
+    internal val calendarComingUp: CalendarComingUpSource? = null, // [fork] library_calendar (From Your Library row)
     internal val metaPreviewEnricher: MetaPreviewEnricher = MetaPreviewEnricher(
         tmdbService,
         tmdbMetadataService,
@@ -139,6 +140,13 @@ class HomeViewModel @Inject constructor(
     internal val _pendingWatchedBatch = MutableStateFlow<Map<String, Boolean>>(emptyMap())
     /** True once the CW pipeline has completed its first emission (items or empty). */
     internal val _initialCwResolved = MutableStateFlow(false)
+
+    /** [fork] library_calendar: true while Home is in front, so the row's minute clock only runs then. */
+    internal val comingUpActive = MutableStateFlow(false)
+
+    fun nuvioCSetHomeInFront(inFront: Boolean) {
+        comingUpActive.value = inFront
+    }
     val initialCwResolved: StateFlow<Boolean> = _initialCwResolved.asStateFlow()
     val effectiveAutoplayEnabled = playerSettingsDataStore.playerSettings
         .map(StreamAutoPlayPolicy::isEffectivelyEnabled)
@@ -382,6 +390,7 @@ class HomeViewModel @Inject constructor(
             observeCollections()
             observeInstalledAddons()
             observeManualAddonRefresh()
+            if (com.nuvio.tv.NuvioCFeatures.LIBRARY_CALENDAR) observeComingUpRow() // [fork] library_calendar
 
             // Clear CW state when profile changes so items don't leak between profiles.
             var previousProfileId = profileManager.activeProfileId.value

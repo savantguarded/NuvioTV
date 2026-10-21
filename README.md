@@ -9,6 +9,8 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 **Home**
 - **Featured layout** (Settings > Layout): a full-screen carousel of your hero catalogs on top of Modern home, with Play, Details and a next-title arrow, a "#3 in Top 20" line for ranked catalogs, a NEW / NEW SEASON tag and up to six lines of synopsis. It loops both ways; Down goes to the rows, Up or the sidebar's Home comes back.
 - The hero carousel actually rotates (every 10 s without a key press) and draws a fresh mix of 18 titles each launch.
+- Featured carousel: up to three ratings, a small five-dot page indicator, and the sidebar's Home always lands back on Continue Watching.
+- **Calendar** (from [ysosrs123's fork](https://github.com/ysosrs123/NuvioTV-Fork)): a Calendar page in the menu (List, Week and Month) with the next episodes and film dates of everything in your library, in your time zone. Bell a title for a reminder card on Home when something new is out. Optional **From Your Library** row under Upcoming (Settings > Layout > Home Content); Calendar options, including your own lists, under Settings > Layout > Calendar. Episode times from TVmaze.
 
 **Player**
 - Title logo and stream badges (resolution, HDR / Dolby Vision, audio, source, size) on the controls.
