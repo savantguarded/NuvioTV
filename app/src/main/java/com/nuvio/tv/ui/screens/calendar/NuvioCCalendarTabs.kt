@@ -22,6 +22,7 @@ import com.nuvio.tv.NuvioCFeatures
 // - Down from the buttons goes back to the card you left (focus restorer on the view).
 // Kept in its own file so ysosrs123's calendar files only carry three hook lines.
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 /** On the row of view buttons. [selected] = the current view's button, [content] = the view below. */
 internal fun Modifier.nuvioCCalendarTabs(selected: FocusRequester, content: FocusRequester): Modifier =
     if (!NuvioCFeatures.CALENDAR_TAB_FOCUS) this else this
