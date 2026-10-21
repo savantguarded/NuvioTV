@@ -74,8 +74,13 @@ fun calendarZoneOptions(
 
 @HiltViewModel
 class CalendarSettingsViewModel @Inject constructor(
-    private val data: CalendarScreenData
+    private val data: CalendarScreenData,
+    private val viewStore: com.nuvio.tv.ui.screens.calendar.NuvioCCalendarViewStore // [fork] calendar_start_view
 ) : ViewModel() {
+    // [fork] calendar_start_view
+    val startView: StateFlow<com.nuvio.tv.ui.screens.calendar.NuvioCCalendarStart> get() = viewStore.start
+    fun setStartView(start: com.nuvio.tv.ui.screens.calendar.NuvioCCalendarStart) = viewStore.setStart(start)
+
     val settings: StateFlow<CalendarSettings?> = data.settings
 
     fun now(): Instant = data.now()
@@ -198,6 +203,16 @@ internal fun LayoutCalendarSection(viewModel: CalendarSettingsViewModel = hiltVi
         checked = current.menuVisible,
         onToggle = { viewModel.setMenuVisible(!current.menuVisible) }
     )
+    // [fork] calendar_start_view: which view the Calendar opens in.
+    val startView by viewModel.startView.collectAsState()
+    if (com.nuvio.tv.NuvioCFeatures.CALENDAR_START_VIEW) {
+        SettingsActionRow(
+            title = stringResource(R.string.nuvio_c_calendar_start_in),
+            subtitle = stringResource(R.string.nuvio_c_calendar_start_in_sub),
+            value = nuvioCCalendarStartLabel(startView),
+            onClick = { dialog = "start" }
+        )
+    }
     SettingsActionRow(
         title = stringResource(R.string.calendar_setting_days),
         subtitle = stringResource(R.string.calendar_setting_days_sub),
@@ -244,6 +259,15 @@ internal fun LayoutCalendarSection(viewModel: CalendarSettingsViewModel = hiltVi
     )
 
     when (dialog) {
+        "start" -> SettingsSingleChoiceDialog( // [fork] calendar_start_view
+            title = stringResource(R.string.nuvio_c_calendar_start_in),
+            options = com.nuvio.tv.ui.screens.calendar.NuvioCCalendarStart.entries.map { option ->
+                SettingsPickerOption(option, nuvioCCalendarStartLabel(option))
+            },
+            selectedValue = startView,
+            onOptionSelected = { viewModel.setStartView(it); dialog = null },
+            onDismiss = { dialog = null }
+        )
         "days" -> SettingsSingleChoiceDialog(
             title = stringResource(R.string.calendar_setting_days),
             options = CALENDAR_WINDOW_OPTIONS.map { days ->
@@ -361,4 +385,15 @@ private fun calendarZoneRegionNames(): Map<String, String> = mapOf(
     "Europe" to stringResource(R.string.calendar_zone_region_europe),
     "Indian" to stringResource(R.string.calendar_zone_region_indian),
     "Pacific" to stringResource(R.string.calendar_zone_region_pacific)
+)
+
+/** [fork] calendar_start_view */
+@Composable
+private fun nuvioCCalendarStartLabel(start: com.nuvio.tv.ui.screens.calendar.NuvioCCalendarStart): String = stringResource(
+    when (start) {
+        com.nuvio.tv.ui.screens.calendar.NuvioCCalendarStart.LAST_USED -> R.string.nuvio_c_calendar_start_last
+        com.nuvio.tv.ui.screens.calendar.NuvioCCalendarStart.LIST -> R.string.calendar_view_list
+        com.nuvio.tv.ui.screens.calendar.NuvioCCalendarStart.WEEK -> R.string.calendar_view_week
+        com.nuvio.tv.ui.screens.calendar.NuvioCCalendarStart.MONTH -> R.string.calendar_view_month
+    }
 )

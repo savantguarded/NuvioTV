@@ -222,4 +222,6 @@ object NuvioCFeatures {
     const val CALENDAR_BELLS = true
     /** Upcoming row cards from the Calendar read like official's: Today/Tonight with the time, Tomorrow, In 2 Days to In 7 Days, then the date. Off = ysosrs123's weekday names. */
     const val CALENDAR_IN_DAYS = true
+    /** Calendar "Start in" setting (Settings > Layout > Calendar): Last used (default), List, Week or Month. Off = always Week, as in ysosrs123's fork. */
+    const val CALENDAR_START_VIEW = true
 }

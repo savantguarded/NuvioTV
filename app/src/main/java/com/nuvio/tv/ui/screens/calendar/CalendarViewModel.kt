@@ -80,11 +80,15 @@ internal fun calendarPhase(state: CalendarState, settingsLoaded: Boolean, list: 
 class CalendarViewModel internal constructor(
     private val data: CalendarScreenData,
     computeDispatcher: CoroutineDispatcher,
-    tickMillis: Long
+    tickMillis: Long,
+    private val viewPrefs: NuvioCCalendarViewPrefs? = null // [fork] calendar_start_view
 ) : ViewModel() {
 
     @Inject
-    constructor(data: CalendarScreenData) : this(data, Dispatchers.Default, TICK_MS)
+    constructor(data: CalendarScreenData, viewPrefs: NuvioCCalendarViewStore) : this(
+        data, Dispatchers.Default, TICK_MS,
+        viewPrefs.takeIf { com.nuvio.tv.NuvioCFeatures.CALENDAR_START_VIEW } // [fork] calendar_start_view
+    )
 
     private val ticks = flow {
         while (true) {
@@ -102,7 +106,7 @@ class CalendarViewModel internal constructor(
             .flowOn(computeDispatcher)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), CalendarUiState())
 
-    private val _viewMode = MutableStateFlow(CalendarViewMode.WEEK)
+    private val _viewMode = MutableStateFlow(viewPrefs?.openingMode() ?: CalendarViewMode.WEEK) // [fork] calendar_start_view
     val viewMode: StateFlow<CalendarViewMode> = _viewMode.asStateFlow()
 
     private val _month = MutableStateFlow(CalendarMonthState())
@@ -143,7 +147,14 @@ class CalendarViewModel internal constructor(
 
     /** Each time the page comes into view; the page is kept while you are elsewhere, so this is not done once. */
     fun onScreenShown() {
-        if (!titleOpened) showToday()
+        if (!titleOpened) {
+            showToday()
+            // [fork] calendar_start_view: a fixed "Start in" choice applies each time the page is opened afresh.
+            // Not when "See all in Calendar" from a reminder is taking you to Just aired.
+            if (!data.openAtJustAired.value && _pendingListKey.value == null) {
+                viewPrefs?.takeIf { it.start.value != NuvioCCalendarStart.LAST_USED }?.let { _viewMode.value = it.openingMode() }
+            }
+        }
         titleOpened = false
         data.requestRefresh(CalendarRefreshReason.CALENDAR_OPENED)
     }
@@ -193,6 +204,7 @@ class CalendarViewModel internal constructor(
     fun setViewMode(mode: CalendarViewMode) {
         if (mode != CalendarViewMode.LIST && _viewMode.value != mode) showToday()
         _viewMode.value = mode
+        viewPrefs?.rememberUsed(mode) // [fork] calendar_start_view
     }
 
     fun focusDay(date: LocalDate) {
@@ -203,6 +215,7 @@ class CalendarViewModel internal constructor(
     fun openDayInList(date: LocalDate) {
         _pendingListKey.value = uiState.value.list.rowKeyFor(date)
         _viewMode.value = CalendarViewMode.LIST
+        viewPrefs?.rememberUsed(CalendarViewMode.LIST) // [fork] calendar_start_view
     }
 
     /** Set when OK on a month day opens the Week on it; the Week clears it once it has focused that day. */
@@ -217,6 +230,7 @@ class CalendarViewModel internal constructor(
         _weekStart.value = weekStart
         _pendingWeekDay.value = date
         _viewMode.value = CalendarViewMode.WEEK
+        viewPrefs?.rememberUsed(CalendarViewMode.WEEK) // [fork] calendar_start_view
     }
 
     fun consumePendingWeekDay() {
