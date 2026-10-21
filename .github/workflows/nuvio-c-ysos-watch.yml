@@ -1,0 +1,52 @@
+# Nuvio C: daily check for new ysosrs123 calendar code. Never changes the app; opens one issue per new
+# ysosrs123 commit that touches calendar files, listing them. Taking it in = scripts/nuvio-c-calendar-sync.sh
+# (run in a Claude session or locally), which keeps the Nuvio C tweaks.
+name: Nuvio C ysosrs123 calendar watch
+
+on:
+  schedule:
+    - cron: "41 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - name: Compare with the calendar version Nuvio C has
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          url=https://github.com/ysosrs123/NuvioTV-Fork
+          old="$(tr -d '[:space:]' < scripts/nuvio-c-calendar-upstream.txt)"
+          new="$(git ls-remote "$url" refs/heads/main | cut -f1)"
+          echo "Nuvio C has ${old:0:7}, ysosrs123 main is ${new:0:7}"
+          [ -n "$new" ] && [ "$new" != "$old" ] || exit 0
+          title="ysosrs123 calendar update ${new:0:7}"
+          if gh api "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" --jq '.[].title' | grep -Fxq "$title"; then
+            echo "Issue already open."; exit 0
+          fi
+          git fetch -q --depth=1 "$url" "$old" "$new"
+          changed="$(git diff --name-only "$old" "$new")"
+          cal="$(grep -Fxf scripts/nuvio-c-calendar-files.txt <<<"$changed" || true)"
+          newcal="$(grep -iE '(calendar|tvmaze|comingup)' <<<"$changed" | grep -Fxvf scripts/nuvio-c-calendar-files.txt | grep -Ev '^(docs/|app/src/main/res/values-(pt|sr|zh)/)' || true)"
+          if [ -z "$cal$newcal" ]; then echo "His new commits don't touch the calendar."; exit 0; fi
+          {
+            echo "ysosrs123 changed calendar code: $url/compare/${old}...${new}"
+            echo
+            echo "**Calendar files Nuvio C carries (merged by the sync script, tweaks kept):**"
+            printf -- '- `%s`\n' ${cal:-"(none)"}
+            echo
+            echo "**New calendar files (added by the sync script):**"
+            printf -- '- `%s`\n' ${newcal:-"(none)"}
+            echo
+            echo "Nothing changes until it's taken in: \`scripts/nuvio-c-calendar-sync.sh\` on nuvio-c, then compile, test and push nuvio-c and ysos-calendar. Close this issue once done."
+          } > body.md
+          gh issue create -R "$GITHUB_REPOSITORY" --title "$title" --body-file body.md
