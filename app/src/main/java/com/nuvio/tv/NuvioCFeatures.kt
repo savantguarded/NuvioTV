@@ -208,4 +208,10 @@ object NuvioCFeatures {
     const val TRAKT_KEEP_LOGIN = true
     /** In-app updater: installs the APK together with its compile profile (.dm), so Android pre-compiles Nuvio C during the install (Android 9+). Falls back to the system installer screen when there's no profile or the session fails. */
     const val INSTALL_PROFILE = true
+    /** Featured home: sidebar Home also makes Continue Watching (first row, first card) the remembered spot, so the carousel's peek shows Continue Watching instead of the catalog you came from. */
+    const val FEATURED_HOME_TOP = true
+    /** Featured carousel: at most three MDBList ratings (first three in your rating order), like Modern's hero. */
+    const val FEATURED_TOP3_RATINGS = true
+    /** Featured carousel: five-dot page indicator that slides along (edge dots smaller) instead of one dash per title. */
+    const val FEATURED_DOTS_FIVE = true
 }

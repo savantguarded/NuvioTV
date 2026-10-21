@@ -149,6 +149,20 @@ val LocalNuvioCFeaturedHeroAlpha = staticCompositionLocalOf<(() -> Float)?> { nu
 internal object NuvioCFeaturedRules {
     private val YEAR = Regex("""\b(19|20)\d{2}\b""")
 
+    data class Dot(val index: Int, val small: Boolean)
+
+    /** featured_dots_five: up to [max] dots, the active one kept in the middle where it can be; an edge dot with more titles past it is small. */
+    fun dotWindow(count: Int, active: Int, max: Int): List<Dot> {
+        if (count <= 0) return emptyList()
+        val shown = minOf(count, max)
+        val current = active.coerceIn(0, count - 1)
+        val start = (current - shown / 2).coerceIn(0, count - shown)
+        val end = start + shown - 1
+        return (start..end).map { i ->
+            Dot(index = i, small = (i == start && start > 0) || (i == end && end < count - 1))
+        }
+    }
+
     fun contentIdOf(item: ContinueWatchingItem): String = when (item) {
         is ContinueWatchingItem.InProgress -> item.progress.contentId
         is ContinueWatchingItem.NextUp -> item.info.contentId
@@ -889,7 +903,11 @@ private fun NuvioCFeaturedText(
         }
         if (ratings != null) {
             Spacer(Modifier.height(8.dp))
-            MDBListRatingsRow(ratings = ratings, order = ratingOrder)
+            MDBListRatingsRow(
+                ratings = ratings,
+                order = ratingOrder,
+                maxItems = if (com.nuvio.tv.NuvioCFeatures.FEATURED_TOP3_RATINGS) 3 else Int.MAX_VALUE // [fork] featured_top3_ratings
+            )
         }
         val synopsis = item.description?.let { NuvioCHeroSpec.homeSynopsis(it) }
         if (!synopsis.isNullOrBlank()) {
@@ -989,6 +1007,10 @@ private fun NuvioCFeaturedNextButton(enabled: Boolean, onClick: () -> Unit, modi
 
 @Composable
 private fun NuvioCFeaturedDots(count: Int, active: Int) {
+    if (com.nuvio.tv.NuvioCFeatures.FEATURED_DOTS_FIVE) {
+        NuvioCFeaturedDotsFive(count, active)
+        return
+    }
     val ring = NuvioTheme.focusRing.brush()
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         repeat(count.coerceAtMost(20)) { i ->
@@ -1002,6 +1024,36 @@ private fun NuvioCFeaturedDots(count: Int, active: Int) {
         }
     }
 }
+
+// [fork] featured_dots_five (round 15): at most five plain dots in a fixed-width row. The window slides
+// with the active title; a dot at an edge with more titles beyond it is drawn smaller (iOS style).
+@Composable
+private fun NuvioCFeaturedDotsFive(count: Int, active: Int) {
+    if (count <= 1) return
+    val window = NuvioCFeaturedRules.dotWindow(count, active, NUVIO_C_DOTS_MAX)
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        window.forEach { dot ->
+            val size = when {
+                dot.index == active -> 8.dp
+                dot.small -> 4.dp
+                else -> 6.dp
+            }
+            Box(Modifier.size(8.dp), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier
+                        .size(size)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = if (dot.index == active) 0.95f else 0.35f))
+                )
+            }
+        }
+    }
+}
+
+private const val NUVIO_C_DOTS_MAX = 5
 
 /** Settings > Layout > Home: the fourth card. */
 @Composable

@@ -84,4 +84,20 @@ class NuvioCHomeFeaturedTest {
         assertEquals("2022", NuvioCFeaturedRules.year("2022–"))
         assertNull(NuvioCFeaturedRules.year(null))
     }
+
+    @Test
+    fun `dot window keeps five and slides with the active title`() {
+        assertEquals(listOf(0, 1, 2), NuvioCFeaturedRules.dotWindow(3, 1, 5).map { it.index })
+        assertTrue(NuvioCFeaturedRules.dotWindow(3, 1, 5).none { it.small })
+        val start = NuvioCFeaturedRules.dotWindow(12, 0, 5)
+        assertEquals(listOf(0, 1, 2, 3, 4), start.map { it.index })
+        assertEquals(listOf(4), start.filter { it.small }.map { it.index })
+        val middle = NuvioCFeaturedRules.dotWindow(12, 6, 5)
+        assertEquals(listOf(4, 5, 6, 7, 8), middle.map { it.index })
+        assertEquals(listOf(4, 8), middle.filter { it.small }.map { it.index })
+        val end = NuvioCFeaturedRules.dotWindow(12, 11, 5)
+        assertEquals(listOf(7, 8, 9, 10, 11), end.map { it.index })
+        assertEquals(listOf(7), end.filter { it.small }.map { it.index })
+        assertTrue(NuvioCFeaturedRules.dotWindow(0, 0, 5).isEmpty())
+    }
 }

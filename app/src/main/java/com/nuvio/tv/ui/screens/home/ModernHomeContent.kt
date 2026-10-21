@@ -300,8 +300,27 @@ fun ModernHomeContent(
         }
     }
 
+    val nuvioCFeaturedOn = LocalNuvioCFeaturedHeroAlpha.current != null // [fork] featured_home_top
     LaunchedEffect(scrollToTopTrigger) {
         if (scrollToTopTrigger > 0) {
+            // [fork] featured_home_top (round 15): under the Featured carousel, sidebar Home also makes the
+            // first row (Continue Watching) the remembered row, on its first card. Before, only the list
+            // scrolled: the remembered row stayed the deep one, focus went back to it and the list
+            // scrolled down again, so the carousel's peek showed that catalog instead.
+            if (com.nuvio.tv.NuvioCFeatures.FEATURED_HOME_TOP && nuvioCFeaturedOn) {
+                carouselRows.list.firstOrNull()?.let { first ->
+                    focusHolder.activeRowKey = first.key
+                    focusHolder.activeItemIndex = 0
+                    activeRowKey.value = first.key
+                    activeItemIndex.intValue = 0
+                    focusedItemByRow[first.key] = 0
+                    heroItem.value = first.items.firstOrNull()?.heroPreview ?: heroItem.value
+                    pendingRowFocusKey.value = first.key
+                    pendingRowFocusIndex.value = 0
+                    pendingRowFocusNonce.intValue++
+                    runCatching { rowListStates[first.key]?.scrollToItem(0, 0) }
+                }
+            }
             verticalRowListState.scrollToItem(0, 0)
         }
     }
