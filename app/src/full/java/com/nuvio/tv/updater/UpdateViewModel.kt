@@ -246,6 +246,19 @@ class UpdateViewModel @Inject constructor(
                 }
             }
 
+            // [fork] install_profile: the compile profile for this Android version, best effort
+            if (result.isSuccess) {
+                nuvioCProfilePath = null
+                val profileUrl = update.profileUrl
+                val profileName = update.profileName
+                if (profileUrl != null && profileName != null) {
+                    val profileDest = File(File(context.cacheDir, "updates"), profileName.replace(Regex("[^a-zA-Z0-9._-]"), "_"))
+                    nuvioCProfilePath = withContext(Dispatchers.IO) {
+                        apkDownloader.download(profileUrl, profileDest) { _, _ -> }.getOrNull()?.absolutePath
+                    }
+                }
+            }
+
             result
                 .onSuccess { file ->
                     _uiState.update {
@@ -291,8 +304,13 @@ class UpdateViewModel @Inject constructor(
         }
 
         _uiState.update { it.copy(showUnknownSourcesDialog = false) }
+        // [fork] install_profile: APK + compile profile in one install session; else the system screen
+        val profile = nuvioCProfilePath?.let(::File)
+        if (NuvioCSessionInstaller.install(context, apkFile, profile) { ApkInstaller.launchInstall(context, apkFile) }) return
         ApkInstaller.launchInstall(context, apkFile)
     }
+
+    private var nuvioCProfilePath: String? = null // [fork] install_profile
 
     fun openUnknownSourcesSettings() {
         ApkInstaller.buildUnknownSourcesSettingsIntent(context)?.let(context::startActivity)

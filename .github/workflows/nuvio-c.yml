@@ -440,6 +440,24 @@ jobs:
           version="$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)"
           out="NuvioC-${version}-${ABI}.apk"
           cp "$apk" "$out"
+          # Compile-on-install profiles (round 14 install_profile): AGP writes one .dm per Android range
+          # next to the APK (listed in output-metadata.json). Published as -api28.dm (Android 9-11) and
+          # -api31.dm (12+); the in-app updater installs the matching one with the APK.
+          dm_files=()
+          outdir="$(dirname "$apk")"
+          echo "APK output folder:"; find "$outdir" -maxdepth 3 | sed 's/^/  /'
+          if [ -f "$outdir/output-metadata.json" ] && command -v jq >/dev/null; then
+            while IFS=$'\t' read -r minapi rel; do
+              [ -n "$rel" ] && [ -f "$outdir/$rel" ] || continue
+              if [ "$minapi" -ge 31 ]; then suffix=api31; elif [ "$minapi" -ge 28 ]; then suffix=api28; else continue; fi
+              dm="${out%.apk}-${suffix}.dm"
+              [ -f "$dm" ] && continue
+              cp "$outdir/$rel" "$dm"
+              dm_files+=("$dm")
+              echo "Install profile for API ${minapi}+: $rel -> $dm"
+            done < <(jq -r '.baselineProfiles[]? | "\(.minApi)\t\(.baselineProfiles[0] // "")"' "$outdir/output-metadata.json")
+          fi
+          [ ${#dm_files[@]} -gt 0 ] || echo "::warning::No install profiles (.dm) found; the updater will use the system installer as before."
           tag="${{ steps.plan.outputs.tag }}"
           gh release delete "$tag" --yes --cleanup-tag >/dev/null 2>&1 || true
           rel="${{ steps.plan.outputs.release }}"
@@ -464,7 +482,7 @@ jobs:
           fi
           # Hidden run number: the in-app updater offers a rebuild of the same official release when it is newer than the installed APK
           notes="$(printf '%s\n\n<!-- nuvioc-build:%s -->' "$notes" "$GITHUB_RUN_NUMBER")"
-          gh release create "$tag" "$out" --target "$GITHUB_SHA" \
+          gh release create "$tag" "$out" "${dm_files[@]}" --target "$GITHUB_SHA" \
             --title "Nuvio C ${rel}" \
             --notes "$notes" --latest
           # Keep the 5 newest Nuvio C releases

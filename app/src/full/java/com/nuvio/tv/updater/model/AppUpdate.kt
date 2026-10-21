@@ -7,5 +7,7 @@ data class AppUpdate(
     val releaseUrl: String?,
     val assetName: String,
     val assetUrl: String,
-    val assetSizeBytes: Long?
+    val assetSizeBytes: Long?,
+    val profileUrl: String? = null, // [fork] install_profile: the .dm for this Android version
+    val profileName: String? = null
 )
