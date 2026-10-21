@@ -700,7 +700,10 @@ private fun traktConnectionPresentation(state: TraktUiState): TrackingConnection
             color = NuvioTheme.colors.Warning
         )
         else -> TrackingConnectionPresentation(
-            subtitle = stringResource(R.string.trakt_description),
+            subtitle = (if (com.nuvio.tv.NuvioCFeatures.TRAKT_KEEP_LOGIN) // [fork] trakt_keep_login: why it last disconnected
+                com.nuvio.tv.core.NuvioCTraktNotes.lastDisconnect(androidx.compose.ui.platform.LocalContext.current)
+                    ?.let { stringResource(R.string.nuvio_c_trakt_last_disconnect, it) } else null)
+                ?: stringResource(R.string.trakt_description),
             value = stringResource(R.string.tracking_status_disconnected),
             color = NuvioTheme.colors.TextSecondary
         )

@@ -25,4 +25,5 @@
     <string name="nuvio_c_pause_watching">You\'re watching</string>
     <string name="nuvio_c_pause_paused">Paused</string>
     <string name="nuvio_c_library_watched">Watched</string>
+    <string name="nuvio_c_trakt_last_disconnect">Last disconnected %1$s</string>
 </resources>

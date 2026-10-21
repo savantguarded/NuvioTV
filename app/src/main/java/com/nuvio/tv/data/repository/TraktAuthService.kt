@@ -288,6 +288,24 @@ class TraktAuthService @Inject constructor(
             val tokenBody = response.body()
             if (!response.isSuccessful || tokenBody == null) {
                 trace("refreshTokenIfNeeded: failed code=${response.code()}")
+                if (com.nuvio.tv.NuvioCFeatures.TRAKT_KEEP_LOGIN) {
+                    // [fork] Nuvio C trakt_keep_login: only a clear "this login is dead" from Trakt
+                    // removes it. A 403 (Trakt's edge / app check), a 5xx, a 429 or a body without an
+                    // OAuth error keeps the tokens and backs off; the next request tries again.
+                    val code = response.code()
+                    val error = runCatching { response.errorBody()?.string() }.getOrNull()
+                        ?.let { body -> Regex("\"error\"\\s*:\\s*\"([a-z_]+)\"").find(body)?.groupValues?.get(1) }
+                    val dead = (code == 400 || code == 401) &&
+                        error in setOf("invalid_grant", "invalid_token", "unauthorized_client", "invalid_client")
+                    if (dead) {
+                        com.nuvio.tv.core.NuvioCTraktNotes.record(context, "Trakt said the login is no longer valid (HTTP $code, ${error})", disconnected = true)
+                        invalidateCredentials(code)
+                    } else {
+                        com.nuvio.tv.core.NuvioCTraktNotes.record(context, "token refresh failed (HTTP $code${error?.let { ", $it" } ?: ""}), will retry", disconnected = false)
+                        tripCircuit("Token refresh returned $code (login kept)")
+                    }
+                    return@withLock false
+                }
                 if (response.code() == 400 || response.code() == 401 || response.code() == 403) {
                     invalidateCredentials(response.code())
                 }

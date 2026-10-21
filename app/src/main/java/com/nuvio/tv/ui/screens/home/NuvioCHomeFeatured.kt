@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -288,6 +289,8 @@ internal fun NuvioCFeaturedGate(
 
 private val SLIDE_MS = if (com.nuvio.tv.NuvioCFeatures.FEATURED_FAST_FOCUS) 260 else 380
 private val PEEK = 76.dp
+private val FEATURED_TOP_SAFE = 40.dp // [fork] featured_synopsis_six: the text block never rises above this
+private const val FEATURED_SYNOPSIS_LINES = 6
 
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
@@ -384,6 +387,16 @@ private fun NuvioCFeaturedHome(
     LaunchedEffect(scrollToTopTrigger) {
         if (scrollToTopTrigger != lastScrollTrigger) {
             lastScrollTrigger = scrollToTopTrigger
+            // [fork] featured_home_clean (round 14): Home from deep in the rows left the first Continue
+            // Watching card in its enlarged "selected" look under the carousel (Modern restored focus to
+            // it while the carousel took focus), so the row title was cut off in the peek strip. Now
+            // the rows settle on the first card first, then the carousel comes back exactly as Up from
+            // the first row does.
+            if (com.nuvio.tv.NuvioCFeatures.FEATURED_HOME_CLEAN && !shown && available) {
+                runCatching { rowsRequester.requestFocus() }
+                repeat(3) { withFrameNanos { } }
+                kotlinx.coroutines.delay(120)
+            }
             goToCarousel()
         }
     }
@@ -681,16 +694,24 @@ private fun NuvioCFeaturedSlide(
                 }
         )
 
+        val sixLines = com.nuvio.tv.NuvioCFeatures.FEATURED_SYNOPSIS_SIX
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
+                .then(if (sixLines) Modifier.fillMaxHeight().padding(top = FEATURED_TOP_SAFE) else Modifier) // [fork] featured_synopsis_six: the block can't grow past the top
                 .padding(start = margin, bottom = 18.dp)
                 .fillMaxWidth(0.46f),
             verticalArrangement = Arrangement.Bottom
         ) {
             // Text block bottom-anchored: the buttons never move. Titles swap with a short fade-through,
-            // so a taller or shorter block never visibly jumps.
-            NuvioCFadeThrough(target = item, key = { it.id }, contentAlignment = Alignment.BottomStart) { slide ->
+            // so a taller or shorter block never visibly jumps. featured_synopsis_six: the block is
+            // measured after the buttons (weight), so it only gets the height left above them.
+            NuvioCFadeThrough(
+                target = item,
+                key = { it.id },
+                contentAlignment = Alignment.BottomStart,
+                modifier = if (sixLines) Modifier.weight(1f, fill = false) else Modifier
+            ) { slide ->
                 NuvioCFeaturedText(slide, ratings[slide.id], ratingOrder, taglines[slide.id], tagline, infos[slide.id])
             }
             Spacer(Modifier.height(18.dp))
@@ -873,14 +894,31 @@ private fun NuvioCFeaturedText(
         val synopsis = item.description?.let { NuvioCHeroSpec.homeSynopsis(it) }
         if (!synopsis.isNullOrBlank()) {
             Spacer(Modifier.height(8.dp))
-            Text(
-                text = synopsis,
-                style = NuvioCHeroSpec.detailSynopsisStyle(MaterialTheme.typography.bodyMedium),
-                color = NuvioTheme.colors.TextPrimary.copy(alpha = NuvioCHeroSpec.DETAIL_SYNOPSIS_ALPHA),
-                maxLines = 5,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth(0.92f)
-            )
+            val synopsisStyle = NuvioCHeroSpec.detailSynopsisStyle(MaterialTheme.typography.bodyMedium)
+            if (com.nuvio.tv.NuvioCFeatures.FEATURED_SYNOPSIS_SIX) {
+                // featured_synopsis_six: up to six lines, fewer (never under three) when a tall logo,
+                // tagline, rank line and ratings leave less room under the top safe area.
+                androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth(0.92f)) {
+                    val lineDp = with(LocalDensity.current) { synopsisStyle.lineHeight.toDp() }
+                    val fit = if (constraints.hasBoundedHeight && lineDp > 0.dp) (maxHeight / lineDp).toInt() else FEATURED_SYNOPSIS_LINES
+                    Text(
+                        text = synopsis,
+                        style = synopsisStyle,
+                        color = NuvioTheme.colors.TextPrimary.copy(alpha = NuvioCHeroSpec.DETAIL_SYNOPSIS_ALPHA),
+                        maxLines = fit.coerceIn(3, FEATURED_SYNOPSIS_LINES),
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            } else {
+                Text(
+                    text = synopsis,
+                    style = synopsisStyle,
+                    color = NuvioTheme.colors.TextPrimary.copy(alpha = NuvioCHeroSpec.DETAIL_SYNOPSIS_ALPHA),
+                    maxLines = 5,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth(0.92f)
+                )
+            }
         }
     }
 }

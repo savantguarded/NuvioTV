@@ -2891,7 +2891,7 @@ private fun PlayerControlsOverlay(
                         )
                     }
 
-                    if (onShowPartyPanel != null) {
+                    if (onShowPartyPanel != null && (!com.nuvio.tv.NuvioCFeatures.PARTY_IN_MORE || partyActive)) { // [fork] party_in_more: main row only while a party runs
                         ControlButton(
                             icon = Icons.Rounded.Groups,
                             contentDescription = stringResource(R.string.party_title),
@@ -2939,6 +2939,16 @@ private fun PlayerControlsOverlay(
                                 onDownKey = onHideControls,
                                 onFocused = onResetHideTimer
                             )
+                            if (com.nuvio.tv.NuvioCFeatures.PARTY_IN_MORE && onShowPartyPanel != null && !partyActive) { // [fork] party_in_more: Watch Party tucked in here when no party runs
+                                ControlButton(
+                                    icon = Icons.Rounded.Groups,
+                                    contentDescription = stringResource(R.string.party_title),
+                                    onClick = onShowPartyPanel,
+                                    upFocusRequester = progressUpTarget,
+                                    onDownKey = onHideControls,
+                                    onFocused = onResetHideTimer
+                                )
+                            }
                             if (com.nuvio.tv.NuvioCFeatures.ENGINE_IN_MORE) { // [fork] Switch player engine lives here, own icon
                                 ControlButton(
                                     icon = androidx.compose.material.icons.Icons.Default.Memory,
