@@ -64,7 +64,9 @@ data class CalendarComingUpText(
     val tonightAt: String,
     val tomorrow: String,
     val cinema: String,
-    val digital: String
+    val digital: String,
+    /** [fork] Nuvio C: official's "In %d Days" card text; null keeps ysosrs123's weekday labels. */
+    val inDays: ((Int) -> String)? = null
 ) {
     companion object {
         fun from(context: Context) = CalendarComingUpText(
@@ -74,13 +76,32 @@ data class CalendarComingUpText(
             tonightAt = context.getString(R.string.calendar_coming_up_tonight_at),
             tomorrow = context.getString(R.string.calendar_section_tomorrow),
             cinema = context.getString(R.string.calendar_film_cinema),
-            digital = context.getString(R.string.calendar_film_digital)
+            digital = context.getString(R.string.calendar_film_digital),
+            inDays = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_IN_DAYS) {
+                { days -> context.resources.getQuantityString(R.plurals.cw_airs_in_days_short, days, days) }
+            } else null
         )
     }
 }
 
-fun calendarComingUpLabel(item: CalendarComingUpItem, text: CalendarComingUpText, formats: CalendarFormats): String =
-    when (item.whenKind) {
+/** [fork] Nuvio C: official's last "In N Days" day (Today, Tomorrow, In 2 Days ... In 7 Days, then the date). */
+private const val NUVIO_C_IN_DAYS_MAX = 7L
+
+fun calendarComingUpLabel(
+    item: CalendarComingUpItem,
+    text: CalendarComingUpText,
+    formats: CalendarFormats,
+    today: LocalDate? = null // [fork] Nuvio C: the Calendar's today, for "In N Days"
+): String {
+    // [fork] Nuvio C: like official's Upcoming cards, anything 2 to 7 days away reads "In N Days".
+    val inDays = text.inDays
+    if (inDays != null && today != null &&
+        (item.whenKind == CalendarComingUpWhen.WEEKDAY || item.whenKind == CalendarComingUpWhen.DATE)
+    ) {
+        val days = java.time.temporal.ChronoUnit.DAYS.between(today, item.date)
+        if (days in 2..NUVIO_C_IN_DAYS_MAX) return inDays(days.toInt())
+    }
+    return when (item.whenKind) {
         CalendarComingUpWhen.NEW -> text.newLabel
         CalendarComingUpWhen.TONIGHT -> item.time?.let { text.tonightAt.format(formats.time(it)) } ?: text.today
         CalendarComingUpWhen.TODAY -> item.time?.let { text.todayAt.format(formats.time(it)) } ?: text.today
@@ -88,6 +109,7 @@ fun calendarComingUpLabel(item: CalendarComingUpItem, text: CalendarComingUpText
         CalendarComingUpWhen.WEEKDAY -> formats.weekday(item.date.dayOfWeek)
         CalendarComingUpWhen.DATE -> formats.shortDate(item.date)
     }
+}
 
 /**
  * A Coming up card in the Continue Watching card's shape; null for a title the app cannot open. The backdrop in memory
@@ -98,7 +120,8 @@ fun calendarComingUpCard(
     text: CalendarComingUpText,
     formats: CalendarFormats,
     art: (type: String, ids: List<String>) -> Pair<String?, String?> = { _, _ -> null to null },
-    upcomingOnly: Boolean = false
+    upcomingOnly: Boolean = false,
+    today: LocalDate? = null // [fork] Nuvio C: for "In N Days"
 ): ContinueWatchingItem.NextUp? {
     val title = item.title
     val ids = calendarContentIds(title)
@@ -130,7 +153,7 @@ fun calendarComingUpCard(
             lastWatched = 0L,
             sortTimestamp = entry.sortInstant()?.toEpochMilli() ?: 0L,
             releaseTimestamp = entry.airInstantMs,
-            badgeLabel = calendarComingUpLabel(item, text, formats),
+            badgeLabel = calendarComingUpLabel(item, text, formats, today),
             upcomingOnly = upcomingOnly,
             comingUpKey = title.key
         )
@@ -304,7 +327,7 @@ class CalendarComingUpSource @Inject constructor(
                     buildCalendarComingUp(titles, state.watched, now, zone, { title, entry ->
                         calendarEntryInKeys(shown, title, entry)
                     }, CALENDAR_COMING_UP_MAX + upcomingItems.size)
-                        .mapNotNull { calendarComingUpCard(it, text, formats, ::cachedArt, upcomingOnly = it.title.key !in calendarKeys) }
+                        .mapNotNull { calendarComingUpCard(it, text, formats, ::cachedArt, upcomingOnly = it.title.key !in calendarKeys, today = now.atZone(zone).toLocalDate()) }
                         .distinctBy { Triple(it.info.contentId, it.info.season, it.info.episode) }
                 }.onStart { if (calendar.state.value.watched == null) calendar.reloadWatched() }
             }
