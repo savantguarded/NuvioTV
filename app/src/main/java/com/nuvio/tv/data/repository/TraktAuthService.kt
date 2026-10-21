@@ -293,10 +293,10 @@ class TraktAuthService @Inject constructor(
                     // removes it. A 403 (Trakt's edge / app check), a 5xx, a 429 or a body without an
                     // OAuth error keeps the tokens and backs off; the next request tries again.
                     val code = response.code()
-                    val error = runCatching { response.errorBody()?.string() }.getOrNull()
-                        ?.let { body -> Regex("\"error\"\\s*:\\s*\"([a-z_]+)\"").find(body)?.groupValues?.get(1) }
-                    val dead = (code == 400 || code == 401) &&
-                        error in setOf("invalid_grant", "invalid_token", "unauthorized_client", "invalid_client")
+                    val body = runCatching { response.errorBody()?.string() }.getOrNull().orEmpty()
+                    val error = listOf("invalid_grant", "invalid_token", "unauthorized_client", "invalid_client")
+                        .firstOrNull { body.contains(it, ignoreCase = true) } // Trakt sends {"error":"invalid_grant",...}
+                    val dead = (code == 400 || code == 401) && error != null
                     if (dead) {
                         com.nuvio.tv.core.NuvioCTraktNotes.record(context, "Trakt said the login is no longer valid (HTTP $code, ${error})", disconnected = true)
                         invalidateCredentials(code)
