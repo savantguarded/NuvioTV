@@ -87,7 +87,7 @@ class UpdateJobService : JobService() {
         val channel = preferences.getOrInitializeUpdateChannel()
         val update = entryPoint.updateRepository().getLatestUpdate(channel).getOrThrow()
         preferences.setLastCheckAtMs(System.currentTimeMillis())
-        if (!VersionUtils.isRemoteNewer(update.tag, BuildConfig.VERSION_NAME)) return
+        if (!NuvioCUpdateBuild.isNewerThanInstalled(update.tag)) return // [fork] rebuilds too
         if (update.tag == preferences.ignoredTag.first()) return
 
         downloadStore.download(update).getOrThrow()

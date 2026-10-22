@@ -98,8 +98,7 @@ class UpdateViewModel @Inject constructor(
 
             result
                 .onSuccess { update ->
-                    val remoteNewer = VersionUtils.isRemoteNewer(update.tag, BuildConfig.VERSION_NAME) ||
-                        NuvioCUpdateBuild.isNewerRebuild(update.tag, BuildConfig.VERSION_NAME, BuildConfig.NUVIO_C_BUILD) // [fork]
+                    val remoteNewer = NuvioCUpdateBuild.isNewerThanInstalled(update.tag) // [fork] official version or a rebuild
                     val downloadedFile = if (remoteNewer) downloadStore.downloadedFileFor(update) else null
                     // The release just installed carries the notes the "updated" banner can show.
                     val installedUpdate = _uiState.value.installedUpdate?.let { installed ->
@@ -328,7 +327,7 @@ class UpdateViewModel @Inject constructor(
     private suspend fun consumeAutoInstalledUpdate() {
         val tag = updatePreferences.autoInstalledTag.first() ?: return
         // Still older than the installed version means the install has not happened yet.
-        if (VersionUtils.isRemoteNewer(tag, BuildConfig.VERSION_NAME)) return
+        if (NuvioCUpdateBuild.isNewerThanInstalled(tag)) return // [fork] a rebuild not installed yet too
         updatePreferences.setAutoInstalledTag(null)
         if (VersionUtils.isRemoteNewer(BuildConfig.VERSION_NAME, tag)) return
         if (!_uiState.value.autoInstallNoticeEnabled) return

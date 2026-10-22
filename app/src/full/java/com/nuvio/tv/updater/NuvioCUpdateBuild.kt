@@ -19,6 +19,15 @@ internal object NuvioCUpdateBuild {
 
     fun buildOf(tag: String?): Int? = tag?.substringAfter("+nuvioc.", "")?.toIntOrNull()
 
+    /**
+     * [fork] round 20: newer than this APK, either a newer official version or a forced rebuild of this one.
+     * Official beta.8's background download, idle install and "updated" banner use this too, so rebuilds
+     * travel the same path (downloaded, compiled at install, silent installs on Android 12+).
+     */
+    fun isNewerThanInstalled(tag: String?): Boolean =
+        VersionUtils.isRemoteNewer(tag, com.nuvio.tv.BuildConfig.VERSION_NAME) ||
+            isNewerRebuild(tag, com.nuvio.tv.BuildConfig.VERSION_NAME, com.nuvio.tv.BuildConfig.NUVIO_C_BUILD)
+
     /** Same official version, higher run number than the installed APK. */
     fun isNewerRebuild(tag: String?, localVersion: String?, localBuild: Int): Boolean {
         val remote = VersionUtils.parse(tag) ?: return false
