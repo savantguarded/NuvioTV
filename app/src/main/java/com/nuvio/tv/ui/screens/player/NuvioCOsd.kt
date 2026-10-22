@@ -709,7 +709,7 @@ private fun PlayerView.nuvioCApplySubtitleLift(
         frame.setSubtitleLift(lift, sv.top + sv.paddingTop + usable / 2f)
     }
 
-    for (id in intArrayOf(R.id.libass_overlay_container, R.id.libass_overlay_container_gl)) {
+    for (id in intArrayOf(R.id.libass_overlay_container_gl)) {
         val container = findViewById<android.widget.FrameLayout>(id) ?: continue
         container.translationY = 0f
         val frame = container as? NuvioCSubtitleLiftLayout ?: continue

@@ -127,7 +127,7 @@ private fun nuvioCApplySubtitleDim(controller: PlayerRuntimeController, uiState:
 }
 
 private fun PlayerView.nuvioCSetSubtitleDim(factor: Float) {
-    for (id in intArrayOf(R.id.nuvio_c_subtitle_lift, R.id.libass_overlay_container, R.id.libass_overlay_container_gl)) {
+    for (id in intArrayOf(R.id.nuvio_c_subtitle_lift, R.id.libass_overlay_container_gl)) {
         (findViewById<View>(id) as? NuvioCSubtitleLiftLayout)?.setNuvioCDim(factor)
     }
 }

@@ -21,12 +21,6 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:scaleType="fitXY" />
-
-        <!-- [fork] Nuvio C subtitle lift frame (plain FrameLayout when the lift is off) -->
-        <com.nuvio.tv.ui.screens.player.NuvioCSubtitleLiftLayout
-            android:id="@+id/libass_overlay_container"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent" />
     </androidx.media3.ui.AspectRatioFrameLayout>
 
     <!-- [fork] Nuvio C subtitle lift frame -->

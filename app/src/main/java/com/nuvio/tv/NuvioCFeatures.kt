@@ -84,8 +84,6 @@ object NuvioCFeatures {
     const val DETAIL_RATING = true
     /** Library: read-only "Watched" tab for Trakt and MDBList (newest first, Movies / Series filter); Simkl's Completed tab is named Watched. */
     const val LIBRARY_WATCHED = true
-    /** Player: "Switch player engine" sits in the More row (the hidden buttons) instead of the main row. */
-    const val ENGINE_IN_MORE = true
     /** Subtitles: "Font" picker (player subtitle style panel and Settings) with the app's extra fonts. Off = official default font. */
     const val SUBTITLE_FONT = true
     /** Profile screen: official layout without "Who's watching?", the hold hint, star and Primary text; Add Profile as a button under the profiles. Manage profiles stays official. */
@@ -208,8 +206,6 @@ object NuvioCFeatures {
     const val SINGLE_SOURCE_NO_ALL = true
     /** Trakt: a failed token refresh only removes the login when Trakt clearly says it's dead (invalid_grant and similar); a 403, server error or rate limit keeps it and retries later. The reason for the last disconnect shows under Trakt in Settings > Tracking (and in logcat, tag NuvioCTrakt). Official wiped the login on any 400 / 401 / 403. */
     const val TRAKT_KEEP_LOGIN = true
-    /** In-app updater: installs the APK together with its compile profile (.dm), so Android pre-compiles Nuvio C during the install (Android 9+). Falls back to the system installer screen when there's no profile or the session fails. */
-    const val INSTALL_PROFILE = true
     /** Featured home: sidebar Home also makes Continue Watching (first row, first card) the remembered spot, so the carousel's peek shows Continue Watching instead of the catalog you came from. */
     const val FEATURED_HOME_TOP = true
     /** Featured carousel: at most three MDBList ratings (first three in your rating order), like Modern's hero. */
@@ -234,7 +230,7 @@ object NuvioCFeatures {
     const val DETAIL_PLUS_PICKER = true
     /** English only: the APK leaves out the app's and its libraries' other languages (localeFilters "en" in app/build.gradle.kts, which reads this line). Smaller APK; no effect on speed or memory. */
     const val ENGLISH_ONLY = true
-    /** In-app updater (with INSTALL_PROFILE): a message when you confirm the update ("Nuvio C will close while Android installs and optimises it, then reopen"), and Nuvio C opens itself again once the new version is installed (only after in-app updates, within 15 min). */
+    /** In-app updater: Nuvio C opens itself again once an update you confirmed is installed (only after in-app updates, within 15 min). Since beta.8 the install itself is official's (APK + its embedded compile profile in one session); automatic idle installs never reopen the app. */
     const val UPDATE_REOPEN = true
 
     // ---- Round 18 (2026-10-21) ----

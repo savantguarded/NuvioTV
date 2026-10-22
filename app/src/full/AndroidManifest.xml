@@ -1,7 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- [fork] Nuvio C round 17 `update_reopen`: reopen Nuvio C after an in-app update finishes installing. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Lets the in-app updater install its own updates without a confirmation screen on Android 12+. -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
+
     <application>
+        <service
+            android:name=".updater.UpdateJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <receiver
+            android:name=".updater.UpdateInstallResultReceiver"
+            android:exported="false" />
+
+        <!-- [fork] Nuvio C round 17 `update_reopen`: reopen Nuvio C after an in-app update finishes installing. -->
         <receiver
             android:name="com.nuvio.tv.updater.NuvioCUpdatedReceiver"
             android:exported="true">

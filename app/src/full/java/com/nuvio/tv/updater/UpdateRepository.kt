@@ -57,9 +57,7 @@ class UpdateRepository @Inject constructor(
                 releaseUrl = dto.htmlUrl,
                 assetName = asset.name,
                 assetUrl = asset.browserDownloadUrl,
-                assetSizeBytes = asset.size,
-                profileUrl = NuvioCSessionInstaller.pickProfile(dto.assets)?.browserDownloadUrl, // [fork] install_profile
-                profileName = NuvioCSessionInstaller.pickProfile(dto.assets)?.name
+                assetSizeBytes = asset.size
             )
         }
     }

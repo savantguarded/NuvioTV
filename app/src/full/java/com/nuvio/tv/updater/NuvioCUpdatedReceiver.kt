@@ -9,7 +9,7 @@ import com.nuvio.tv.NuvioCFeatures
 // [fork] Nuvio C round 17 `update_reopen`.
 //
 // The in-app update installs through a PackageInstaller session so Android compiles Nuvio C during the
-// install (round 14 `install_profile`). Session installs have no progress screen: Nuvio C closes when you
+// install (official since beta.8, the .dm is embedded in the APK). Session installs have no progress screen: Nuvio C closes when you
 // confirm and can't be opened until Android has installed and compiled it. Android then tells the new
 // version "you were updated" (MY_PACKAGE_REPLACED); if the update came from the in-app updater in the last
 // 15 minutes, Nuvio C opens itself again. adb / file-manager installs leave no mark, so they never reopen it.

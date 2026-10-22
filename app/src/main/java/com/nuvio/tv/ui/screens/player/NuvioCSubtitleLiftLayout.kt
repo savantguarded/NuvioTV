@@ -22,7 +22,9 @@ class NuvioCSubtitleLiftLayout @JvmOverloads constructor(
 
     /** [lift] pixels to move the lower part up; [split] the line (px from the top) above which nothing moves. */
     fun setSubtitleLift(lift: Float, split: Float) {
-        val l = if (lift.isNaN()) 0f else lift.coerceAtLeast(0f)
+        // beta.8: official libass draws into its own surface (AssSubtitleSurfaceView), which can't be
+        // split and redrawn here, so ASS on ExoPlayer stays where the file puts it, as on mpv.
+        val l = if (lift.isNaN() || hasSurfaceChild()) 0f else lift.coerceAtLeast(0f)
         if (l == liftPx && split == splitY) return
         liftPx = l
         splitY = split
@@ -42,6 +44,7 @@ class NuvioCSubtitleLiftLayout @JvmOverloads constructor(
         val f = factor.coerceIn(0f, 1f)
         val changed = f != dimFactor
         dimFactor = f
+        applySurfaceDim()
         if (NuvioCFeatures.HDR_DIM_LIGHT) {
             if (layerType != LAYER_TYPE_NONE) setLayerType(LAYER_TYPE_NONE, null)
             if (changed) {
@@ -82,8 +85,26 @@ class NuvioCSubtitleLiftLayout @JvmOverloads constructor(
         return false
     }
 
+    private fun hasSurfaceChild(): Boolean {
+        for (i in 0 until childCount) if (getChildAt(i) is android.view.SurfaceView) return true
+        return false
+    }
+
+    // beta.8 libass surface: its pixels never pass through this frame's canvas, so the dim is the
+    // surface's own alpha (applied by the system compositor on Android 10+; older Android: no dim).
+    private fun applySurfaceDim() {
+        for (i in 0 until childCount) {
+            val c = getChildAt(i) as? android.view.SurfaceView ?: continue
+            if (c.alpha != dimFactor) c.alpha = dimFactor
+        }
+    }
+
     override fun onViewAdded(child: android.view.View?) {
         super.onViewAdded(child)
+        if (child is android.view.SurfaceView) {
+            applySurfaceDim()
+            if (liftPx != 0f) { liftPx = 0f; invalidate() }
+        }
         if (dimFactor < 1f && !NuvioCFeatures.HDR_DIM_LIGHT) updateDimLayer()
     }
 
