@@ -98,8 +98,8 @@ internal fun ModernSidebarBlurPanel(
     val delayedBlurProgress =
         ((sidebarExpandProgress - 0.34f) / 0.66f).coerceIn(0f, 1f)
     val showPanelBlur = blurEnabled &&
-        isSidebarExpanded &&
-        !sidebarCollapsePending &&
+        // [fork] sidebar_close_smooth: keep the blur while closing; its radius already shrinks with the panel
+        (com.nuvio.tv.NuvioCFeatures.SIDEBAR_CLOSE_SMOOTH || (isSidebarExpanded && !sidebarCollapsePending)) &&
         delayedBlurProgress > 0f
     val expandedPanelBlurModifier = if (showPanelBlur) {
         Modifier.hazeEffect(state = sidebarHazeState) {

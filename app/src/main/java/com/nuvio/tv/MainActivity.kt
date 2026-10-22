@@ -2003,7 +2003,7 @@ private fun ModernSidebarScaffold(
             sidebarCollapsePending = false
             return@LaunchedEffect
         }
-        delay(95L)
+        if (!com.nuvio.tv.NuvioCFeatures.SIDEBAR_CLOSE_SMOOTH) delay(95L) // [fork] sidebar_close_smooth: close at once
         isSidebarExpanded = false
         sidebarCollapsePending = false
     }
@@ -2051,7 +2051,8 @@ private fun ModernSidebarScaffold(
             if (targetState) {
                 tween(durationMillis = NuvioMotion.tokens.durations.sidebarPanelIn, easing = FastOutSlowInEasing)
             } else {
-                tween(durationMillis = NuvioMotion.tokens.durations.sidebarPanelOut, easing = LinearOutSlowInEasing)
+                if (com.nuvio.tv.NuvioCFeatures.SIDEBAR_CLOSE_SMOOTH) tween(durationMillis = 220, easing = FastOutSlowInEasing) // [fork] sidebar_close_smooth
+                else tween(durationMillis = NuvioMotion.tokens.durations.sidebarPanelOut, easing = LinearOutSlowInEasing)
             }
         },
         label = "sidebarExpandProgress"
@@ -2212,7 +2213,8 @@ private fun ModernSidebarScaffold(
                     .padding(start = NuvioTheme.spacing.lg - NuvioTheme.spacing.xxs, top = NuvioTheme.spacing.lg, bottom = NuvioTheme.spacing.md, end = NuvioTheme.spacing.sm)
                     .graphicsLayer {
                         val progress = sidebarExpandProgress
-                        alpha = sidebarSurfaceAlpha
+                        // [fork] sidebar_close_smooth: closing fades on the panel's own curve only (no second, faster fade on top)
+                        alpha = if (com.nuvio.tv.NuvioCFeatures.SIDEBAR_CLOSE_SMOOTH && !isSidebarExpanded) 1f else sidebarSurfaceAlpha
                         val s = 0.92f + 0.08f * progress
                         scaleX = s
                         scaleY = s
