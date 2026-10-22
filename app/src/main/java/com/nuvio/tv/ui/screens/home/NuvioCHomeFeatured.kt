@@ -44,6 +44,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.drawWithContent
@@ -220,17 +221,24 @@ class NuvioCHomeFeaturedViewModel @Inject constructor(
     private val _infos = MutableStateFlow<Map<String, com.nuvio.tv.core.di.NuvioCFeaturedInfo>>(emptyMap()) // featured_badges
     val infos: StateFlow<Map<String, com.nuvio.tv.core.di.NuvioCFeaturedInfo>> = _infos.asStateFlow()
     private val asked = HashSet<String>()
+    // [fork] featured_cold_start: titles whose MDBList answer is in (with or without ratings)
+    private val _ratingsDone = MutableStateFlow<Set<String>>(emptySet())
+    val ratingsDone: StateFlow<Set<String>> = _ratingsDone.asStateFlow()
 
     /** Ratings (MDBList, when shown on the hero) and tagline for a title, once per title per visit. */
     fun prefetch(item: MetaPreview, wantRatings: Boolean) {
         if (!asked.add(item.id)) return
         if (wantRatings) {
             viewModelScope.launch {
-                val result = runCatching {
-                    mdbListRepository.getRatingsForMeta(item.toMdbMeta(), fallbackItemId = item.id, fallbackItemType = item.apiType)
-                }.getOrNull()
-                val ratings = result?.ratings?.takeIf { !it.isEmpty() } ?: return@launch
-                _ratings.update { it + (item.id to ratings) }
+                try {
+                    val result = runCatching {
+                        mdbListRepository.getRatingsForMeta(item.toMdbMeta(), fallbackItemId = item.id, fallbackItemType = item.apiType)
+                    }.getOrNull()
+                    val ratings = result?.ratings?.takeIf { !it.isEmpty() } ?: return@launch
+                    _ratings.update { it + (item.id to ratings) }
+                } finally {
+                    _ratingsDone.update { it + item.id }
+                }
             }
         }
         val source = taglineSource ?: return
@@ -334,7 +342,14 @@ private fun NuvioCFeaturedHome(
     var interaction by remember { mutableIntStateOf(0) }
     val idleClock = com.nuvio.tv.ui.components.rememberNuvioCIdleClock() // [fork] idle_timer_light
     val carouselOn = shown && available
-    val progress = remember { Animatable(if (carouselOn) 0f else 1f) } // 0 = carousel, 1 = rows
+    // [fork] featured_cold_start: while the carousel's titles are still loading (fresh start), Home's rows
+    // already wait in their place under it instead of sitting at the top and jumping down when the
+    // carousel arrives. Gives up after 6 s if no titles come (rows then take the screen as before).
+    val coldStart = com.nuvio.tv.NuvioCFeatures.FEATURED_COLD_START
+    var awaitExpired by remember { mutableStateOf(false) }
+    val awaiting = coldStart && shown && !awaitExpired && uiState.heroSectionEnabled && items.isEmpty() && !rowsFocused
+    if (coldStart) LaunchedEffect(Unit) { kotlinx.coroutines.delay(6_000); awaitExpired = true }
+    val progress = remember { Animatable(if (carouselOn || awaiting) 0f else 1f) } // 0 = carousel, 1 = rows
 
     fun buttonRequester(i: Int) = when (i) { 1 -> detailsRequester; 2 -> nextRequester; else -> playRequester }
 
@@ -387,12 +402,12 @@ private fun NuvioCFeaturedHome(
         }
     }
     // Opening / coming back to Home with the carousel up: focus its last button (Modern can't take it).
-    LaunchedEffect(carouselOn) {
+    LaunchedEffect(carouselOn, awaiting) {
         if (carouselOn && !sliding) {
             if (progress.value != 0f) progress.snapTo(0f)
             repeat(2) { withFrameNanos { } }
             runCatching { buttonRequester(lastButton).requestFocus() }
-        } else if (!carouselOn && !sliding && progress.value != 1f) {
+        } else if (!carouselOn && !sliding && !awaiting && progress.value != 1f) {
             progress.snapTo(1f)
         }
     }
@@ -452,6 +467,7 @@ private fun NuvioCFeaturedHome(
         if (items.size > 1) viewModel.prefetch(items[NuvioCFeaturedRules.nextIndex(index, items.size)], wantRatings)
     }
     val ratings by viewModel.ratings.collectAsStateWithLifecycle()
+    val ratingsDone by viewModel.ratingsDone.collectAsStateWithLifecycle() // [fork] featured_cold_start
     val taglines by viewModel.taglines.collectAsStateWithLifecycle()
     val infos by viewModel.infos.collectAsStateWithLifecycle()
 
@@ -482,6 +498,26 @@ private fun NuvioCFeaturedHome(
     // How far Modern sits lower while the carousel is up: its first row then starts PEEK above the bottom.
     val rowsDropPx = (screenHeightPx * NuvioCFeaturedRules.rowsViewportFraction(uiState.modernLandscapePostersEnabled) - peekPx)
         .coerceAtLeast(0f)
+
+    // [fork] featured_cold_start: the first time the carousel appears it fades in once, after its first
+    // backdrop is decoded (same request as the slide's, so the slide finds it in memory), max 1.2 s.
+    val reveal = remember { Animatable(if (coldStart && !carouselOn) 0f else 1f) }
+    if (coldStart) {
+        val revealContext = LocalContext.current
+        val revealW = with(density) { configuration.screenWidthDp.dp.roundToPx() }.coerceAtLeast(1)
+        val revealH = with(density) { configuration.screenHeightDp.dp.roundToPx() }.coerceAtLeast(1)
+        LaunchedEffect(available) {
+            if (!available || reveal.value == 1f) return@LaunchedEffect
+            val first = items.getOrNull(index.coerceIn(0, items.size - 1))
+            kotlinx.coroutines.withTimeoutOrNull(1_200) {
+                first?.logo?.let { runCatching { revealContext.imageLoader.enqueue(logoRequest(revealContext, it)) } }
+                first?.backdropUrl?.let { url ->
+                    runCatching { revealContext.imageLoader.execute(backdropRequest(revealContext, url, revealW, revealH)) }
+                }
+            }
+            reveal.animateTo(1f, tween(280, easing = FastOutSlowInEasing))
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -540,7 +576,10 @@ private fun NuvioCFeaturedHome(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(carouselHeight)
-                    .graphicsLayer { translationY = -progress.value * carouselHeightPx }
+                    .graphicsLayer {
+                        translationY = -progress.value * carouselHeightPx
+                        alpha = reveal.value // [fork] featured_cold_start: 1 except during the one first fade-in
+                    }
                     .drawWithContent { if (progress.value < 1f) drawContent() }
                     .background(NuvioTheme.colors.Background)
                     .onPreviewKeyEvent { event ->
@@ -590,7 +629,8 @@ private fun NuvioCFeaturedHome(
                         index = NuvioCFeaturedRules.previousIndex(index, items.size)
                         lastButton = 2
                         runCatching { nextRequester.requestFocus() }
-                    }
+                    },
+                    ratingsPending = { id -> coldStart && wantRatings && id !in ratingsDone }
                 )
             }
         }
@@ -649,7 +689,8 @@ private fun NuvioCFeaturedSlide(
     onDetails: () -> Unit,
     onButtonFocused: (Int) -> Unit,
     onNext: (focusFirst: Boolean) -> Unit,
-    onPrevious: () -> Unit
+    onPrevious: () -> Unit,
+    ratingsPending: (String) -> Boolean = { false } // [fork] featured_cold_start
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -726,7 +767,7 @@ private fun NuvioCFeaturedSlide(
                 contentAlignment = Alignment.BottomStart,
                 modifier = if (sixLines) Modifier.weight(1f, fill = false) else Modifier
             ) { slide ->
-                NuvioCFeaturedText(slide, ratings[slide.id], ratingOrder, taglines[slide.id], tagline, infos[slide.id])
+                NuvioCFeaturedText(slide, ratings[slide.id], ratingOrder, taglines[slide.id], tagline, infos[slide.id], ratingsPending(slide.id))
             }
             Spacer(Modifier.height(18.dp))
             val label = NuvioCFeaturedRules.labelFor(cw)
@@ -839,7 +880,8 @@ private fun NuvioCFeaturedText(
     ratingOrder: List<String>,
     taglineText: String?,
     tagline: NuvioCFeaturedTagline?,
-    info: com.nuvio.tv.core.di.NuvioCFeaturedInfo? = null
+    info: com.nuvio.tv.core.di.NuvioCFeaturedInfo? = null,
+    ratingsPending: Boolean = false
 ) {
     val context = LocalContext.current
     Column(verticalArrangement = Arrangement.Bottom) {
@@ -907,6 +949,14 @@ private fun NuvioCFeaturedText(
                 ratings = ratings,
                 order = ratingOrder,
                 maxItems = if (com.nuvio.tv.NuvioCFeatures.FEATURED_TOP3_RATINGS) 3 else Int.MAX_VALUE // [fork] featured_top3_ratings
+            )
+        } else if (com.nuvio.tv.ui.screens.detail.rememberNuvioCRatingsHold(ratingsPending, item.id)) {
+            // [fork] featured_cold_start: same height, invisible, until MDBList answers (max 4 s), so the
+            // logo and text above don't jump up and back when the ratings land
+            Spacer(Modifier.height(8.dp))
+            MDBListRatingsRow(
+                ratings = com.nuvio.tv.ui.screens.detail.NUVIO_C_RATINGS_PLACEHOLDER,
+                modifier = Modifier.alpha(0f)
             )
         }
         val synopsis = item.description?.let { NuvioCHeroSpec.homeSynopsis(it) }

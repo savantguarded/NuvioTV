@@ -242,4 +242,20 @@ object NuvioCFeatures {
     const val LIBRARY_PICKER_TICKS = true
     /** Calendar reminder popup (one title): Watch now / Open show / Later take the width their text needs, in a full-width row under the poster and text, so no label is cut off. The several-titles popup's Show / Film button gets a minimum width too. Off = ysosrs123's layout. */
     const val CALENDAR_REMINDER_BUTTONS = true
+
+    // ---- Round 19 (2026-10-22) ----
+    /** Featured carousel on a cold start: Home's rows already sit in their place under the carousel, the carousel fades in once (about 0.3 s) when its first picture is ready (never waits more than 1.2 s), and its ratings line keeps its height until MDBList answers. Off = the carousel snaps in over the rows and its pictures pop in. */
+    const val FEATURED_COLD_START = true
+    /** Modern sidebar closing: starts at once (no 95 ms wait), one fade on one curve over 220 ms, the blur fades with the panel instead of switching off on the first frame, and the small pill fades in on the same curve. Opening is unchanged. Off = official. */
+    const val SIDEBAR_CLOSE_SMOOTH = true
+    /** Rate dialog: five stars with half steps (one Right press = half a star = one point, 1 to 10 as before) in a single focus stop, with "8/10 · Great" under it. Off = the round-12 row of ten numbered circles. */
+    const val RATING_STARS = true
+    /** Rate dialog: "Sync to Simkl" for movies and shows (Simkl stores your 1-10 score; a title not yet on your Simkl list is added to it). The details page star also lights up for titles you rated on Simkl. */
+    const val RATING_SIMKL = true
+    /** Calendar: only dated releases. List view drops the "No date yet" group (returning / in production shows), and List, Week and Month drop cinema-only film rows (films show from their digital release). Off = ysosrs123's lists. */
+    const val CALENDAR_DATED_ONLY = true
+    /** Search: the empty screen says "Enter at least 2 characters" without "Discover is disabled." in front. */
+    const val SEARCH_NO_DISCOVER_COPY = true
+    /** Nuvio C's own settings (the toggles and choices in its settings screens) travel with your Nuvio account's settings, so a new TV signed in to the same profile gets them. Stored as one extra entry inside official's settings sync; the TV's own copy always wins when the cloud has none. */
+    const val NUVIO_C_CLOUD_SETTINGS = true
 }
