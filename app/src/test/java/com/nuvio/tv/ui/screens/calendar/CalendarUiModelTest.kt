@@ -98,10 +98,15 @@ class CalendarUiModelTest {
         assertEquals(CalendarEpisodeLabel.SEASON_FINALE, finale.label)
         assertEquals(CalendarRowKind.EPISODE, finale.kind)
         assertFalse(finale.dimmed)
-        val film = rows.single { it.isFilm }
-        assertEquals(CalendarRowKind.FILM_CINEMA, film.kind)
-        assertNull(film.season)
-        assertEquals("movie", film.apiType)
+        // [fork] calendar_dated_only: cinema-only film rows are left out
+        if (com.nuvio.tv.NuvioCFeatures.CALENDAR_DATED_ONLY) {
+            assertTrue(rows.none { it.kind == CalendarRowKind.FILM_CINEMA })
+        } else {
+            val film = rows.single { it.isFilm }
+            assertEquals(CalendarRowKind.FILM_CINEMA, film.kind)
+            assertNull(film.season)
+            assertEquals("movie", film.apiType)
+        }
     }
 
     @Test fun listHasOneHeadingPerSectionUniqueKeysAndOpensOnToday() {
@@ -113,7 +118,8 @@ class CalendarUiModelTest {
         val list = buildCalendarList(buildCalendarSections(titles, now, sydney), now, sydney, emptySet(), null)
         val headings = list.entries.filterIsInstance<CalendarHeaderEntry>().map { it.kind }
         assertEquals(
-            listOf(CalendarSectionKind.JUST_AIRED, CalendarSectionKind.TODAY, CalendarSectionKind.TOMORROW, CalendarSectionKind.LATER, CalendarSectionKind.NO_DATE),
+            listOf(CalendarSectionKind.JUST_AIRED, CalendarSectionKind.TODAY, CalendarSectionKind.TOMORROW, CalendarSectionKind.LATER) +
+                (if (com.nuvio.tv.NuvioCFeatures.CALENDAR_DATED_ONLY) emptyList() else listOf(CalendarSectionKind.NO_DATE)), // [fork] calendar_dated_only
             headings
         )
         assertEquals(list.entries.size, list.entries.map { it.key }.distinct().size)
