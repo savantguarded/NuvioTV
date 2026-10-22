@@ -254,4 +254,8 @@ object NuvioCFeatures {
     const val SEARCH_NO_DISCOVER_COPY = true
     /** Nuvio C's own settings (the toggles and choices in its settings screens) travel with your Nuvio account's settings, so a new TV signed in to the same profile gets them. Stored as one extra entry inside official's settings sync; the TV's own copy always wins when the cloud has none. */
     const val NUVIO_C_CLOUD_SETTINGS = true
+
+    // ---- Round 20 (2026-10-22, on official 1.1.0-beta.8) ----
+    /** Rate dialog: tracker rows 48 dp (was the settings row's 62 dp, which left the label and switch sitting high) and tighter gaps, so three trackers, Remove rating and Save fit on a 1080p TV; the tracker list scrolls if it ever grows. Off = round-19 layout. */
+    const val RATE_DIALOG_FIT = true
 }

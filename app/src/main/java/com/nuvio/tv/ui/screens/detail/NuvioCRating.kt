@@ -6,6 +6,9 @@ package com.nuvio.tv.ui.screens.detail
 // back from the trackers; see NuvioCRatingService. Switch: NuvioCFeatures.DETAIL_RATING.
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -191,7 +194,9 @@ private fun NuvioCRatingDialog(
     val startScore = state.score ?: 5 // 2026-10-11: middle of the scale (was 7)
     LaunchedEffect(Unit) { runCatching { firstFocus.requestFocus() } }
 
-    NuvioDialog(onDismiss = onDismiss, title = title, subtitle = subtitle, width = 520.dp) {
+    // round 20 rate_dialog_fit: md gaps (was lg) so three trackers and the buttons fit on a 1080p TV
+    NuvioDialog(onDismiss = onDismiss, title = title, subtitle = subtitle, width = 520.dp,
+        contentSpacing = if (NuvioCFeatures.RATE_DIALOG_FIT) NuvioTheme.spacing.md else NuvioTheme.spacing.lg) {
         if (NuvioCFeatures.RATING_STARS) {
             // [fork] rating_stars (round 19): five stars with half steps, one focus stop
             NuvioCStarBar(
@@ -258,14 +263,23 @@ private fun NuvioCRatingDialog(
         }
 
         // 2026-10-11 round 4: one settings-style toggle row per tracker ("Sync to Trakt").
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // round 20 rate_dialog_fit: rows exactly as tall as their content (48 dp; the settings row's 62 dp
+        // minimum left the label and switch sitting high), and if a fourth tracker ever arrives this list
+        // scrolls instead of pushing Save off the dialog.
+        Column(
+            verticalArrangement = Arrangement.spacedBy(if (NuvioCFeatures.RATE_DIALOG_FIT) 6.dp else 8.dp),
+            modifier = if (NuvioCFeatures.RATE_DIALOG_FIT) {
+                Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())
+            } else Modifier
+        ) {
             state.connected.forEach { tracker ->
                 com.nuvio.tv.ui.screens.settings.SettingsToggleRow(
                     title = stringResource(R.string.nuvio_c_rate_sync_to, tracker.label),
                     subtitle = null,
                     checked = tracker in state.ticked,
                     onToggle = { onToggle(tracker) },
-                    enabled = !state.saving
+                    enabled = !state.saving,
+                    modifier = if (NuvioCFeatures.RATE_DIALOG_FIT) Modifier.height(48.dp) else Modifier
                 )
             }
         }
