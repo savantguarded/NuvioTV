@@ -1872,7 +1872,7 @@ fun PlayerScreen(
                     focusRequester = chaptersFocusRequester,
                     onChapterSelected = { viewModel.onEvent(PlayerEvent.OnSelectChapter(it)) },
                     onClose = { viewModel.onEvent(PlayerEvent.OnDismissChaptersPanel) },
-                    modifier = Modifier.align(Alignment.CenterEnd)
+                    modifier = Modifier.align(Alignment.CenterEnd).nuvioCHdrDim(nuvioCHdr) // [fork] HDR dim like the other panels
                 )
             }
         }
@@ -3007,7 +3007,8 @@ private fun PlayerControlsOverlay(
                                 }
                             }
                     ) {
-                        Box(modifier = Modifier.nuvioCSeekBarAnchor(LocalNuvioCOsdAnchor.current).nuvioCOsdLayer()) { // [fork] Skip Intro sits above this
+                        // [fork] a Column, not a Box: official's host stacks the chapter title over the bar (a Box drew it behind the bar)
+                        Column(modifier = Modifier.nuvioCSeekBarAnchor(LocalNuvioCOsdAnchor.current).nuvioCOsdLayer()) { // [fork] Skip Intro sits above this
                         PlayerControlsProgressBarHost(
                             viewModel = viewModel,
                             chapters = uiState.chapters,
@@ -3715,7 +3716,7 @@ private fun ChapterTitle(chapters: List<PlayerChapter>, positionMs: Long) {
     Text(
         text = chapters[index].title ?: stringResource(R.string.player_chapter_number, index + 1),
         style = MaterialTheme.typography.bodyMedium,
-        color = Color.White.copy(alpha = 0.9f),
+        color = nuvioCOsd(Color.White.copy(alpha = 0.9f)), // [fork] HDR dim
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier.padding(bottom = NuvioTheme.spacing.xs)
