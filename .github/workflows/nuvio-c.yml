@@ -65,6 +65,7 @@ env:
     app/src/main/java/com/nuvio/tv/ui/components/NuvioCTrailerHold.kt
     app/src/test/java/com/nuvio/tv/ui/screens/detail/NuvioCTrailerAutostartTest.kt
     app/src/test/java/com/nuvio/tv/ui/screens/detail/NuvioCCreditsTest.kt
+    app/src/test/java/com/nuvio/tv/ui/screens/detail/NuvioCStarFillTest.kt
   # IMDb trailer backup when YouTube rate-limits. Its own optional patch, handled like the trailer
   # patch: a conflict or compile failure drops only this feature (official YouTube-only trailers).
   IMDB_PATHS: >-

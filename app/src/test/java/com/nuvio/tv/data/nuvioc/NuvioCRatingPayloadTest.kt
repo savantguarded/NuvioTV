@@ -39,4 +39,23 @@ class NuvioCRatingPayloadTest {
         assertEquals(listOf("movie:tt0111161", "movie:tmdb278"), NuvioCRatingTarget(false, "tt0111161", 278).keys())
         assertEquals(listOf("show:tmdb1399"), NuvioCRatingTarget(true, null, 1399).keys())
     }
+
+    @Test
+    fun simklRatingsFromSyncSnapshot() {
+        val snapshot = """{"profileId":1,"entries":[
+          {"mediaType":"movies","user_rating":8,"status":"completed","movie":{"title":"Heat","ids":{"simkl":5,"imdb":"tt0113277","tmdb":"949"}}},
+          {"mediaType":"shows","user_rating":9,"show":{"title":"The Bear","ids":{"simkl":7,"tmdb":136315}}},
+          {"mediaType":"movies","status":"plantowatch","movie":{"ids":{"imdb":"tt9999999"}}}
+        ]}"""
+        val map = NuvioCRatingService.parseSimklRatings(snapshot)
+        assertEquals(8, map["movie:tt0113277"])
+        assertEquals(8, map["movie:tmdb949"])
+        assertEquals(9, map["show:tmdb136315"])
+        assertEquals(null, map["movie:tt9999999"])
+    }
+
+    @Test
+    fun simklRatingsIgnoreBrokenJson() {
+        assertEquals(emptyMap<String, Int>(), NuvioCRatingService.parseSimklRatings("{not json"))
+    }
 }

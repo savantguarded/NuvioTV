@@ -20,6 +20,21 @@
     <string name="nuvio_c_rate_trakt_score">You rated this %1$d/10</string>
     <string name="nuvio_c_rate_your_rating">Your Rating</string>
     <string name="nuvio_c_rate_sync_to">Sync to %1$s</string>
+    <!-- round 19 rating_stars: score under the stars, "8/10" and the word for it -->
+    <string name="nuvio_c_rate_out_of_ten">%1$d/10</string>
+    <string name="nuvio_c_rate_hint">Use ◀ ▶ to rate</string>
+    <string-array name="nuvio_c_rate_words">
+        <item>Awful</item>
+        <item>Terrible</item>
+        <item>Bad</item>
+        <item>Poor</item>
+        <item>Meh</item>
+        <item>Fair</item>
+        <item>Good</item>
+        <item>Great</item>
+        <item>Superb</item>
+        <item>Masterpiece</item>
+    </string-array>
     <string name="nuvio_c_prefer_imdb_trailers">Prefer IMDb Trailers</string>
     <string name="nuvio_c_prefer_imdb_trailers_sub">IMDb first for every trailer, YouTube only when IMDb has nothing in HD. IMDb trailers take a few seconds longer to start</string>
     <string name="nuvio_c_pause_watching">You\'re watching</string>

@@ -4,7 +4,10 @@ package com.nuvio.tv.data.nuvioc
 // Trakt and/or MDBList (POST /sync/ratings, 1-10, overwrites what is there; /sync/ratings/remove
 // to clear it). Nothing is read back from either service. The score you sent is remembered on
 // this TV per Nuvio profile, so the star shows as rated and the dialog reopens on it.
-// Simkl is left out on purpose: rating there adds the title to your Simkl list as watched.
+// Simkl (round 19, switch RATING_SIMKL): movies and shows only, same 1-10 body on Simkl's
+// /sync/ratings. Simkl adds a title that isn't on your list yet (released movie -> completed);
+// Charles only rates what he has watched, so that's fine. Your Simkl score is read from Nuvio's own
+// Simkl sync copy on the TV (user_rating), no extra request.
 //
 // Trakt pull (2026-10-11): your Trakt movie and show ratings are kept on the TV per Nuvio profile,
 // so a title you rated on Trakt (website, phone) shows as rated here too. No timer: when a details
@@ -18,6 +21,12 @@ import com.nuvio.tv.core.profile.ProfileManager
 import com.nuvio.tv.data.mdblist.MdbListApiClient
 import com.nuvio.tv.data.mdblist.MdbListAuthStore
 import com.nuvio.tv.data.repository.TraktAuthService
+import com.nuvio.tv.data.simkl.SimklApiClient
+import com.nuvio.tv.data.simkl.SimklApiRequest
+import com.nuvio.tv.data.simkl.SimklAuthStorage
+import com.nuvio.tv.data.simkl.SimklHttpMethod
+import com.nuvio.tv.data.simkl.SimklRetryPolicy
+import com.nuvio.tv.data.simkl.SimklSyncStorage
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -48,7 +57,7 @@ import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
 
-enum class NuvioCTracker(val label: String) { TRAKT("Trakt"), MDBLIST("MDBList") }
+enum class NuvioCTracker(val label: String) { TRAKT("Trakt"), SIMKL("Simkl"), MDBLIST("MDBList") }
 
 /** What is being rated. At least one id is set. */
 data class NuvioCRatingTarget(val isShow: Boolean, val imdbId: String?, val tmdbId: Int?) {
@@ -85,7 +94,10 @@ class NuvioCRatingService @Inject constructor(
     private val traktAuth: TraktAuthService,
     private val mdbApi: MdbListApiClient,
     private val mdbAuth: MdbListAuthStore,
-    private val profiles: ProfileManager
+    private val profiles: ProfileManager,
+    private val simklApi: SimklApiClient,
+    private val simklAuth: SimklAuthStorage,
+    private val simklSync: SimklSyncStorage
 ) {
     private val traktApi = traktRetrofit.create(NuvioCTraktRatingsApi::class.java)
     private val prefs by lazy { context.getSharedPreferences("nuvio_c_ratings", Context.MODE_PRIVATE) }
@@ -96,6 +108,9 @@ class NuvioCRatingService @Inject constructor(
         val trakt = runCatching { traktAuth.hasRequiredCredentials() && !traktAuth.getCurrentAuthState().accessToken.isNullOrBlank() }
             .getOrDefault(false)
         if (trakt) add(NuvioCTracker.TRAKT)
+        if (com.nuvio.tv.NuvioCFeatures.RATING_SIMKL &&
+            runCatching { !simklAuth.authorization()?.accessToken.isNullOrBlank() }.getOrDefault(false)
+        ) add(NuvioCTracker.SIMKL)
         if (runCatching { mdbAuth.authorization() != null }.getOrDefault(false)) add(NuvioCTracker.MDBLIST)
     }
 
@@ -181,16 +196,19 @@ class NuvioCRatingService @Inject constructor(
     fun savedScore(target: NuvioCRatingTarget): Int? =
         prefs.getInt(profileKey(target.key), 0).takeIf { it in 1..10 }
 
-    /** Trackers ticked last time (default: all connected). */
-    fun lastChoice(): Set<NuvioCTracker>? = prefs.getStringSet(profileKey("trackers"), null)
-        ?.mapNotNull { name -> NuvioCTracker.entries.firstOrNull { it.name == name } }?.toSet()
+    /** Trackers ticked last time (default: all connected). A choice saved before Simkl was offered gets Simkl added. */
+    fun lastChoice(): Set<NuvioCTracker>? {
+        val current = prefs.getStringSet(profileKey("trackers2"), null)
+        val names = current ?: prefs.getStringSet(profileKey("trackers"), null)?.plus(NuvioCTracker.SIMKL.name) ?: return null
+        return names.mapNotNull { name -> NuvioCTracker.entries.firstOrNull { it.name == name } }.toSet()
+    }
 
     /**
      * Sends [score] (1-10), or removes the rating when null, to every tracker in [to] at once.
      * Returns the trackers that failed (empty = all good). The local memory follows the result.
      */
     suspend fun send(target: NuvioCRatingTarget, score: Int?, to: Set<NuvioCTracker>): Set<NuvioCTracker> {
-        prefs.edit { putStringSet(profileKey("trackers"), to.map { it.name }.toSet()) }
+        prefs.edit { putStringSet(profileKey("trackers2"), to.map { it.name }.toSet()) }
         val body = payload(target, score)
         val failed = coroutineScope {
             to.map { tracker ->
@@ -198,6 +216,7 @@ class NuvioCRatingService @Inject constructor(
                     val ok = runCatching {
                         when (tracker) {
                             NuvioCTracker.TRAKT -> sendTrakt(body, score == null).also { if (it) updateTraktCopy(target, score) }
+                            NuvioCTracker.SIMKL -> sendSimkl(body, score == null).also { if (it) updateSimklCopy(target, score) }
                             NuvioCTracker.MDBLIST -> sendMdbList(body, score == null)
                         }
                     }.getOrDefault(false)
@@ -220,6 +239,41 @@ class NuvioCRatingService @Inject constructor(
         } ?: return false
         response.body()?.close()
         return response.isSuccessful
+    }
+
+    private suspend fun sendSimkl(body: String, remove: Boolean): Boolean {
+        val response = simklApi.execute(
+            SimklApiRequest(
+                method = SimklHttpMethod.POST,
+                path = if (remove) "/sync/ratings/remove" else "/sync/ratings",
+                body = body,
+                retryPolicy = SimklRetryPolicy.SYNC_WRITE
+            )
+        )
+        return response.status in 200..299
+    }
+
+    // ---- Simkl copy (from Nuvio's own Simkl sync snapshot, no request) ----------------------
+    private class SimklRatings(val profile: Int, val at: Long, val scores: MutableMap<String, Int>)
+    @Volatile private var simkl: SimklRatings? = null
+
+    /** Your Simkl score for this title, or null. Re-reads the sync copy at most every [CHECK_EVERY_MS]. */
+    suspend fun simklScore(target: NuvioCRatingTarget): Int? = runCatching {
+        if (NuvioCTracker.SIMKL !in connected()) return null
+        val profile = profiles.activeProfileId.value
+        val now = System.currentTimeMillis()
+        val cached = simkl
+        val copy = if (cached != null && cached.profile == profile && now - cached.at < CHECK_EVERY_MS) cached else {
+            val payload = simklSync.load(profile) ?: return null
+            SimklRatings(profile, now, HashMap(parseSimklRatings(payload))).also { simkl = it }
+        }
+        target.keys().firstNotNullOfOrNull { copy.scores[it] }
+    }.getOrNull()
+
+    private fun updateSimklCopy(target: NuvioCRatingTarget, score: Int?) {
+        val r = simkl ?: return
+        if (r.profile != profiles.activeProfileId.value) return
+        target.keys().forEach { if (score == null) r.scores.remove(it) else r.scores[it] = score }
     }
 
     private suspend fun sendMdbList(body: String, remove: Boolean): Boolean {
@@ -246,6 +300,38 @@ class NuvioCRatingService @Inject constructor(
                     tmdbId = ids["tmdb"]?.jsonPrimitive?.intOrNull
                 ).keys().forEach { out[it] = rating }
             }
+            return out
+        }
+
+        /**
+         * Nuvio's Simkl sync snapshot (JSON) -> "movie:tt…" / "show:tmdb123" -> score. Walks it for list
+         * entries that carry `user_rating` with a `movie` or `show` holding ids, wherever they sit.
+         */
+        fun parseSimklRatings(payload: String): Map<String, Int> {
+            val out = HashMap<String, Int>()
+            fun walk(el: kotlinx.serialization.json.JsonElement) {
+                when (el) {
+                    is JsonObject -> {
+                        val rating = (el["user_rating"] as? kotlinx.serialization.json.JsonPrimitive)?.intOrNull
+                        if (rating != null && rating in 1..10) {
+                            val isShow = el["show"] is JsonObject
+                            val media = (el["movie"] as? JsonObject) ?: (el["show"] as? JsonObject)
+                            val ids = media?.get("ids") as? JsonObject
+                            if (ids != null) {
+                                val imdb = (ids["imdb"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull?.takeIf { it.startsWith("tt") }
+                                val tmdb = (ids["tmdb"] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull?.toIntOrNull()
+                                if (imdb != null || tmdb != null) {
+                                    NuvioCRatingTarget(isShow, imdb, tmdb).keys().forEach { out[it] = rating }
+                                }
+                            }
+                        }
+                        el.values.forEach(::walk)
+                    }
+                    is JsonArray -> el.forEach(::walk)
+                    else -> Unit
+                }
+            }
+            runCatching { walk(Json.parseToJsonElement(payload)) }
             return out
         }
 

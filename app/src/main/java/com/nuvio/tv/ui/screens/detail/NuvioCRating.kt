@@ -69,6 +69,8 @@ data class NuvioCRatingUiState(
     val saved: Int? = null,
     /** Your score on Trakt (pulled), shown in the dialog. */
     val trakt: Int? = null,
+    /** Your score on Simkl (from Nuvio's Simkl sync copy), used when Trakt has none. */
+    val simkl: Int? = null,
     val open: Boolean = false,
     val score: Int? = null,
     val ticked: Set<NuvioCTracker> = emptySet(),
@@ -102,6 +104,13 @@ class NuvioCRatingViewModel @Inject constructor(
             if (trakt != null && _state.value.target == target) {
                 _state.update { if (it.open) it.copy(trakt = trakt) else it.copy(trakt = trakt, saved = trakt) }
             }
+            // [fork] rating_simkl: Simkl's copy fills in when Trakt has no score for this title
+            if (trakt == null && NuvioCFeatures.RATING_SIMKL) {
+                val simkl = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { service.simklScore(target) }
+                if (simkl != null && _state.value.target == target) {
+                    _state.update { if (it.open) it.copy(simkl = simkl) else it.copy(simkl = simkl, saved = it.saved ?: simkl) }
+                }
+            }
         }
     }
 
@@ -127,7 +136,8 @@ class NuvioCRatingViewModel @Inject constructor(
             val saved = service.savedScore(target)
             _state.update {
                 if (failed.isEmpty()) it.copy(saving = false, open = false, saved = saved,
-                    trakt = if (NuvioCTracker.TRAKT in s.ticked) score else it.trakt)
+                    trakt = if (NuvioCTracker.TRAKT in s.ticked) score else it.trakt,
+                    simkl = if (NuvioCTracker.SIMKL in s.ticked) score else it.simkl)
                 // keep only the failed ones ticked, so Save retries just those
                 else it.copy(saving = false, saved = saved, failed = failed, ticked = failed)
             }
@@ -182,6 +192,16 @@ private fun NuvioCRatingDialog(
     LaunchedEffect(Unit) { runCatching { firstFocus.requestFocus() } }
 
     NuvioDialog(onDismiss = onDismiss, title = title, subtitle = subtitle, width = 520.dp) {
+        if (NuvioCFeatures.RATING_STARS) {
+            // [fork] rating_stars (round 19): five stars with half steps, one focus stop
+            NuvioCStarBar(
+                score = state.score,
+                cursorStart = startScore,
+                enabled = !state.saving,
+                onPick = onPick,
+                modifier = Modifier.focusRequester(firstFocus)
+            )
+        } else {
         // 2026-10-11: circles sized from the row width (10 circles, 9 gaps of at least 8 dp), no
         // zoom on focus (the 1.1x zoom made neighbours overlap); focus = white fill + ring inside.
         androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -226,9 +246,10 @@ private fun NuvioCRatingDialog(
             }
         }
         } // BoxWithConstraints
+        } // rating_stars else
 
-        val nuvioCYourScore = state.trakt ?: state.saved // 2026-10-12: "You rated this 8/10" (Trakt copy is the fresher one, then this TV)
-        if (nuvioCYourScore != null) {
+        val nuvioCYourScore = state.trakt ?: state.simkl ?: state.saved // 2026-10-12: "You rated this 8/10" (Trakt copy is the fresher one, then Simkl, then this TV)
+        if (nuvioCYourScore != null && !NuvioCFeatures.RATING_STARS) { // rating_stars: the stars open on it and show it
             Text(
                 text = stringResource(R.string.nuvio_c_rate_trakt_score, nuvioCYourScore),
                 style = MaterialTheme.typography.bodySmall,
