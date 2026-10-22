@@ -124,9 +124,11 @@ class CalendarUiModelTest {
         )
         assertEquals(list.entries.size, list.entries.map { it.key }.distinct().size)
         assertEquals("series:imdb:tt1|S1E2", list.startRowKey)
-        val noDate = list.entries.filterIsInstance<CalendarRowEntry>().last().row
-        assertEquals(CalendarRowKind.SHOW, noDate.kind)
-        assertEquals(CalendarRowStatus.BELL_OFF, noDate.status)
+        if (!com.nuvio.tv.NuvioCFeatures.CALENDAR_DATED_ONLY) { // [fork] calendar_dated_only: no "No date" rows
+            val noDate = list.entries.filterIsInstance<CalendarRowEntry>().last().row
+            assertEquals(CalendarRowKind.SHOW, noDate.kind)
+            assertEquals(CalendarRowStatus.BELL_OFF, noDate.status)
+        }
     }
 
     @Test fun aDayInTheListFindsItsFirstRowOrTheNextOne() {
