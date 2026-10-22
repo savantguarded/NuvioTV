@@ -36,7 +36,7 @@ echo "ysosrs123: ${old:0:7} -> ${new:0:7}"
 changed="$(git diff --name-only "$old" "$new")"
 vendored="$(grep -Fxf "$LIST" <<<"$changed" || true)"
 added="$(grep -iE "$CAL_RE" <<<"$changed" | grep -Evf <(printf '%s\n' "$SKIP_RE") | grep -Fxvf "$LIST" || true)"
-added="$(while read -r f; do [ -n "$f" ] && git cat-file -e "$new:$f" 2>/dev/null && echo "$f"; done <<<"$added")"
+added="$(while read -r f; do if [ -n "$f" ] && git cat-file -e "$new:$f" 2>/dev/null; then echo "$f"; fi; done <<<"$added")"
 others="$(grep -Fxvf "$LIST" <<<"$changed" | grep -Fxvf <(printf '%s\n' "$added") || true)"
 
 echo; echo "Calendar files he changed (will be merged):"; printf '  %s\n' ${vendored:-"(none)"}
