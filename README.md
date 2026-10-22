@@ -14,15 +14,15 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 
 **Player**
 - Title logo and stream badges (resolution, HDR / Dolby Vision, audio, source, size) on the controls.
-- Subtitles move up out of the way while the controls or pause screen are showing.
+- Subtitles move up out of the way while the controls or pause screen are showing (text and picture subtitles; ASS stays where the file puts it, as official's libass now draws it on its own surface).
 - Netflix-style pause screen; Start over button; Next skips the countdown.
-- Subtitles and controls dimmed during HDR and Dolby Vision, drawn as cheaply as official's own subtitle colours.
+- Subtitles and controls dimmed during HDR and Dolby Vision, drawn as cheaply as official's own subtitle colours. Leave official's "HDR / Dolby Vision subtitle style" off, or subtitles get dimmed twice.
 - Watch Party tucked into the More row (back in the main row while a party runs).
 - Full release filename on the loading screen; fake short placeholder streams are caught.
 - Prefer SDH subtitles, subtitle font picker, correct episode names on Next and auto-play.
 
 **Details page**
-- Rate titles with five stars (half steps, 1 to 10) to Trakt, Simkl and MDBList.
+- Rate titles with five stars (half steps, 1 to 10) to Trakt, Simkl and MDBList, in a dialog that fits all three.
 - The plus button opens your library lists (ticks lined up in one column); hold it for the one-step add.
 - TMDB tagline under the logo; collections on their own row.
 - Background trailers: muted by default, pause behind popups and other pages, skipped for titles you've started, no stutter as they start.
@@ -38,7 +38,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - Smoother scrolling on Home, collections and the details page, including moving between its sections.
 - Even spacing next to a focused button; the app font everywhere, ambient screen included.
 - Source picker without an "All" tab when there's only one source.
-- Modern sidebar closes smoothly, blur included.
+- Modern sidebar closes smoothly, blur included; a page picked from it is built once the sidebar has closed, then fades in.
 
 **Stability on 2 GB TVs**
 - Lighter player: less memory held during 4K playback, no second video decoder or web browser running behind a film.
@@ -46,7 +46,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 **Accounts and updates**
 - Simkl device login with automatic renewal.
 - Trakt stays signed in through server hiccups; the reason for a disconnect is shown under Trakt in Settings.
-- The in-app updater also offers rebuilds of the same official release, and installs each update already compiled for the TV (Android 9+); Nuvio C closes while Android installs and optimises it, then opens again.
+- The in-app updater also offers rebuilds of the same official release. Installs use official's updater (already compiled for the TV, automatic installs on Android 12+ if you turn them on); after an update you confirmed, Nuvio C opens again by itself.
 - Nuvio C's own settings follow your Nuvio profile to a new TV (carried inside official's settings sync).
 - English only, for a smaller download.
 
