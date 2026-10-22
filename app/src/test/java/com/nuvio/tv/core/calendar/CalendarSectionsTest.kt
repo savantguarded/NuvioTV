@@ -76,7 +76,8 @@ class CalendarSectionsTest {
             title("twoDays", at("2026-10-04T09:00:00Z"))
         )
         val sections = buildCalendarSections(titles, now, sydney)
-        assertEquals(listOf(CalendarSectionKind.JUST_AIRED, CalendarSectionKind.NO_DATE), sections.map { it.kind })
+        // [fork] calendar_dated_only: no "No date yet" group
+        assertEquals(if (com.nuvio.tv.NuvioCFeatures.CALENDAR_DATED_ONLY) listOf(CalendarSectionKind.JUST_AIRED) else listOf(CalendarSectionKind.JUST_AIRED, CalendarSectionKind.NO_DATE), sections.map { it.kind })
         val justAired = sections.first()
         assertEquals(listOf("yesterday", "twoDays", "sevenDays"), justAired.items.map { it.title.key })
     }
@@ -115,14 +116,17 @@ class CalendarSectionsTest {
         )
         val sections = buildCalendarSections(titles, now, sydney, windowDays = 14)
         assertEquals(
-            listOf(CalendarSectionKind.JUST_AIRED, CalendarSectionKind.DAY, CalendarSectionKind.LATER, CalendarSectionKind.NO_DATE),
+            listOf(CalendarSectionKind.JUST_AIRED, CalendarSectionKind.DAY, CalendarSectionKind.LATER) +
+                (if (com.nuvio.tv.NuvioCFeatures.CALENDAR_DATED_ONLY) emptyList() else listOf(CalendarSectionKind.NO_DATE)), // [fork] calendar_dated_only
             sections.map { it.kind }
         )
         val later = sections.first { it.kind == CalendarSectionKind.LATER }
         assertEquals(listOf("beyond" to 1, "inWindow" to 2), later.items.map { it.title.key to it.entry!!.episode })
-        val noDate = sections.first { it.kind == CalendarSectionKind.NO_DATE }
-        assertEquals(listOf("aired", "inProduction", "returning"), noDate.items.map { it.title.key })
-        assertTrue(noDate.items.all { it.entry == null })
+        if (!com.nuvio.tv.NuvioCFeatures.CALENDAR_DATED_ONLY) {
+            val noDate = sections.first { it.kind == CalendarSectionKind.NO_DATE }
+            assertEquals(listOf("aired", "inProduction", "returning"), noDate.items.map { it.title.key })
+            assertTrue(noDate.items.all { it.entry == null })
+        }
     }
 
     @Test fun theWindowCountsTodayAsItsFirstDay() {
@@ -144,7 +148,8 @@ class CalendarSectionsTest {
         )
         val sections = buildCalendarSections(listOf(film, title("tt1", at("2026-10-08T01:00:00Z"))), now, sydney)
         val thursday = sections.first { it.date == LocalDate.of(2026, 10, 8) }
-        assertEquals(listOf("tt1", "movie:imdb:tt5"), thursday.items.map { it.title.key })
+        // [fork] calendar_dated_only: cinema-only dates are left out, the film shows from its digital release
+        assertEquals(if (com.nuvio.tv.NuvioCFeatures.CALENDAR_DATED_ONLY) listOf("tt1") else listOf("tt1", "movie:imdb:tt5"), thursday.items.map { it.title.key })
         val later = sections.first { it.kind == CalendarSectionKind.LATER }
         assertEquals(CalendarEntryKind.MOVIE_DIGITAL, later.items.single().entry!!.kind)
         assertTrue(sections.none { it.kind == CalendarSectionKind.NO_DATE })
