@@ -260,4 +260,6 @@ object NuvioCFeatures {
     const val RATE_DIALOG_FIT = true
     /** Modern sidebar: a page picked from the sidebar (Search, Discover, Library, Calendar, Settings) is built once the sidebar has closed (about 0.24 s), then fades in over 0.15 s, instead of being built during the close and its blur. Home and Back are untouched. Off = official timing. */
     const val SIDEBAR_PAGE_SMOOTH = true
+    /** Official's "HDR / Dolby Vision subtitle style" (beta.8) is hidden from Settings and never applied, so subtitles are only ever dimmed once, by Nuvio C's HDR dim. Off = official's setting is back. */
+    const val NO_OFFICIAL_HDR_SUB_STYLE = true
 }

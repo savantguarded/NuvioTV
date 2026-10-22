@@ -151,6 +151,7 @@ internal fun PlaybackSubtitlesSection(
             enabled = enabled
         )
     }
+    if (!com.nuvio.tv.NuvioCFeatures.NO_OFFICIAL_HDR_SUB_STYLE) { // [fork] Nuvio C's HDR dim covers subtitles; official's own HDR style hidden
     SettingsToggleRow(
         title = stringResource(R.string.sub_hdr_style),
         subtitle = stringResource(R.string.sub_hdr_style_sub),
@@ -176,6 +177,7 @@ internal fun PlaybackSubtitlesSection(
             enabled = enabled
         )
     }
+    } // [fork] no_official_hdr_sub_style
 
     SettingsSectionLabel(text = stringResource(R.string.sub_advanced_section))
     SettingsToggleRow(

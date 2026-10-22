@@ -1095,7 +1095,7 @@ class PlayerSettingsDataStore @Inject constructor(
                         outlineEnabled = prefs[subtitleOutlineEnabledKey] ?: true,
                         outlineColor = prefs[subtitleOutlineColorKey] ?: Color.Black.toArgb(),
                         outlineWidth = prefs[subtitleOutlineWidthKey] ?: 2,
-                        hdrStyleEnabled = prefs[subtitleHdrStyleEnabledKey] ?: false,
+                        hdrStyleEnabled = !com.nuvio.tv.NuvioCFeatures.NO_OFFICIAL_HDR_SUB_STYLE && (prefs[subtitleHdrStyleEnabledKey] ?: false), // [fork] never on in Nuvio C, even if it was switched on before
                         hdrTextColor = prefs[subtitleHdrTextColorKey] ?: Color.White.toArgb(),
                         hdrBrightness = prefs[subtitleHdrBrightnessKey] ?: SubtitleStyleSettings.HDR_BRIGHTNESS_DEFAULT
                     )

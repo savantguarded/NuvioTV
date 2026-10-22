@@ -16,7 +16,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - Title logo and stream badges (resolution, HDR / Dolby Vision, audio, source, size) on the controls.
 - Subtitles move up out of the way while the controls or pause screen are showing (text and picture subtitles; ASS stays where the file puts it, as official's libass now draws it on its own surface).
 - Netflix-style pause screen; Start over button; Next skips the countdown.
-- Subtitles and controls dimmed during HDR and Dolby Vision, drawn as cheaply as official's own subtitle colours. Leave official's "HDR / Dolby Vision subtitle style" off, or subtitles get dimmed twice.
+- Subtitles and controls dimmed during HDR and Dolby Vision, drawn as cheaply as official's own subtitle colours. Official's separate HDR subtitle style setting is removed, so subtitles are only dimmed once.
 - Watch Party tucked into the More row (back in the main row while a party runs).
 - Full release filename on the loading screen; fake short placeholder streams are caught.
 - Prefer SDH subtitles, subtitle font picker, correct episode names on Next and auto-play.
