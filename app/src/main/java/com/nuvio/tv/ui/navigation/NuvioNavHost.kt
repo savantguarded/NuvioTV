@@ -1172,6 +1172,7 @@ private fun PlaybackNavHost(
         composable(Screen.Search.route) { backStackEntry ->
             val searchViewModel: com.nuvio.tv.ui.screens.search.SearchViewModel =
                 androidx.hilt.navigation.compose.hiltViewModel(backStackEntry)
+            com.nuvio.tv.ui.components.NuvioCSidebarSettleGate { // [fork] sidebar_page_smooth
             SearchScreen(
                 viewModel = searchViewModel,
                 onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
@@ -1192,9 +1193,11 @@ private fun PlaybackNavHost(
                 },
                 onOpenDiscover = { navController.navigate(Screen.Discover.route) }
             )
+            } // [fork] sidebar_page_smooth
         }
 
         composable(Screen.Discover.route) {
+            com.nuvio.tv.ui.components.NuvioCSidebarSettleGate { // [fork] sidebar_page_smooth
             DiscoverScreen(
                 showBuiltInHeader = !hideBuiltInHeaders,
                 onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
@@ -1209,9 +1212,11 @@ private fun PlaybackNavHost(
                     )
                 }
             )
+            } // [fork] sidebar_page_smooth
         }
 
         composable(Screen.Library.route) {
+            com.nuvio.tv.ui.components.NuvioCSidebarSettleGate { // [fork] sidebar_page_smooth
             LibraryScreen(
                 showBuiltInHeader = !hideBuiltInHeaders,
                 onNavigateToDetail = { itemId, itemType, addonBaseUrl ->
@@ -1242,10 +1247,12 @@ private fun PlaybackNavHost(
                     )
                 }
             )
+            } // [fork] sidebar_page_smooth
         }
 
         // [fork] calendar_page: ysosrs123's Calendar page (classic look).
         composable(Screen.Calendar.route) {
+            com.nuvio.tv.ui.components.NuvioCSidebarSettleGate { // [fork] sidebar_page_smooth
             com.nuvio.tv.ui.screens.calendar.CalendarScreen(
                 showBuiltInHeader = !hideBuiltInHeaders,
                 onOpenTitle = { row ->
@@ -1254,9 +1261,11 @@ private fun PlaybackNavHost(
                 },
                 onWatch = { target -> navController.openCalendarWatchTarget(target) }
             )
+            } // [fork] sidebar_page_smooth
         }
 
         composable(Screen.Settings.route) {
+            com.nuvio.tv.ui.components.NuvioCSidebarSettleGate { // [fork] sidebar_page_smooth
             SettingsScreen(
                 showBuiltInHeader = !hideBuiltInHeaders,
                 onNavigateToAddons = { navController.navigate(Screen.AddonManager.route) },
@@ -1271,6 +1280,7 @@ private fun PlaybackNavHost(
                 },
                 onNavigateToWatchParty = { navController.navigate(Screen.WatchParty.createRoute()) }
             )
+            } // [fork] sidebar_page_smooth
         }
 
         composable(

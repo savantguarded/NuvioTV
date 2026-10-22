@@ -2291,6 +2291,7 @@ private fun ModernSidebarScaffold(
                         onDrawerItemClick = { targetRoute ->
                             keyboardController?.hide()
                             onNavigate(targetRoute)
+                            if (currentRoute != targetRoute) com.nuvio.tv.ui.components.NuvioCSidebarSettle.markDrawerNavigation() // [fork] sidebar_page_smooth
                             navigateToDrawerRoute(
                                 navController = navController,
                                 currentRoute = currentRoute,

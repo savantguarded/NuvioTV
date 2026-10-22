@@ -258,4 +258,6 @@ object NuvioCFeatures {
     // ---- Round 20 (2026-10-22, on official 1.1.0-beta.8) ----
     /** Rate dialog: tracker rows 48 dp (was the settings row's 62 dp, which left the label and switch sitting high) and tighter gaps, so three trackers, Remove rating and Save fit on a 1080p TV; the tracker list scrolls if it ever grows. Off = round-19 layout. */
     const val RATE_DIALOG_FIT = true
+    /** Modern sidebar: a page picked from the sidebar (Search, Discover, Library, Calendar, Settings) is built once the sidebar has closed (about 0.24 s), then fades in over 0.15 s, instead of being built during the close and its blur. Home and Back are untouched. Off = official timing. */
+    const val SIDEBAR_PAGE_SMOOTH = true
 }
