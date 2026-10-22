@@ -47,6 +47,7 @@ fun buildCalendarSections(
     val undated = mutableListOf<CalendarItem>()
     titles.forEach { title ->
         val items = title.entries.mapNotNull { entry ->
+            if (com.nuvio.tv.NuvioCFeatures.CALENDAR_DATED_ONLY && entry.kind == CalendarEntryKind.MOVIE_THEATRICAL) return@mapNotNull null // [fork] calendar_dated_only: films from their digital release only
             val given = entry.localDate(zone) ?: return@mapNotNull null
             val date = if (given < today && !entry.isOut(now)) today else given
             val time = entry.airInstantMs?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalTime() }
@@ -54,7 +55,8 @@ fun buildCalendarSections(
         }
         items.filterTo(dated) { it.date!! >= firstDay && it.date < windowEnd }
         items.filter { it.date!! >= windowEnd && it.date <= laterEnd }.minWithOrNull(itemOrder)?.let(later::add)
-        if (title.type == CalendarTitleType.SERIES && title.status.mayReturn && items.none { it.date!! >= today }) {
+        if (!com.nuvio.tv.NuvioCFeatures.CALENDAR_DATED_ONLY && // [fork] calendar_dated_only: no "No date yet" group
+            title.type == CalendarTitleType.SERIES && title.status.mayReturn && items.none { it.date!! >= today }) {
             undated += CalendarItem(title, null, null, null)
         }
     }

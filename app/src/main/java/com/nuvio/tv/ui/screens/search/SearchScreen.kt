@@ -717,7 +717,7 @@ fun SearchScreen(
                             } else {
                                 EmptyScreenState(
                                     title = stringResource(R.string.search_start_title),
-                                    subtitle = if (uiState.discoverLocation == DiscoverLocation.OFF) {
+                                    subtitle = if (uiState.discoverLocation == DiscoverLocation.OFF && !com.nuvio.tv.NuvioCFeatures.SEARCH_NO_DISCOVER_COPY) { // [fork] search_no_discover_copy
                                         stringResource(R.string.search_start_subtitle_no_discover)
                                     } else {
                                         stringResource(R.string.search_start_subtitle)

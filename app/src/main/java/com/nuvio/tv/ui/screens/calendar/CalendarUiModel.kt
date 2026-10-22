@@ -202,6 +202,7 @@ fun buildCalendarDays(
     val byDay = HashMap<LocalDate, MutableList<CalendarRow>>()
     titles.forEach { title ->
         title.entries.forEach { entry ->
+            if (com.nuvio.tv.NuvioCFeatures.CALENDAR_DATED_ONLY && entry.kind == CalendarEntryKind.MOVIE_THEATRICAL) return@forEach // [fork] calendar_dated_only
             val date = entry.localDate(zone) ?: return@forEach
             val time = entry.airInstantMs?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalTime() }
             byDay.getOrPut(date) { mutableListOf() } +=
