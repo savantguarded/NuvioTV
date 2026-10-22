@@ -106,7 +106,7 @@ class CalendarViewModel internal constructor(
             .flowOn(computeDispatcher)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), CalendarUiState())
 
-    private val _viewMode = MutableStateFlow(viewPrefs?.openingMode() ?: CalendarViewMode.WEEK) // [fork] calendar_start_view
+    private val _viewMode = MutableStateFlow(viewPrefs?.openingMode() ?: data.settings.value?.viewMode.toCalendarViewMode()) // [fork] calendar_start_view; off = ysosrs123's remembered view
     val viewMode: StateFlow<CalendarViewMode> = _viewMode.asStateFlow()
 
     private val _month = MutableStateFlow(CalendarMonthState())
@@ -204,7 +204,12 @@ class CalendarViewModel internal constructor(
     fun setViewMode(mode: CalendarViewMode) {
         if (mode != CalendarViewMode.LIST && _viewMode.value != mode) showToday()
         _viewMode.value = mode
-        viewPrefs?.rememberUsed(mode) // [fork] calendar_start_view
+        if (viewPrefs != null) {
+            viewPrefs.rememberUsed(mode) // [fork] calendar_start_view
+        } else {
+            // Only a header choice is remembered; jumps into a day keep the view the user picked.
+            viewModelScope.launch { data.setViewMode(mode) }
+        }
     }
 
     fun focusDay(date: LocalDate) {
@@ -283,3 +288,7 @@ class CalendarViewModel internal constructor(
         const val STOP_AFTER_MS = 5_000L
     }
 }
+
+/** The remembered view, Week when none was picked or the name is unknown. */
+internal fun String?.toCalendarViewMode(): CalendarViewMode =
+    this?.let { name -> runCatching { CalendarViewMode.valueOf(name) }.getOrNull() } ?: CalendarViewMode.WEEK
