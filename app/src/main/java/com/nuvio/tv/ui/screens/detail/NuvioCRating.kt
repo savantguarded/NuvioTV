@@ -7,6 +7,7 @@ package com.nuvio.tv.ui.screens.detail
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
@@ -269,7 +270,8 @@ private fun NuvioCRatingDialog(
         Column(
             verticalArrangement = Arrangement.spacedBy(if (NuvioCFeatures.RATE_DIALOG_FIT) 6.dp else 8.dp),
             modifier = if (NuvioCFeatures.RATE_DIALOG_FIT) {
-                Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())
+                // 4 dp inside the scroll: the focus ring sits just outside a row and the scroll clips at its edges
+                Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(vertical = 4.dp)
             } else Modifier
         ) {
             state.connected.forEach { tracker ->
