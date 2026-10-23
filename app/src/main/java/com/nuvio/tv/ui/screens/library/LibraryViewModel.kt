@@ -261,7 +261,7 @@ class LibraryViewModel @Inject constructor(
 
     fun onSelectListTab(listKey: String) {
         _uiState.update { current ->
-            val updated = current.copy(selectedListKey = listKey)
+            val updated = current.copy(selectedListKey = listKey).nuvioCJumpToFirst(current.selectedListKey != listKey) // [fork] library_list_first
             updated.withVisibleItems()
         }
         viewModelScope.launch {
@@ -271,21 +271,21 @@ class LibraryViewModel @Inject constructor(
 
     fun onSelectGenre(key: String?) {
         _uiState.update { current ->
-            val updated = current.copy(selectedGenre = key)
+            val updated = current.copy(selectedGenre = key).nuvioCJumpToFirst(current.selectedGenre != key) // [fork] library_list_first
             updated.withVisibleItems()
         }
     }
 
     fun onSelectYear(key: String?) {
         _uiState.update { current ->
-            val updated = current.copy(selectedYear = key)
+            val updated = current.copy(selectedYear = key).nuvioCJumpToFirst(current.selectedYear != key) // [fork] library_list_first
             updated.withVisibleItems()
         }
     }
 
     fun onSelectWatchedFilter(filter: LibraryWatchedFilter) {
         _uiState.update { current ->
-            val updated = current.copy(selectedWatchedFilter = filter)
+            val updated = current.copy(selectedWatchedFilter = filter).nuvioCJumpToFirst(current.selectedWatchedFilter != filter) // [fork] library_list_first
             updated.withVisibleItems()
         }
     }
