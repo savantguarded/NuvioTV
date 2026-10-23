@@ -282,7 +282,7 @@ val CALENDAR_DONE_SHOW_FOR: Duration = Duration.ofDays(90)
  */
 fun calendarDoneMemory(stored: Map<String, Long>, records: List<CalendarTitleRecord>, now: Instant): Map<String, Long> {
     val nowMs = now.toEpochMilli()
-    val memory = stored.filterValuesTo(LinkedHashMap()) { it > nowMs }
+    val memory = stored.filter { it.value > nowMs }.toMutableMap()
     calendarDoneRecords(records, now).forEach { record ->
         val until = nowMs + (if (record.type == CalendarTitleType.MOVIE) CALENDAR_DONE_FILM_FOR else CALENDAR_DONE_SHOW_FOR).toMillis()
         record.ids.aliases().forEach { memory.putIfAbsent(it, until) }
