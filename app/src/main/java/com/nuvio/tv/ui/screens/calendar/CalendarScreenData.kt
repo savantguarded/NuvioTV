@@ -62,6 +62,7 @@ interface CalendarScreenData {
     suspend fun setCornerMessage(enabled: Boolean)
     suspend fun setIncludePersonalLists(include: Boolean)
     suspend fun setFollowOtherServices(follow: Boolean)
+    suspend fun setUseMdbListCalendar(use: Boolean) {} // [fork] calendar_mdblist
     suspend fun setComingUpRow(enabled: Boolean)
     suspend fun setHiddenFromComingUp(titleKey: String, hidden: Boolean)
     suspend fun unhideAllFromComingUp()
@@ -136,6 +137,10 @@ class DefaultCalendarScreenData @Inject constructor(
     }
     override suspend fun setFollowOtherServices(follow: Boolean) {
         settingsStore.setFollowOtherServices(follow)
+        refresher.requestRefresh(CalendarRefreshReason.SETTINGS_CHANGED)
+    }
+    override suspend fun setUseMdbListCalendar(use: Boolean) { // [fork] calendar_mdblist
+        settingsStore.setUseMdbListCalendar(use)
         refresher.requestRefresh(CalendarRefreshReason.SETTINGS_CHANGED)
     }
 

@@ -33,7 +33,11 @@ data class CalendarFollowRules(
     /** Ids of shows with an upcoming episode in Continue Watching; never idle, as Coming up shows them too. */
     val upcomingAliases: Set<String> = emptySet(),
     val staleAfter: Duration = Duration.ofDays(365),
-    val cap: Int = CALENDAR_MAX_TITLES
+    val cap: Int = CALENDAR_MAX_TITLES,
+    /** [fork] calendar_library_wins: ids of titles already read with nothing left ahead (films out, shows ended). */
+    val doneAliases: Set<String> = emptySet(),
+    /** [fork] calendar_library_wins: off = ysosrs123's rules (tests of his behaviour pass false). */
+    val libraryWins: Boolean = com.nuvio.tv.NuvioCFeatures.CALENDAR_LIBRARY_WINS
 )
 
 const val CALENDAR_MAX_TITLES = 300
@@ -88,15 +92,18 @@ fun followCalendarTitles(
         val bell = rules.bellOn.any { calendarKeyMatches(it, type, ids) }
         val origins = group.mapTo(linkedSetOf()) { it.origin }.apply { if (bell) add(CalendarOrigin.BELL) }
         val lastActivity = group.mapNotNull { it.lastActivity }.maxOrNull()
+        // [fork] calendar_library_wins: a title saved in a library (or listed by MDBList's calendar) is followed
+        // whatever its watch history says: removing it from Continue Watching or an old watch no longer drops it.
+        val kept = rules.libraryWins && origins.any { it.savesFilms || it.current }
         val reason = when {
             rules.hiddenTitleKeys.any { calendarKeyMatches(it, type, ids) } -> CalendarLeftOutReason.HIDDEN
             bell -> null
             CalendarOrigin.DROPPED in origins -> CalendarLeftOutReason.DROPPED
-            type == CalendarTitleType.SERIES && ids.aliases().any { it in removedAliases } ->
+            !kept && type == CalendarTitleType.SERIES && ids.aliases().any { it in removedAliases } ->
                 CalendarLeftOutReason.REMOVED_FROM_CONTINUE_WATCHING
-            origins.any { it.started } && (lastActivity?.isBefore(staleBefore) ?: origins.none { it.savesFilms }) &&
+            !kept && origins.any { it.started } && (lastActivity?.isBefore(staleBefore) ?: origins.none { it.savesFilms }) &&
                 ids.aliases().none { it in rules.upcomingAliases } -> CalendarLeftOutReason.IDLE
-            type == CalendarTitleType.MOVIE && origins.none { it.savesFilms } -> CalendarLeftOutReason.FILM_NOT_SAVED
+            type == CalendarTitleType.MOVIE && origins.none { it.savesFilms || it.current } -> CalendarLeftOutReason.FILM_NOT_SAVED
             else -> null
         }
         if (reason != null) {
@@ -119,6 +126,9 @@ fun followCalendarTitles(
 
     val ordered = titles.sortedWith(
         compareByDescending<CalendarFollowedTitle> { it.bellOn }
+            // [fork] calendar_library_wins: when over the cap, titles with something ahead go first, then saved ones.
+            .thenBy { rules.libraryWins && it.ids.aliases().any { alias -> alias in rules.doneAliases } }
+            .thenByDescending { rules.libraryWins && it.origins.any { o -> o.savesFilms || o.current } }
             .thenByDescending { it.lastActivity ?: Instant.EPOCH }
             .thenBy { it.name.orEmpty().lowercase() }
             .thenBy { it.key }
@@ -219,4 +229,18 @@ fun reconcileCalendarRecords(
             lastActivityMs = title.lastActivity?.toEpochMilli()
         )
     }
+}
+
+/**
+ * [fork] calendar_library_wins: ids of stored titles that were read and have nothing from a week ago onwards and
+ * nothing to come: films whose releases are all past, shows that ended or were cancelled. They lose to everything else
+ * when the Calendar is over its cap, so 300 slots go to titles that can still show something.
+ */
+fun calendarDoneAliases(records: List<CalendarTitleRecord>, now: Instant): Set<String> {
+    val from = now.minus(Duration.ofDays(7))
+    return records.asSequence()
+        .filter { it.fetchedAtMs > 0L && it.failures == 0 }
+        .filter { it.type == CalendarTitleType.MOVIE || it.status.isOver }
+        .filter { record -> record.entries.none { entry -> entry.sortInstant()?.isBefore(from) == false } }
+        .flatMapTo(HashSet()) { it.ids.aliases() }
 }

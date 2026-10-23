@@ -97,7 +97,8 @@ fun buildCalendarComingUp(
     now: Instant,
     zone: ZoneId,
     shownInContinueWatching: (CalendarTitleRecord, CalendarEntry) -> Boolean = { _, _ -> false },
-    max: Int = CALENDAR_COMING_UP_MAX
+    max: Int = CALENDAR_COMING_UP_MAX,
+    futureOnly: Boolean = false // [fork] upcoming_future_only: releases that are out leave the row
 ): List<CalendarComingUpItem> {
     val today = now.atZone(zone).toLocalDate()
     val oldest = today.minusDays(NEW_DAYS)
@@ -111,6 +112,7 @@ fun buildCalendarComingUp(
             val time = entry.airInstantMs?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalTime() }
             if (shownInContinueWatching(title, entry)) return@forEach
             if (entry.isOut(now)) {
+                if (futureOnly) return@forEach
                 if (date < oldest || entry.kind == CalendarEntryKind.MOVIE_THEATRICAL) return@forEach
                 if (watched?.isWatched(title, entry) == true) return@forEach
                 val item = CalendarComingUpItem(title, entry, CalendarComingUpWhen.NEW, date, time)

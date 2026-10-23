@@ -133,7 +133,8 @@ class NuvioCCloudSettings @Inject constructor(
         "calendar_window_days" to JsonPrimitive(cal.windowDays),
         "calendar_zone_override" to JsonPrimitive(cal.zoneOverride ?: ""),
         "calendar_corner_message" to JsonPrimitive(cal.cornerMessage),
-        "calendar_coming_up_row" to JsonPrimitive(cal.comingUpRow)
+        "calendar_coming_up_row" to JsonPrimitive(cal.comingUpRow),
+        "calendar_mdblist" to JsonPrimitive(cal.useMdbListCalendar)
     )
 
     private suspend fun apply(v: Map<String, JsonPrimitive>) {
@@ -157,6 +158,7 @@ class NuvioCCloudSettings @Inject constructor(
         }
         v["calendar_corner_message"]?.booleanOrNull?.let { if (it != cal.cornerMessage) calendar.setCornerMessage(it) }
         v["calendar_coming_up_row"]?.booleanOrNull?.let { if (it != cal.comingUpRow) calendar.setComingUpRow(it) }
+        v["calendar_mdblist"]?.booleanOrNull?.let { if (it != cal.useMdbListCalendar) calendar.setUseMdbListCalendar(it) }
     }
 
     companion object {
@@ -188,7 +190,8 @@ class NuvioCCloudSettings @Inject constructor(
                 "calendar_window_days" to JsonPrimitive(CalendarSettings().windowDays),
                 "calendar_zone_override" to JsonPrimitive(""),
                 "calendar_corner_message" to JsonPrimitive(CalendarSettings().cornerMessage),
-                "calendar_coming_up_row" to JsonPrimitive(CalendarSettings().comingUpRow)
+                "calendar_coming_up_row" to JsonPrimitive(CalendarSettings().comingUpRow),
+                "calendar_mdblist" to JsonPrimitive(CalendarSettings().useMdbListCalendar)
             )
         )
 

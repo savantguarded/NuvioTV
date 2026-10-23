@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.coroutines.FlowPreview::class)
+
 package com.nuvio.tv.core.calendar
 
 import android.content.res.Resources
@@ -31,8 +33,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.sync.Mutex
@@ -44,7 +49,11 @@ import kotlinx.coroutines.withTimeoutOrNull
 @Retention(AnnotationRetention.BINARY)
 annotation class CalendarClock
 
-enum class CalendarRefreshReason { HOME_SETTLED, CALENDAR_OPENED, SETTINGS_CHANGED, SOURCES_PENDING }
+enum class CalendarRefreshReason {
+    HOME_SETTLED, CALENDAR_OPENED, SETTINGS_CHANGED, SOURCES_PENDING,
+    /** [fork] calendar_mdblist: something was added to or removed from a library; MDBList's calendar is asked again. */
+    LIBRARY_CHANGED
+}
 
 /** Waits before a refresh is run again because a source was not ready; one per refresh that stays incomplete. */
 val CALENDAR_SOURCE_RETRIES: List<Duration> = listOf(Duration.ofSeconds(30), Duration.ofSeconds(60), Duration.ofSeconds(120))
@@ -84,6 +93,13 @@ interface CalendarRefreshInputs {
 
     /** A title's backdrop and logo from its details; null when they could not be read. */
     suspend fun fetchArt(type: String, ids: List<String>): CalendarArt? = null
+
+    // [fork] calendar_mdblist
+    fun mdbListSignedIn(): Boolean = false
+    /** MDBList's calendar around [today]; null when it could not be read. */
+    suspend fun mdbListCalendar(today: LocalDate): List<MdbListCalendarItem>? = null
+    /** Changes whenever a library (Nuvio's own, MDBList's lists) gains or loses a title. */
+    val libraryChanges: kotlinx.coroutines.flow.Flow<Int> get() = kotlinx.coroutines.flow.emptyFlow()
 }
 
 @Singleton
@@ -96,7 +112,10 @@ class DefaultCalendarRefreshInputs @Inject constructor(
     private val zoneProvider: CalendarZoneProvider,
     private val metaRepository: MetaRepository,
     profileManager: ProfileManager,
-    appVisibility: CalendarAppVisibility
+    appVisibility: CalendarAppVisibility,
+    private val mdbListCalendarClient: MdbListCalendarClient, // [fork] calendar_mdblist
+    libraryPreferences: com.nuvio.tv.data.local.LibraryPreferences,
+    mdbListSync: com.nuvio.tv.data.mdblist.MdbListSyncRepository
 ) : CalendarRefreshInputs {
     override val activeProfileId = profileManager.activeProfileId
     override val playbackActive: StateFlow<Boolean> = NuvioCPlayback.state // [nuvio c] official has no ScreensaverController
@@ -109,6 +128,17 @@ class DefaultCalendarRefreshInputs @Inject constructor(
     override suspend fun traktCalendar(today: LocalDate) = traktCalendarClient.myShows(today)
     override suspend fun refreshConcurrency() = deviceTier.refreshConcurrency()
     override fun zone(): ZoneId = zoneProvider.zone()
+
+    // [fork] calendar_mdblist
+    override fun mdbListSignedIn() = trackingProviders.isAuthenticated(TrackingProviderId.MDBLIST)
+    override suspend fun mdbListCalendar(today: LocalDate) = mdbListCalendarClient.events(today)
+    override val libraryChanges: kotlinx.coroutines.flow.Flow<Int> = combine(
+        libraryPreferences.libraryItems.map { items -> items.mapTo(HashSet()) { it.id }.hashCode() },
+        mdbListSync.state.map { state ->
+            state.snapshot?.library?.visible()?.itemsByList
+                ?.mapValues { (_, items) -> items.mapTo(HashSet()) { it.media.ids.hashCode() } }?.hashCode() ?: 0
+        }
+    ) { local, mdbList -> 31 * local + mdbList }.distinctUntilChanged()
 
     override suspend fun fetchArt(type: String, ids: List<String>): CalendarArt? {
         for (id in ids) {
@@ -185,7 +215,9 @@ class CalendarRefresher internal constructor(
         synchronized(jobLock) {
             val previous = job
             if (previous?.isActive == true && jobTakesRequests) {
-                if (runAgain == null || reason == CalendarRefreshReason.SETTINGS_CHANGED) runAgain = reason
+                if (runAgain == null || reason == CalendarRefreshReason.SETTINGS_CHANGED ||
+                    reason == CalendarRefreshReason.LIBRARY_CHANGED // [fork] calendar_mdblist
+                ) runAgain = reason
                 return
             }
             retry?.cancel()
@@ -280,6 +312,11 @@ class CalendarRefresher internal constructor(
         scope.launch {
             inputs.settings.collect { dataMutex.withLock { publishLocked() } }
         }
+        if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MDBLIST) scope.launch { // [fork] calendar_mdblist
+            inputs.libraryChanges.drop(1).debounce(LIBRARY_CHANGE_SETTLE_MS).collect {
+                requestRefresh(CalendarRefreshReason.LIBRARY_CHANGED)
+            }
+        }
     }
 
     /** False when a source was not ready, so the refresh should run again once it may be. */
@@ -315,16 +352,37 @@ class CalendarRefresher internal constructor(
                     CalendarTitleCandidate(it.ids, it.type, CalendarOrigin.TRAKT_CALENDAR, name = it.name)
                 }
             }
+            // [fork] calendar_mdblist: MDBList's own calendar, every 6 hours or at once after a Library or settings change.
+            val mdbListOn = com.nuvio.tv.NuvioCFeatures.CALENDAR_MDBLIST && settings.useMdbListCalendar && inputs.mdbListSignedIn()
+            val mdbListDue = reason == CalendarRefreshReason.SETTINGS_CHANGED || reason == CalendarRefreshReason.LIBRARY_CHANGED ||
+                now.toEpochMilli() - snapshot.mdbListCalendarFetchedAtMs >= CALENDAR_MDBLIST_REFRESH.toMillis()
+            val mdbListItems = if (mdbListOn && mdbListDue) {
+                awaitNoPlayback()
+                inputs.mdbListCalendar(now.atZone(inputs.zone()).toLocalDate())?.let { items ->
+                    bridgeMdbListIds(items, sources.candidates.map { it.ids } + traktCandidates.map { it.ids } + snapshot.titles.map { it.ids })
+                }
+            } else {
+                null
+            }
+            val mdbListCandidates = when {
+                !mdbListOn -> emptyList()
+                mdbListItems != null -> mdbListCalendarCandidates(mdbListItems)
+                else -> snapshot.titles.flatMap { record ->
+                    record.origins.filter { it == CalendarOrigin.MDBLIST_CALENDAR || it == CalendarOrigin.MDBLIST_CALENDAR_SAVED }
+                        .map { CalendarTitleCandidate(record.ids, record.type, it, name = record.name, contentId = record.contentId, poster = record.poster) }
+                }
+            }
             val rules = CalendarFollowRules(
                 includePersonalLists = settings.includePersonalLists,
                 hiddenTitleKeys = settings.hiddenTitleKeys,
                 bellOn = settings.bellOn,
                 removedFromContinueWatching = sources.removedFromContinueWatching,
-                upcomingAliases = sources.addonEntries.flatMapTo(mutableSetOf()) { it.first.aliases() }
+                upcomingAliases = sources.addonEntries.flatMapTo(mutableSetOf()) { it.first.aliases() },
+                doneAliases = calendarDoneAliases(snapshot.titles, now) // [fork] calendar_library_wins
             )
             val unread = if (traktItems != null) sources.unreadOrigins - CalendarOrigin.TRAKT_CALENDAR else sources.unreadOrigins
             val carried = carriedCalendarCandidates(snapshot.titles, unread)
-            val result = followCalendarTitles(sources.candidates + traktCandidates + carried, rules, now)
+            val result = followCalendarTitles(sources.candidates + traktCandidates + mdbListCandidates + carried, rules, now)
             val followed = result.titles.withCachedPosters(sources.cachedPosters)
 
             val due = withOwner(current) {
@@ -335,11 +393,21 @@ class CalendarRefresher internal constructor(
                     traktItems != null -> applyTraktCalendar(records, traktItems, now)
                     else -> records
                 }
+                records = when { // [fork] calendar_mdblist
+                    !mdbListOn -> records.map { it.withoutSources(CalendarSource.MDBLIST) }
+                    mdbListItems != null -> applyMdbListCalendar(records, mdbListItems, now)
+                    else -> records
+                }
                 data = data.copy(
                     titles = records,
                     traktCalendarFetchedAtMs = when {
                         traktItems != null -> now.toEpochMilli()
                         traktSignedIn -> data.traktCalendarFetchedAtMs
+                        else -> 0L
+                    },
+                    mdbListCalendarFetchedAtMs = when {
+                        mdbListItems != null -> now.toEpochMilli()
+                        mdbListOn -> data.mdbListCalendarFetchedAtMs
                         else -> 0L
                     }
                 )
@@ -348,8 +416,13 @@ class CalendarRefresher internal constructor(
                     .sortedWith(compareByDescending<CalendarTitleRecord> { CalendarOrigin.BELL in it.origins }.thenBy { it.nextRefreshAtMs })
             } ?: return true
             save(current, force = true)
-            Log.i(TAG, "refresh reason=$reason titles=${followed.size} due=${due.size} trakt=${traktItems?.size ?: "-"}")
+            Log.i(
+                TAG,
+                "refresh reason=$reason titles=${followed.size} due=${due.size} trakt=${traktItems?.size ?: "-"}" +
+                    " mdblist=${if (!mdbListOn) "off" else mdbListItems?.size ?: "-"}"
+            )
             calendarLeftOutSummary(result.leftOut).forEach { Log.i(TAG, it) }
+            if (com.nuvio.tv.NuvioCFeatures.CALENDAR_ORIGIN_LOG) logOrigins(followed) // [fork] calendar_origin_log
             if (!complete) {
                 val notReady = sources.notReady.entries.joinToString(", ") { (name, why) -> "$name $why" }
                 val kept = snapshot.titles.count { record -> record.origins.any { it in unread } }
@@ -512,7 +585,33 @@ class CalendarRefresher internal constructor(
         inputs.playbackActive.first { active -> !active }
     }
 
+    /**
+     * [fork] calendar_origin_log: one block of lines naming every followed title and where it comes from, only when
+     * that list changed since the last block (so a normal refresh adds nothing). About 40 titles per line.
+     */
+    private var loggedOrigins = 0
+    private fun logOrigins(titles: List<CalendarFollowedTitle>) {
+        val parts = titles.map { title ->
+            "${title.name?.replace(SPACE_RUNS, " ")?.take(40) ?: title.key}=" +
+                title.origins.joinToString("+") { calendarOriginCode(it) }
+        }
+        val signature = parts.hashCode()
+        if (signature == loggedOrigins) return
+        loggedOrigins = signature
+        val lines = mutableListOf<String>()
+        val line = StringBuilder()
+        parts.forEach { part ->
+            if (line.length + part.length > 3_000) { lines += line.toString(); line.clear() }
+            if (line.isNotEmpty()) line.append("; ")
+            line.append(part)
+        }
+        if (line.isNotEmpty()) lines += line.toString()
+        lines.forEachIndexed { i, text -> Log.i(TAG, "followed ${titles.size} [${i + 1}/${lines.size}]: $text") }
+    }
+
     private companion object {
         const val TAG = "CalendarRefresher"
+        const val LIBRARY_CHANGE_SETTLE_MS = 3_000L
+        val SPACE_RUNS = Regex("\\s+")
     }
 }

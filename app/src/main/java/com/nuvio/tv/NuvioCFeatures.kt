@@ -276,4 +276,16 @@ object NuvioCFeatures {
     const val PROFILE_INTRO = true
     /** HDR dim fix: the full-screen player layers (audio and subtitle panels, media info, pause screen, buffering spinner) dim only their own pixels. Before, their dim pass also darkened whatever was under them, so the OSD fading out behind a just-opened panel changed brightness mid-fade (and subtitles were dimmed twice while one was open). Costs one layer while such a panel is on screen. Off = round-14 behaviour. */
     const val HDR_DIM_ISOLATED = true
+
+    // ---- Round 23 (2026-10-23) ----
+    /** Calendar: MDBList's own release calendar (Settings > Layout > Calendar > "Use my MDBList calendar", on by default) when signed in to MDBList. Its titles (from Preferences > Calendar on mdblist.com) are followed and its dates used; TVmaze still adds air times. Asked every 6 h and a few seconds after anything is added to or removed from a library. Off = ysosrs123's sources only. */
+    const val CALENDAR_MDBLIST = true
+    /** Calendar: a title saved in a library (or listed by MDBList's calendar) is never dropped for being removed from Continue Watching or for an old watch; over the 300-title cap, titles with something still ahead and saved ones go first. MDBList's saved data is loaded before it is read. Off = ysosrs123's rules. */
+    const val CALENDAR_LIBRARY_WINS = true
+    /** Calendar: one log block (tag CalendarRefresher, "followed N") naming every followed title and where it came from, written only when that list changes. Off = no block. */
+    const val CALENDAR_ORIGIN_LOG = true
+    /** Upcoming row: only releases still to come; an episode or film that is out leaves the row (the Calendar's Just aired still lists it). Off = ysosrs123's "New" cards for the last 7 days first. */
+    const val UPCOMING_FUTURE_ONLY = true
+    /** Calendar press-and-hold menu (List and Week views): the same buttons as Home's poster menu. Off = ysosrs123's pill rows. */
+    const val CALENDAR_OFFICIAL_DIALOG = true
 }

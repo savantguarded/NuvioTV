@@ -1120,6 +1120,7 @@ private fun CalendarNextRow(
     }
 }
 
+@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun CalendarOptionsDialog(
     row: CalendarRow,
@@ -1130,29 +1131,47 @@ private fun CalendarOptionsDialog(
 ) {
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { first.requestFocusAfterFrames() }
+    // [fork] calendar_official_dialog: same buttons as Home's poster menu (PosterOptionsDialog).
+    val action: @Composable (String, () -> Unit, FocusRequester?) -> Unit = { label, onClick, requester ->
+        if (com.nuvio.tv.NuvioCFeatures.CALENDAR_OFFICIAL_DIALOG) {
+            Button(
+                onClick = onClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .then(if (requester != null) Modifier.focusRequester(requester) else Modifier),
+                colors = ButtonDefaults.colors(
+                    containerColor = NuvioTheme.colors.BackgroundCard,
+                    contentColor = NuvioTheme.colors.TextPrimary
+                )
+            ) { Text(label) }
+        } else {
+            PanelActionRow(label = label, onClick = onClick, focusRequester = requester)
+        }
+    }
     NuvioDialog(
         onDismiss = onDismiss,
         title = row.name ?: stringResource(R.string.calendar_unknown_title),
         subtitle = stringResource(R.string.calendar_options_subtitle)
     ) {
-        PanelActionRow(
-            label = stringResource(if (row.isFilm) R.string.calendar_action_open_film else R.string.calendar_action_open_show),
-            onClick = onOpen,
-            focusRequester = first
+        action(
+            stringResource(if (row.isFilm) R.string.calendar_action_open_film else R.string.calendar_action_open_show),
+            onOpen,
+            first
         )
         if (row.status.hasBell) {
-            PanelActionRow(
-                label = stringResource(
+            action(
+                stringResource(
                     when {
                         row.status == CalendarRowStatus.BELL_ON -> R.string.calendar_action_stop_remind
                         row.isFilm -> R.string.calendar_action_remind_film
                         else -> R.string.calendar_action_remind
                     }
                 ),
-                onClick = onBell
+                onBell,
+                null
             )
         }
-        PanelActionRow(label = stringResource(R.string.calendar_action_hide), onClick = onHide)
+        action(stringResource(R.string.calendar_action_hide), onHide, null)
     }
 }
 

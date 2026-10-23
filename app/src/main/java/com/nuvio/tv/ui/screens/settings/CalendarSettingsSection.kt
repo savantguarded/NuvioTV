@@ -91,6 +91,7 @@ class CalendarSettingsViewModel @Inject constructor(
     fun setCornerMessage(enabled: Boolean) = viewModelScope.launch { data.setCornerMessage(enabled) }
     fun setIncludePersonalLists(include: Boolean) = viewModelScope.launch { data.setIncludePersonalLists(include) }
     fun setFollowOtherServices(follow: Boolean) = viewModelScope.launch { data.setFollowOtherServices(follow) }
+    fun setUseMdbListCalendar(use: Boolean) = viewModelScope.launch { data.setUseMdbListCalendar(use) } // [fork] calendar_mdblist
     fun setComingUpRow(enabled: Boolean) = viewModelScope.launch { data.setComingUpRow(enabled) }
     fun unhide(titleKey: String) = viewModelScope.launch { data.setHidden(titleKey, hidden = false, name = null) }
     fun unhideFromComingUp(titleKey: String) = viewModelScope.launch { data.setHiddenFromComingUp(titleKey, hidden = false) }
@@ -249,6 +250,14 @@ internal fun LayoutCalendarSection(viewModel: CalendarSettingsViewModel = hiltVi
         checked = current.followOtherServices,
         onToggle = { viewModel.setFollowOtherServices(!current.followOtherServices) }
     )
+    if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MDBLIST) { // [fork] calendar_mdblist
+        SettingsToggleRow(
+            title = stringResource(R.string.nuvio_c_calendar_mdblist),
+            subtitle = stringResource(R.string.nuvio_c_calendar_mdblist_sub),
+            checked = current.useMdbListCalendar,
+            onToggle = { viewModel.setUseMdbListCalendar(!current.useMdbListCalendar) }
+        )
+    }
     val hiddenCount = current.hiddenTitleKeys.size
     SettingsActionRow(
         title = stringResource(R.string.calendar_setting_hidden),

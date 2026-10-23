@@ -345,7 +345,8 @@ class CalendarComingUpSource @Inject constructor(
                     val text = CalendarComingUpText.from(localContext)
                     buildCalendarComingUp(titles, state.watched, now, zone, { title, entry ->
                         calendarEntryInKeys(shown, title, entry)
-                    }, CALENDAR_COMING_UP_MAX + upcomingItems.size)
+                    }, CALENDAR_COMING_UP_MAX + upcomingItems.size,
+                        futureOnly = com.nuvio.tv.NuvioCFeatures.UPCOMING_FUTURE_ONLY) // [fork] upcoming_future_only
                         .mapNotNull { calendarComingUpCard(it, text, formats, ::cachedArt, upcomingOnly = it.title.key !in calendarKeys, today = now.atZone(zone).toLocalDate()) }
                         .distinctBy { Triple(it.info.contentId, it.info.season, it.info.episode) }
                 }.onStart { if (calendar.state.value.watched == null) calendar.reloadWatched() }

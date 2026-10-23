@@ -77,7 +77,13 @@ fun calendarKeyMatches(key: String, type: CalendarTitleType, ids: CalendarIds): 
 }
 
 @Serializable
-enum class CalendarOrigin(val started: Boolean = false, val personalList: Boolean = false, val savesFilms: Boolean = false) {
+enum class CalendarOrigin(
+    val started: Boolean = false,
+    val personalList: Boolean = false,
+    val savesFilms: Boolean = false,
+    /** [fork] calendar_mdblist: listed by a service's own calendar, so it has something dated now and is never idle. */
+    val current: Boolean = false
+) {
     LIBRARY(savesFilms = true),
     PROGRESS(started = true),
     WATCHED(started = true),
@@ -93,6 +99,10 @@ enum class CalendarOrigin(val started: Boolean = false, val personalList: Boolea
     MDBLIST_PLAYBACK(started = true),
     MDBLIST_WATCHLIST(savesFilms = true),
     MDBLIST_LIST(personalList = true, savesFilms = true),
+    /** [fork] calendar_mdblist: MDBList's calendar lists it because you are watching it. */
+    MDBLIST_CALENDAR(current = true),
+    /** [fork] calendar_mdblist: MDBList's calendar lists it from your MDBList watchlist. */
+    MDBLIST_CALENDAR_SAVED(savesFilms = true, current = true),
     DROPPED,
     BELL(savesFilms = true)
 }
@@ -116,8 +126,9 @@ enum class CalendarSource(val priority: Int) {
     TRAKT(0),
     TRAKT_NEXT(1),
     TVMAZE(2),
-    TMDB(3),
-    ADDON(4);
+    MDBLIST(3), // [fork] calendar_mdblist: dates in your MDBList time zone, ahead of TMDB's plain dates
+    TMDB(4),
+    ADDON(5);
 
     val isTrakt: Boolean get() = this == TRAKT || this == TRAKT_NEXT
 }
@@ -217,6 +228,7 @@ data class CalendarSnapshot(
     val titles: List<CalendarTitleRecord> = emptyList(),
     val tvmazeIds: Map<String, CalendarTvMazeId> = emptyMap(),
     val traktCalendarFetchedAtMs: Long = 0L,
+    val mdbListCalendarFetchedAtMs: Long = 0L, // [fork] calendar_mdblist
     val seenReminders: Map<String, Long> = emptyMap(),
     val updatedAtMs: Long = 0L
 ) {

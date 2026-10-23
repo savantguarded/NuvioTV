@@ -237,8 +237,14 @@ class CalendarFollowedSourceReader @Inject constructor(
         val mdbListLibrary = TrackingProviderId.MDBLIST in plan.libraryFrom
         val mdbListOrigins = MDBLIST_ORIGINS.filter { if (it.started) mdbListProgress else mdbListLibrary }.toTypedArray()
         if (plan.reads(TrackingProviderId.MDBLIST)) unread.part("mdblist", *mdbListOrigins) {
+            // [fork] calendar_library_wins: load MDBList's saved copy first, as Simkl does, so a refresh that runs before
+            // MDBList has loaded reads it instead of keeping every title it gave last time (removed ones included).
+            if (com.nuvio.tv.NuvioCFeatures.CALENDAR_LIBRARY_WINS) mdbListSyncRepository.ensureLoaded()
             val snapshot = mdbListSyncRepository.currentSnapshot()
                 ?: return@part unread.notLoaded("mdblist", *mdbListOrigins)
+            if (com.nuvio.tv.NuvioCFeatures.CALENDAR_LIBRARY_WINS && mdbListLibrary && snapshot.library == null) {
+                unread.notLoaded("mdblist lists", CalendarOrigin.MDBLIST_WATCHLIST, CalendarOrigin.MDBLIST_LIST)
+            }
             fun add(ids: MdbListIds, type: MdbListItemType, origin: CalendarOrigin, at: Instant?, name: String?, poster: String? = null) {
                 val calendarIds = ids.toCalendarIds()
                 candidates += CalendarTitleCandidate(

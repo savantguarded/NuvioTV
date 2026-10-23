@@ -4,4 +4,6 @@
     <string name="nuvio_c_calendar_start_in">Start in</string>
     <string name="nuvio_c_calendar_start_in_sub">Which view the Calendar opens in</string>
     <string name="nuvio_c_calendar_start_last">Last used</string>
+    <string name="nuvio_c_calendar_mdblist">Use my MDBList calendar</string>
+    <string name="nuvio_c_calendar_mdblist_sub">When signed in to MDBList, follows what your MDBList calendar shows (set under Preferences &gt; Calendar on mdblist.com) and uses its release dates.</string>
 </resources>
