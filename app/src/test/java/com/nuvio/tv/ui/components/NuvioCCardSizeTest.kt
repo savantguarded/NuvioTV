@@ -2,8 +2,6 @@ package com.nuvio.tv.ui.components
 
 import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NuvioCCardSizeTest {
@@ -22,7 +20,6 @@ class NuvioCCardSizeTest {
             assertEquals(14f, NuvioCCardSize.rowTitleBottom(w).value, 0f)
             assertEquals(40f, NuvioCCardSize.focusInset(w, 40.dp).value, 0f)
             assertEquals(24f, NuvioCCardSize.rowGap(w, 24.dp).value, 0f)
-            assertFalse(NuvioCCardSize.bigRowTitle(w))
         }
     }
 
@@ -32,7 +29,6 @@ class NuvioCCardSizeTest {
         assertEquals(276f, NuvioCCardSize.modernLandscapeBase(156) * 1.24f * 1.34f, 0.01f)
         assertEquals(140, NuvioCCardSize.otherWidth(156))
         assertEquals(210, NuvioCCardSize.otherHeight(234))
-        assertTrue(NuvioCCardSize.bigRowTitle(156))
         assertEquals(32f, NuvioCCardSize.focusInset(156, 40.dp).value, 0f)
         assertEquals(12f, NuvioCCardSize.rowGap(156, 24.dp).value, 0f)
         assertEquals(8f, NuvioCCardSize.rowTitleBottom(156).value, 0f)
@@ -61,5 +57,15 @@ class NuvioCCardSizeTest {
     fun shorterScreenGrowsInsteadOfClipping() {
         // Never clips the next row's title: on a short screen the rows area grows to fit it.
         assertEquals(280f, NuvioCCardSize.rowsViewport(500.dp, false, 156, 234).value, 0.6f)
+    }
+
+    @Test
+    fun heroTextWidthMatchesLargeAtExtraLarge() {
+        val large = NuvioCCardSize.heroTextWidth((140 * 1.24f * 1.34f).dp, 12.dp)
+        val xl = NuvioCCardSize.heroTextWidth((NuvioCCardSize.modernLandscapeBase(156) * 1.24f * 1.34f).dp, 12.dp)
+        assertEquals(large.value, xl.value, 0.01f)
+        // Smaller presets keep their own (narrower) width
+        val small = NuvioCCardSize.heroTextWidth((120 * 1.24f * 1.34f).dp, 12.dp)
+        assertEquals(120 * 1.24f * 1.34f * 2 + 12f, small.value, 0.01f)
     }
 }

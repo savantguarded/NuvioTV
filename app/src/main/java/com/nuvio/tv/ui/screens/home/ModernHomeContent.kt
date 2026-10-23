@@ -1144,8 +1144,8 @@ fun ModernHomeContent(
             val shouldPlayTrailerLambda = remember { { shouldPlayCatalogHeroTrailerUpdated || shouldPlayCollectionHeroVideoUpdated } }
             val heroTrailerRenderedLambda = remember { { heroTrailerFirstFrameRenderedUpdated } }
 
-            val nuvioCHeroTextWidth = landscapeCatalogCardWidth * 2 + NuvioTheme.spacing.md // [fork] hero spec: text ends at the second landscape poster's right edge
-                .let { if (com.nuvio.tv.NuvioCFeatures.HERO_WIDTH_CAP) minOf(it, (com.nuvio.tv.ui.components.NuvioCCardSize.LARGE * 1.24f * landscapeModernPosterScale).dp * 2 + NuvioTheme.spacing.md) else it } // [fork] hero_width_cap: never wider than at Large
+            // [fork] hero spec: text ends at the second landscape poster's right edge; hero_width_cap: never wider than at Large
+            val nuvioCHeroTextWidth = com.nuvio.tv.ui.components.NuvioCCardSize.heroTextWidth(landscapeCatalogCardWidth, NuvioTheme.spacing.md)
             // [fork] home synopsis fit: official width, then ours, then ours + 80 dp, only as wide as the text needs
             val nuvioCScreenWidth = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
             val nuvioCTextWidths = if (com.nuvio.tv.NuvioCFeatures.HOME_SYNOPSIS_FIT && com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) remember(nuvioCScreenWidth, rowHorizontalPadding, nuvioCHeroTextWidth) {

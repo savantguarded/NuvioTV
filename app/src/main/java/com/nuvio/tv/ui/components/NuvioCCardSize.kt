@@ -17,8 +17,8 @@ import com.nuvio.tv.NuvioCFeatures
 // (LayoutPreferenceDataStore, never written back). The rows area stays exactly Large's height
 // (52% portrait / 49% landscape), so the hero's logo, synopsis lines and width match Large; the
 // bigger cards fit through tighter spacing only: title-to-poster gap 14 -> 8 dp, gap between rows
-// 24 -> 12 dp, focus line 40 -> 32 dp (24 dp title line + 8 dp gap). Row titles 16 -> 18 sp on the
-// same 24 dp line. Portrait: 32 + 212 + 12 + 24 = 280 dp of 280.8 (next row's title shows in full);
+// 24 -> 12 dp, focus line 40 -> 32 dp (24 dp title line + 8 dp gap). Row titles stay official
+// (round 22b: the 18 sp titles were reverted). Portrait: 32 + 212 + 12 + 24 = 280 dp of 280.8 (next row's title shows in full);
 // landscape: 32 + 156 + 12 + 24 + 8 = 232 of 264.6 (about 32 dp of the next row's art).
 // Library and Discover / Search stay at Large. Any other stored value passes through unchanged, so
 // every official preset looks exactly as before.
@@ -41,8 +41,18 @@ object NuvioCCardSize {
     fun normalizeWidth(stored: Int): Int = if (enabled && stored == LEGACY_HUGE) EXTRA_LARGE else stored
     fun normalizeHeight(stored: Int): Int = if (enabled && stored == LEGACY_HUGE_HEIGHT) EXTRA_LARGE * 3 / 2 else stored
 
-    /** Modern row titles: 18 sp on the official 24 dp line at Extra large, else official. */
-    fun bigRowTitle(stored: Int): Boolean = isBig(stored)
+    /** Large's Modern landscape card width (official 140 x 1.24 x 1.34). */
+    val LARGE_LANDSCAPE_CARD: Dp = (LARGE * MODERN_LANDSCAPE).dp
+
+    /**
+     * Home hero text width: to the second landscape poster's right edge, never wider than at Large
+     * (switch `hero_width_cap`), so Extra large keeps Large's synopsis width and line count.
+     * Round 22b: the cap used to sit after a line break and only clamped the gap, never the width.
+     */
+    fun heroTextWidth(landscapeCardWidth: Dp, gap: Dp): Dp {
+        val card = if (NuvioCFeatures.HERO_WIDTH_CAP) minOf(landscapeCardWidth, LARGE_LANDSCAPE_CARD) else landscapeCardWidth
+        return card * 2 + gap
+    }
 
     /** Classic poster width on Home. */
     fun classicWidth(stored: Int): Int = when {
