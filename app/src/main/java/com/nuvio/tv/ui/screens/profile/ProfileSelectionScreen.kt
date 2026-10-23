@@ -359,10 +359,17 @@ fun ProfileSelectionScreen(
             onProfileThemeFocused?.invoke(theme)
         }
 
+        val nuvioCIntro = rememberNuvioCProfileIntro(enabled = !isManagementMode, backgroundReady = profileBackground != null) // [fork] profile_intro
+        Box(modifier = Modifier.fillMaxSize().then(if (nuvioCIntro != null) Modifier.background(Color.Black) else Modifier)) { // [fork] profile_intro: fades up from black
+        Box(modifier = Modifier.fillMaxSize().nuvioCProfileIntroBackground(nuvioCIntro)) { // [fork]
         ProfileSelectionBackground(
             focusedAvatarColor = overlayProfileColor ?: focusedAvatarColor,
             profileBackground = profileBackground
         )
+        } // [fork]
+        } // [fork]
+
+        CompositionLocalProvider(LocalNuvioCProfileIntro provides nuvioCIntro) { // [fork] profile_intro
 
         AnimatedContent(
             targetState = pinOverlayState,
@@ -535,6 +542,7 @@ fun ProfileSelectionScreen(
                 )
             }
         }
+        } // [fork] LocalNuvioCProfileIntro
 
         // Create Profile Overlay
         AnimatedVisibility(
@@ -997,6 +1005,7 @@ private fun ProfileGrid(
 ) {
     val totalItems = profiles.size + if (canAddProfile) 1 else 0
     val nuvioCClean = LocalNuvioCProfileClean.current // [fork] Add profile as a button under the row
+    val nuvioCIntro = LocalNuvioCProfileIntro.current // [fork] profile_intro
     val nuvioCRowItems = if (nuvioCClean) profiles.size else totalItems // [fork]
     val initialFocusIndex = remember(profiles, activeProfileId, canAddProfile) {
         profiles.indexOfFirst { it.id == activeProfileId }
@@ -1025,6 +1034,7 @@ private fun ProfileGrid(
         NuvioCProfileLeftColumn(itemCount = totalItems) {
             CompositionLocalProvider(LocalNuvioCProfileLeft provides true) {
                 profiles.forEachIndexed { index, profile ->
+                    Box(modifier = Modifier.nuvioCProfileIntroItem(nuvioCIntro, index)) { // [fork] profile_intro
                     ProfileCard(
                         profile = profile,
                         avatarImageUrl = profile.avatarUrl?.takeIf { it.isNotBlank() }
@@ -1036,14 +1046,17 @@ private fun ProfileGrid(
                         onClick = { onProfileSelected(profile) },
                         onLongPress = { onProfileLongPress(profile) }
                     )
+                    } // [fork]
                 }
                 if (canAddProfile) {
+                    Box(modifier = Modifier.nuvioCProfileIntroItem(nuvioCIntro, profiles.size)) { // [fork] profile_intro
                     AddProfileCard(
                         focusRequester = focusRequesters[profiles.size],
                         compact = false,
                         onFocused = { onProfileFocused(null) },
                         onClick = onAddProfileClick
                     )
+                    } // [fork]
                 }
             }
         }
