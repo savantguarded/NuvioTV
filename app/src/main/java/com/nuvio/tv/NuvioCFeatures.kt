@@ -334,6 +334,10 @@ object NuvioCFeatures {
     const val STARTUP_SETTLE = true
     /** No Android TV launcher channels: Nuvio C no longer publishes Continue Watching to the launcher, and no longer wakes every 15 minutes or at boot to refresh them (Projectivy doesn't show them). Off = official channels. */
     const val NO_TV_CHANNELS = true
+    /** With STARTUP_SETTLE: on a cold start the start-up screen also waits for the account's start-up sync (full watched history and progress) to finish, so Home appears with nothing left to freeze it and Continue Watching current; capped at 15 s after Home is ready. Warm starts only fetch changes, so they barely wait. Off = settle on Home alone (10 s cap). */
+    const val STARTUP_SETTLE_SYNC = true
+    /** Start-up screen look: the logo drawn smoothly (mipmapped, no rough edges) over a soft halo that slowly breathes, animated by the render thread; replaces the sweep. Off = the sweep (STARTUP_SWEEP). */
+    const val STARTUP_BREATHE = true
     /** No crash reporting to the Nuvio team (Nuvio C crashes aren't theirs to fix; we read them over adb). Saves a blocking read at launch. Off = official setting decides. */
     const val NO_CRASH_REPORTING = true
     // Also round 26b, not a switch: release builds drop debug-level logging (proguard-rules.pro, "[fork] round 26b").

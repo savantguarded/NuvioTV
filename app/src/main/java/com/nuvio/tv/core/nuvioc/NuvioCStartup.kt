@@ -14,6 +14,9 @@ object NuvioCStartup {
     @Volatile
     var holdingKeys: Boolean = false
 
+    /** startup_settle_sync: true while the account's start-up sync (watched history, progress, library) runs. */
+    val syncRunning = kotlinx.coroutines.flow.MutableStateFlow(false)
+
     /** no_tv_channels: cancels the 15-minute and boot-time channel refresh jobs scheduled by earlier builds. */
     fun stopTvChannels(context: Context) {
         runCatching {

@@ -26,6 +26,7 @@ import coil3.request.crossfade
 import com.nuvio.tv.R
 import com.nuvio.tv.ui.theme.NuvioPrimitives
 import com.nuvio.tv.ui.theme.NuvioTheme
+import com.nuvio.tv.ui.theme.brandWordmarkResource
 
 @Composable
 fun StartupSplashScreen(
@@ -96,6 +97,13 @@ fun StartupSplashScreen(
             )
         }
 
+        if (com.nuvio.tv.NuvioCFeatures.STARTUP_BREATHE) { // [fork] startup_breathe
+            NuvioCStartupBreathe(
+                logoRes = brandWordmarkRes ?: NuvioTheme.currentTheme.brandWordmarkResource,
+                contentDescription = stringResource(R.string.cd_nuvio_logo),
+                modifier = Modifier.fillMaxSize()
+            )
+        } else
         Column(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,

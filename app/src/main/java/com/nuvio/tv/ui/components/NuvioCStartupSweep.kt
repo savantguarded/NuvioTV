@@ -35,12 +35,75 @@ fun NuvioCStartupSweep(modifier: Modifier = Modifier) {
     )
 }
 
+/**
+ * startup_breathe: the logo drawn smoothly over a slowly breathing halo. The halo is an AnimatedVectorDrawable
+ * (render thread). The logo PNG is far larger than it is shown (1085 px wide for about 150 dp), and drawing it
+ * scaled down in one go leaves jagged edges, so it is shrunk once in halving steps, which averages the edge pixels.
+ */
+@Composable
+fun NuvioCStartupBreathe(logoRes: Int, contentDescription: String?, modifier: Modifier = Modifier) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val heightPx = with(density) { LOGO_HEIGHT.roundToPx() }
+    val logo = remember(logoRes, heightPx) { nuvioCSmoothBitmap(context.resources, logoRes, heightPx) }
+    androidx.compose.foundation.layout.Box(modifier, contentAlignment = androidx.compose.ui.Alignment.Center) {
+        AndroidView(
+            factory = { ctx ->
+                ImageView(ctx).apply {
+                    val halo = ctx.getDrawable(R.drawable.nuvio_c_startup_halo)
+                    setImageDrawable(halo)
+                    (halo as? Animatable)?.start()
+                }
+            },
+            onRelease = { view -> (view.drawable as? Animatable)?.stop() },
+            modifier = Modifier.size(width = 420.dp, height = 220.dp)
+        )
+        if (logo != null) {
+            val widthDp = with(density) { logo.width.toDp() }
+            val heightDp = with(density) { logo.height.toDp() }
+            AndroidView(
+                factory = { ctx ->
+                    ImageView(ctx).apply {
+                        setImageBitmap(logo)
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                        this.contentDescription = contentDescription
+                    }
+                },
+                modifier = Modifier.size(width = widthDp, height = heightDp)
+            )
+        }
+    }
+}
+
+private val LOGO_HEIGHT = 48.dp
+
+/** Decodes [res] at full size and shrinks it to [targetHeight] px in halving steps (box-like averaging). */
+internal fun nuvioCSmoothBitmap(resources: android.content.res.Resources, res: Int, targetHeight: Int): android.graphics.Bitmap? =
+    runCatching {
+        val options = android.graphics.BitmapFactory.Options().apply { inScaled = false }
+        var bitmap = android.graphics.BitmapFactory.decodeResource(resources, res, options) ?: return null
+        val targetWidth = (bitmap.width.toLong() * targetHeight / bitmap.height).toInt().coerceAtLeast(1)
+        while (bitmap.height / 2 >= targetHeight) {
+            val next = android.graphics.Bitmap.createScaledBitmap(bitmap, bitmap.width / 2, bitmap.height / 2, true)
+            if (next !== bitmap) bitmap.recycle()
+            bitmap = next
+        }
+        if (bitmap.height != targetHeight) {
+            val next = android.graphics.Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+            if (next !== bitmap) bitmap.recycle()
+            bitmap = next
+        }
+        bitmap
+    }.getOrNull()
+
 private const val SETTLE_CAP_MS = 10_000L
+private const val SETTLE_SYNC_CAP_MS = 15_000L
 private const val SETTLE_MIN_MS = 600L
 
 /**
  * startup_settle: false from the moment Home reports ready ([ready]) until it has settled, then true for good.
- * Settled = every frame answered within 50 ms for 0.9 s in a row (at least 0.6 s after ready), or 10 s at most.
+ * Settled = every frame answered within 50 ms for 0.9 s in a row (at least 0.6 s after ready) and, with
+ * STARTUP_SETTLE_SYNC, no start-up sync running; 10 s at most (15 s with the sync wait).
  * Keyed on [key] (the start-up state, renewed on a profile switch). Always true with the switch off.
  */
 @Composable
@@ -58,9 +121,16 @@ fun rememberNuvioCStartupSettled(key: Any, ready: Boolean): Boolean {
             if (gaps.size > 240) gaps.subList(0, gaps.size - 240).clear()
             last = now
             val elapsed = (now - start) / 1_000_000L
-            if (elapsed >= SETTLE_CAP_MS || (elapsed >= SETTLE_MIN_MS && nuvioCStartupSettled(gaps))) break
+            // startup_settle_sync: on a cold start the full watched-history sync is what freezes Home, so wait it out.
+            val syncing = NuvioCFeatures.STARTUP_SETTLE_SYNC && com.nuvio.tv.core.nuvioc.NuvioCStartup.syncRunning.value
+            val cap = if (NuvioCFeatures.STARTUP_SETTLE_SYNC) SETTLE_SYNC_CAP_MS else SETTLE_CAP_MS
+            if (elapsed >= cap || (elapsed >= SETTLE_MIN_MS && !syncing && nuvioCStartupSettled(gaps))) break
         }
-        android.util.Log.i("NuvioCStartup", "Home settled after ${(last - start) / 1_000_000L} ms behind the start-up screen")
+        android.util.Log.i(
+            "NuvioCStartup",
+            "Home settled after ${(last - start) / 1_000_000L} ms behind the start-up screen" +
+                " (sync still running=${com.nuvio.tv.core.nuvioc.NuvioCStartup.syncRunning.value})"
+        )
         settled = true
     }
     return settled

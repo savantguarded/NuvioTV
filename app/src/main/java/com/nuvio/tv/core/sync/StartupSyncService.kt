@@ -376,6 +376,7 @@ class StartupSyncService @Inject constructor(
         activityPullJob?.cancel()
         activityPullJob = null
 
+        com.nuvio.tv.core.nuvioc.NuvioCStartup.syncRunning.value = true // [fork] startup_settle_sync
         startupPullJob = scope.launch {
             val maxAttempts = 3
             var syncCompleted = false
@@ -420,6 +421,8 @@ class StartupSyncService @Inject constructor(
                     )
                 }
             }
+        }.also { job -> // [fork] startup_settle_sync: off once no start-up sync is left running (a follow-up keeps it on)
+            job.invokeOnCompletion { if (startupPullJob?.isActive != true) com.nuvio.tv.core.nuvioc.NuvioCStartup.syncRunning.value = false }
         }
         return true
     }
