@@ -140,10 +140,16 @@ private fun PlayerView.nuvioCSetSubtitleDim(factor: Float) {
  * the rectangle past the element's bounds for parts that grow when focused (Skip Intro's 1.1x zoom).
  * Off = the previous offscreen-layer version.
  */
-internal fun Modifier.nuvioCHdrDim(active: Boolean, overflow: Dp = 0.dp): Modifier {
+internal fun Modifier.nuvioCHdrDim(active: Boolean, overflow: Dp = 0.dp, isolated: Boolean = false): Modifier {
     if (!active || !NuvioCFeatures.HDR_DIM) return this
     if (NuvioCFeatures.HDR_DIM_LIGHT) {
-        return drawWithContent {
+        // [fork] hdr_dim_isolated (round 21): a full-screen host (pause screen, media info, audio and
+        // subtitle panels, buffering spinner) drew its Modulate rectangle over the whole window, which
+        // also multiplied everything already drawn under it: the OSD fading out behind a panel (and the
+        // subtitles) went from 60% to 36% mid-fade. Isolated = the host draws into its own layer first,
+        // so the dim only touches its own pixels. Costs one layer, only while such a host is on screen.
+        val base = if (isolated && NuvioCFeatures.HDR_DIM_ISOLATED) this.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen } else this
+        return base.drawWithContent {
             drawContent()
             val o = overflow.toPx()
             drawRect(

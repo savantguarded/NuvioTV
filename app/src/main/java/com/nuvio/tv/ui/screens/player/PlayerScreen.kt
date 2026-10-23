@@ -1378,7 +1378,7 @@ fun PlayerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(2.5f)
-                .nuvioCHdrDim(nuvioCHdr) // [fork] pause screen dims in HDR
+                .nuvioCHdrDim(nuvioCHdr, isolated = true) // [fork] pause screen dims in HDR
         )
 
         StreamInfoOverlay(
@@ -1392,7 +1392,7 @@ fun PlayerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(2.6f)
-                .nuvioCHdrDim(nuvioCHdr) // [fork] media info panel dims with the OSD
+                .nuvioCHdrDim(nuvioCHdr, isolated = true) // [fork] media info panel dims with the OSD
         )
 
         if (uiState.playerStatsHudEnabled && uiState.playerStatsHudButtonAvailable && uiState.error == null) {
@@ -1872,7 +1872,7 @@ fun PlayerScreen(
                     focusRequester = chaptersFocusRequester,
                     onChapterSelected = { viewModel.onEvent(PlayerEvent.OnSelectChapter(it)) },
                     onClose = { viewModel.onEvent(PlayerEvent.OnDismissChaptersPanel) },
-                    modifier = Modifier.align(Alignment.CenterEnd).nuvioCHdrDim(nuvioCHdr) // [fork] HDR dim like the other panels
+                    modifier = Modifier.align(Alignment.CenterEnd).nuvioCHdrDim(nuvioCHdr, isolated = true) // [fork] HDR dim like the other panels
                 )
             }
         }
@@ -1915,7 +1915,7 @@ fun PlayerScreen(
                     onAddonFilterSelected = { viewModel.onEvent(PlayerEvent.OnEpisodeAddonFilterSelected(it)) },
                     onEpisodeSelected = { viewModel.onEvent(PlayerEvent.OnEpisodeSelected(it)) },
                     onStreamSelected = { viewModel.onEvent(PlayerEvent.OnEpisodeStreamSelected(it)) },
-                    modifier = Modifier.align(Alignment.CenterEnd).nuvioCHdrDim(nuvioCHdr) // [fork]
+                    modifier = Modifier.align(Alignment.CenterEnd).nuvioCHdrDim(nuvioCHdr, isolated = true) // [fork]
                 )
             }
         }
@@ -1960,7 +1960,7 @@ fun PlayerScreen(
                     onAddonFilterSelected = { viewModel.onEvent(PlayerEvent.OnSourceAddonFilterSelected(it)) },
                     onStreamSelected = { viewModel.onEvent(PlayerEvent.OnSourceStreamSelected(it)) },
                     onExpandStreams = { viewModel.controller.expandSourceFilteredStreamsIfNeeded() },
-                    modifier = Modifier.align(Alignment.CenterEnd).nuvioCHdrDim(nuvioCHdr) // [fork]
+                    modifier = Modifier.align(Alignment.CenterEnd).nuvioCHdrDim(nuvioCHdr, isolated = true) // [fork]
                 )
             }
         }
@@ -2023,7 +2023,7 @@ fun PlayerScreen(
                         viewModel.onEvent(PlayerEvent.OnDismissPartyPanel)
                     },
                     onClose = { viewModel.onEvent(PlayerEvent.OnDismissPartyPanel) },
-                    modifier = Modifier.align(Alignment.CenterEnd).nuvioCHdrDim(nuvioCHdr) // [fork] HDR dim (watch party panel)
+                    modifier = Modifier.align(Alignment.CenterEnd).nuvioCHdrDim(nuvioCHdr, isolated = true) // [fork] HDR dim (watch party panel)
                 )
                 } // [fork]
             }
@@ -2109,7 +2109,7 @@ fun PlayerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(2.6f)
-                .nuvioCHdrDim(nuvioCHdr) // [fork]
+                .nuvioCHdrDim(nuvioCHdr, isolated = true) // [fork] own layer (hdr_dim_isolated)
         )
 
         SubtitleSelectionOverlay(
@@ -2137,7 +2137,7 @@ fun PlayerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(2.6f)
-                .nuvioCHdrDim(nuvioCHdr) // [fork]
+                .nuvioCHdrDim(nuvioCHdr, isolated = true) // [fork] own layer (hdr_dim_isolated)
         )
 
         PlayerOverlayScaffold(
@@ -4665,7 +4665,7 @@ private fun PlayerBufferingIndicator(
     if (!isBuffering || showLoadingOverlay) return
 
     Box(
-        modifier = Modifier.fillMaxSize().nuvioCHdrDim(nuvioCDim), // [fork] was fillMaxSize()
+        modifier = Modifier.fillMaxSize().nuvioCHdrDim(nuvioCDim, isolated = true), // [fork] was fillMaxSize()
         contentAlignment = Alignment.Center
     ) {
         if (isTorrentStream && torrentBufferingMessage != null) {
