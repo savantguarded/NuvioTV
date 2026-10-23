@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -78,6 +79,7 @@ import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.nuvio.tv.NuvioCFeatures
 import com.nuvio.tv.R
 import com.nuvio.tv.core.calendar.CalendarEpisodeLabel
 import com.nuvio.tv.core.calendar.CalendarSectionKind
@@ -141,6 +143,10 @@ fun CalendarScreen(
     val nuvioCContent = remember { FocusRequester() } // [fork] calendar_tab_focus
     var nuvioCContentFocused by remember { mutableStateOf(false) } // [fork] calendar_tab_focus
     NuvioCCalendarBackToTabs(nuvioCContentFocused, finding != null, modeFocusRequester) // [fork] calendar_tab_focus
+    val nuvioCFromMonth by viewModel.nuvioCFromMonth.collectAsState() // [fork] calendar_month_back
+    BackHandler(enabled = nuvioCFromMonth != null && viewMode == CalendarViewMode.WEEK && finding == null) { viewModel.nuvioCBackToMonth() } // [fork] calendar_month_back
+    val nuvioCRefreshing by viewModel.nuvioCRefreshing.collectAsState() // [fork] calendar_refresh_button
+    val nuvioCBrake = rememberNuvioCEdgeBrake() // [fork] calendar_edge_brake
 
     val backdrop = focus?.details?.backdrop ?: focus?.row?.backdrop
     // [nuvio c] ysosrs123's v2 page artwork (HeroBackdropState.selectPageArtwork) only runs with his v2 look.
@@ -163,7 +169,8 @@ fun CalendarScreen(
         }
     }
 
-    Box(Modifier.fillMaxSize().background(NuvioTheme.colors.Background)) {
+    CompositionLocalProvider(LocalNuvioCEdgeBrake provides nuvioCBrake) { // [fork] calendar_edge_brake
+    Box(Modifier.fillMaxSize().background(NuvioTheme.colors.Background).nuvioCBrakeTrack(nuvioCBrake)) { // [fork] calendar_edge_brake
         if (v2 != null) V2Atmosphere(background = v2.settingsBackground)
         if (v2 == null && viewMode == CalendarViewMode.WEEK && uiState.phase == CalendarPhase.READY) {
             CalendarPageBackdrop(backdrop)
@@ -182,7 +189,9 @@ fun CalendarScreen(
                 viewMode = viewMode,
                 modeFocusRequester = modeFocusRequester,
                 onViewMode = viewModel::setViewMode,
-                nuvioCContent = nuvioCContent // [fork] calendar_tab_focus
+                nuvioCContent = nuvioCContent, // [fork] calendar_tab_focus
+                nuvioCRefreshing = nuvioCRefreshing, // [fork] calendar_refresh_button
+                nuvioCOnRefresh = viewModel::nuvioCRefresh.takeIf { NuvioCFeatures.CALENDAR_REFRESH_BUTTON } // [fork] calendar_refresh_button
             )
             Spacer(Modifier.height(NuvioTheme.spacing.lg))
             Box(Modifier.fillMaxWidth().weight(1f).nuvioCCalendarContent(nuvioCContent) { nuvioCContentFocused = it }) { // [fork] calendar_tab_focus
@@ -222,6 +231,7 @@ fun CalendarScreen(
             }
         }
     }
+    } // [fork] calendar_edge_brake
 
     finding?.let { row ->
         LoadingOverlay(
@@ -254,7 +264,9 @@ private fun CalendarHeader(
     viewMode: CalendarViewMode,
     modeFocusRequester: FocusRequester,
     onViewMode: (CalendarViewMode) -> Unit,
-    nuvioCContent: FocusRequester? = null // [fork] calendar_tab_focus
+    nuvioCContent: FocusRequester? = null, // [fork] calendar_tab_focus
+    nuvioCRefreshing: Boolean = false, // [fork] calendar_refresh_button
+    nuvioCOnRefresh: (() -> Unit)? = null // [fork] calendar_refresh_button
 ) {
     val v2 = LocalV2Appearance.current != null
     Row(
@@ -288,9 +300,11 @@ private fun CalendarHeader(
         }
         Row(
             horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
+            verticalAlignment = Alignment.CenterVertically, // [fork] calendar_refresh_button
             modifier = nuvioCContent?.let { Modifier.nuvioCCalendarTabs(modeFocusRequester, it) } ?: Modifier // [fork] calendar_tab_focus
         ) {
-            CalendarViewMode.entries.forEach { mode ->
+            val nuvioCBrake = LocalNuvioCEdgeBrake.current // [fork] calendar_edge_brake
+            CalendarViewMode.entries.forEachIndexed { nuvioCIndex, mode ->
                 val selected = mode == viewMode
                 val pill = RoundedCornerShape(NuvioTheme.radii.full)
                 Button(
@@ -299,6 +313,7 @@ private fun CalendarHeader(
                     scale = ButtonDefaults.scale(focusedScale = if (v2) 1f else 1.1f),
                     modifier = Modifier
                         .nuvioControlSurface(RoundedCornerShape(NuvioTheme.radii.md))
+                        .then(if (nuvioCIndex == 0) Modifier.nuvioCBrakeEdge(nuvioCBrake) else Modifier) // [fork] calendar_edge_brake
                         .then(if (selected) Modifier.focusRequester(modeFocusRequester) else Modifier),
                     colors = ButtonDefaults.colors(
                         containerColor = if (v2) {
@@ -331,6 +346,7 @@ private fun CalendarHeader(
                     )
                 }
             }
+            nuvioCOnRefresh?.let { NuvioCCalendarRefreshButton(nuvioCRefreshing, it) } // [fork] calendar_refresh_button
         }
     }
 }

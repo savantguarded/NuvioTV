@@ -52,7 +52,9 @@ annotation class CalendarClock
 enum class CalendarRefreshReason {
     HOME_SETTLED, CALENDAR_OPENED, SETTINGS_CHANGED, SOURCES_PENDING,
     /** [fork] calendar_mdblist: something was added to or removed from a library; MDBList's calendar is asked again. */
-    LIBRARY_CHANGED
+    LIBRARY_CHANGED,
+    /** [fork] calendar_refresh_button: the Calendar's refresh button; every source is asked again at once. */
+    MANUAL
 }
 
 /** Waits before a refresh is run again because a source was not ready; one per refresh that stays incomplete. */
@@ -230,7 +232,8 @@ class CalendarRefresher internal constructor(
             val previous = job
             if (previous?.isActive == true && jobTakesRequests) {
                 if (runAgain == null || reason == CalendarRefreshReason.SETTINGS_CHANGED ||
-                    reason == CalendarRefreshReason.LIBRARY_CHANGED // [fork] calendar_mdblist
+                    reason == CalendarRefreshReason.LIBRARY_CHANGED || // [fork] calendar_mdblist
+                    reason == CalendarRefreshReason.MANUAL // [fork] calendar_refresh_button
                 ) runAgain = reason
                 return
             }
@@ -352,7 +355,8 @@ class CalendarRefresher internal constructor(
 
             val traktSignedIn = inputs.traktSignedIn()
             val snapshot = dataMutex.withLock { data }
-            val traktDue = now.toEpochMilli() - snapshot.traktCalendarFetchedAtMs >= CALENDAR_TRAKT_REFRESH.toMillis()
+            val traktDue = reason == CalendarRefreshReason.MANUAL || // [fork] calendar_refresh_button
+                now.toEpochMilli() - snapshot.traktCalendarFetchedAtMs >= CALENDAR_TRAKT_REFRESH.toMillis()
             val traktItems = if (traktSignedIn && traktDue && sources.traktWatchedLoaded) {
                 awaitNoPlayback()
                 inputs.traktCalendar(now.atZone(ZoneOffset.UTC).toLocalDate())
@@ -369,6 +373,7 @@ class CalendarRefresher internal constructor(
             // [fork] calendar_mdblist: MDBList's own calendar, every 6 hours or at once after a Library or settings change.
             val mdbListOn = com.nuvio.tv.NuvioCFeatures.CALENDAR_MDBLIST && settings.useMdbListCalendar && inputs.mdbListSignedIn()
             val mdbListDue = reason == CalendarRefreshReason.SETTINGS_CHANGED || reason == CalendarRefreshReason.LIBRARY_CHANGED ||
+                reason == CalendarRefreshReason.MANUAL || // [fork] calendar_refresh_button
                 now.toEpochMilli() - snapshot.mdbListCalendarFetchedAtMs >= CALENDAR_MDBLIST_REFRESH.toMillis()
             val mdbListItems = if (mdbListOn && mdbListDue) {
                 awaitNoPlayback()
@@ -435,7 +440,7 @@ class CalendarRefresher internal constructor(
                     }
                 )
                 publishLocked()
-                records.filter { it.isDue(now) }
+                records.filter { it.isDue(now) || (reason == CalendarRefreshReason.MANUAL && it.nuvioCManualDue(now)) } // [fork] calendar_refresh_button
                     .sortedWith(compareByDescending<CalendarTitleRecord> { CalendarOrigin.BELL in it.origins }.thenBy { it.nextRefreshAtMs })
             } ?: return true
             save(current, force = true)

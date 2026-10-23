@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -129,6 +130,24 @@ class CalendarViewModel internal constructor(
     var lastFocusedListKey: String? = null
         private set
 
+    // [fork] calendar_refresh_button: whether a refresh is running, for the button's turning icon.
+    val nuvioCRefreshing: StateFlow<Boolean> = data.state.map { it.refreshing }.distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), false)
+
+    fun nuvioCRefresh() = data.requestRefresh(com.nuvio.tv.core.calendar.CalendarRefreshReason.MANUAL)
+
+    // [fork] calendar_month_back: the Month day OK opened the Week on; Back in that Week returns to Month there.
+    private val _nuvioCFromMonth = MutableStateFlow<LocalDate?>(null)
+    val nuvioCFromMonth: StateFlow<LocalDate?> = _nuvioCFromMonth.asStateFlow()
+
+    fun nuvioCBackToMonth() {
+        val day = _nuvioCFromMonth.value ?: return
+        _nuvioCFromMonth.value = null
+        focusDay(day)
+        _viewMode.value = CalendarViewMode.MONTH
+        viewPrefs?.rememberUsed(CalendarViewMode.MONTH) // [fork] calendar_start_view
+    }
+
     private var detailsJob: Job? = null
     private var titleOpened = false
 
@@ -148,6 +167,7 @@ class CalendarViewModel internal constructor(
     /** Each time the page comes into view; the page is kept while you are elsewhere, so this is not done once. */
     fun onScreenShown() {
         if (!titleOpened) {
+            _nuvioCFromMonth.value = null // [fork] calendar_month_back
             showToday()
             // [fork] calendar_start_view: a fixed "Start in" choice applies each time the page is opened afresh.
             // Not when "See all in Calendar" from a reminder is taking you to Just aired.
@@ -202,6 +222,7 @@ class CalendarViewModel internal constructor(
     }
 
     fun setViewMode(mode: CalendarViewMode) {
+        _nuvioCFromMonth.value = null // [fork] calendar_month_back
         if (mode != CalendarViewMode.LIST && _viewMode.value != mode) showToday()
         _viewMode.value = mode
         if (viewPrefs != null) {
@@ -234,6 +255,7 @@ class CalendarViewModel internal constructor(
         if (rows.none(_filter.value::keeps)) _filter.value = CalendarFilter.ALL
         _weekStart.value = weekStart
         _pendingWeekDay.value = date
+        if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MONTH_BACK) _nuvioCFromMonth.value = date // [fork] calendar_month_back
         _viewMode.value = CalendarViewMode.WEEK
         viewPrefs?.rememberUsed(CalendarViewMode.WEEK) // [fork] calendar_start_view
     }

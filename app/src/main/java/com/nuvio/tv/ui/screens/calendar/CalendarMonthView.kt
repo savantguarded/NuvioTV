@@ -165,13 +165,17 @@ internal fun CalendarMonthView(
                                 true
                             }
                             key == null || native.action != AndroidKeyEvent.ACTION_DOWN -> false
-                            else -> when (val move = calendarMonthMove(focusedDay, month, formats.firstDayOfWeek, key)) {
+                            else -> when (val move = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MONTH_NAV) { // [fork] calendar_month_nav
+                                nuvioCMonthMove(focusedDay, month, formats.firstDayOfWeek, key, held = native.repeatCount > 0)
+                            } else calendarMonthMove(focusedDay, month, formats.firstDayOfWeek, key)) {
                                 is CalendarMonthMove.To -> {
                                     viewModel.focusDay(move.date)
                                     true
                                 }
                                 is CalendarMonthMove.Leave -> if (move.key == CalendarMonthKey.RIGHT) {
                                     if (dayRows.isNotEmpty()) runCatching { dayListRequester.requestFocus() }
+                                    // [fork] calendar_month_nav: nothing on that day = no list to go to, so wrap to the next day.
+                                    else if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MONTH_NAV && native.repeatCount == 0) viewModel.focusDay(focusedDay.plusDays(1))
                                     true
                                 } else false
                             }

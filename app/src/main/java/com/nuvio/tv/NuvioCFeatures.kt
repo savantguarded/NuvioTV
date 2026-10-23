@@ -310,4 +310,20 @@ object NuvioCFeatures {
     const val CALENDAR_MDBLIST_EXTRA_CALENDAR_ONLY = true
     /** Featured carousel cold start: opens on a title whose backdrop is already saved on the TV and waits up to 4 s for its backdrop and logo before fading in (was 1.2 s, then the slide showed on black for a few seconds). Off = round 23 reveal. */
     const val FEATURED_COLD_START_WAIT = true
+
+    // ---- Round 26 (2026-10-23) ----
+    /** Calendar: a refresh button after Week / List / Month; asks every source again (Trakt and MDBList calendars at once, titles airing around now refetched). The icon turns while a refresh runs. Off = no button. */
+    const val CALENDAR_REFRESH_BUTTON = true
+    /** Calendar: Back in Week after OK on a Month day goes straight back to Month on that day (only then). Off = Back goes to the view buttons. */
+    const val CALENDAR_MONTH_BACK = true
+    /** Calendar Week: Up / Down (and Month -> Week) always land on the day's first card; the day's row is scrolled back to its start first. Off = ysosrs123's focus (could restore a later card). */
+    const val CALENDAR_WEEK_FIRST_CARD = true
+    /** Calendar Week: 16 dp room around the rows and scrolling that keeps it, so the focus ring of the first and last cards is never cut; about 4.3 cards across so the next card peeks. Off = 8 dp, 4 across, cards scrolled flush to the edge. */
+    const val CALENDAR_WEEK_EDGES = true
+    /** Calendar: held or fast Left stops on the first card of a Week row, the week strip and the view buttons; one more press opens the sidebar. Off = Left runs straight into the sidebar. */
+    const val CALENDAR_EDGE_BRAKE = true
+    /** Calendar Month: Up / Down stay in the month (Up from the top row goes to the month arrows, then the view buttons); Left / Right wrap rows, only Left on the 1st or Right on the last day turns the month (held keys stop there); Right on the last column still goes to the day's list. Off = ysosrs123's moves. */
+    const val CALENDAR_MONTH_NAV = true
+    /** Library: changing the list (or genre, year, watched filter) goes to the top and focuses the first poster, as a sort change does. Off = focus goes back to a poster remembered from the previous list. */
+    const val LIBRARY_LIST_FIRST = true
 }

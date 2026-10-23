@@ -78,7 +78,7 @@ import kotlinx.coroutines.launch
 
 private const val WEEK_CARDS_ACROSS = 4
 private const val KEY_REPEAT_THROTTLE_MS = 80L
-private val FOCUS_ROOM = 8.dp
+private val FOCUS_ROOM = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_WEEK_EDGES) NUVIO_C_WEEK_ROOM else 8.dp // [fork] calendar_week_edges
 
 /** Leaves scrolling to the Week list itself, which puts the focused day right under the hero. */
 @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
@@ -156,6 +156,7 @@ internal fun CalendarWeekView(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val stripRequester = remember { FocusRequester() }
+    val nuvioCRowStates = remember(weekStart, filter) { mutableMapOf<LocalDate, androidx.compose.foundation.lazy.LazyListState>() } // [fork] calendar_week_first_card
     var placed by remember { mutableStateOf(false) }
     val lastKeyRepeat = remember { longArrayOf(0L) }
 
@@ -174,6 +175,9 @@ internal fun CalendarWeekView(
         if (index < 0) return
         scope.launch {
             listState.scrollToItem(index)
+            if (focusCard && com.nuvio.tv.NuvioCFeatures.CALENDAR_WEEK_FIRST_CARD) { // [fork] calendar_week_first_card
+                nuvioCRowStates[shelves[index].date]?.let { runCatching { it.scrollToItem(0) } }
+            }
             if (focusCard) shelfRequesters[shelves[index].date]?.requestFocusAfterFrames(1)
         }
     }
@@ -282,6 +286,7 @@ internal fun CalendarWeekView(
                     formats = formats,
                     performance = performance,
                     firstRequester = shelfRequesters[day.date],
+                    rowState = nuvioCRowStates.getOrPut(day.date) { androidx.compose.foundation.lazy.LazyListState() }, // [fork] calendar_week_first_card
                     onFocused = { row ->
                         focusedShelf[0] = index
                         lastCard[0] = (week.flatMap { it.cards }.firstOrNull { card -> card.rows.any { it.key == row.key } }?.key ?: row.key) to day.date
@@ -326,7 +331,8 @@ private fun CalendarWeekStrip(
             icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
             description = stringResource(R.string.calendar_cd_week_previous),
             performance = performance,
-            onClick = { onShift(-1) }
+            onClick = { onShift(-1) },
+            modifier = Modifier.nuvioCBrakeEdge(LocalNuvioCEdgeBrake.current) // [fork] calendar_edge_brake
         )
         week.forEach { day ->
             val isToday = day.date == today
@@ -517,6 +523,7 @@ private fun CalendarDayShelf(
     formats: CalendarFormats,
     performance: Boolean,
     firstRequester: FocusRequester?,
+    rowState: androidx.compose.foundation.lazy.LazyListState, // [fork] calendar_week_first_card
     onFocused: (CalendarRow) -> Unit,
     onOpen: (CalendarRow) -> Unit,
     onOptions: (CalendarRow) -> Unit
@@ -547,15 +554,28 @@ private fun CalendarDayShelf(
         }
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val gap = 14.dp
-            val cardWidth = (maxWidth - gap * (WEEK_CARDS_ACROSS - 1)) / WEEK_CARDS_ACROSS
+            val nuvioCEdges = com.nuvio.tv.NuvioCFeatures.CALENDAR_WEEK_EDGES // [fork] calendar_week_edges
+            val across = if (nuvioCEdges) NUVIO_C_WEEK_ACROSS else WEEK_CARDS_ACROSS.toFloat()
+            val cardWidth = (maxWidth - gap * (across - 1f)) / across
+            val density = androidx.compose.ui.platform.LocalDensity.current
+            val nuvioCScroll = remember(density, maxWidth, cardWidth) {
+                with(density) {
+                    // Room before the focused card; after it, room plus the slice of the next card seen at the start.
+                    val tail = (maxWidth - cardWidth * WEEK_CARDS_ACROSS - gap * (WEEK_CARDS_ACROSS - 1)).coerceAtLeast(0.dp)
+                    NuvioCShelfScroll(FOCUS_ROOM.toPx(), (FOCUS_ROOM + tail).toPx())
+                }
+            }
+            val nuvioCBrake = LocalNuvioCEdgeBrake.current // [fork] calendar_edge_brake
             // The row reaches past the page margin by the focus room, so the focused card's ring and lift are not cut.
-            CompositionLocalProvider(LocalBringIntoViewSpec provides CalendarMinimalScroll) {
+            CompositionLocalProvider(LocalBringIntoViewSpec provides (if (nuvioCEdges) nuvioCScroll else CalendarMinimalScroll)) {
             LazyRow(
+                state = rowState, // [fork] calendar_week_first_card
                 modifier = Modifier.requiredWidth(maxWidth + FOCUS_ROOM * 2).focusRestorer(),
                 horizontalArrangement = Arrangement.spacedBy(gap),
                 contentPadding = PaddingValues(horizontal = FOCUS_ROOM, vertical = FOCUS_ROOM)
             ) {
                 itemsIndexed(day.cards, key = { _, card -> card.key }) { index, card ->
+                    Box(if (index == 0) Modifier.nuvioCBrakeEdge(nuvioCBrake) else Modifier) { // [fork] calendar_edge_brake
                     CalendarShelfCard(
                         card = card,
                         width = cardWidth,
@@ -565,6 +585,7 @@ private fun CalendarDayShelf(
                         onOpen = onOpen,
                         onOptions = onOptions
                     )
+                    }
                 }
             }
             }

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- [fork] Nuvio C additions to the Calendar (kept apart from ysosrs123's strings_calendar.xml). -->
 <resources>
+    <string name="nuvio_c_calendar_refresh">Refresh Calendar</string>
     <string name="nuvio_c_calendar_start_in">Start in</string>
     <string name="nuvio_c_calendar_start_in_sub">Which view the Calendar opens in</string>
     <string name="nuvio_c_calendar_start_last">Last used</string>
