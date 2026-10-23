@@ -22,7 +22,7 @@ internal class MdbListLibraryProjection(snapshot: MdbListLibrarySnapshot) {
                     id = media.ids.contentId,
                     type = if (item.type == MdbListItemType.MOVIE) "movie" else "series",
                     name = media.title ?: media.ids.contentId,
-                    poster = media.poster,
+                    poster = media.poster?.takeIf(String::isNotBlank) ?: nuvioCLibraryPosterFallback(media.ids.imdb), // [fork] library_poster_fallback
                     background = media.backdrop,
                     logo = null,
                     description = previous?.description ?: item.description,
@@ -49,3 +49,12 @@ internal class MdbListLibraryProjection(snapshot: MdbListLibrarySnapshot) {
 
     fun membership(id: String, type: String): Set<String> = memberships[mdbListLibraryType(type) to id].orEmpty()
 }
+
+/**
+ * [fork] library_poster_fallback: MDBList sometimes has no poster for a title; Stremio's image service has one for any
+ * IMDb id (the same posters Cinemeta uses), so the card is never empty. Null for titles without an IMDb id.
+ */
+internal fun nuvioCLibraryPosterFallback(imdb: String?): String? =
+    if (com.nuvio.tv.NuvioCFeatures.LIBRARY_POSTER_FALLBACK && imdb != null && imdb.startsWith("tt")) {
+        "https://images.metahub.space/poster/medium/$imdb/img"
+    } else null

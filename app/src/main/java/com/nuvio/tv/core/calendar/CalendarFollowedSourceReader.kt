@@ -150,7 +150,8 @@ class CalendarFollowedSourceReader @Inject constructor(
                 val type = calendarTitleType(item.type) ?: return@forEach
                 candidates += CalendarTitleCandidate(
                     CalendarIds.fromContentId(item.id), type, CalendarOrigin.LIBRARY,
-                    item.addedAt.toInstantOrNull(), item.name, item.id, item.poster
+                    item.addedAt.toInstantOrNull(), item.name, item.id, item.poster,
+                    year = calendarReleaseYear(item.releaseInfo) // [fork] calendar_old_films_out
                 )
             }
         }
@@ -209,7 +210,8 @@ class CalendarFollowedSourceReader @Inject constructor(
                 }
                 origins.forEach { origin ->
                     candidates += CalendarTitleCandidate(
-                        ids, type, origin, entry.listedAt.toInstantOrNull(), entry.name, entry.id, entry.poster
+                        ids, type, origin, entry.listedAt.toInstantOrNull(), entry.name, entry.id, entry.poster,
+                        year = calendarReleaseYear(entry.releaseInfo) // [fork] calendar_old_films_out
                     )
                 }
             }
@@ -229,7 +231,7 @@ class CalendarFollowedSourceReader @Inject constructor(
                 )
                 val type = if (entry.isMovieEntry()) CalendarTitleType.MOVIE else CalendarTitleType.SERIES
                 val activity = (entry.lastWatchedAt ?: entry.addedToWatchlistAt)?.toInstantOrNull()
-                candidates += CalendarTitleCandidate(ids, type, origin, activity, media.title, ids.imdb, entry.localPosterUrl)
+                candidates += CalendarTitleCandidate(ids, type, origin, activity, media.title, ids.imdb, entry.localPosterUrl, media.year) // [fork] year
             }
             watched.addAll(simklSyncRepository.projection.value.watchedShowEpisodes)
         }
@@ -245,12 +247,12 @@ class CalendarFollowedSourceReader @Inject constructor(
             if (com.nuvio.tv.NuvioCFeatures.CALENDAR_LIBRARY_WINS && mdbListLibrary && snapshot.library == null) {
                 unread.notLoaded("mdblist lists", CalendarOrigin.MDBLIST_WATCHLIST, CalendarOrigin.MDBLIST_LIST)
             }
-            fun add(ids: MdbListIds, type: MdbListItemType, origin: CalendarOrigin, at: Instant?, name: String?, poster: String? = null) {
+            fun add(ids: MdbListIds, type: MdbListItemType, origin: CalendarOrigin, at: Instant?, name: String?, poster: String? = null, year: Int? = null) {
                 val calendarIds = ids.toCalendarIds()
                 candidates += CalendarTitleCandidate(
                     calendarIds,
                     if (type == MdbListItemType.MOVIE) CalendarTitleType.MOVIE else CalendarTitleType.SERIES,
-                    origin, at, name, calendarIds.imdb ?: calendarIds.tmdb?.let { "tmdb:$it" }, poster
+                    origin, at, name, calendarIds.imdb ?: calendarIds.tmdb?.let { "tmdb:$it" }, poster, year
                 )
             }
             if (mdbListProgress) snapshot.watched.filter { it.type != MdbListItemType.MOVIE }
@@ -268,7 +270,7 @@ class CalendarFollowedSourceReader @Inject constructor(
                 if (!calendarFollowsMdbListList(listKey)) return@forEach
                 val origin = if (listKey == MDBLIST_WATCHLIST_KEY) CalendarOrigin.MDBLIST_WATCHLIST else CalendarOrigin.MDBLIST_LIST
                 items.filter { it.type == MdbListItemType.MOVIE || it.type == MdbListItemType.SHOW }.forEach { item ->
-                    add(item.media.ids, item.type, origin, item.listedAt.toInstantOrNull(), item.media.title, item.media.poster)
+                    add(item.media.ids, item.type, origin, item.listedAt.toInstantOrNull(), item.media.title, item.media.poster, item.media.year)
                 }
             }
             watched.addAll(mdbListSyncRepository.currentProjection().watchedShowEpisodes)

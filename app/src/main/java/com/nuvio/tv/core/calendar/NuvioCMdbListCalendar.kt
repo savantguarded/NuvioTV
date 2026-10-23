@@ -22,6 +22,7 @@ data class MdbListCalendarItem(
     val title: String?,
     val poster: String?,
     val saved: Boolean,
+    val backdrop: String? = null, // [fork] calendar_mdblist_art
     val entries: List<CalendarEntry>
 )
 
@@ -38,6 +39,7 @@ internal data class MdbListCalendarEvent(
     @SerialName("show_tmdb") val showTmdb: Long? = null,
     @SerialName("show_tvdb") val showTvdb: Long? = null,
     val poster: String? = null,
+    val backdrop: String? = null, // [fork] calendar_mdblist_art
     @SerialName("is_watchlist") val isWatchlist: Boolean? = null,
     @SerialName("episode_title") val episodeTitle: String? = null,
     @SerialName("season_number") val season: Int? = null,
@@ -124,7 +126,10 @@ internal fun mdbListCalendarItems(events: List<MdbListCalendarEvent>): List<MdbL
             ids = ids,
             type = key.type,
             title = list.firstNotNullOfOrNull { it.title?.takeIf(String::isNotBlank) },
-            poster = list.firstNotNullOfOrNull { it.poster?.takeIf(String::isNotBlank) },
+            poster = list.firstNotNullOfOrNull { it.poster?.takeIf(String::isNotBlank)?.let { url -> mdbListCalendarImage(url) } },
+            // [fork] calendar_mdblist_art: the show's or film's own backdrop (an episode event may carry a still).
+            backdrop = list.sortedBy { if (it.type.equals("episode", true)) 1 else 0 }
+                .firstNotNullOfOrNull { it.backdrop?.takeIf(String::isNotBlank)?.let { url -> mdbListCalendarImage(url, "w1280") } },
             saved = list.any { it.isWatchlist == true || it.releaseType == "episode" },
             entries = entries
         )
@@ -209,9 +214,24 @@ fun applyMdbListCalendar(
 ): List<CalendarTitleRecord> = records.map { record ->
     val mine = items.filter { it.type == record.type && it.ids.sharesIdWith(record.ids) }
     if (mine.isEmpty()) return@map record.withoutSources(CalendarSource.MDBLIST)
-    record.copy(ids = mine.fold(record.ids) { ids, item -> ids.merged(item.ids) })
-        .withSource(CalendarSource.MDBLIST, mine.flatMap { it.entries }.distinctBy { it.slot }, now)
+    val backdrop = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MDBLIST_ART) mine.firstNotNullOfOrNull { it.backdrop } else null
+    record.copy(
+        ids = mine.fold(record.ids) { ids, item -> ids.merged(item.ids) },
+        // [fork] calendar_mdblist_art: MDBList's backdrop until the add-on's art is read (never replaces it).
+        backdrop = record.backdrop?.takeIf(String::isNotBlank) ?: backdrop,
+        poster = record.poster?.takeIf(String::isNotBlank) ?: mine.firstNotNullOfOrNull { it.poster }
+    ).withSource(CalendarSource.MDBLIST, mine.flatMap { it.entries }.distinctBy { it.slot }, now)
 }
+
+/** [fork] calendar_mdblist_art: MDBList gives full URLs or TMDB paths ("/abc.jpg"); paths become TMDB URLs. */
+internal fun mdbListCalendarImage(value: String, size: String = "w500"): String =
+    if (value.startsWith("/") && !value.startsWith("//")) "https://image.tmdb.org/t/p/$size$value" else value
+
+/** [fork] calendar_mdblist_art: the record with an IMDb id found for it; "tmdb:N" content ids become the IMDb id. */
+fun CalendarTitleRecord.withImdb(imdb: String): CalendarTitleRecord = copy(
+    ids = ids.merged(CalendarIds(imdb = imdb)),
+    contentId = if (contentId == null || contentId.startsWith("tmdb:")) imdb else contentId
+)
 
 /** Six hours between asks, as for Trakt; a Library change or settings change asks at once. */
 val CALENDAR_MDBLIST_REFRESH: java.time.Duration = java.time.Duration.ofHours(6)

@@ -288,4 +288,16 @@ object NuvioCFeatures {
     const val UPCOMING_FUTURE_ONLY = true
     /** Calendar press-and-hold menu (List and Week views): the same buttons as Home's poster menu. Off = ysosrs123's pill rows. */
     const val CALENDAR_OFFICIAL_DIALOG = true
+
+    // ---- Round 24 (2026-10-23) ----
+    /** Calendar: titles found done (films out, shows ended) are remembered 30 / 90 days even after they leave the 300 list, so they stop winning their slot back every refresh. Off = done is only known while stored (titles rotate over the cap). */
+    const val CALENDAR_DONE_MEMORY = true
+    /** Calendar: over the 300-title cap, titles with a known date (MDBList calendar, stored dates, Continue Watching's upcoming episode) come right after belled ones. Off = round 23 order. */
+    const val CALENDAR_DATED_FIRST = true
+    /** Calendar: saved films from two or more calendar years ago are left out unless dated or belled (no re-releases). Off = followed like any saved film. */
+    const val CALENDAR_OLD_FILMS_OUT = true
+    /** Calendar art: MDBList's event backdrop is kept; a title known only by TMDB id gets its IMDb id from TMDB before asking add-ons, so it gets a backdrop, logo and opens normally. Off = round 23 art. */
+    const val CALENDAR_MDBLIST_ART = true
+    /** Library: an item whose source gave no poster (MDBList) shows the add-on's cached poster, else the poster by IMDb id, else TMDB's by TMDB id. Off = empty card. */
+    const val LIBRARY_POSTER_FALLBACK = true
 }

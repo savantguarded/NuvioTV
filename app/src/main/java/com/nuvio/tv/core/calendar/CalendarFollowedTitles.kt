@@ -10,7 +10,9 @@ data class CalendarTitleCandidate(
     val lastActivity: Instant? = null,
     val name: String? = null,
     val contentId: String? = null,
-    val poster: String? = null
+    val poster: String? = null,
+    /** [fork] calendar_old_films_out: release year when the source knows it. */
+    val year: Int? = null
 )
 
 data class CalendarFollowedTitle(
@@ -22,7 +24,9 @@ data class CalendarFollowedTitle(
     val name: String? = null,
     val contentId: String? = null,
     val poster: String? = null,
-    val bellOn: Boolean = false
+    val bellOn: Boolean = false,
+    /** [fork] calendar_dated_first: a release is known from a week ago onwards. */
+    val dated: Boolean = false
 )
 
 data class CalendarFollowRules(
@@ -36,11 +40,19 @@ data class CalendarFollowRules(
     val cap: Int = CALENDAR_MAX_TITLES,
     /** [fork] calendar_library_wins: ids of titles already read with nothing left ahead (films out, shows ended). */
     val doneAliases: Set<String> = emptySet(),
+    /** [fork] calendar_dated_first: ids of titles with a release from a week ago onwards (stored or MDBList's calendar). */
+    val liveAliases: Set<String> = emptySet(),
+    /** [fork] calendar_dated_first: over the cap, titles with a known date come right after the bell ones. */
+    val datedFirst: Boolean = com.nuvio.tv.NuvioCFeatures.CALENDAR_DATED_FIRST,
+    /** [fork] calendar_old_films_out: films released before this year are left out unless dated or belled; null = off. */
+    val oldFilmsBefore: Int? = null,
     /** [fork] calendar_library_wins: off = ysosrs123's rules (tests of his behaviour pass false). */
     val libraryWins: Boolean = com.nuvio.tv.NuvioCFeatures.CALENDAR_LIBRARY_WINS
 )
 
 const val CALENDAR_MAX_TITLES = 300
+/** [fork] calendar_old_films_out: a saved film this many calendar years old or more is left out (2 = 2024 and older in 2026). */
+const val CALENDAR_OLD_FILM_YEARS = 2
 
 enum class CalendarLeftOutReason(val code: String) {
     HIDDEN("hidden"),
@@ -48,6 +60,7 @@ enum class CalendarLeftOutReason(val code: String) {
     REMOVED_FROM_CONTINUE_WATCHING("removed-from-cw"),
     IDLE("idle"),
     FILM_NOT_SAVED("film-not-saved"),
+    OLD_FILM("old-film"), // [fork] calendar_old_films_out
     OVER_CAP("over-cap")
 }
 
@@ -92,6 +105,8 @@ fun followCalendarTitles(
         val bell = rules.bellOn.any { calendarKeyMatches(it, type, ids) }
         val origins = group.mapTo(linkedSetOf()) { it.origin }.apply { if (bell) add(CalendarOrigin.BELL) }
         val lastActivity = group.mapNotNull { it.lastActivity }.maxOrNull()
+        val dated = calendarTitleDated(origins, ids, rules) // [fork] calendar_dated_first / calendar_old_films_out
+        val year = group.mapNotNull { it.year }.maxOrNull()
         // [fork] calendar_library_wins: a title saved in a library (or listed by MDBList's calendar) is followed
         // whatever its watch history says: removing it from Continue Watching or an old watch no longer drops it.
         val kept = rules.libraryWins && origins.any { it.savesFilms || it.current }
@@ -104,6 +119,9 @@ fun followCalendarTitles(
             !kept && origins.any { it.started } && (lastActivity?.isBefore(staleBefore) ?: origins.none { it.savesFilms }) &&
                 ids.aliases().none { it in rules.upcomingAliases } -> CalendarLeftOutReason.IDLE
             type == CalendarTitleType.MOVIE && origins.none { it.savesFilms || it.current } -> CalendarLeftOutReason.FILM_NOT_SAVED
+            // [fork] calendar_old_films_out: a saved film from two or more years ago has nothing left to show.
+            rules.oldFilmsBefore != null && type == CalendarTitleType.MOVIE && year != null && year < rules.oldFilmsBefore && !dated ->
+                CalendarLeftOutReason.OLD_FILM
             else -> null
         }
         if (reason != null) {
@@ -120,12 +138,15 @@ fun followCalendarTitles(
             contentId = ids.imdb ?: named.firstNotNullOfOrNull { it.contentId?.takeIf(String::isNotBlank) }
                 ?: ids.tmdb?.let { "tmdb:$it" },
             poster = named.firstNotNullOfOrNull { it.poster?.takeIf(String::isNotBlank) },
-            bellOn = bell
+            bellOn = bell,
+            dated = dated
         )
     }
 
     val ordered = titles.sortedWith(
         compareByDescending<CalendarFollowedTitle> { it.bellOn }
+            // [fork] calendar_dated_first: a title with a known date never loses its slot to one without.
+            .thenByDescending { rules.datedFirst && it.dated }
             // [fork] calendar_library_wins: when over the cap, titles with something ahead go first, then saved ones.
             .thenBy { rules.libraryWins && it.ids.aliases().any { alias -> alias in rules.doneAliases } }
             .thenByDescending { rules.libraryWins && it.origins.any { o -> o.savesFilms || o.current } }
@@ -214,7 +235,9 @@ fun reconcileCalendarRecords(
         previous?.copy(
             ids = title.ids.merged(previous.ids),
             name = title.name ?: previous.name,
-            contentId = title.contentId ?: previous.contentId,
+            // [fork] calendar_mdblist_art: an IMDb id found for a TMDB-only title is kept over "tmdb:N".
+            contentId = if (title.contentId?.startsWith("tmdb:") == true && previous.contentId?.startsWith("tt") == true) previous.contentId
+            else title.contentId ?: previous.contentId,
             poster = title.poster ?: previous.poster,
             origins = title.origins,
             lastActivityMs = title.lastActivity?.toEpochMilli()
@@ -236,11 +259,56 @@ fun reconcileCalendarRecords(
  * nothing to come: films whose releases are all past, shows that ended or were cancelled. They lose to everything else
  * when the Calendar is over its cap, so 300 slots go to titles that can still show something.
  */
-fun calendarDoneAliases(records: List<CalendarTitleRecord>, now: Instant): Set<String> {
+fun calendarDoneAliases(records: List<CalendarTitleRecord>, now: Instant): Set<String> =
+    calendarDoneRecords(records, now).flatMapTo(HashSet()) { it.ids.aliases() }
+
+private fun calendarDoneRecords(records: List<CalendarTitleRecord>, now: Instant): Sequence<CalendarTitleRecord> {
     val from = now.minus(Duration.ofDays(7))
     return records.asSequence()
         .filter { it.fetchedAtMs > 0L && it.failures == 0 }
         .filter { it.type == CalendarTitleType.MOVIE || it.status.isOver }
         .filter { record -> record.entries.none { entry -> entry.sortInstant()?.isBefore(from) == false } }
+}
+
+/** [fork] calendar_done_memory: how long a title found done stays known as done after it leaves the Calendar. */
+val CALENDAR_DONE_FILM_FOR: Duration = Duration.ofDays(30)
+val CALENDAR_DONE_SHOW_FOR: Duration = Duration.ofDays(90)
+
+/**
+ * [fork] calendar_done_memory: done titles by id alias with the time they may be checked again. Titles left out over
+ * the cap lose their stored record, so without this they came back as unknown on the next refresh, won their slot back
+ * and pushed out titles with real dates (the Calendar rotated every refresh). An alias keeps its first expiry; once it
+ * expires the title is read again and, if still done, remembered again.
+ */
+fun calendarDoneMemory(stored: Map<String, Long>, records: List<CalendarTitleRecord>, now: Instant): Map<String, Long> {
+    val nowMs = now.toEpochMilli()
+    val memory = stored.filterValuesTo(LinkedHashMap()) { it > nowMs }
+    calendarDoneRecords(records, now).forEach { record ->
+        val until = nowMs + (if (record.type == CalendarTitleType.MOVIE) CALENDAR_DONE_FILM_FOR else CALENDAR_DONE_SHOW_FOR).toMillis()
+        record.ids.aliases().forEach { memory.putIfAbsent(it, until) }
+    }
+    // A title read again with something ahead is no longer done.
+    val from = now.minus(Duration.ofDays(7))
+    records.forEach { record ->
+        if (record.fetchedAtMs > 0L && record.entries.any { it.sortInstant()?.isBefore(from) == false }) {
+            record.ids.aliases().forEach(memory::remove)
+        }
+    }
+    return memory
+}
+
+/** [fork] calendar_dated_first: ids of stored titles with a release from a week ago onwards. */
+fun calendarLiveAliases(records: List<CalendarTitleRecord>, now: Instant): Set<String> {
+    val from = now.minus(Duration.ofDays(7))
+    return records.asSequence()
+        .filter { record -> record.entries.any { it.sortInstant()?.isBefore(from) == false } }
         .flatMapTo(HashSet()) { it.ids.aliases() }
 }
+
+/** [fork] calendar_dated_first: MDBList's calendar lists it, or a release is known from stored dates or Continue Watching. */
+internal fun calendarTitleDated(origins: Set<CalendarOrigin>, ids: CalendarIds, rules: CalendarFollowRules): Boolean =
+    origins.any { it.current } || ids.aliases().any { it in rules.liveAliases || it in rules.upcomingAliases }
+
+/** [fork] calendar_old_films_out: the year in "2019", "2019-2021", "2019-05-01"; null when there is none. */
+fun calendarReleaseYear(releaseInfo: String?): Int? =
+    releaseInfo?.let { Regex("""(?<!\d)(1[89]\d\d|20\d\d)(?!\d)""").find(it)?.value?.toIntOrNull() }

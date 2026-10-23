@@ -229,6 +229,7 @@ data class CalendarSnapshot(
     val tvmazeIds: Map<String, CalendarTvMazeId> = emptyMap(),
     val traktCalendarFetchedAtMs: Long = 0L,
     val mdbListCalendarFetchedAtMs: Long = 0L, // [fork] calendar_mdblist
+    val doneUntil: Map<String, Long> = emptyMap(), // [fork] calendar_done_memory: alias -> may be read again after (ms)
     val seenReminders: Map<String, Long> = emptyMap(),
     val updatedAtMs: Long = 0L
 ) {

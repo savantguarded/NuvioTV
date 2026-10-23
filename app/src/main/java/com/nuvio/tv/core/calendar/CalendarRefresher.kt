@@ -100,6 +100,9 @@ interface CalendarRefreshInputs {
     suspend fun mdbListCalendar(today: LocalDate): List<MdbListCalendarItem>? = null
     /** Changes whenever a library (Nuvio's own, MDBList's lists) gains or loses a title. */
     val libraryChanges: kotlinx.coroutines.flow.Flow<Int> get() = kotlinx.coroutines.flow.emptyFlow()
+
+    /** [fork] calendar_mdblist_art: the IMDb id of a title known only by its TMDB id; null when TMDB has none. */
+    suspend fun imdbForTmdb(type: String, tmdb: Long): String? = null
 }
 
 @Singleton
@@ -115,7 +118,8 @@ class DefaultCalendarRefreshInputs @Inject constructor(
     appVisibility: CalendarAppVisibility,
     private val mdbListCalendarClient: MdbListCalendarClient, // [fork] calendar_mdblist
     libraryPreferences: com.nuvio.tv.data.local.LibraryPreferences,
-    mdbListSync: com.nuvio.tv.data.mdblist.MdbListSyncRepository
+    mdbListSync: com.nuvio.tv.data.mdblist.MdbListSyncRepository,
+    private val tmdbService: com.nuvio.tv.core.tmdb.TmdbService // [fork] calendar_mdblist_art
 ) : CalendarRefreshInputs {
     override val activeProfileId = profileManager.activeProfileId
     override val playbackActive: StateFlow<Boolean> = NuvioCPlayback.state // [nuvio c] official has no ScreensaverController
@@ -139,6 +143,16 @@ class DefaultCalendarRefreshInputs @Inject constructor(
                 ?.mapValues { (_, items) -> items.mapTo(HashSet()) { it.media.ids.hashCode() } }?.hashCode() ?: 0
         }
     ) { local, mdbList -> 31 * local + mdbList }.distinctUntilChanged()
+
+    override suspend fun imdbForTmdb(type: String, tmdb: Long): String? = try { // [fork] calendar_mdblist_art
+        tmdb.takeIf { it <= Int.MAX_VALUE }?.let { id ->
+            withTimeoutOrNull(ART_FETCH_MS) { tmdbService.tmdbToImdb(id.toInt(), type) }
+        }?.takeIf { it.startsWith("tt") }
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        null
+    }
 
     override suspend fun fetchArt(type: String, ids: List<String>): CalendarArt? {
         for (id in ids) {
@@ -372,13 +386,21 @@ class CalendarRefresher internal constructor(
                         .map { CalendarTitleCandidate(record.ids, record.type, it, name = record.name, contentId = record.contentId, poster = record.poster) }
                 }
             }
+            // [fork] calendar_done_memory
+            val doneMemory = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_DONE_MEMORY) {
+                calendarDoneMemory(snapshot.doneUntil, snapshot.titles, now)
+            } else emptyMap()
             val rules = CalendarFollowRules(
                 includePersonalLists = settings.includePersonalLists,
                 hiddenTitleKeys = settings.hiddenTitleKeys,
                 bellOn = settings.bellOn,
                 removedFromContinueWatching = sources.removedFromContinueWatching,
                 upcomingAliases = sources.addonEntries.flatMapTo(mutableSetOf()) { it.first.aliases() },
-                doneAliases = calendarDoneAliases(snapshot.titles, now) // [fork] calendar_library_wins
+                doneAliases = calendarDoneAliases(snapshot.titles, now) + doneMemory.keys, // [fork] calendar_library_wins
+                liveAliases = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_DATED_FIRST) calendarLiveAliases(snapshot.titles, now) else emptySet(),
+                oldFilmsBefore = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_OLD_FILMS_OUT) {
+                    now.atZone(inputs.zone()).year - CALENDAR_OLD_FILM_YEARS + 1
+                } else null
             )
             val unread = if (traktItems != null) sources.unreadOrigins - CalendarOrigin.TRAKT_CALENDAR else sources.unreadOrigins
             val carried = carriedCalendarCandidates(snapshot.titles, unread)
@@ -400,6 +422,7 @@ class CalendarRefresher internal constructor(
                 }
                 data = data.copy(
                     titles = records,
+                    doneUntil = doneMemory, // [fork] calendar_done_memory
                     traktCalendarFetchedAtMs = when {
                         traktItems != null -> now.toEpochMilli()
                         traktSignedIn -> data.traktCalendarFetchedAtMs
@@ -422,6 +445,7 @@ class CalendarRefresher internal constructor(
                     " mdblist=${if (!mdbListOn) "off" else mdbListItems?.size ?: "-"}"
             )
             calendarLeftOutSummary(result.leftOut).forEach { Log.i(TAG, it) }
+            if (com.nuvio.tv.NuvioCFeatures.CALENDAR_DONE_MEMORY) Log.i(TAG, "done remembered=${doneMemory.size} dated=${followed.count { it.dated }}")
             if (com.nuvio.tv.NuvioCFeatures.CALENDAR_ORIGIN_LOG) logOrigins(followed) // [fork] calendar_origin_log
             if (!complete) {
                 val notReady = sources.notReady.entries.joinToString(", ") { (name, why) -> "$name $why" }
@@ -500,10 +524,17 @@ class CalendarRefresher internal constructor(
         for (title in wanted) {
             awaitNoPlayback()
             val type = if (title.type == CalendarTitleType.MOVIE) "movie" else "series"
-            val art = inputs.fetchArt(type, calendarContentIds(title))
+            // [fork] calendar_mdblist_art: add-ons know titles by IMDb id; MDBList's calendar gives TMDB ids only.
+            val imdb = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MDBLIST_ART && title.ids.imdb == null) {
+                title.ids.tmdb?.let { inputs.imdbForTmdb(type, it) }
+            } else null
+            val looked = if (imdb == null) title else title.withImdb(imdb)
+            val art = inputs.fetchArt(type, calendarContentIds(looked))
             if (!art?.backdrop.isNullOrBlank()) found++
             withOwner(current) {
-                data = data.copy(titles = data.titles.map { if (it.key == title.key) it.withFetchedArt(art, now) else it })
+                data = data.copy(titles = data.titles.map {
+                    if (it.key == title.key) (if (imdb == null) it else it.withImdb(imdb)).withFetchedArt(art, now) else it
+                })
             } ?: return
         }
         withOwner(current) { publishLocked() } ?: return
