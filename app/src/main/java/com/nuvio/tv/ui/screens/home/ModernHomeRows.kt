@@ -440,6 +440,7 @@ internal fun ModernRowSection(
     rowFocusRequester: FocusRequester,
     isVerticalRowsScrollingState: State<Boolean>,
     rowTitleBottom: Dp,
+    nuvioCBigTitle: Boolean = false, // [fork] card_size_xl: 18 sp row titles at Extra large
     defaultBringIntoViewSpec: BringIntoViewSpec,
     focusStateCatalogRowScrollIndex: Int,
     focusStateCatalogRowScrollAnchor: String?,
@@ -538,8 +539,9 @@ internal fun ModernRowSection(
         )
     ) {
         val titleMediumStyle = MaterialTheme.typography.titleMedium
-        val rowTitleStyle = remember(titleMediumStyle) {
+        val rowTitleStyle = remember(titleMediumStyle, nuvioCBigTitle) {
             titleMediumStyle.copy(fontWeight = FontWeight.SemiBold)
+                .let { if (nuvioCBigTitle) it.copy(fontSize = 18.sp, lineHeight = 24.sp) else it } // [fork] card_size_xl: same 24 dp line, no layout change
         }
         val rowTitle = row.title
         val textColor = NuvioTheme.colors.TextPrimary

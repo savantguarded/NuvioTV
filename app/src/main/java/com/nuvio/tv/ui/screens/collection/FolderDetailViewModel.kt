@@ -265,8 +265,8 @@ class FolderDetailViewModel @Inject constructor(
             val focusedPosterBackdropTrailerPlaybackTarget =
                 layoutPreferenceDataStore.focusedPosterBackdropTrailerPlaybackTarget.first()
             val classicFocusGradientEnabled = layoutPreferenceDataStore.classicFocusGradientEnabled.first()
-            val posterCardWidthDp = com.nuvio.tv.ui.components.NuvioCCardSize.otherWidth(layoutPreferenceDataStore.posterCardWidthDp.first()) // [fork] card_size_xl: folders stay at Large
-            val posterCardHeightDp = com.nuvio.tv.ui.components.NuvioCCardSize.otherHeight(layoutPreferenceDataStore.posterCardHeightDp.first())
+            val posterCardWidthDp = layoutPreferenceDataStore.posterCardWidthDp.first() // [fork] card_size_xl round 22: raw here; the folder screen caps its own grids at Large and follow-layout folders get Extra large like Home
+            val posterCardHeightDp = layoutPreferenceDataStore.posterCardHeightDp.first()
             val posterCardCornerRadiusDp = layoutPreferenceDataStore.posterCardCornerRadiusDp.first()
             val showAll = (collection?.showAllTab ?: true) && folder.sources.size >= 2
 

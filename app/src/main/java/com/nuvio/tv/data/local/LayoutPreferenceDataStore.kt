@@ -310,10 +310,12 @@ class LayoutPreferenceDataStore @Inject constructor(
 
     val posterCardWidthDp: Flow<Int> = profileFlow { prefs ->
         positiveOrDefault(prefs[posterCardWidthDpKey], DEFAULT_POSTER_CARD_WIDTH_DP)
+            .let { com.nuvio.tv.ui.components.NuvioCCardSize.normalizeWidth(it) } // [fork] card_size_xl: old Huge reads as Extra large (never written back)
     }
 
     val posterCardHeightDp: Flow<Int> = profileFlow { prefs ->
         positiveOrDefault(prefs[posterCardHeightDpKey], DEFAULT_POSTER_CARD_HEIGHT_DP)
+            .let { com.nuvio.tv.ui.components.NuvioCCardSize.normalizeHeight(it) } // [fork] card_size_xl
     }
 
     val posterCardCornerRadiusDp: Flow<Int> = profileFlow { prefs ->

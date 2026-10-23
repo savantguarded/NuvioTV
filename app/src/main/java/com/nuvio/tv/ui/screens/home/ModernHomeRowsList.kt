@@ -429,6 +429,7 @@ internal fun ModernHomeRowsList(
                     isActiveRow = isActiveRowLambda,
                     rowFocusRequester = rowFocusRequesters.getOrPut(row.key) { FocusRequester() },
                     rowTitleBottom = com.nuvio.tv.ui.components.NuvioCCardSize.rowTitleBottom(nuvioCCardWidthSetting), // [fork] card_size_xl (official 14.dp)
+                    nuvioCBigTitle = com.nuvio.tv.ui.components.NuvioCCardSize.bigRowTitle(nuvioCCardWidthSetting), // [fork] card_size_xl
                     defaultBringIntoViewSpec = defaultBringIntoViewSpec,
                     focusStateCatalogRowScrollIndex = focusState.catalogRowScrollStates[row.key] ?: 0,
                     focusStateCatalogRowScrollAnchor = focusState.catalogRowScrollAnchors[row.key],

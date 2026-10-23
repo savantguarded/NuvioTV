@@ -396,9 +396,10 @@ private fun TabbedGridContent(
         }
         currentTab.catalogRow != null -> {
             val items = currentTab.catalogRow.items
+            val nuvioCGridWidth = com.nuvio.tv.ui.components.NuvioCCardSize.otherWidth(uiState.posterCardWidthDp) // [fork] card_size_xl: tabbed / grid folders stay at Large
             val posterCardStyle = PosterCardStyle(
-                width = uiState.posterCardWidthDp.dp,
-                height = (uiState.posterCardWidthDp * 1.5f).dp,
+                width = nuvioCGridWidth.dp,
+                height = (nuvioCGridWidth * 1.5f).dp,
                 cornerRadius = uiState.posterCardCornerRadiusDp.dp
             )
             val itemFocusRequesters = remember(uiState.selectedTabIndex) { mutableMapOf<String, FocusRequester>() }
@@ -912,8 +913,8 @@ private fun FollowLayoutContent(
 
     val posterCardStyle = remember {
         PosterCardStyle(
-            width = com.nuvio.tv.ui.components.NuvioCCardSize.otherWidth(homeState.posterCardWidthDp).dp, // [fork] card_size_xl: folders stay at Large
-            height = com.nuvio.tv.ui.components.NuvioCCardSize.otherHeight(homeState.posterCardHeightDp).dp,
+            width = com.nuvio.tv.ui.components.NuvioCCardSize.classicWidth(homeState.posterCardWidthDp).dp, // [fork] card_size_xl round 22: follow-layout folders match Home (Classic 148 x 222 at Extra large; Modern sizes itself from homeState)
+            height = (com.nuvio.tv.ui.components.NuvioCCardSize.classicWidth(homeState.posterCardWidthDp) * 1.5f).dp,
             cornerRadius = homeState.posterCardCornerRadiusDp.dp
         )
     }

@@ -252,8 +252,7 @@ internal fun LayoutPosterCardSection(
         PresetOption(stringResource(R.string.layout_preset_comfort), 134),
         PresetOption(stringResource(R.string.layout_preset_large), 140)
     ) + if (com.nuvio.tv.NuvioCFeatures.CARD_SIZE_XL) listOf( // [fork] card_size_xl: Home only
-        PresetOption(stringResource(R.string.nuvio_c_layout_preset_extra_large), com.nuvio.tv.ui.components.NuvioCCardSize.EXTRA_LARGE),
-        PresetOption(stringResource(R.string.nuvio_c_layout_preset_huge), com.nuvio.tv.ui.components.NuvioCCardSize.HUGE)
+        PresetOption(stringResource(R.string.nuvio_c_layout_preset_extra_large), com.nuvio.tv.ui.components.NuvioCCardSize.EXTRA_LARGE) // [fork] round 22: Huge removed
     ) else emptyList()
     val radiusOptions = listOf(
         PresetOption(stringResource(R.string.layout_preset_sharp), 0),
