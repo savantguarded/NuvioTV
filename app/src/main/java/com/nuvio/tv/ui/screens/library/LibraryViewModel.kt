@@ -180,6 +180,9 @@ class LibraryViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(LibraryUiState())
     val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
 
+    // [fork] library_poster_fallback
+    private val nuvioCPosters = NuvioCLibraryPosters(context, metaRepository, viewModelScope)
+
     private val _watchedMovieIds = MutableStateFlow<Set<String>>(emptySet())
     val watchedMovieIds: StateFlow<Set<String>> = _watchedMovieIds.asStateFlow()
     val watchedSeriesIds: StateFlow<Set<String>> = watchedSeriesStateHolder.fullyWatchedSeriesIds
@@ -1048,10 +1051,14 @@ class LibraryViewModel @Inject constructor(
         val validGenre = selectedGenre?.takeIf { g -> genreOptions.any { it.key.equals(g, ignoreCase = true) } }
         val validYear = selectedYear?.takeIf { y -> yearOptions.any { it.key == y } }
 
-        return copy(
-            visibleItems = sorted.withCustomPosterUrls(
+        val withPosters = nuvioCPosters.apply( // [fork] library_poster_fallback
+            sorted.withCustomPosterUrls(
                 com.nuvio.tv.core.poster.patternForScreen(customPosterUrlPattern, com.nuvio.tv.core.poster.CustomPosterScreen.LIBRARY, customPosterEnabledScreens)
-            ),
+            )
+        )
+        nuvioCPosters.request(withPosters) { _uiState.update { state -> state.withVisibleItems() } }
+        return copy(
+            visibleItems = withPosters,
             availableTypeTabs = typeTabsWithCounts,
             availableGenres = genreOptions,
             availableYears = yearOptions,
