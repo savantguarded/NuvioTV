@@ -698,7 +698,8 @@ fun ModernHomeContent(
     val landscapeModernPosterScale = 1.34f
     val portraitCatalogCardWidth = portraitBaseWidth * 0.84f * portraitModernPosterScale
     val portraitCatalogCardHeight = portraitBaseHeight * 0.84f * portraitModernPosterScale
-    val landscapeCatalogCardWidth = portraitBaseWidth * 1.24f * landscapeModernPosterScale
+    val landscapeBaseWidth = com.nuvio.tv.ui.components.NuvioCCardSize.modernLandscapeBase(uiState.posterCardWidthDp).dp // [fork] card_size_xl (official: portraitBaseWidth)
+    val landscapeCatalogCardWidth = landscapeBaseWidth * 1.24f * landscapeModernPosterScale
     val landscapeCatalogCardHeight = landscapeCatalogCardWidth / 1.77f
     // Poster style reuses the portrait catalog dimensions so its artwork matches the catalogs below it.
     val continueWatchingStyle = uiState.continueWatchingCardStyle
@@ -706,8 +707,8 @@ fun ModernHomeContent(
     val continueWatchingCardWidth = when (continueWatchingStyle) {
         ContinueWatchingCardStyle.POSTER -> portraitCatalogCardWidth
         // Wide still scales with the poster width setting so it matches the rest of the row.
-        ContinueWatchingCardStyle.WIDE -> portraitBaseWidth * 2.1f
-        ContinueWatchingCardStyle.CARD -> portraitBaseWidth * 1.24f * continueWatchingScale
+        ContinueWatchingCardStyle.WIDE -> landscapeBaseWidth * 2.1f // [fork] card_size_xl: lines up with the landscape rows
+        ContinueWatchingCardStyle.CARD -> landscapeBaseWidth * 1.24f * continueWatchingScale
     }
     val continueWatchingCardHeight = when (continueWatchingStyle) {
         ContinueWatchingCardStyle.POSTER -> portraitCatalogCardHeight
@@ -1054,7 +1055,11 @@ fun ModernHomeContent(
 
             val localDensity = LocalDensity.current
             val rowsViewportHeightFraction = if (useLandscapePosters) 0.49f else 0.52f
-            val rowsViewportHeight = remember(screenHeight, rowsViewportHeightFraction) { screenHeight * rowsViewportHeightFraction }
+            val rowsViewportHeight = remember(screenHeight, rowsViewportHeightFraction, useLandscapePosters, uiState.posterCardWidthDp, uiState.posterCardHeightDp) {
+                if (com.nuvio.tv.NuvioCFeatures.CARD_SIZE_XL) com.nuvio.tv.ui.components.NuvioCCardSize.rowsViewport(screenHeight, useLandscapePosters, uiState.posterCardWidthDp, uiState.posterCardHeightDp) // [fork] card_size_xl
+                else screenHeight * rowsViewportHeightFraction
+            }
+            val nuvioCFocusInset = com.nuvio.tv.ui.components.NuvioCCardSize.focusInset(uiState.posterCardWidthDp, MODERN_ROW_HEADER_FOCUS_INSET) // [fork] card_size_xl
             val rowTitleLineHeight = MaterialTheme.typography.titleMedium.lineHeight
             val rowTitleHeight = remember(rowTitleLineHeight, localDensity) {
                 with(localDensity) {
@@ -1063,8 +1068,8 @@ fun ModernHomeContent(
                 }
             }
             val heroBackdropHeight = remember(screenHeight, rowsViewportHeight, rowTitleHeight) { (screenHeight - rowsViewportHeight + rowTitleHeight + 14.dp).coerceAtMost(screenHeight) }
-            val verticalRowBringIntoViewSpec = remember(localDensity, defaultBringIntoViewSpec) {
-                val topInsetPx = with(localDensity) { MODERN_ROW_HEADER_FOCUS_INSET.toPx() }
+            val verticalRowBringIntoViewSpec = remember(localDensity, defaultBringIntoViewSpec, nuvioCFocusInset) {
+                val topInsetPx = with(localDensity) { nuvioCFocusInset.toPx() } // [fork] card_size_xl (official MODERN_ROW_HEADER_FOCUS_INSET)
                 @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
                 object : BringIntoViewSpec {
                     override val scrollAnimationSpec: AnimationSpec<Float> = defaultBringIntoViewSpec.scrollAnimationSpec
@@ -1140,6 +1145,7 @@ fun ModernHomeContent(
             val heroTrailerRenderedLambda = remember { { heroTrailerFirstFrameRenderedUpdated } }
 
             val nuvioCHeroTextWidth = landscapeCatalogCardWidth * 2 + NuvioTheme.spacing.md // [fork] hero spec: text ends at the second landscape poster's right edge
+                .let { if (com.nuvio.tv.NuvioCFeatures.HERO_WIDTH_CAP) minOf(it, (com.nuvio.tv.ui.components.NuvioCCardSize.LARGE * 1.24f * landscapeModernPosterScale).dp * 2 + NuvioTheme.spacing.md) else it } // [fork] hero_width_cap: never wider than at Large
             // [fork] home synopsis fit: official width, then ours, then ours + 80 dp, only as wide as the text needs
             val nuvioCScreenWidth = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
             val nuvioCTextWidths = if (com.nuvio.tv.NuvioCFeatures.HOME_SYNOPSIS_FIT && com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) remember(nuvioCScreenWidth, rowHorizontalPadding, nuvioCHeroTextWidth) {
@@ -1242,6 +1248,7 @@ fun ModernHomeContent(
                 onFastScrollingChanged = onFastScrollingChangedLambda,
                 contentFocusRequester = contentFocusRequester,
                 rowsViewportHeight = rowsViewportHeight,
+                nuvioCCardWidthSetting = uiState.posterCardWidthDp, // [fork] card_size_xl
                 catalogBottomPadding = NuvioTheme.spacing.none,
                 trailerContentAlpha = stableTrailerContentAlphaLambda,
                 verticalRowBringIntoViewSpec = verticalRowBringIntoViewSpec,

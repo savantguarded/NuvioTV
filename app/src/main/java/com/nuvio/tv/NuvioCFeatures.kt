@@ -262,4 +262,18 @@ object NuvioCFeatures {
     const val SIDEBAR_PAGE_SMOOTH = true
     /** Official's "HDR / Dolby Vision subtitle style" (beta.8) is hidden from Settings and never applied, so subtitles are only ever dimmed once, by Nuvio C's HDR dim. Off = official's setting is back. */
     const val NO_OFFICIAL_HDR_SUB_STYLE = true
+
+    // ---- Round 21 (2026-10-23) ----
+    /** Settings > Layout > Card width gets "Extra large" and "Huge" after Large. Home only, each layout its own size (see NuvioCCardSize); Modern / Featured rows tighten at those sizes so the next row still peeks. Library, Discover and folders stay at Large. Off = the two presets are gone and a saved 156 / 172 is drawn at its raw width like official. */
+    const val CARD_SIZE_XL = true
+    /** Modern / Featured Home: the hero text block (synopsis width) never grows past its width at the Large card size, so Extra large / Huge don't widen it. Smaller sizes are unchanged. */
+    const val HERO_WIDTH_CAP = true
+    /** Grid home layout hidden: gone from Settings > Layout and the first-run picker, and a profile saved as Grid opens as Classic (read only, never written back, so another TV on Grid keeps it). Grid's code stays in place untouched for clean official merges. Off = Grid is back. */
+    const val NO_GRID_LAYOUT = true
+    /** "Prefer IMDb Trailers" removed from Settings and never applied: trailers are YouTube first, IMDb only as the backup when YouTube rate-limits (imdb_trailer_backup). The stored choice and its cloud entry are left alone. Off = the toggle is back. */
+    const val NO_PREFER_IMDB = true
+    /** Profile screen opening (not Manage profiles): the background fades up from black while settling from 106% to 100%, and the profiles drop into place one after another, 60 ms apart (about 1 s in all, once per visit, after the background is known, max 0.6 s wait). Transform and fade only, nothing runs afterwards, keys work from the first frame. Off = official (no intro). */
+    const val PROFILE_INTRO = true
+    /** HDR dim fix: the full-screen player layers (audio and subtitle panels, media info, pause screen, buffering spinner) dim only their own pixels. Before, their dim pass also darkened whatever was under them, so the OSD fading out behind a just-opened panel changed brightness mid-fade (and subtitles were dimmed twice while one was open). Costs one layer while such a panel is on screen. Off = round-14 behaviour. */
+    const val HDR_DIM_ISOLATED = true
 }

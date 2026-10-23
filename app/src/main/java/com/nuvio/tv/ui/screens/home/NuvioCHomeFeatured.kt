@@ -496,7 +496,10 @@ private fun NuvioCFeaturedHome(
     val carouselHeight = screenH - PEEK
     val carouselHeightPx = screenHeightPx - peekPx
     // How far Modern sits lower while the carousel is up: its first row then starts PEEK above the bottom.
-    val rowsDropPx = (screenHeightPx * NuvioCFeaturedRules.rowsViewportFraction(uiState.modernLandscapePostersEnabled) - peekPx)
+    val nuvioCRowsViewportPx = if (com.nuvio.tv.NuvioCFeatures.CARD_SIZE_XL) with(density) { // card_size_xl: same rows area as Modern
+        com.nuvio.tv.ui.components.NuvioCCardSize.rowsViewport(screenH, uiState.modernLandscapePostersEnabled, uiState.posterCardWidthDp, uiState.posterCardHeightDp).toPx()
+    } else screenHeightPx * NuvioCFeaturedRules.rowsViewportFraction(uiState.modernLandscapePostersEnabled)
+    val rowsDropPx = (nuvioCRowsViewportPx - peekPx)
         .coerceAtLeast(0f)
 
     // [fork] featured_cold_start: the first time the carousel appears it fades in once, after its first

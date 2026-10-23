@@ -221,9 +221,10 @@ fun HomeScreen(
         uiState.posterCardWidthDp,
         uiState.posterCardCornerRadiusDp
     ) {
-        val computedHeightDp = (uiState.posterCardWidthDp * 1.5f).roundToInt()
+        val nuvioCClassicWidth = com.nuvio.tv.ui.components.NuvioCCardSize.classicWidth(uiState.posterCardWidthDp) // [fork] card_size_xl
+        val computedHeightDp = (nuvioCClassicWidth * 1.5f).roundToInt()
         PosterCardStyle(
-            width = uiState.posterCardWidthDp.dp,
+            width = nuvioCClassicWidth.dp,
             height = computedHeightDp.dp,
             cornerRadius = uiState.posterCardCornerRadiusDp.dp,
             focusedBorderWidth = PosterCardDefaults.Style.focusedBorderWidth,

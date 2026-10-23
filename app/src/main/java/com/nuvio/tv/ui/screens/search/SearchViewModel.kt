@@ -161,10 +161,10 @@ class SearchViewModel @Inject constructor(
             }.collectLatest { prefs ->
                 _uiState.update {
                     it.copy(
-                        posterCardWidthDp = prefs.widthDp,
+                        posterCardWidthDp = com.nuvio.tv.ui.components.NuvioCCardSize.otherWidth(prefs.widthDp), // [fork] card_size_xl: Search / Discover stay at Large
                         posterLabelsEnabled = prefs.labelsEnabled,
                         catalogAddonNameEnabled = prefs.addonNameEnabled,
-                        posterCardHeightDp = prefs.heightDp,
+                        posterCardHeightDp = com.nuvio.tv.ui.components.NuvioCCardSize.otherHeight(prefs.heightDp),
                         posterCardCornerRadiusDp = prefs.cornerRadiusDp
                     )
                 }

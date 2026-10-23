@@ -912,8 +912,8 @@ private fun FollowLayoutContent(
 
     val posterCardStyle = remember {
         PosterCardStyle(
-            width = homeState.posterCardWidthDp.dp,
-            height = homeState.posterCardHeightDp.dp,
+            width = com.nuvio.tv.ui.components.NuvioCCardSize.otherWidth(homeState.posterCardWidthDp).dp, // [fork] card_size_xl: folders stay at Large
+            height = com.nuvio.tv.ui.components.NuvioCCardSize.otherHeight(homeState.posterCardHeightDp).dp,
             cornerRadius = homeState.posterCardCornerRadiusDp.dp
         )
     }

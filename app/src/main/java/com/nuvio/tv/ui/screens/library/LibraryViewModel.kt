@@ -738,13 +738,13 @@ class LibraryViewModel @Inject constructor(
                 widthDp to cornerRadiusDp
             }.collectLatest { (widthDp, cornerRadiusDp) ->
                 _uiState.update { current ->
-                    if (current.posterCardWidthDp == widthDp &&
+                    if (current.posterCardWidthDp == com.nuvio.tv.ui.components.NuvioCCardSize.otherWidth(widthDp) &&
                         current.posterCardCornerRadiusDp == cornerRadiusDp
                     ) {
                         current
                     } else {
                         current.copy(
-                            posterCardWidthDp = widthDp,
+                            posterCardWidthDp = com.nuvio.tv.ui.components.NuvioCCardSize.otherWidth(widthDp), // [fork] card_size_xl: Library stays at Large
                             posterCardCornerRadiusDp = cornerRadiusDp
                         )
                     }
