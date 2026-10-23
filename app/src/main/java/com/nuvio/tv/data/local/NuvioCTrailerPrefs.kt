@@ -27,7 +27,8 @@ object NuvioCTrailerPrefs {
     const val KEY_PREFER_IMDB = "prefer_imdb_trailers"
 
     /** Trailers: IMDb first, YouTube as the fallback (2026-10-11). Off by default. */
-    fun preferImdb(context: Context): Boolean = prefs(context).getBoolean(KEY_PREFER_IMDB, false)
+    fun preferImdb(context: Context): Boolean =
+        !com.nuvio.tv.NuvioCFeatures.NO_PREFER_IMDB && prefs(context).getBoolean(KEY_PREFER_IMDB, false) // [fork] no_prefer_imdb: YouTube first, IMDb only as the rate-limit backup
 
     fun setPreferImdb(context: Context, value: Boolean) {
         prefs(context).edit().putBoolean(KEY_PREFER_IMDB, value).apply()

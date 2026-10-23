@@ -28,7 +28,7 @@ internal fun NuvioCBackgroundTrailerMutedRow() {
 // has nothing at 720p or better. Shown with the other trailer settings.
 @Composable
 internal fun NuvioCPreferImdbTrailersRow() {
-    if (!NuvioCFeatures.IMDB_TRAILER_BACKUP) return
+    if (!NuvioCFeatures.IMDB_TRAILER_BACKUP || NuvioCFeatures.NO_PREFER_IMDB) return // [fork] no_prefer_imdb (round 21)
     val context = LocalContext.current
     var on by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(NuvioCTrailerPrefs.preferImdb(context)) }
     SettingsToggleRow(
