@@ -98,21 +98,28 @@ fun buildCalendarComingUp(
     zone: ZoneId,
     shownInContinueWatching: (CalendarTitleRecord, CalendarEntry) -> Boolean = { _, _ -> false },
     max: Int = CALENDAR_COMING_UP_MAX,
-    futureOnly: Boolean = false // [fork] upcoming_future_only: releases that are out leave the row
+    futureOnly: Boolean = false, // [fork] upcoming_future_only: releases that are out leave the row
+    maxDaysAhead: Long? = null, // [fork] upcoming_14_days: later releases stay in the Calendar only
+    releaseDayOnly: (CalendarTitleRecord) -> Boolean = { false } // [fork] upcoming_release_day_new
 ): List<CalendarComingUpItem> {
     val today = now.atZone(zone).toLocalDate()
     val oldest = today.minusDays(NEW_DAYS)
+    val latest = maxDaysAhead?.let { today.plusDays(it) }
     val fresh = mutableListOf<CalendarComingUpItem>()
     val upcoming = mutableListOf<CalendarComingUpItem>()
     titles.forEach { title ->
         var newestOut: CalendarComingUpItem? = null
         var soonest: CalendarComingUpItem? = null
+        // [fork] upcoming_release_day_new: a show Continue Watching has older episodes of only shows its release of today.
+        val dayOnly = releaseDayOnly(title)
         title.entries.forEach { entry ->
             val date = entry.localDate(zone) ?: return@forEach
             val time = entry.airInstantMs?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalTime() }
             if (shownInContinueWatching(title, entry)) return@forEach
+            if (dayOnly && (date != today || entry.kind != CalendarEntryKind.EPISODE)) return@forEach
+            if (latest != null && date > latest) return@forEach
             if (entry.isOut(now)) {
-                if (futureOnly) return@forEach
+                if (futureOnly && !dayOnly) return@forEach
                 if (date < oldest || entry.kind == CalendarEntryKind.MOVIE_THEATRICAL) return@forEach
                 if (watched?.isWatched(title, entry) == true) return@forEach
                 val item = CalendarComingUpItem(title, entry, CalendarComingUpWhen.NEW, date, time)

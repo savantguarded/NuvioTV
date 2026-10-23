@@ -382,7 +382,7 @@ class CalendarRefresher internal constructor(
                 !mdbListOn -> emptyList()
                 mdbListItems != null -> mdbListCalendarCandidates(mdbListItems)
                 else -> snapshot.titles.flatMap { record ->
-                    record.origins.filter { it == CalendarOrigin.MDBLIST_CALENDAR || it == CalendarOrigin.MDBLIST_CALENDAR_SAVED }
+                    record.origins.filter { it == CalendarOrigin.MDBLIST_CALENDAR || it == CalendarOrigin.MDBLIST_CALENDAR_SAVED || it == CalendarOrigin.MDBLIST_CALENDAR_EXTRA }
                         .map { CalendarTitleCandidate(record.ids, record.type, it, name = record.name, contentId = record.contentId, poster = record.poster) }
                 }
             }

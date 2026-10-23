@@ -300,4 +300,14 @@ object NuvioCFeatures {
     const val CALENDAR_MDBLIST_ART = true
     /** Library: an item whose source gave no poster (MDBList) shows the add-on's cached poster, else the poster by IMDb id, else TMDB's by TMDB id. Off = empty card. */
     const val LIBRARY_POSTER_FALLBACK = true
+
+    // ---- Round 25 (2026-10-23) ----
+    /** Upcoming row: releases up to 14 days ahead only; later ones are in the Calendar. Off = no limit. */
+    const val UPCOMING_14_DAYS = true
+    /** Upcoming row: a show you are behind on in Continue Watching shows its newest episode on its release day only ("New" once out). Caught up = Continue Watching shows it and Upcoming does not. Off = shows with something in Continue Watching are left out. */
+    const val UPCOMING_RELEASE_DAY_NEW = true
+    /** MDBList calendar: titles listed only for a favourite cast/crew member or as popular releases are in the Calendar only, never the Upcoming row; watchlist, in-progress and completed shows win. Off = all in both. */
+    const val CALENDAR_MDBLIST_EXTRA_CALENDAR_ONLY = true
+    /** Featured carousel cold start: opens on a title whose backdrop is already saved on the TV and waits up to 4 s for its backdrop and logo before fading in (was 1.2 s, then the slide showed on black for a few seconds). Off = round 23 reveal. */
+    const val FEATURED_COLD_START_WAIT = true
 }

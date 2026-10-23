@@ -56,7 +56,7 @@ class NuvioCRound23CalendarTest {
     @Test fun filmsGetCinemaAndDigitalDates() {
         val film = items().first { it.type == CalendarTitleType.MOVIE }
         assertEquals(setOf(CalendarEntryKind.MOVIE_DIGITAL, CalendarEntryKind.MOVIE_THEATRICAL), film.entries.map { it.kind }.toSet())
-        assertEquals(CalendarOrigin.MDBLIST_CALENDAR, mdbListCalendarCandidates(listOf(film)).single().origin)
+        assertEquals(CalendarOrigin.MDBLIST_CALENDAR_EXTRA, mdbListCalendarCandidates(listOf(film)).single().origin) // round 25: no watchlist/watching flag = popular
     }
 
     @Test fun bridgingTakesTheOtherIdsOfAKnownTitle() {

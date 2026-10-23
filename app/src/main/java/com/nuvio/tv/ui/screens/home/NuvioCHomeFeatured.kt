@@ -123,6 +123,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -511,11 +512,30 @@ private fun NuvioCFeaturedHome(
         val revealH = with(density) { configuration.screenHeightDp.dp.roundToPx() }.coerceAtLeast(1)
         LaunchedEffect(available) {
             if (!available || reveal.value == 1f) return@LaunchedEffect
+            // [fork] featured_cold_start_wait: open on a title whose backdrop is already saved on the device (it shows
+            // at once) and wait for its backdrop and logo up to 4 s; before, 1.2 s often ran out on a cold start and the
+            // slide faded in on black until its picture arrived.
+            val wait = com.nuvio.tv.NuvioCFeatures.FEATURED_COLD_START_WAIT
+            if (wait && index == 0) {
+                val cached = runCatching {
+                    val disk = revealContext.imageLoader.diskCache
+                    if (disk == null) null else items.take(FEATURED_CACHED_START_LOOK).indexOfFirst { item ->
+                        item.backdropUrl?.let { url -> disk.openSnapshot(url)?.use { true } } == true
+                    }
+                }.getOrNull()
+                if (cached != null && cached > 0) index = cached
+            }
             val first = items.getOrNull(index.coerceIn(0, items.size - 1))
-            kotlinx.coroutines.withTimeoutOrNull(1_200) {
-                first?.logo?.let { runCatching { revealContext.imageLoader.enqueue(logoRequest(revealContext, it)) } }
-                first?.backdropUrl?.let { url ->
-                    runCatching { revealContext.imageLoader.execute(backdropRequest(revealContext, url, revealW, revealH)) }
+            kotlinx.coroutines.withTimeoutOrNull(if (wait) 4_000 else 1_200) {
+                kotlinx.coroutines.coroutineScope {
+                    val logo = first?.logo?.let { url ->
+                        if (wait) async { runCatching { revealContext.imageLoader.execute(logoRequest(revealContext, url)) } }
+                        else { runCatching { revealContext.imageLoader.enqueue(logoRequest(revealContext, url)) }; null }
+                    }
+                    first?.backdropUrl?.let { url ->
+                        runCatching { revealContext.imageLoader.execute(backdropRequest(revealContext, url, revealW, revealH)) }
+                    }
+                    logo?.await()
                 }
             }
             reveal.animateTo(1f, tween(280, easing = FastOutSlowInEasing))
@@ -657,6 +677,9 @@ private fun NuvioCFeaturedHome(
         )
     }
 }
+
+/** [fork] featured_cold_start_wait: how many first titles are checked for a backdrop already on the device. */
+private const val FEATURED_CACHED_START_LOOK = 8
 
 private fun backdropRequest(context: Context, url: String?, widthPx: Int, heightPx: Int): ImageRequest =
     ImageRequest.Builder(context)

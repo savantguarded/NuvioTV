@@ -104,7 +104,9 @@ enum class CalendarOrigin(
     /** [fork] calendar_mdblist: MDBList's calendar lists it from your MDBList watchlist. */
     MDBLIST_CALENDAR_SAVED(savesFilms = true, current = true),
     DROPPED,
-    BELL(savesFilms = true)
+    BELL(savesFilms = true),
+    /** [fork] calendar_mdblist_extra_calendar_only: MDBList's calendar lists it for a favourite cast/crew member or as a popular release. Calendar only, never the Upcoming row. */
+    MDBLIST_CALENDAR_EXTRA(current = true)
 }
 
 @Serializable

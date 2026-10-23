@@ -23,7 +23,9 @@ data class MdbListCalendarItem(
     val poster: String?,
     val saved: Boolean,
     val backdrop: String? = null, // [fork] calendar_mdblist_art
-    val entries: List<CalendarEntry>
+    val entries: List<CalendarEntry>,
+    /** [fork] calendar_mdblist_extra_calendar_only: listed only for a favourite cast/crew member or as a popular release. */
+    val extra: Boolean = false
 )
 
 @Serializable
@@ -41,6 +43,8 @@ internal data class MdbListCalendarEvent(
     val poster: String? = null,
     val backdrop: String? = null, // [fork] calendar_mdblist_art
     @SerialName("is_watchlist") val isWatchlist: Boolean? = null,
+    @SerialName("is_watched") val isWatched: Boolean? = null, // [fork] from a show you are watching (in progress or completed)
+    @SerialName("favorite_person") val favoritePerson: kotlinx.serialization.json.JsonElement? = null,
     @SerialName("episode_title") val episodeTitle: String? = null,
     @SerialName("season_number") val season: Int? = null,
     @SerialName("episode_number") val episode: Int? = null,
@@ -131,6 +135,8 @@ internal fun mdbListCalendarItems(events: List<MdbListCalendarEvent>): List<MdbL
             backdrop = list.sortedBy { if (it.type.equals("episode", true)) 1 else 0 }
                 .firstNotNullOfOrNull { it.backdrop?.takeIf(String::isNotBlank)?.let { url -> mdbListCalendarImage(url, "w1280") } },
             saved = list.any { it.isWatchlist == true || it.releaseType == "episode" },
+            // [fork] calendar_mdblist_extra_calendar_only: watchlist / in progress / completed win over favourite cast and popular.
+            extra = list.none { it.isWatchlist == true || it.isWatched == true || it.releaseType == "watched" },
             entries = entries
         )
     }
@@ -201,7 +207,11 @@ fun bridgeMdbListIds(items: List<MdbListCalendarItem>, known: List<CalendarIds>)
 fun mdbListCalendarCandidates(items: List<MdbListCalendarItem>): List<CalendarTitleCandidate> = items.map { item ->
     CalendarTitleCandidate(
         item.ids, item.type,
-        if (item.saved) CalendarOrigin.MDBLIST_CALENDAR_SAVED else CalendarOrigin.MDBLIST_CALENDAR,
+        when {
+            item.extra && com.nuvio.tv.NuvioCFeatures.CALENDAR_MDBLIST_EXTRA_CALENDAR_ONLY -> CalendarOrigin.MDBLIST_CALENDAR_EXTRA
+            item.saved -> CalendarOrigin.MDBLIST_CALENDAR_SAVED
+            else -> CalendarOrigin.MDBLIST_CALENDAR
+        },
         name = item.title, contentId = item.ids.imdb ?: item.ids.tmdb?.let { "tmdb:$it" }, poster = item.poster
     )
 }
@@ -257,4 +267,5 @@ fun calendarOriginCode(origin: CalendarOrigin): String = when (origin) {
     CalendarOrigin.MDBLIST_CALENDAR_SAVED -> "mdblist-cal-watchlist"
     CalendarOrigin.DROPPED -> "dropped"
     CalendarOrigin.BELL -> "bell"
+    CalendarOrigin.MDBLIST_CALENDAR_EXTRA -> "mdblist-cal-extra"
 }

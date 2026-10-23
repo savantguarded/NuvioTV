@@ -58,6 +58,13 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 internal const val MODERN_COMING_UP_ROW_KEY = "calendar_coming_up"
 
+/** [fork] upcoming_14_days: how far ahead the Upcoming row looks; later releases are in the Calendar only. */
+internal const val NUVIO_C_UPCOMING_DAYS = 14L
+
+/** [fork] calendar_mdblist_extra_calendar_only: followed only because MDBList lists a favourite person's or a popular release. */
+internal fun nuvioCCalendarOnly(title: CalendarTitleRecord): Boolean =
+    title.origins.isNotEmpty() && title.origins.all { it == com.nuvio.tv.core.calendar.CalendarOrigin.MDBLIST_CALENDAR_EXTRA }
+
 /** The words on the Coming up cards, so the labels can be checked without Android resources. */
 data class CalendarComingUpText(
     val newLabel: String,
@@ -337,8 +344,13 @@ class CalendarComingUpSource @Inject constructor(
                     val hidden = settingsStore.settings.value?.hiddenTitleKeys.orEmpty()
                     val calendarTitles = if (ready) state.titles else emptyList()
                     val calendarKeys = calendarTitles.mapTo(HashSet()) { it.key }
-                    val titles = calendarTitlesShownInComingUp(calendarTitlesWithUpcoming(calendarTitles, upcomingItems, zone, hidden), comingUpHidden)
-                        .filterNot { calendarTitleInContinueWatching(watchable, it) }
+                    val all = calendarTitlesShownInComingUp(calendarTitlesWithUpcoming(calendarTitles, upcomingItems, zone, hidden), comingUpHidden)
+                        // [fork] calendar_mdblist_extra_calendar_only: favourite cast/crew and popular releases stay in the Calendar.
+                        .filterNot { com.nuvio.tv.NuvioCFeatures.CALENDAR_MDBLIST_EXTRA_CALENDAR_ONLY && nuvioCCalendarOnly(it) }
+                    // [fork] upcoming_release_day_new: a show with something to watch in Continue Watching stays in the row
+                    // for its release of today only (you are behind; when caught up Continue Watching shows that episode).
+                    val inContinueWatching = all.filter { calendarTitleInContinueWatching(watchable, it) }.mapTo(HashSet()) { it.key }
+                    val titles = if (com.nuvio.tv.NuvioCFeatures.UPCOMING_RELEASE_DAY_NEW) all else all.filterNot { it.key in inContinueWatching }
                     val localContext = localizedContext()
                     val locale = localContext.resources.configuration.locales[0] ?: java.util.Locale.getDefault()
                     val formats = CalendarFormats.forDevice(localContext, locale)
@@ -346,7 +358,9 @@ class CalendarComingUpSource @Inject constructor(
                     buildCalendarComingUp(titles, state.watched, now, zone, { title, entry ->
                         calendarEntryInKeys(shown, title, entry)
                     }, CALENDAR_COMING_UP_MAX + upcomingItems.size,
-                        futureOnly = com.nuvio.tv.NuvioCFeatures.UPCOMING_FUTURE_ONLY) // [fork] upcoming_future_only
+                        futureOnly = com.nuvio.tv.NuvioCFeatures.UPCOMING_FUTURE_ONLY, // [fork] upcoming_future_only
+                        maxDaysAhead = if (com.nuvio.tv.NuvioCFeatures.UPCOMING_14_DAYS) NUVIO_C_UPCOMING_DAYS else null,
+                        releaseDayOnly = { it.key in inContinueWatching })
                         .mapNotNull { calendarComingUpCard(it, text, formats, ::cachedArt, upcomingOnly = it.title.key !in calendarKeys, today = now.atZone(zone).toLocalDate()) }
                         .distinctBy { Triple(it.info.contentId, it.info.season, it.info.episode) }
                 }.onStart { if (calendar.state.value.watched == null) calendar.reloadWatched() }
