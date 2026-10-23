@@ -9,6 +9,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 **Home**
 - **Featured layout** (Settings > Layout): a full-screen carousel of your hero catalogs on top of Modern home, with Play, Details and a next-title arrow, a "#3 in Top 20" line for ranked catalogs, a NEW / NEW SEASON tag and up to six lines of synopsis. The carousel only moves forward: Right from the arrow goes to the next title and loops from the last to the first, and Left from Play opens the sidebar on any title; Down goes to the rows, Up or the sidebar's Home comes back.
 - The hero carousel actually rotates (every 10 s without a key press) and draws a fresh mix of 18 titles each launch.
+- **Extra large and Huge** card sizes (Settings > Layout > Card width), for Home only and sized per layout; at those sizes Modern and Featured rows sit a little tighter so the next row still peeks. Library, Discover and folders stay at Large. The Grid layout is hidden.
 - Featured carousel: up to three ratings, a small five-dot page indicator, and the sidebar's Home always lands back on Continue Watching. On a cold start it fades in once its first picture is ready, with the rows already in place underneath.
 - **Calendar** (from [ysosrs123's fork](https://github.com/ysosrs123/NuvioTV-Fork)): a Calendar page in the menu (List, Week and Month) with the next episodes and film dates of everything in your library, in your time zone. Bell a title for a reminder card on Home when something new is out. Optional **Calendar in Upcoming** (Settings > Layout > Home Content): the Calendar fills the one Upcoming row, with official-style tags (Tonight 9:00 pm, Tomorrow, In 3 Days). Calendar options, including your own lists and which view it opens in (**Start in**: last used, List, Week or Month), under Settings > Layout > Calendar. Back jumps to the List / Week / Month buttons, Up always lands on the current one; no star rating in Week or List view; only dated releases (no "No date yet" group, films from their digital release). The reminder popup's buttons always show their full labels. Shows with a new episode waiting in Continue Watching stay followed, and Upcoming leaves out what Continue Watching can already play. Episode times from TVmaze. New calendar code from ysosrs123 is watched daily and merged with `scripts/nuvio-c-calendar-sync.sh`, keeping these tweaks.
 
@@ -16,7 +17,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - Title logo and stream badges (resolution, HDR / Dolby Vision, audio, source, size) on the controls.
 - Subtitles move up out of the way while the controls or pause screen are showing (text and picture subtitles; ASS stays where the file puts it, as official's libass now draws it on its own surface).
 - Netflix-style pause screen; Start over button; Next skips the countdown.
-- Subtitles and controls dimmed during HDR and Dolby Vision, drawn as cheaply as official's own subtitle colours. Official's separate HDR subtitle style setting is removed, so subtitles are only dimmed once.
+- Subtitles and controls dimmed during HDR and Dolby Vision, drawn as cheaply as official's own subtitle colours, without darkening what's behind an open panel. Official's separate HDR subtitle style setting is removed, so subtitles are only dimmed once.
 - Watch Party tucked into the More row (back in the main row while a party runs).
 - Full release filename on the loading screen; fake short placeholder streams are caught.
 - Prefer SDH subtitles, subtitle font picker, correct episode names on Next and auto-play.
@@ -26,7 +27,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - The plus button opens your library lists (ticks lined up in one column); hold it for the one-step add.
 - TMDB tagline under the logo; collections on their own row.
 - Background trailers: muted by default, pause behind popups and other pages, skipped for titles you've started, no stutter as they start.
-- IMDb trailers when YouTube rate-limits or only offers low quality (one small request, no hidden browser, never during playback).
+- IMDb trailers only when YouTube rate-limits or only offers low quality (one small request, no hidden browser, never during playback).
 
 **Library and cast**
 - Watched tab for Trakt, MDBList and Simkl.
@@ -34,7 +35,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 
 **Look and feel**
 - Clearlogos at a consistent size, dark logos made readable.
-- Extra app fonts, clock on Home, cleaner profile screen.
+- Extra app fonts, clock on Home, cleaner profile screen that opens Netflix-style (background fades up, profiles drop in).
 - Smoother scrolling on Home, collections and the details page, including moving between its sections.
 - Even spacing next to a focused button; the app font everywhere, ambient screen included.
 - Source picker without an "All" tab when there's only one source.
