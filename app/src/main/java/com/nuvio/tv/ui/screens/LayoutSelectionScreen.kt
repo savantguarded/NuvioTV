@@ -111,7 +111,7 @@ fun LayoutSelectionScreen(
                     modifier = Modifier.weight(1f)
                 )
 
-                LayoutOptionCard(
+                if (!com.nuvio.tv.NuvioCFeatures.NO_GRID_LAYOUT) LayoutOptionCard( // [fork] no_grid_layout
                     layout = HomeLayout.GRID,
                     isSelected = selectedLayout == HomeLayout.GRID,
                     onSelect = { selectedLayout = HomeLayout.GRID },

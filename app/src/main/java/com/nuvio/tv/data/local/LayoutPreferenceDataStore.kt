@@ -159,6 +159,7 @@ class LayoutPreferenceDataStore @Inject constructor(
         val layoutName = prefs[layoutKey] ?: HomeLayout.MODERN.name
         try {
             HomeLayout.valueOf(layoutName)
+                .let { if (com.nuvio.tv.NuvioCFeatures.NO_GRID_LAYOUT && it == HomeLayout.GRID) HomeLayout.CLASSIC else it } // [fork] no_grid_layout: read as Classic, never written back
         } catch (e: IllegalArgumentException) {
             HomeLayout.MODERN
         }

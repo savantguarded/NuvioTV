@@ -59,7 +59,7 @@ internal fun LayoutHomeLayoutSection(
             .settingsOptionRow(firstHomeLayoutFocusRequester),
         horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
     ) {
-        listOf(HomeLayout.MODERN, HomeLayout.GRID, HomeLayout.CLASSIC).forEachIndexed { index, layout ->
+        listOf(HomeLayout.MODERN, HomeLayout.GRID, HomeLayout.CLASSIC).filter { !com.nuvio.tv.NuvioCFeatures.NO_GRID_LAYOUT || it != HomeLayout.GRID }.forEachIndexed { index, layout -> // [fork] no_grid_layout
             LayoutCard(
                 layout = layout,
                 isSelected = uiState.selectedLayout == layout && !(layout == HomeLayout.MODERN && nuvioCFeatured), // [fork] home_featured
