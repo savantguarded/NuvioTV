@@ -107,7 +107,11 @@ fun StartupSplashScreen(
                 drawableOverride = brandWordmarkRes
             )
             Spacer(modifier = Modifier.height(NuvioTheme.spacing.xxl))
-            LoadingIndicator(modifier = Modifier.size(NuvioTheme.spacing.xxxl))
+            if (com.nuvio.tv.NuvioCFeatures.STARTUP_SWEEP) {
+                NuvioCStartupSweep() // [fork] startup_sweep
+            } else {
+                LoadingIndicator(modifier = Modifier.size(NuvioTheme.spacing.xxxl))
+            }
         }
     }
 }

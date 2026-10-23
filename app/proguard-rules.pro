@@ -149,3 +149,9 @@
 
 -dontwarn java.beans.ConstructorProperties
 -dontwarn java.beans.Transient
+# [fork] Nuvio C round 26b: release builds drop debug and verbose logging (about 1,500 lines in the first
+# 25 s of each launch on the TCL, e.g. one line per watch-progress entry). Info, warning and error stay.
+-assumenosideeffects class android.util.Log {
+    public static int d(...);
+    public static int v(...);
+}

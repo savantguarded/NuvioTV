@@ -82,9 +82,10 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
-        SentryInitializer.start(this, sentrySettingsDataStore)
+        if (!NuvioCFeatures.NO_CRASH_REPORTING) SentryInitializer.start(this, sentrySettingsDataStore) // [fork] no_crash_reporting
         PluginRuntimeHooks.onApplicationCreate(this)
-        androidTvChannelSyncService.start()
+        if (NuvioCFeatures.NO_TV_CHANNELS) com.nuvio.tv.core.nuvioc.NuvioCStartup.stopTvChannels(this) // [fork] no_tv_channels
+        else androidTvChannelSyncService.start()
         serverUserStateProjection.start()
         nuvioCCloudSettings.start() // [fork] nuvio_c_cloud_settings
         // Load locale synchronously so it's available before Activity.attachBaseContext.

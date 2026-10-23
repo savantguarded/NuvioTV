@@ -61,6 +61,7 @@ class AndroidTvChannelSyncService @Inject constructor(
     /** Called from the host Activity's onStart/onStop. On background we reconcile once so the
      *  channel reflects the latest watch progress exactly as the launcher regains foreground. */
     fun onForegroundChanged(foreground: Boolean) {
+        if (com.nuvio.tv.NuvioCFeatures.NO_TV_CHANNELS) return // [fork] no_tv_channels
         val wasForeground = appInForeground
         appInForeground = foreground
         if (wasForeground && !foreground) {

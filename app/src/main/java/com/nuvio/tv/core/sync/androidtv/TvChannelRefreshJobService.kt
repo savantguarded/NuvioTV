@@ -45,6 +45,7 @@ class TvChannelRefreshJobService : JobService() {
     private var jobScope: CoroutineScope? = null
 
     override fun onStartJob(params: JobParameters): Boolean {
+        if (com.nuvio.tv.NuvioCFeatures.NO_TV_CHANNELS) return false // [fork] no_tv_channels: a job left from before does nothing
         val entryPoint = EntryPointAccessors.fromApplication(
             applicationContext, TvChannelJobEntryPoint::class.java
         )

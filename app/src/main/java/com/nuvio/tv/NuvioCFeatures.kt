@@ -326,4 +326,16 @@ object NuvioCFeatures {
     const val CALENDAR_MONTH_NAV = true
     /** Library: changing the list (or genre, year, watched filter) goes to the top and focuses the first poster, as a sort change does. Off = focus goes back to a poster remembered from the previous list. */
     const val LIBRARY_LIST_FIRST = true
+
+    // ---- Round 26b (2026-10-24): smooth start-up ----
+    /** Start-up screen: the spinner (drawn by the app, so it froze whenever the app was busy) is replaced by a slim light sweep under the Nuvio logo, animated by Android's render thread so it keeps moving while the app works. Off = official spinner. */
+    const val STARTUP_SWEEP = true
+    /** Start-up screen stays until Home has settled (its first rows built and the app answering every frame for a moment), capped at 10 s after Home is ready, then fades out once. Remote keys are held while it shows. Off = it leaves as soon as Home is ready (official). */
+    const val STARTUP_SETTLE = true
+    /** No Android TV launcher channels: Nuvio C no longer publishes Continue Watching to the launcher, and no longer wakes every 15 minutes or at boot to refresh them (Projectivy doesn't show them). Off = official channels. */
+    const val NO_TV_CHANNELS = true
+    /** No crash reporting to the Nuvio team (Nuvio C crashes aren't theirs to fix; we read them over adb). Saves a blocking read at launch. Off = official setting decides. */
+    const val NO_CRASH_REPORTING = true
+    // Also round 26b, not a switch: release builds drop debug-level logging (proguard-rules.pro, "[fork] round 26b").
+    // About 1,500 debug lines were written in the first 25 s of each launch; info, warning and error logs stay.
 }

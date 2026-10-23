@@ -1314,11 +1314,14 @@ open class MainActivity : ComponentActivity() {
                             startupLoadingState.complete = true
                         }
                     }
+                    val nuvioCSettled = com.nuvio.tv.ui.components.rememberNuvioCStartupSettled(startupLoadingState, startupLoadingState.complete) // [fork] startup_settle
                     val showSplash = shouldShowStartupSplash(
                         enabled = startupSplashEnabled,
-                        complete = startupLoadingState.complete,
+                        complete = startupLoadingState.complete && nuvioCSettled, // [fork] startup_settle
                         destination = startupDestination
                     )
+                    val nuvioCHolding = showSplash && startupLoadingState.complete // [fork] startup_settle
+                    androidx.compose.runtime.SideEffect { com.nuvio.tv.core.nuvioc.NuvioCStartup.holdingKeys = nuvioCHolding }
                     val animatedSplashAlpha by animateFloatAsState(
                         targetValue = if (showSplash) 1f else 0f,
                         animationSpec = tween(if (showSplash) 0 else 400),
@@ -1421,6 +1424,7 @@ open class MainActivity : ComponentActivity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (com.nuvio.tv.NuvioCFeatures.STARTUP_SETTLE && com.nuvio.tv.core.nuvioc.NuvioCStartup.holdingKeys) return true // [fork] startup_settle
         if (ambientIdleController.consumeKeyEvent(event)) return true
         // [fork] calendar_bells: Menu while the corner message shows opens the reminder card.
         if (com.nuvio.tv.NuvioCFeatures.LIBRARY_CALENDAR && com.nuvio.tv.NuvioCFeatures.CALENDAR_BELLS &&

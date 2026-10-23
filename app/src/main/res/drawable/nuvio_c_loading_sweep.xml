@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- [fork] Nuvio C round 26b startup_sweep: a slim light sweeping along a faint track under the logo.
+     An AnimatedVectorDrawable started from an ImageView runs on Android's render thread, so it keeps moving
+     while the app is busy building Home (the old Compose spinner froze with it). -->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="160dp"
+            android:height="6dp"
+            android:viewportWidth="160"
+            android:viewportHeight="6">
+            <path
+                android:pathData="M3,3 H157"
+                android:strokeWidth="3"
+                android:strokeLineCap="round"
+                android:strokeColor="#2EFFFFFF" />
+            <path
+                android:name="glow"
+                android:pathData="M3,3 H157"
+                android:strokeWidth="5"
+                android:strokeLineCap="round"
+                android:strokeColor="#26FFFFFF"
+                android:trimPathStart="0"
+                android:trimPathEnd="0.34" />
+            <path
+                android:name="sweep"
+                android:pathData="M3,3 H157"
+                android:strokeWidth="3"
+                android:strokeLineCap="round"
+                android:strokeColor="#E6FFFFFF"
+                android:trimPathStart="0.04"
+                android:trimPathEnd="0.30" />
+        </vector>
+    </aapt:attr>
+    <target android:name="glow">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="trimPathOffset"
+                android:valueFrom="0"
+                android:valueTo="1"
+                android:valueType="floatType"
+                android:duration="1600"
+                android:repeatCount="infinite"
+                android:interpolator="@android:anim/linear_interpolator" />
+        </aapt:attr>
+    </target>
+    <target android:name="sweep">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="trimPathOffset"
+                android:valueFrom="0"
+                android:valueTo="1"
+                android:valueType="floatType"
+                android:duration="1600"
+                android:repeatCount="infinite"
+                android:interpolator="@android:anim/linear_interpolator" />
+        </aapt:attr>
+    </target>
+</animated-vector>
