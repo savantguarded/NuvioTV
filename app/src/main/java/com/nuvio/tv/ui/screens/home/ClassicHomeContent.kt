@@ -429,7 +429,7 @@ fun ClassicHomeContent(
     val latestOnRequestLazyCatalogLoad = rememberUpdatedState(onRequestLazyCatalogLoad)
     val latestVisibleHomeRows = rememberUpdatedState(visibleHomeRows)
     LaunchedEffect(columnListState) {
-        val prefetchAhead = 1
+        val prefetchAhead = if (com.nuvio.tv.NuvioCFeatures.HOME_CATALOG_SWEEP) 3 else 1 // [fork] round 27
         snapshotFlow {
             val info = columnListState.layoutInfo
             val firstVisible = info.visibleItemsInfo.firstOrNull()?.index ?: -1

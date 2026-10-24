@@ -485,3 +485,15 @@ internal fun AddonFilterChips(
         }
     }
 }
+
+/**
+ * [fork] round 27 `single_source_chip_focus`: chip index to focus when a screen asks for [requested]
+ * (refresh = 0, "All" = 1, sources from 2). With one source the "All" tab isn't shown (single_source_no_all),
+ * so a request for it goes to the source's tab instead of a chip that isn't there (focus went nowhere,
+ * leaving the tabs and Refresh unreachable once sources had loaded).
+ */
+internal fun nuvioCChipTarget(requested: Int, orderedNames: List<String>): Int =
+    if (com.nuvio.tv.NuvioCFeatures.SINGLE_SOURCE_CHIP_FOCUS &&
+        com.nuvio.tv.NuvioCFeatures.SINGLE_SOURCE_NO_ALL &&
+        orderedNames.size == 1 && requested == 1
+    ) 2 else requested

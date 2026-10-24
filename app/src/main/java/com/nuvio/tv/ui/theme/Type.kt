@@ -44,6 +44,17 @@ fun getFontFamily(appFont: AppFont): FontFamily = when (appFont) {
     AppFont.SPACE_GROTESK -> if (com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS) NuvioCSpaceGroteskFamily else InterFamily
     AppFont.LEXEND -> if (com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS) NuvioCLexendFamily else InterFamily
     AppFont.SOURCE_SERIF_4 -> if (com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS) NuvioCSourceSerif4Family else InterFamily
+    // [fork] round 27 more_fonts
+    AppFont.MANROPE -> nuvioCRound27(R.font.nuvio_c_manrope)
+    AppFont.FIGTREE -> nuvioCRound27(R.font.nuvio_c_figtree)
+    AppFont.NOTO_SANS -> nuvioCRound27(R.font.nuvio_c_notosans)
+    AppFont.NUNITO_SANS -> nuvioCRound27(R.font.nuvio_c_nunitosans)
+    AppFont.PUBLIC_SANS -> nuvioCRound27(R.font.nuvio_c_publicsans)
+    AppFont.SCHIBSTED_GROTESK -> nuvioCRound27(R.font.nuvio_c_schibstedgrotesk)
+    AppFont.MONTSERRAT -> nuvioCRound27(R.font.nuvio_c_montserrat)
+    AppFont.ARCHIVO -> nuvioCRound27(R.font.nuvio_c_archivo)
+    AppFont.FAMILJEN_GROTESK -> nuvioCRound27(R.font.nuvio_c_familjengrotesk)
+    AppFont.BRICOLAGE_GROTESQUE -> nuvioCRound27(R.font.nuvio_c_bricolagegrotesque)
 }
 
 // [fork] Nuvio C extra fonts: one variable font file each (OFL, from Google Fonts), weights from its wght axis
@@ -216,3 +227,9 @@ fun buildNuvioTextStyles(typography: Typography): NuvioTextStyleTokens = NuvioTe
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 val NuvioTextStyles = buildNuvioTextStyles(NuvioTypography)
+
+// [fork] round 27 more_fonts: one subset variable file each (OFL, Google Fonts; Latin, Greek, Cyrillic), built once per font.
+private val nuvioCRound27Families = java.util.concurrent.ConcurrentHashMap<Int, FontFamily>()
+private fun nuvioCRound27(res: Int): FontFamily =
+    if (!com.nuvio.tv.NuvioCFeatures.MORE_FONTS) InterFamily
+    else nuvioCRound27Families.getOrPut(res) { nuvioCVariableFamily(res) }

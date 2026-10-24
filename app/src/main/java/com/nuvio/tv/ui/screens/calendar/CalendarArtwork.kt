@@ -82,7 +82,8 @@ internal fun CalendarLogo(
     maxWidth: Dp,
     textStyle: TextStyle,
     modifier: Modifier = Modifier,
-    alignment: Alignment = Alignment.BottomStart
+    alignment: Alignment = Alignment.BottomStart,
+    maxTitleLines: Int = 2 // [fork] round 27 calendar_week_fixed_hero: 1 in the Week hero
 ) {
     var failed by remember(logo) { mutableStateOf(false) }
     val title = name ?: stringResource(R.string.calendar_unknown_title)
@@ -92,7 +93,7 @@ internal fun CalendarLogo(
             style = textStyle,
             fontWeight = FontWeight.Bold,
             color = Color.White,
-            maxLines = 2,
+            maxLines = maxTitleLines,
             overflow = TextOverflow.Ellipsis,
             modifier = modifier.widthIn(max = maxWidth)
         )

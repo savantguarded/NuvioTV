@@ -1,5 +1,6 @@
 package com.nuvio.tv.ui.screens.detail
 
+import com.nuvio.tv.ui.screens.player.nuvioCFocusLabel
 import androidx.compose.foundation.layout.widthIn // [fork] hero spec
 import androidx.compose.animation.core.VectorConverter // [fork] logo weight
 import kotlinx.coroutines.launch // [fork] logo weight
@@ -332,6 +333,11 @@ fun HeroContentSection(
                             modifier = Modifier.padding(bottom = 14.dp)
                         )
                     }
+                    // [fork] detail_focus_label: room for the focused button's name above the row; the hero is
+                    // bottom-aligned, so this lifts the logo / tagline and leaves everything below where it was.
+                    if (com.nuvio.tv.NuvioCFeatures.DETAIL_FOCUS_LABEL) {
+                        Spacer(modifier = Modifier.height(if (shouldShowLogo || (com.nuvio.tv.NuvioCFeatures.DETAIL_TAGLINE && !nuvioCTagline.isNullOrBlank())) 7.dp else 12.dp))
+                    }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
                         verticalAlignment = Alignment.CenterVertically
@@ -500,6 +506,7 @@ internal fun PlayButton(
 ) {
     var longPressTriggered by remember { mutableStateOf(false) }
     val longPressKeyTracker = rememberLongPressKeyTracker()
+    var nuvioCFocused by remember { mutableStateOf(false) } // [fork] detail_focus_label
 
     LaunchedEffect(restoreFocusToken) {
         // [fork] focus stability: only a new request moves focus to Play. Official re-ran this every
@@ -623,14 +630,17 @@ private fun ActionIconButtonPainter(
     onFocused: () -> Unit = {},
     enabled: Boolean = true
 ) {
+    var nuvioCFocused by remember { mutableStateOf(false) } // [fork] detail_focus_label
     IconButton(
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier
             .size(NuvioTheme.spacing.xxxl)
             .onFocusChanged { state ->
+                nuvioCFocused = state.isFocused
                 if (state.isFocused) onFocused()
             }
+            .nuvioCDetailFocusLabel(nuvioCFocused, contentDescription) // [fork] detail_focus_label
             .focusProperties { up = FocusRequester.Cancel },
         colors = IconButtonDefaults.colors(
             containerColor = NuvioTheme.colors.BackgroundCard,
@@ -673,6 +683,7 @@ private fun ActionIconButton(
 ) {
     var longPressTriggered by remember { mutableStateOf(false) }
     val longPressKeyTracker = rememberLongPressKeyTracker()
+    var nuvioCFocused by remember { mutableStateOf(false) } // [fork] detail_focus_label
 
     IconButton(
         onClick = {
@@ -687,8 +698,10 @@ private fun ActionIconButton(
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .size(NuvioTheme.spacing.xxxl)
             .onFocusChanged { state ->
+                nuvioCFocused = state.isFocused
                 if (state.isFocused) onFocused()
             }
+            .nuvioCDetailFocusLabel(nuvioCFocused, contentDescription) // [fork] detail_focus_label
             .onPreviewKeyEvent { event ->
                 val native = event.nativeKeyEvent
                 if (native.action == AndroidKeyEvent.ACTION_DOWN && native.repeatCount == 0 && isSelectKey(native.keyCode)) {
@@ -1080,3 +1093,8 @@ private fun MetaInfoDivider() {
         color = NuvioTheme.extendedColors.textTertiary
     )
 }
+
+/** [fork] round 27 `detail_focus_label`: the focused round button's name, drawn just above it (same text and timing as the player's). */
+@Composable
+private fun Modifier.nuvioCDetailFocusLabel(focused: Boolean, label: String): Modifier =
+    nuvioCFocusLabel(focused, label, enabled = com.nuvio.tv.NuvioCFeatures.DETAIL_FOCUS_LABEL, above = true, osdDim = false)

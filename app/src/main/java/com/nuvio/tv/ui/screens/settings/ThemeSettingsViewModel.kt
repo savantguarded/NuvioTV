@@ -6,6 +6,7 @@ import com.nuvio.tv.data.local.ThemeDataStore
 import com.nuvio.tv.data.repository.MemberAccessRepository
 import com.nuvio.tv.domain.model.AppFont
 import com.nuvio.tv.domain.model.isNuvioCExtra
+import com.nuvio.tv.domain.model.isNuvioCRound27
 import com.nuvio.tv.domain.model.AppIconOption
 import com.nuvio.tv.domain.model.AppTheme
 import com.nuvio.tv.domain.model.CosmeticEntitlements
@@ -33,7 +34,7 @@ data class ThemeSettingsUiState(
     val customThemeGradientEnabled: Boolean = false,
     val availableThemes: List<AppTheme> = availableAppThemes(CosmeticEntitlements.None),
     val selectedFont: AppFont = AppFont.INTER,
-    val availableFonts: List<AppFont> = AppFont.entries.filter { com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS || !it.isNuvioCExtra }, // [fork] was AppFont.entries.toList()
+    val availableFonts: List<AppFont> = AppFont.entries.filter { (com.nuvio.tv.NuvioCFeatures.EXTRA_FONTS || !it.isNuvioCExtra) && (com.nuvio.tv.NuvioCFeatures.MORE_FONTS || !it.isNuvioCRound27) }, // [fork] was AppFont.entries.toList()
     val amoledMode: Boolean = false,
     val amoledSurfacesMode: Boolean = false,
     val settingsUiStyle: SettingsUiStyle = SettingsUiStyle.CLASSIC,

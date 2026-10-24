@@ -97,7 +97,13 @@ fun StartupSplashScreen(
             )
         }
 
-        if (com.nuvio.tv.NuvioCFeatures.STARTUP_BREATHE) { // [fork] startup_breathe
+        if (com.nuvio.tv.NuvioCFeatures.STARTUP_MORPH) { // [fork] round 27 startup_morph (replaces the halo)
+            NuvioCStartupMorph(
+                logoRes = brandWordmarkRes ?: NuvioTheme.currentTheme.brandWordmarkResource,
+                contentDescription = stringResource(R.string.cd_nuvio_logo),
+                modifier = Modifier.fillMaxSize()
+            )
+        } else if (com.nuvio.tv.NuvioCFeatures.STARTUP_BREATHE) { // [fork] startup_breathe
             NuvioCStartupBreathe(
                 logoRes = brandWordmarkRes ?: NuvioTheme.currentTheme.brandWordmarkResource,
                 contentDescription = stringResource(R.string.cd_nuvio_logo),

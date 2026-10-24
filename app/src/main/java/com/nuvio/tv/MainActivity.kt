@@ -417,6 +417,10 @@ open class MainActivity : ComponentActivity() {
             var startupSession by remember { mutableIntStateOf(0) }
             // Triggered immediately on profile click (before system confirms selection).
             var splashTriggered by remember { mutableStateOf(false) }
+            // [fork] round 27 startup_settle_transition: the start-up screen's opacity (read only in graphicsLayer),
+            // and whether the profile screen is still dissolving into it (it stays under the start-up screen until then).
+            val nuvioCSplashAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
+            var nuvioCDissolving by remember { mutableStateOf(false) }
             // Overrides splash background with the currently focused profile
             // so the splash matches the profile selection background.
             var focusedSplashColor by remember { mutableStateOf<String?>(null) }
@@ -806,13 +810,15 @@ open class MainActivity : ComponentActivity() {
                     } else {
 
                     val shouldShowProfileSelection =
-                        !hasSelectedProfileThisSession && (profiles.size > 1 || activeProfileHasPin)
+                        (!hasSelectedProfileThisSession && (profiles.size > 1 || activeProfileHasPin)) ||
+                            (nuvioCDissolving && splashTriggered) // [fork] startup_settle_transition: kept under the start-up screen while it fades in
 
                     if (shouldShowProfileSelection) {
                         startupDestination = if (splashTriggered) StartupDestination.Loading else StartupDestination.ProfileSelection
                         ProfileSelectionScreen(
                             onProfileClicked = {
                                 splashTriggered = true
+                                if (com.nuvio.tv.NuvioCFeatures.STARTUP_SETTLE_TRANSITION && startupSplashEnabled) nuvioCDissolving = true // [fork]
                             },
                             onProfileSelectionFailed = {
                                 splashTriggered = false
@@ -1204,7 +1210,13 @@ open class MainActivity : ComponentActivity() {
                             com.nuvio.tv.ui.screens.calendar.LocalCalendarReminderCenter provides
                                 if (com.nuvio.tv.NuvioCFeatures.LIBRARY_CALENDAR) calendarReminders.get() else null
                         ) {
-                        Box(modifier = Modifier.fillMaxSize()) {
+                        Box(modifier = Modifier.fillMaxSize().then( // [fork] startup_settle_transition: a plain layer (no offscreen buffer), attached for good so nothing recomposes when the fade ends
+                            if (com.nuvio.tv.NuvioCFeatures.STARTUP_SETTLE_TRANSITION) Modifier.graphicsLayer {
+                                val s = 1f + 0.04f * nuvioCSplashAlpha.value // Home settles 104% -> 100% as the start-up screen fades
+                                scaleX = s
+                                scaleY = s
+                            } else Modifier
+                        )) {
                             CompositionLocalProvider(LocalNavViewModelStoreOwner provides navViewModelStoreOwner) {
                                 if (modernSidebarEnabled) {
                                     ModernSidebarScaffold(
@@ -1322,12 +1334,33 @@ open class MainActivity : ComponentActivity() {
                     )
                     val nuvioCHolding = showSplash && startupLoadingState.complete // [fork] startup_settle
                     androidx.compose.runtime.SideEffect { com.nuvio.tv.core.nuvioc.NuvioCStartup.holdingKeys = nuvioCHolding }
+                    val nuvioCSmooth = com.nuvio.tv.NuvioCFeatures.STARTUP_SETTLE_TRANSITION // [fork]
                     val animatedSplashAlpha by animateFloatAsState(
                         targetValue = if (showSplash) 1f else 0f,
-                        animationSpec = tween(if (showSplash) 0 else 400),
+                        animationSpec = tween(if (showSplash || nuvioCSmooth) 0 else 400),
                         label = "startupSplashAlpha"
                     )
-                    val splashAlpha = if (showSplash) 1f else animatedSplashAlpha
+                    // [fork] startup_settle_transition: profiles dissolve into the start-up screen (300 ms), then it fades
+                    // away over 500 ms while Home settles from 104% to 100%. Alpha and scale are read in graphicsLayer only.
+                    LaunchedEffect(showSplash, nuvioCSmooth) {
+                        if (!nuvioCSmooth) return@LaunchedEffect
+                        if (showSplash) {
+                            if (nuvioCDissolving && nuvioCSplashAlpha.value < 1f) {
+                                nuvioCSplashAlpha.animateTo(1f, tween(300, easing = LinearOutSlowInEasing))
+                            } else {
+                                nuvioCSplashAlpha.snapTo(1f)
+                            }
+                            nuvioCDissolving = false
+                        } else if (nuvioCSplashAlpha.value > 0f) {
+                            nuvioCSplashAlpha.animateTo(0f, tween(500, easing = FastOutSlowInEasing))
+                        }
+                    }
+                    LaunchedEffect(nuvioCDissolving) { // safety: never leave the profile screen held
+                        if (nuvioCDissolving) { kotlinx.coroutines.delay(900); nuvioCDissolving = false }
+                    }
+                    val nuvioCSplashShown by remember { androidx.compose.runtime.derivedStateOf { nuvioCSplashAlpha.value > 0f } }
+                    val splashAlpha = if (nuvioCSmooth) (if (showSplash || nuvioCSplashShown) 1f else 0f)
+                        else if (showSplash) 1f else animatedSplashAlpha
                     LaunchedEffect(splashAlpha, startupDestination) {
                         if (splashAlpha == 0f && startupDestination != StartupDestination.ProfileSelection) {
                             focusedSplashColor = null
@@ -1343,7 +1376,10 @@ open class MainActivity : ComponentActivity() {
                             backgroundCacheKey = splashBackground.backgroundCacheKey,
                             skipGradient = splashBackground.skipGradient,
                             brandWordmarkRes = splashBackground.brandWordmarkRes,
-                            modifier = Modifier.graphicsLayer { alpha = splashAlpha }
+                            modifier = if (nuvioCSmooth) Modifier.graphicsLayer { // [fork] full at once on a cold start; animated around a profile pick and on the way out
+                                alpha = if (showSplash && !nuvioCDissolving) 1f else nuvioCSplashAlpha.value
+                            }
+                                else Modifier.graphicsLayer { alpha = splashAlpha }
                         )
                     }
                     }

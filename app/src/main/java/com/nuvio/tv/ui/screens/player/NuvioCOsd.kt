@@ -315,8 +315,9 @@ private fun buildBadgeParts(controller: PlayerRuntimeController, uiState: Player
     return buildList {
         (NuvioCOsdBadges.resolutionLabel(width, height) ?: NuvioCOsdBadges.resolutionFromName(names))
             ?.let { add(NuvioCBadge(it)) }
-        if (visual != "SDR") add(NuvioCBadge(visual)) // SDR: no HDR badge; Dolby Vision = "DV"
+        if (visual != "SDR") add(NuvioCBadge(NuvioCOsdBadges.visualTile(visual))) // SDR: no HDR badge; "DV" shown as DOLBY VISION (round 27)
         addAll(nuvioCAudioBadges(audioLabel, names))
+        if (NuvioCFeatures.OSD_BADGE_NAMES && NuvioCOsdBadges.isImax(names)) add(NuvioCBadge("IMAX")) // [fork] round 27
         NuvioCOsdBadges.sourceFromName(names)?.let { add(NuvioCBadge(it, NuvioCBadgeKind.OUTLINED)) }
         NuvioCOsdBadges.sizeLabel(controller.currentVideoSize)?.let { add(NuvioCBadge(it, if (NuvioCFeatures.OSD_BADGES_LEFT) NuvioCBadgeKind.FILLED else NuvioCBadgeKind.PLAIN)) }
     }
@@ -325,7 +326,7 @@ private fun buildBadgeParts(controller: PlayerRuntimeController, uiState: Player
 /** Audio tile: "ATMOS 7.1", "DTS:X 7.1", "DTS-HD MA 7.1", "DD+ 5.1"… (one outlined tile, round 4). */
 internal fun nuvioCAudioBadges(audioLabel: String?, names: String): List<NuvioCBadge> {
     val label = audioLabel ?: return emptyList()
-    return listOf(NuvioCBadge(NuvioCOsdBadges.audioTile(label, names)))
+    return listOf(NuvioCBadge(NuvioCOsdBadges.audioDisplay(NuvioCOsdBadges.audioTile(label, names))))
 }
 
 /** What the TV is being sent: DV, HDR10, HDR10+, HLG or SDR (badges and the HDR dim share it). */
@@ -550,6 +551,19 @@ internal object NuvioCOsdBadges {
         }
         return listOfNotNull(name, channels).joinToString(" ")
     }
+
+    // [fork] round 27 `osd_badge_names`: the words on the tiles only. The internal tags ("DV", "ATMOS 7.1")
+    // stay short because the HDR dim and the badge rules read them.
+    /** Visual tile text: Dolby Vision spelled out, everything else as tagged. */
+    fun visualTile(tag: String): String =
+        if (NuvioCFeatures.OSD_BADGE_NAMES && tag == "DV") "DOLBY VISION" else tag
+
+    /** Audio tile text: Atmos spelled out ("DOLBY ATMOS 7.1"), everything else unchanged. */
+    fun audioDisplay(tile: String): String =
+        if (NuvioCFeatures.OSD_BADGE_NAMES && tile.startsWith("ATMOS")) "DOLBY $tile" else tile
+
+    /** Release name says IMAX (incl. "IMAX Enhanced"). */
+    fun isImax(names: String): Boolean = nuvioCRe("""(\b|[._ -])imax(\b|[._ -])""").containsMatchIn(names.lowercase(Locale.US))
 
     fun sizeLabel(bytes: Long?): String? {
         val b = bytes?.takeIf { it > 0 } ?: return null
@@ -784,8 +798,14 @@ internal fun nuvioCAboveSeekBar(anchor: NuvioCOsdAnchor, controlsVisible: Boolea
  * a new subtitle track), then fades out; the alpha is read at draw time, so no recomposition.
  */
 @Composable
-internal fun Modifier.nuvioCFocusLabel(focused: Boolean, label: String): Modifier {
-    if (!NuvioCFeatures.OSD_FOCUS_LABEL) return this
+internal fun Modifier.nuvioCFocusLabel(
+    focused: Boolean,
+    label: String,
+    enabled: Boolean = NuvioCFeatures.OSD_FOCUS_LABEL,
+    above: Boolean = false, // [fork] round 27: details page draws it over the button
+    osdDim: Boolean = true // HDR dim only applies in the player
+): Modifier {
+    if (!enabled) return this
     // round 14: only the focused button carries a text measurer, fade timer and draw step; the other
     // buttons of the row add nothing (the label already vanished at once on focus loss).
     if (!focused && NuvioCFeatures.OSD_FOCUS_LABEL_SHARED) return this
@@ -793,7 +813,7 @@ internal fun Modifier.nuvioCFocusLabel(focused: Boolean, label: String): Modifie
     val style = MaterialTheme.typography.labelSmall.copy(
         fontSize = 10.sp,
         fontWeight = FontWeight.Medium,
-        color = nuvioCOsd(Color.White.copy(alpha = 0.85f)) // HDR dim
+        color = if (osdDim) nuvioCOsd(Color.White.copy(alpha = 0.85f)) else Color.White.copy(alpha = 0.85f) // HDR dim (player only)
     )
     val alpha = remember { androidx.compose.animation.core.Animatable(0f) }
     LaunchedEffect(focused, label) {
@@ -814,7 +834,10 @@ internal fun Modifier.nuvioCFocusLabel(focused: Boolean, label: String): Modifie
             if (text != null && a > 0f) {
                 drawText(
                     textLayoutResult = text,
-                    topLeft = Offset((size.width - text.size.width) / 2f, size.height + gap),
+                    topLeft = Offset(
+                        (size.width - text.size.width) / 2f,
+                        if (above) -gap - text.size.height else size.height + gap
+                    ),
                     alpha = a
                 )
             }

@@ -1156,20 +1156,20 @@ private fun ProfileCard(
     }
     val itemScale = 1f + (0.04f * focusProgress)
     val avatarSize = androidx.compose.ui.unit.lerp(
-        if (compact) ProfileSelectionSpacing.CompactAvatarSize else 96.dp,
-        if (compact) ProfileSelectionSpacing.CompactFocusedAvatarSize else 102.dp,
+        (if (compact) ProfileSelectionSpacing.CompactAvatarSize else 96.dp).nuvioCAvatar() /* [fork] profile_avatar_small */,
+        (if (compact) ProfileSelectionSpacing.CompactFocusedAvatarSize else 102.dp).nuvioCAvatar() /* [fork] profile_avatar_small */,
         focusProgress
     )
     val outerAvatarSize = androidx.compose.ui.unit.lerp(
-        if (compact) ProfileSelectionSpacing.CompactOuterAvatarSize else 114.dp,
-        if (compact) ProfileSelectionSpacing.CompactFocusedOuterAvatarSize else 122.dp,
+        (if (compact) ProfileSelectionSpacing.CompactOuterAvatarSize else 114.dp).nuvioCAvatar() /* [fork] profile_avatar_small */,
+        (if (compact) ProfileSelectionSpacing.CompactFocusedOuterAvatarSize else 122.dp).nuvioCAvatar() /* [fork] profile_avatar_small */,
         focusProgress
     )
     val ringWidth = androidx.compose.ui.unit.lerp(NuvioTheme.spacing.hairline, 3.dp, focusProgress)
     // [fork] profile_clean (2026-10-12): the picture fills the ring's circle (no gap between them) and
     // is decoded at its largest drawn size (focused size x the 1.04 card zoom), so it stays sharp.
     val nuvioCFlush = com.nuvio.tv.NuvioCFeatures.PROFILE_CLEAN && LocalNuvioCProfileClean.current
-    val nuvioCDecodeSize = (if (compact) ProfileSelectionSpacing.CompactFocusedOuterAvatarSize else 122.dp) * 1.04f
+    val nuvioCDecodeSize = ((if (compact) ProfileSelectionSpacing.CompactFocusedOuterAvatarSize else 122.dp).nuvioCAvatar() /* [fork] profile_avatar_small */) * 1.04f
     val nameColor = lerp(
         NuvioTheme.colors.TextSecondary,
         NuvioTheme.colors.TextPrimary,
@@ -1238,8 +1238,8 @@ private fun ProfileCard(
     ) {
         Box(
             modifier = Modifier.size(
-                if (compact) ProfileSelectionSpacing.CompactAvatarContainer
-                else ProfileSelectionSpacing.AvatarContainer
+                (if (compact) ProfileSelectionSpacing.CompactAvatarContainer
+                else ProfileSelectionSpacing.AvatarContainer).nuvioCAvatar() // [fork] profile_avatar_small
             ),
             contentAlignment = Alignment.Center
         ) {
@@ -1355,8 +1355,8 @@ private fun AddProfileCard(
     )
     val itemScale = 1f + (0.04f * focusProgress)
     val outerAvatarSize = androidx.compose.ui.unit.lerp(
-        if (compact) ProfileSelectionSpacing.CompactOuterAvatarSize else 114.dp,
-        if (compact) ProfileSelectionSpacing.CompactFocusedOuterAvatarSize else 122.dp,
+        (if (compact) ProfileSelectionSpacing.CompactOuterAvatarSize else 114.dp).nuvioCAvatar() /* [fork] profile_avatar_small */,
+        (if (compact) ProfileSelectionSpacing.CompactFocusedOuterAvatarSize else 122.dp).nuvioCAvatar() /* [fork] profile_avatar_small */,
         focusProgress
     )
     val ringWidth = androidx.compose.ui.unit.lerp(NuvioTheme.spacing.hairline, 3.dp, focusProgress)
@@ -1409,8 +1409,8 @@ private fun AddProfileCard(
     ) {
         Box(
             modifier = Modifier.size(
-                if (compact) ProfileSelectionSpacing.CompactAvatarContainer
-                else ProfileSelectionSpacing.AvatarContainer
+                (if (compact) ProfileSelectionSpacing.CompactAvatarContainer
+                else ProfileSelectionSpacing.AvatarContainer).nuvioCAvatar() // [fork] profile_avatar_small
             ),
             contentAlignment = Alignment.Center
         ) {

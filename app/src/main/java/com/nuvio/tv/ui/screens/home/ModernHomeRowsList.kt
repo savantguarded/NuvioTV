@@ -221,7 +221,7 @@ internal fun ModernHomeRowsList(
     val latestOnRequestLazyCatalogLoad = rememberUpdatedState(onRequestLazyCatalogLoad)
     val latestCarouselRowsForLazy = rememberUpdatedState(carouselRows)
     LaunchedEffect(verticalRowListState) {
-        val prefetchAheadForLazy = 2
+        val prefetchAheadForLazy = if (com.nuvio.tv.NuvioCFeatures.HOME_CATALOG_SWEEP) 3 else 2 // [fork] round 27
         snapshotFlow {
             val info = verticalRowListState.layoutInfo
             val firstVisible = info.visibleItemsInfo.firstOrNull()?.index ?: -1

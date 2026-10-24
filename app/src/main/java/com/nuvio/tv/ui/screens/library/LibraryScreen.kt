@@ -103,6 +103,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.nuvio.tv.ui.components.PosterCardDefaults
 import com.nuvio.tv.domain.model.localizedTitle
+import com.nuvio.tv.NuvioCFeatures
 import com.nuvio.tv.ui.components.LoadingIndicator
 import com.nuvio.tv.ui.components.NuvioDialog
 import com.nuvio.tv.ui.theme.NuvioTheme
@@ -172,6 +173,10 @@ fun LibraryScreen(
         visibleItemKeys.associateWith { FocusRequester() }
     }
     val layoutDirection = LocalLayoutDirection.current
+    // [fork] round 27 library_random: picker + the title on show
+    val nuvioCRandomPicker = remember { NuvioCRandomPicker() }
+    var nuvioCRandomItem by remember { mutableStateOf<com.nuvio.tv.domain.model.LibraryEntry?>(null) }
+    var nuvioCRandomToken by remember { mutableStateOf(0) }
     val firstVisiblePosterKey = visibleItemKeys.firstOrNull()
     val firstVisibleCardKey = visibleItemKeys.let { keys ->
         if (layoutDirection == LayoutDirection.Rtl) {
@@ -413,6 +418,9 @@ fun LibraryScreen(
                     selectedWatchedFilter = uiState.selectedWatchedFilter,
                     primaryFocusRequester = selectorFocusRequester,
                     upFocusRequester = primaryFocusRequester,
+                    // [fork] library_down_first: the last header row sends Down to the first poster
+                    lastRowModifier = if (nuvioCActionsRowShown(uiState)) Modifier
+                        else Modifier.nuvioCDownToFirst { firstVisibleCardKey?.let { posterFocusRequesters[it] } },
                     expandedPicker = expandedPicker,
                     onExpandedChange = { picker, shouldExpand ->
                         expandedPicker = if (shouldExpand) picker else null
@@ -444,14 +452,21 @@ fun LibraryScreen(
                 )
             }
 
-            if (uiState.listManagement != null && uiState.isTrackingAuthenticated) {
+            if (nuvioCActionsRowShown(uiState)) { // [fork] round 27: also shown for Random pick alone
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     LibraryActionsRow(
                         pending = uiState.pendingOperation,
                         isSyncing = uiState.isSyncing,
                         showManageLists = uiState.listManagement != null,
                         onManageLists = viewModel::onOpenManageLists,
-                        onRefresh = viewModel::onRefresh
+                        onRefresh = viewModel::onRefresh,
+                        showSync = uiState.listManagement != null && uiState.isTrackingAuthenticated,
+                        showRandom = NuvioCFeatures.LIBRARY_RANDOM && uiState.visibleItems.isNotEmpty(),
+                        onRandom = {
+                            nuvioCRandomItem = nuvioCRandomPicker.pick(uiState.visibleItems)
+                            nuvioCRandomToken++
+                        },
+                        modifier = Modifier.nuvioCDownToFirst { firstVisibleCardKey?.let { posterFocusRequesters[it] } }
                     )
                 }
             }
@@ -615,6 +630,25 @@ fun LibraryScreen(
         }
 
         item(span = { GridItemSpan(maxLineSpan) }) { Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm)) }
+    }
+
+    nuvioCRandomItem?.let { pick -> // [fork] round 27 library_random
+        NuvioCRandomPickDialog(
+            item = pick,
+            subtitle = uiState.listTabs.firstOrNull { it.key == uiState.selectedListKey }?.localizedTitle(),
+            pool = uiState.visibleItems,
+            pickToken = nuvioCRandomToken,
+            onPickAgain = {
+                nuvioCRandomItem = nuvioCRandomPicker.pick(uiState.visibleItems) ?: pick
+                nuvioCRandomToken++
+            },
+            onOpen = {
+                nuvioCRandomItem = null
+                HeroBackdropState.update(viewModel.getCachedBackdrop(pick.id, pick.type))
+                onNavigateToDetail(pick.id, pick.type, pick.addonBaseUrl)
+            },
+            onDismiss = { nuvioCRandomItem = null }
+        )
     }
 
     if (uiState.showManageDialog && uiState.listManagement != null) {
@@ -1164,6 +1198,7 @@ private fun LibrarySelectorsRow(
     selectedWatchedFilter: LibraryWatchedFilter,
     primaryFocusRequester: FocusRequester,
     upFocusRequester: FocusRequester,
+    lastRowModifier: Modifier = Modifier, // [fork] library_down_first
     expandedPicker: String?,
     onExpandedChange: (String, Boolean) -> Unit,
     onSelectList: (String) -> Unit,
@@ -1252,7 +1287,7 @@ private fun LibrarySelectorsRow(
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = lastRowModifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
         ) {
             if (genres.isNotEmpty()) {
@@ -1505,13 +1540,17 @@ private fun LibraryActionsRow(
     isSyncing: Boolean,
     showManageLists: Boolean,
     onManageLists: () -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    showSync: Boolean = true, // [fork] round 27
+    showRandom: Boolean = false, // [fork] round 27 library_random
+    onRandom: () -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
     ) {
-        if (showManageLists) {
+        if (showManageLists && showSync) {
             Button(
                 onClick = onManageLists,
                 enabled = !pending && !isSyncing,
@@ -1523,7 +1562,7 @@ private fun LibraryActionsRow(
                 Text(stringResource(R.string.library_manage_lists))
             }
         }
-        Button(
+        if (showSync) Button(
             onClick = onRefresh,
             enabled = !pending && !isSyncing,
             colors = ButtonDefaults.colors(
@@ -1533,8 +1572,14 @@ private fun LibraryActionsRow(
         ) {
             Text(if (isSyncing) stringResource(R.string.library_syncing_btn) else stringResource(R.string.library_sync_btn))
         }
+        if (showRandom) NuvioCRandomPickButton(enabled = true, onClick = onRandom) // [fork] library_random
     }
 }
+
+/** [fork] round 27: the actions row shows for Manage lists / Sync (official) or for Random pick. */
+private fun nuvioCActionsRowShown(uiState: LibraryUiState): Boolean =
+    (uiState.listManagement != null && uiState.isTrackingAuthenticated) ||
+        (NuvioCFeatures.LIBRARY_RANDOM && uiState.visibleItems.isNotEmpty())
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable

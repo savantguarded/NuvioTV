@@ -450,7 +450,23 @@ internal fun CalendarRoundButton(
 /** The focused title's logo, episode, when, where, rating and summary, the way Home shows its hero. */
 @Composable
 private fun CalendarWeekHero(row: CalendarRow, details: CalendarRowDetails?, formats: CalendarFormats, today: LocalDate) {
+    val fixed = com.nuvio.tv.NuvioCFeatures.CALENDAR_WEEK_FIXED_HERO // [fork] round 27 calendar_week_fixed_hero
     Column(Modifier.width(560.dp)) {
+        if (fixed) {
+            // One 48 dp box for the logo or the text title (one line, sitting on the box's bottom edge),
+            // so a title without a logo, or a long two-line name, no longer moves the poster rows.
+            Box(Modifier.height(48.dp).width(560.dp), contentAlignment = Alignment.BottomStart) {
+                CalendarLogo(
+                    logo = row.logo ?: details?.logo,
+                    name = row.name,
+                    height = 48.dp,
+                    maxWidth = 300.dp,
+                    textStyle = MaterialTheme.typography.headlineMedium,
+                    alignment = Alignment.CenterStart,
+                    maxTitleLines = 1
+                )
+            }
+        } else
         CalendarLogo(
             logo = row.logo ?: details?.logo,
             name = row.name,
@@ -468,6 +484,13 @@ private fun CalendarWeekHero(row: CalendarRow, details: CalendarRowDetails?, for
             overflow = TextOverflow.Ellipsis
         )
         Spacer(Modifier.height(4.dp))
+        if (fixed) {
+            // The meta line keeps its height even when it has nothing to say.
+            Box {
+                Text(text = " ", style = CalendarText.heroMeta, maxLines = 1) // holds one line's height
+                CalendarMetaLine(row, details, formats, today, style = CalendarText.heroMeta, withRating = !com.nuvio.tv.NuvioCFeatures.CALENDAR_WEEK_NO_RATING)
+            }
+        } else
         CalendarMetaLine(row, details, formats, today, style = CalendarText.heroMeta, withRating = !com.nuvio.tv.NuvioCFeatures.CALENDAR_WEEK_NO_RATING) // [fork] calendar_week_no_rating
         Spacer(Modifier.height(6.dp))
         Text(

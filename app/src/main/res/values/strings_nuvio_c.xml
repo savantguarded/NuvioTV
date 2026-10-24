@@ -43,4 +43,8 @@
     <string name="nuvio_c_layout_preset_extra_large">Extra large</string>
     <string name="nuvio_c_trakt_last_disconnect">Last disconnected %1$s</string>
     <string name="nuvio_c_update_installing">After you confirm, Nuvio C closes while Android installs and optimises the update (about a minute), then opens again.</string>
+    <!-- round 27 -->
+    <string name="nuvio_c_random_pick">Random pick</string>
+    <string name="nuvio_c_random_pick_again">Pick again</string>
+    <string name="nuvio_c_random_open">Open</string>
 </resources>

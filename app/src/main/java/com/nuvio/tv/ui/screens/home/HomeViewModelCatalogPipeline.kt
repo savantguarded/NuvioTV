@@ -296,8 +296,11 @@ internal suspend fun HomeViewModel.loadAllCatalogsPipeline(
             _uiState.first { it.layoutPreferencesReady }
         }
         val isGridLayout = _uiState.value.homeLayout == HomeLayout.GRID
-        val eagerHomeCatalogs = if (isGridLayout) catalogsToLoad else catalogsToLoad.take(eagerCatalogLoadCount)
-        val lazyHomeCatalogs = if (isGridLayout) emptyList() else catalogsToLoad.drop(eagerCatalogLoadCount)
+        // [fork] round 27 home_catalog_sweep: rows load in the order they appear on Home (official: addon order)
+        val nuvioCOrdered = if (isGridLayout) catalogsToLoad else nuvioCDisplayOrder(catalogsToLoad)
+        val nuvioCEager = if (com.nuvio.tv.NuvioCFeatures.HOME_CATALOG_SWEEP) NUVIO_C_EAGER_CATALOGS else eagerCatalogLoadCount
+        val eagerHomeCatalogs = if (isGridLayout) catalogsToLoad else nuvioCOrdered.take(nuvioCEager)
+        val lazyHomeCatalogs = if (isGridLayout) emptyList() else nuvioCOrdered.drop(nuvioCEager)
 
         // Build placeholder descriptors for lazy catalogs
         synchronized(catalogStateLock) {
@@ -344,6 +347,7 @@ internal suspend fun HomeViewModel.loadAllCatalogsPipeline(
         // Immediately schedule an update so placeholder rows appear in the UI
         // while catalogs are still loading.
         scheduleUpdateCatalogRows()
+        nuvioCStartCatalogSweep(generation) // [fork] round 27 home_catalog_sweep
 
         // Safety flush: if catalogs trickle in slowly (e.g., slow addons),
         // ensure the user sees whatever content is available within a
@@ -413,7 +417,7 @@ internal fun HomeViewModel.loadCatalogPipeline(
     isRefresh: Boolean = false,
     requestedByUser: Boolean = false,
     forceReplace: Boolean = false
-) {
+): kotlinx.coroutines.Job { // [fork] round 27: returns the job (catalog sweep waits on it)
     val loadJob = viewModelScope.launch {
         var hasCountedCompletion = false
         catalogLoadSemaphore.withPermit {
@@ -511,6 +515,7 @@ internal fun HomeViewModel.loadCatalogPipeline(
         }
     }
     registerCatalogLoadJob(loadJob)
+    return loadJob
 }
 
 internal fun HomeViewModel.loadMoreCatalogItemsPipeline(catalogId: String, addonId: String, type: String) {

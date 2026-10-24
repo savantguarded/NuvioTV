@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- [fork] Nuvio C round 27 startup_morph: the start-up screen's loader. A small white shape that turns while
+     morphing circle -> soft square -> circle (Android 16's own loading style). An AnimatedVectorDrawable in an
+     ImageView, so Android's render thread plays it: rotation, scale and path morphing are all render-thread
+     properties, so a busy app can't freeze it. Both shapes are four cubic curves, so they morph point for point. -->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="28dp"
+            android:height="28dp"
+            android:viewportWidth="32"
+            android:viewportHeight="32">
+            <group
+                android:name="spin"
+                android:pivotX="16"
+                android:pivotY="16">
+                <group
+                    android:name="pulse"
+                    android:pivotX="16"
+                    android:pivotY="16">
+                    <path
+                        android:name="shape"
+                        android:fillColor="#FFFFFF"
+                        android:fillAlpha="0.92"
+                        android:pathData="M16,4 C22.63,4 28,9.37 28,16 C28,22.63 22.63,28 16,28 C9.37,28 4,22.63 4,16 C4,9.37 9.37,4 16,4 Z" />
+                </group>
+            </group>
+        </vector>
+    </aapt:attr>
+
+    <target android:name="spin">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="rotation"
+                android:valueFrom="0"
+                android:valueTo="360"
+                android:duration="2400"
+                android:repeatCount="infinite"
+                android:repeatMode="restart"
+                android:interpolator="@android:interpolator/fast_out_slow_in" />
+        </aapt:attr>
+    </target>
+
+    <target android:name="pulse">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator
+                    android:propertyName="scaleX"
+                    android:valueFrom="1"
+                    android:valueTo="0.86"
+                    android:duration="1200"
+                    android:repeatCount="infinite"
+                    android:repeatMode="reverse"
+                    android:interpolator="@android:interpolator/fast_out_slow_in" />
+                <objectAnimator
+                    android:propertyName="scaleY"
+                    android:valueFrom="1"
+                    android:valueTo="0.86"
+                    android:duration="1200"
+                    android:repeatCount="infinite"
+                    android:repeatMode="reverse"
+                    android:interpolator="@android:interpolator/fast_out_slow_in" />
+            </set>
+        </aapt:attr>
+    </target>
+
+    <target android:name="shape">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="pathData"
+                android:valueType="pathType"
+                android:valueFrom="M16,4 C22.63,4 28,9.37 28,16 C28,22.63 22.63,28 16,28 C9.37,28 4,22.63 4,16 C4,9.37 9.37,4 16,4 Z"
+                android:valueTo="M16,5 C24.6,5 27,7.4 27,16 C27,24.6 24.6,27 16,27 C7.4,27 5,24.6 5,16 C5,7.4 7.4,5 16,5 Z"
+                android:duration="1200"
+                android:repeatCount="infinite"
+                android:repeatMode="reverse"
+                android:interpolator="@android:interpolator/fast_out_slow_in" />
+        </aapt:attr>
+    </target>
+</animated-vector>

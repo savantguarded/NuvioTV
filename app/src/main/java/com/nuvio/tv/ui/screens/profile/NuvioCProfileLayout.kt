@@ -445,3 +445,10 @@ internal fun NuvioCProfileLeftColumn(itemCount: Int, content: @Composable () -> 
         ) { content() }
     }
 }
+
+/** [fork] round 27 `profile_avatar_small`: on the "who's watching" screen (not Manage profiles) the profile
+ * pictures, their rings and boxes are 10% smaller (96 -> 86 dp, 102 -> 92 focused). */
+@Composable
+@androidx.compose.runtime.ReadOnlyComposable
+internal fun androidx.compose.ui.unit.Dp.nuvioCAvatar(): androidx.compose.ui.unit.Dp =
+    if (NuvioCFeatures.PROFILE_AVATAR_SMALL && LocalNuvioCProfileClean.current) this * 0.9f else this

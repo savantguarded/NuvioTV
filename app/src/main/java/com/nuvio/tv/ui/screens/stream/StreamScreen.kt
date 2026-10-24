@@ -2,6 +2,7 @@
 
 package com.nuvio.tv.ui.screens.stream
 
+import com.nuvio.tv.ui.screens.player.nuvioCChipTarget
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -816,7 +817,7 @@ private fun RightStreamSection(
         focusJob = scope.coroutineLaunch {
             withFrameNanos {}
             val targetRequester = if (addon == null) {
-                chipFocusRequesters.getOrNull(1)
+                chipFocusRequesters.getOrNull(nuvioCChipTarget(1, orderedAddonNames)) // [fork] single_source_chip_focus
             } else {
                 addonFocusRequesters[addon]
             }
@@ -854,7 +855,8 @@ private fun RightStreamSection(
         }
         trackedFirstStreamKey = firstStreamKey
     }
-    fun requestChipFocus(index: Int) {
+    fun requestChipFocus(requested: Int) {
+        val index = nuvioCChipTarget(requested, orderedAddonNames) // [fork] single_source_chip_focus
         if (index !in chipFocusRequesters.indices) return
         userMovedFromFirstResult = true
         focusJob?.cancel()

@@ -342,4 +342,28 @@ object NuvioCFeatures {
     const val NO_CRASH_REPORTING = true
     // Also round 26b, not a switch: release builds drop debug-level logging (proguard-rules.pro, "[fork] round 26b").
     // About 1,500 debug lines were written in the first 25 s of each launch; info, warning and error logs stay.
+
+    // ---- Round 27 (2026-10-25) ----
+    /** OSD badges: the Dolby Vision tile reads DOLBY VISION and Atmos reads DOLBY ATMOS (the tags behind them stay short for the HDR dim and badge rules); an IMAX tile when the release name says IMAX. Off = DV / ATMOS, no IMAX tile. */
+    const val OSD_BADGE_NAMES = true
+    /** Details page: the focused round button (library, watched, rate, trailer, shuffle) shows its name just above it for 2.5 s, like the player's buttons; the logo / tagline sit 7 dp higher to make room, nothing below moves. Off = no names. */
+    const val DETAIL_FOCUS_LABEL = true
+    /** Source picker: with one source (the "All" tab hidden), Up from the first stream and Down from Close land on that source's tab, so the tabs and Refresh can be reached again. Off = round 14 behaviour (focus went nowhere). */
+    const val SINGLE_SOURCE_CHIP_FOCUS = true
+    /** Library: Down from the list pickers or the Manage lists / Sync row always lands on the first poster (official picked whichever poster sat below the control). */
+    const val LIBRARY_DOWN_FIRST = true
+    /** Library: a Random pick button after Sync; it picks a title from what the page shows (list, type and filters), avoiding the last few picks, with Pick again and Open. Off = no button. */
+    const val LIBRARY_RANDOM = true
+    /** Calendar Week: the logo / title, meta line and summary at the top keep fixed heights, so the poster rows stay on one line whatever title is focused. Off = heights follow the text. */
+    const val CALENDAR_WEEK_FIXED_HERO = true
+    /** Profile screen: avatars and their rings 10% smaller (86 dp, 92 focused); names, gaps and layout unchanged. Off = 96 / 102 dp. */
+    const val PROFILE_AVATAR_SMALL = true
+    /** Ten more app fonts (Manrope, Figtree, Noto Sans, Nunito Sans, Public Sans, Schibsted Grotesk, Montserrat, Archivo, Familjen Grotesk, Bricolage Grotesque); the first five also as subtitle fonts. mpv gets only the chosen subtitle font. Off = round 3 font list. */
+    const val MORE_FONTS = true
+    /** Start-up: the profile screen dissolves into the start-up screen (300 ms) and Home fades in while settling from 104% to 100% (500 ms). Off = hard cut and plain 400 ms fade (official). */
+    const val STARTUP_SETTLE_TRANSITION = true
+    /** Start-up screen: the still logo with "by charles" beside it and a small shape that turns and morphs underneath (an animated vector run by Android's render thread, so it never stutters); no halo. Off = round 26c breathing halo. */
+    const val STARTUP_MORPH = true
+    /** Home: the first 8 catalogs load in the order the rows appear (official: the first 4 in addon order), then the rest load quietly in the background, one at a time, never ahead of a row you're looking at; Classic looks 3 rows ahead. Idea from ysosrs123's fork. Off = official lazy loading. */
+    const val HOME_CATALOG_SWEEP = true
 }

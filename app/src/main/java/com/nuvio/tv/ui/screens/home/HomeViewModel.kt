@@ -245,7 +245,10 @@ class HomeViewModel @Inject constructor(
     internal var currentHeroCatalogKeys: List<String> = emptyList()
     internal var catalogUpdateJob: Job? = null
     internal var hasRenderedFirstCatalog = false
-    internal val catalogLoadSemaphore = Semaphore(MAX_CATALOG_LOAD_CONCURRENCY)
+    internal val catalogLoadSemaphore = Semaphore(if (com.nuvio.tv.NuvioCFeatures.HOME_CATALOG_SWEEP) NUVIO_C_CATALOG_CONCURRENCY else MAX_CATALOG_LOAD_CONCURRENCY) // [fork] round 27
+    // [fork] round 27 home_catalog_sweep: background fill of the rows further down, and when focus last moved on Home
+    @Volatile internal var nuvioCCatalogSweepJob: kotlinx.coroutines.Job? = null
+    @Volatile internal var nuvioCLastFocusMs: Long = 0L
     internal var pendingCatalogLoads = 0
     internal val activeCatalogLoadJobs = mutableSetOf<Job>()
     internal var activeCatalogLoadSignature: String? = null
@@ -607,7 +610,10 @@ class HomeViewModel @Inject constructor(
         apiType = apiType
     )
 
-    fun onItemFocus(item: MetaPreview) = onItemFocusPipeline(item)
+    fun onItemFocus(item: MetaPreview) {
+        nuvioCLastFocusMs = android.os.SystemClock.uptimeMillis() // [fork] home_catalog_sweep waits for a quiet moment
+        onItemFocusPipeline(item)
+    }
 
     fun preloadAdjacentItem(item: MetaPreview) = preloadAdjacentItemPipeline(item)
 
