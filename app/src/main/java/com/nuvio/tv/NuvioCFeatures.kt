@@ -362,8 +362,10 @@ object NuvioCFeatures {
     const val MORE_FONTS = true
     /** Start-up: the profile screen dissolves into the start-up screen (300 ms) and Home fades in while settling from 104% to 100% (500 ms). Off = hard cut and plain 400 ms fade (official). */
     const val STARTUP_SETTLE_TRANSITION = true
-    /** Start-up screen: the still logo with "by charles" beside it and a small shape that turns and morphs underneath (an animated vector run by Android's render thread, so it never stutters); no halo. Off = round 26c breathing halo. */
-    const val STARTUP_MORPH = true
+    /** Start-up screen: the still logo with a hairline turning arc underneath (an animated vector run by Android's render thread, so it never stutters); no halo. Off = round 26c breathing halo. */
+    const val STARTUP_ARC = true
+    /** Start-up: when the last launch went to the profile screen, the app opens straight onto it (black while the saved profiles load, at most 2 s), with no start-up screen flashing first; the start-up screen comes after the pick. Off = official (start-up screen first). */
+    const val STARTUP_TO_PROFILES = true
     /** Home: the first 8 catalogs load in the order the rows appear (official: the first 4 in addon order), then the rest load quietly in the background, one at a time, never ahead of a row you're looking at; Classic looks 3 rows ahead. Idea from ysosrs123's fork. Off = official lazy loading. */
     const val HOME_CATALOG_SWEEP = true
 }

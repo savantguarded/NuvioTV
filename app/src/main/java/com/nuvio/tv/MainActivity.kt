@@ -421,6 +421,16 @@ open class MainActivity : ComponentActivity() {
             // and whether the profile screen is still dissolving into it (it stays under the start-up screen until then).
             val nuvioCSplashAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
             var nuvioCDissolving by remember { mutableStateOf(false) }
+            // [fork] round 27b startup_to_profiles: when the last launch went to the profile screen, this one opens
+            // straight onto it. Official shows the start-up screen while the saved profiles load (the app briefly
+            // thinks there is one default profile), so it flashed before the profile screen.
+            val nuvioCPickerPrefs = remember { getSharedPreferences("startup_splash", android.content.Context.MODE_PRIVATE) }
+            val nuvioCExpectPicker = remember {
+                com.nuvio.tv.NuvioCFeatures.STARTUP_TO_PROFILES && nuvioCPickerPrefs.getBoolean("nuvioc_expect_picker", false)
+            }
+            var nuvioCPickerWaitOver by remember { mutableStateOf(!nuvioCExpectPicker) }
+            var nuvioCPickerShown by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) { if (!nuvioCPickerWaitOver) { kotlinx.coroutines.delay(2_000); nuvioCPickerWaitOver = true } }
             // Overrides splash background with the currently focused profile
             // so the splash matches the profile selection background.
             var focusedSplashColor by remember { mutableStateOf<String?>(null) }
@@ -812,8 +822,10 @@ open class MainActivity : ComponentActivity() {
                     val shouldShowProfileSelection =
                         (!hasSelectedProfileThisSession && (profiles.size > 1 || activeProfileHasPin)) ||
                             (nuvioCDissolving && splashTriggered) // [fork] startup_settle_transition: kept under the start-up screen while it fades in
+                    if (shouldShowProfileSelection && !nuvioCPickerWaitOver) androidx.compose.runtime.SideEffect { nuvioCPickerWaitOver = true } // [fork] the real profiles are in
 
                     if (shouldShowProfileSelection) {
+                        androidx.compose.runtime.SideEffect { nuvioCPickerShown = true } // [fork] startup_to_profiles
                         startupDestination = if (splashTriggered) StartupDestination.Loading else StartupDestination.ProfileSelection
                         ProfileSelectionScreen(
                             onProfileClicked = {
@@ -845,7 +857,8 @@ open class MainActivity : ComponentActivity() {
                     } else {
 
                     val layoutChosen = mainUiPrefs.hasChosenLayout
-                    val prefsLoading = layoutChosen == null || !mainUiPrefs.experienceModeLoaded || installedAddons == null
+                    val prefsLoading = layoutChosen == null || !mainUiPrefs.experienceModeLoaded || installedAddons == null ||
+                        (!nuvioCPickerWaitOver && !splashTriggered && !hasSelectedProfileThisSession) // [fork] startup_to_profiles: wait (black) for the saved profiles
                     if (!prefsLoading) {
                     val effectiveExperienceMode = mainUiPrefs.experienceMode
                         ?: if (layoutChosen) ExperienceMode.ADVANCED else null
@@ -1331,7 +1344,13 @@ open class MainActivity : ComponentActivity() {
                         enabled = startupSplashEnabled,
                         complete = startupLoadingState.complete && nuvioCSettled, // [fork] startup_settle
                         destination = startupDestination
-                    )
+                    ) && (nuvioCPickerWaitOver || splashTriggered || hasSelectedProfileThisSession) // [fork] startup_to_profiles
+                    // [fork] startup_to_profiles: remember whether this launch went through the profile screen
+                    LaunchedEffect(hasSelectedProfileThisSession) {
+                        if (com.nuvio.tv.NuvioCFeatures.STARTUP_TO_PROFILES && hasSelectedProfileThisSession) {
+                            nuvioCPickerPrefs.edit().putBoolean("nuvioc_expect_picker", nuvioCPickerShown).apply()
+                        }
+                    }
                     val nuvioCHolding = showSplash && startupLoadingState.complete // [fork] startup_settle
                     androidx.compose.runtime.SideEffect { com.nuvio.tv.core.nuvioc.NuvioCStartup.holdingKeys = nuvioCHolding }
                     val nuvioCSmooth = com.nuvio.tv.NuvioCFeatures.STARTUP_SETTLE_TRANSITION // [fork]

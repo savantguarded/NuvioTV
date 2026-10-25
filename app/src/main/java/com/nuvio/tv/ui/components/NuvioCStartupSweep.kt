@@ -77,12 +77,12 @@ fun NuvioCStartupBreathe(logoRes: Int, contentDescription: String?, modifier: Mo
 }
 
 /**
- * [fork] round 27 startup_morph: the still logo (same smooth bitmap, size and centre as round 26c) with
- * "by charles" hanging off its right edge on its baseline, so the logo itself never moves, and the morphing
- * loader centred underneath. The loader is an AnimatedVectorDrawable (render thread); nothing else animates.
+ * [fork] round 27 startup_arc (27b: no by-line, thin arc instead of the morph): the still logo (same smooth
+ * bitmap, size and centre as round 26c) with a hairline turning arc centred underneath. The arc is an
+ * AnimatedVectorDrawable played by the render thread; nothing else on the screen animates.
  */
 @Composable
-fun NuvioCStartupMorph(logoRes: Int, contentDescription: String?, modifier: Modifier = Modifier) {
+fun NuvioCStartupArc(logoRes: Int, contentDescription: String?, modifier: Modifier = Modifier) {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val context = androidx.compose.ui.platform.LocalContext.current
     val heightPx = with(density) { LOGO_HEIGHT.roundToPx() }
@@ -106,54 +106,31 @@ fun NuvioCStartupMorph(logoRes: Int, contentDescription: String?, modifier: Modi
             } else {
                 androidx.compose.foundation.layout.Box(Modifier.size(width = 150.dp, height = LOGO_HEIGHT))
             }
-            androidx.tv.material3.Text(
-                text = "by charles",
-                style = androidx.tv.material3.MaterialTheme.typography.titleMedium.copy(
-                    fontSize = 15.sp,
-                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-                    letterSpacing = 0.2.sp
-                ),
-                color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.68f),
-                maxLines = 1,
-                softWrap = false
-            )
             AndroidView(
                 factory = { ctx ->
                     ImageView(ctx).apply {
-                        val morph = ctx.getDrawable(R.drawable.nuvio_c_startup_morph)
-                        setImageDrawable(morph)
-                        (morph as? Animatable)?.start()
+                        val arc = ctx.getDrawable(R.drawable.nuvio_c_startup_arc)
+                        setImageDrawable(arc)
+                        (arc as? Animatable)?.start()
                     }
                 },
                 onRelease = { view -> (view.drawable as? Animatable)?.stop() },
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(30.dp)
             )
         }
     ) { measurables, constraints ->
         val loose = constraints.copy(minWidth = 0, minHeight = 0)
         val logoP = measurables[0].measure(loose)
-        val byP = measurables[1].measure(loose)
-        val loaderP = measurables[2].measure(loose)
+        val loaderP = measurables[1].measure(loose)
         val w = constraints.maxWidth
         val h = constraints.maxHeight
-        val logoX = (w - logoP.width) / 2
         val logoY = (h - logoP.height) / 2
-        val gap = 12.dp.roundToPx()
-        // The by-line's baseline sits a touch above the logo's bottom edge (the wordmark's letters end there).
-        val baseline = byP[androidx.compose.ui.layout.FirstBaseline].takeIf { it != androidx.compose.ui.layout.AlignmentLine.Unspecified } ?: byP.height
-        val byX = (logoX + logoP.width + gap).coerceAtMost(w - byP.width)
-        val byY = logoY + logoP.height - (logoP.height * BYLINE_BASELINE_LIFT).toInt() - baseline
-        val loaderY = logoY + logoP.height + 44.dp.roundToPx()
         layout(w, h) {
-            logoP.place(logoX, logoY)
-            byP.place(byX, byY)
-            loaderP.place((w - loaderP.width) / 2, loaderY)
+            logoP.place((w - logoP.width) / 2, logoY)
+            loaderP.place((w - loaderP.width) / 2, logoY + logoP.height + 44.dp.roundToPx())
         }
     }
 }
-
-/** Share of the logo's height between its bottom edge and the wordmark's baseline. */
-private const val BYLINE_BASELINE_LIFT = 0.06f
 
 private val LOGO_HEIGHT = 48.dp
 

@@ -97,8 +97,8 @@ fun StartupSplashScreen(
             )
         }
 
-        if (com.nuvio.tv.NuvioCFeatures.STARTUP_MORPH) { // [fork] round 27 startup_morph (replaces the halo)
-            NuvioCStartupMorph(
+        if (com.nuvio.tv.NuvioCFeatures.STARTUP_ARC) { // [fork] round 27 startup_arc (replaces the halo)
+            NuvioCStartupArc(
                 logoRes = brandWordmarkRes ?: NuvioTheme.currentTheme.brandWordmarkResource,
                 contentDescription = stringResource(R.string.cd_nuvio_logo),
                 modifier = Modifier.fillMaxSize()

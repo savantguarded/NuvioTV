@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- [fork] Nuvio C round 27b startup_arc: the start-up screen's loader. A hairline ring with one bright segment
+     turning. An AnimatedVectorDrawable in an ImageView, so Android's render thread plays it (rotation is a
+     render-thread property): a busy app can't freeze it. -->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+        <vector
+            android:width="30dp"
+            android:height="30dp"
+            android:viewportWidth="30"
+            android:viewportHeight="30">
+            <path
+                android:name="track"
+                android:strokeColor="#FFFFFF"
+                android:strokeAlpha="0.14"
+                android:strokeWidth="2"
+                android:pathData="M15,3 A12,12 0 1,1 14.99,3" />
+            <group
+                android:name="spin"
+                android:pivotX="15"
+                android:pivotY="15">
+                <path
+                    android:name="arc"
+                    android:strokeColor="#FFFFFF"
+                    android:strokeAlpha="0.92"
+                    android:strokeWidth="2"
+                    android:strokeLineCap="round"
+                    android:pathData="M15,3 A12,12 0 0,1 27,15" />
+            </group>
+        </vector>
+    </aapt:attr>
+
+    <target android:name="spin">
+        <aapt:attr name="android:animation">
+            <objectAnimator
+                android:propertyName="rotation"
+                android:valueFrom="0"
+                android:valueTo="360"
+                android:duration="900"
+                android:repeatCount="infinite"
+                android:repeatMode="restart"
+                android:interpolator="@android:interpolator/linear" />
+        </aapt:attr>
+    </target>
+</animated-vector>
