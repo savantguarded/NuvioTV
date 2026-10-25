@@ -417,15 +417,14 @@ private fun PersonRow(person: NuvioCCastPerson, itemKey: String, focusRequester:
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 // [fork] round 29: long names / characters scroll on focus, one line at a time, like the cast page
-                com.nuvio.tv.ui.screens.cast.NuvioCTurnTakingLines(
+                NuvioCCastLines(
                     title = person.name,
                     role = person.character,
                     focused = focused,
                     titleStyle = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                     roleStyle = MaterialTheme.typography.bodySmall,
-                    roleColor = NuvioTheme.colors.TextSecondary,
-                    titleTopPadding = 0.dp,
-                    sidePadding = 0.dp
+                    titleColor = NuvioTheme.colors.TextPrimary,
+                    roleColor = NuvioTheme.colors.TextSecondary
                 )
             }
         }
