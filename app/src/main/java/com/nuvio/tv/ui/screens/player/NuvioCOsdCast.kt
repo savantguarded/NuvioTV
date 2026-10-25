@@ -553,3 +553,31 @@ private fun PersonView(person: NuvioCCastPerson, bio: NuvioCCastBio?, loading: B
         }
     }
 }
+
+/**
+ * The Cast panel behaves like the Episodes / Sources panels: other overlays close, the controls stay up, the idle
+ * timers (controls hide, pause screen) hold off while it is open and start again when it closes.
+ */
+internal fun PlayerRuntimeController.onCastPanelChanged(open: Boolean) {
+    if (castPanelOpen == open) return
+    castPanelOpen = open
+    if (open) {
+        hideControlsJob?.cancel()
+        cancelPauseOverlay()
+        _uiState.update {
+            it.copy(
+                showControls = true,
+                showAudioOverlay = false,
+                showSubtitleOverlay = false,
+                showSubtitleStylePanel = false,
+                showSubtitleTimingDialog = false,
+                showSpeedDialog = false,
+                showMoreDialog = false
+            )
+        }
+    } else if (!_uiState.value.isPlaying && userPausedManually) {
+        schedulePauseOverlay()
+    } else {
+        scheduleHideControls()
+    }
+}
