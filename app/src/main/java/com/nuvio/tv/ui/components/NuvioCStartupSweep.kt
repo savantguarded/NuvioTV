@@ -85,8 +85,8 @@ fun NuvioCStartupBreathe(logoRes: Int, contentDescription: String?, modifier: Mo
 fun NuvioCStartupStatic(logoRes: Int, contentDescription: String?, modifier: Modifier = Modifier) {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val context = androidx.compose.ui.platform.LocalContext.current
-    val heightPx = with(density) { LOGO_HEIGHT.roundToPx() }
-    val logo = remember(logoRes, heightPx) { nuvioCSmoothBitmap(context.resources, logoRes, heightPx) }
+    val heightPx = with(density) { MARK_HEIGHT.roundToPx() }
+    val logo = remember(logoRes, heightPx) { nuvioCSmoothBitmap(context.resources, logoRes, heightPx, markOnly = true) }
     androidx.compose.foundation.layout.Box(modifier, contentAlignment = androidx.compose.ui.Alignment.Center) {
         if (logo != null) {
             val widthDp = with(density) { logo.width.toDp() }
@@ -106,12 +106,38 @@ fun NuvioCStartupStatic(logoRes: Int, contentDescription: String?, modifier: Mod
 }
 
 private val LOGO_HEIGHT = 48.dp
+private val MARK_HEIGHT = 84.dp // [fork] roulette_page round 29: icon-only start-up screen
+
+/**
+ * The wordmark image is the triangle icon followed by the "Nuvio" lettering. Keeps only the icon: everything up to
+ * the first fully transparent column after the icon begins (the gap before the lettering). Theme colours are kept.
+ */
+internal fun nuvioCCropToMark(source: android.graphics.Bitmap): android.graphics.Bitmap {
+    val w = source.width
+    val h = source.height
+    val pixels = IntArray(w * h)
+    source.getPixels(pixels, 0, w, 0, 0, w, h)
+    var seen = false
+    var end = w
+    for (x in 0 until w) {
+        var opaque = false
+        for (y in 0 until h) {
+            if ((pixels[y * w + x] ushr 24) > 8) { opaque = true; break }
+        }
+        if (opaque) seen = true else if (seen) { end = x; break }
+    }
+    if (end <= 0 || end >= w) return source
+    val cropped = android.graphics.Bitmap.createBitmap(source, 0, 0, end, h)
+    if (cropped !== source) source.recycle()
+    return cropped
+}
 
 /** Decodes [res] at full size and shrinks it to [targetHeight] px in halving steps (box-like averaging). */
-internal fun nuvioCSmoothBitmap(resources: android.content.res.Resources, res: Int, targetHeight: Int): android.graphics.Bitmap? =
+internal fun nuvioCSmoothBitmap(resources: android.content.res.Resources, res: Int, targetHeight: Int, markOnly: Boolean = false): android.graphics.Bitmap? =
     runCatching {
         val options = android.graphics.BitmapFactory.Options().apply { inScaled = false }
         var bitmap = android.graphics.BitmapFactory.decodeResource(resources, res, options) ?: return null
+        if (markOnly) bitmap = nuvioCCropToMark(bitmap)
         val targetWidth = (bitmap.width.toLong() * targetHeight / bitmap.height).toInt().coerceAtLeast(1)
         while (bitmap.height / 2 >= targetHeight) {
             val next = android.graphics.Bitmap.createScaledBitmap(bitmap, bitmap.width / 2, bitmap.height / 2, true)

@@ -258,6 +258,8 @@ class PlayerViewModel @Inject constructor(
         postPlayRecommendationController.returnToPlayer()
     }
 
+    fun onCastPanelChanged(open: Boolean) = controller.onCastPanelChanged(open) // [fork] roulette_page round 29
+
     fun scheduleHideControls() {
         controller.scheduleHideControls()
     }

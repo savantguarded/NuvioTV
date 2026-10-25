@@ -520,6 +520,7 @@ class PlayerRuntimeController(
     internal var nextEpisodePreloadJob: Job? = null
     internal var nextEpisodePreloadTriggered: Boolean = false
     internal var userPausedManually = false
+    internal var castPanelOpen = false // [fork] roulette_page round 29: the OSD Cast panel counts as an open panel
 
     internal var isInBackground: Boolean = false
     internal var pendingBackgroundCrashRecovery: Boolean = false

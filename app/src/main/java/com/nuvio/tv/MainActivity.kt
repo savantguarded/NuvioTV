@@ -1126,7 +1126,7 @@ open class MainActivity : ComponentActivity() {
                     val strNavLibrary = stringResource(R.string.nav_library)
                     val strNavSettings = stringResource(R.string.nav_settings)
                     val strNavCalendar = stringResource(R.string.nav_calendar)
-                    val strNavShuffle = stringResource(R.string.nuvio_c_shuffle) // [fork] shuffle_page
+                    val strNavShuffle = stringResource(R.string.nuvio_c_roulette) // [fork] shuffle_page (sidebar says Roulette, the action stays Shuffle)
                     val drawerItems = remember(
                         strNavHome,
                         strNavDiscover,
@@ -1184,7 +1184,7 @@ open class MainActivity : ComponentActivity() {
                                     DrawerItem(
                                         route = Screen.Shuffle.route,
                                         label = strNavShuffle,
-                                        icon = Icons.Default.Shuffle
+                                        icon = com.nuvio.tv.ui.components.NuvioCIcons.Dice
                                     )
                                 )
                             }
@@ -1884,6 +1884,8 @@ private fun LegacySidebarScaffold(
                     ) {
                         if (focusManager.moveFocus(if (isRtl) FocusDirection.Right else FocusDirection.Left)) {
                             true
+                        } else if (currentRoute == Screen.Shuffle.route && keyEvent.nativeKeyEvent.repeatCount > 0) {
+                            true // [fork] roulette_page: a held Left stops at the edge; a fresh press is needed to open the sidebar
                         } else {
                             pendingSidebarFocusRequest = true
                             drawerState.setValue(DrawerValue.Open)
@@ -2283,6 +2285,8 @@ private fun ModernSidebarScaffold(
                         if (keyEvent.key == openKey) {
                             if (focusManager.moveFocus(if (isRtl) FocusDirection.Right else FocusDirection.Left)) {
                                 true
+                            } else if (currentRoute == Screen.Shuffle.route && keyEvent.nativeKeyEvent.repeatCount > 0) {
+                                true // [fork] roulette_page: a held Left stops at the edge; a fresh press is needed to open the sidebar
                             } else {
                                 isSidebarExpanded = true
                                 sidebarCollapsePending = false

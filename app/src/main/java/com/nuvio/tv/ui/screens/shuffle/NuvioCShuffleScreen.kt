@@ -51,6 +51,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -134,24 +135,28 @@ private fun ShuffleMood(
     onSources: () -> Unit
 ) {
     val tileRequesters = remember { NuvioCShuffleKind.entries.associateWith { FocusRequester() } }
-    LaunchedEffect(Unit) { tileRequesters[ui.kind]?.requestFocusAfterFrames() }
-    Column(Modifier.fillMaxSize().padding(start = EDGE, end = EDGE, top = 32.dp, bottom = 28.dp)) {
+    LaunchedEffect(Unit) { tileRequesters.getValue(NuvioCShuffleKind.MOVIES).requestFocusAfterFrames() } // [fork] roulette_page: always lands on Movies
+    Column(Modifier.fillMaxSize().padding(start = EDGE, end = EDGE, top = 28.dp, bottom = 24.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(painterResource(R.drawable.nuvio_c_ic_dice), contentDescription = null, tint = NuvioTheme.colors.TextPrimary, modifier = Modifier.size(32.dp))
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = stringResource(R.string.nuvio_c_shuffle_title),
+                style = MaterialTheme.typography.headlineMedium,
+                color = NuvioTheme.colors.TextPrimary,
+                maxLines = 1
+            )
+        }
         Text(
-            text = stringResource(R.string.nuvio_c_shuffle_title),
-            style = MaterialTheme.typography.headlineMedium,
-            color = NuvioTheme.colors.TextPrimary,
-            maxLines = 1
-        )
-        Text(
-            text = if (ui.nothingLeft) stringResource(R.string.nuvio_c_shuffle_nothing_left) else " ",
+            text = if (ui.nothingLeft) stringResource(R.string.nuvio_c_shuffle_nothing_left) else stringResource(R.string.nuvio_c_shuffle_title_sub),
             style = MaterialTheme.typography.bodyMedium,
             color = NuvioTheme.colors.TextSecondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 4.dp)
         )
-        Spacer(Modifier.height(14.dp))
-        Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             NuvioCShuffleKind.entries.forEach { kind ->
                 ShuffleTile(
                     kind = kind,
@@ -198,15 +203,15 @@ private fun ShuffleTile(
 ) {
     var focused by remember { mutableStateOf(false) }
     val spread by animateFloatAsState(if (focused) 1f else 0f, tween(320), label = "fan")
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(24.dp)
     Card(
         onClick = onClick,
         modifier = modifier.focusRequester(requester).onFocusChanged { focused = it.isFocused },
         shape = CardDefaults.shape(shape),
-        scale = CardDefaults.scale(focusedScale = 1.03f),
+        scale = CardDefaults.scale(focusedScale = 1.04f),
         colors = CardDefaults.colors(
-            containerColor = Color.White.copy(alpha = 0.04f),
-            focusedContainerColor = Color.White.copy(alpha = 0.09f)
+            containerColor = Color.White.copy(alpha = 0.05f),
+            focusedContainerColor = Color.White.copy(alpha = 0.11f)
         ),
         border = CardDefaults.border(
             border = Border(androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.07f)), shape = shape),
@@ -214,19 +219,22 @@ private fun ShuffleTile(
         )
     ) {
         Column(
-            Modifier.fillMaxSize().padding(start = 14.dp, end = 14.dp, top = 18.dp, bottom = 16.dp),
+            Modifier
+                .fillMaxSize()
+                .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.0f), Color.White.copy(alpha = 0.05f))))
+                .padding(start = 14.dp, end = 14.dp, top = 16.dp, bottom = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             BoxWithConstraints(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.BottomCenter) {
                 // Poster size from the space actually there, so all three posters always fit inside the tile.
-                val h = minOf(maxHeight * 0.9f, maxWidth * 0.40f * 1.5f)
+                val h = minOf(maxHeight * 0.94f, maxWidth * 0.43f * 1.5f)
                 val w = h * (2f / 3f)
                 Fan(posters = posters, width = w, height = h, spread = { spread })
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
             Text(
                 text = kindLabel(kind),
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = NuvioTheme.colors.TextPrimary,
                 maxLines = 1
@@ -406,8 +414,9 @@ private fun ShuffleStage(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            Icon(painterResource(R.drawable.nuvio_c_ic_dice), contentDescription = null, tint = NuvioTheme.colors.TextPrimary, modifier = Modifier.size(26.dp))
             Text(
-                text = stringResource(R.string.nuvio_c_shuffle),
+                text = stringResource(R.string.nuvio_c_roulette), // [fork] roulette_page: the section is Roulette, the action stays Shuffle
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
                 color = NuvioTheme.colors.TextPrimary,
@@ -429,6 +438,8 @@ private fun ShuffleStage(
                     .graphicsLayer {
                         alpha = bodyIn
                         translationY = (1f - bodyIn) * 14.dp.toPx()
+                        // No offscreen buffer: one would clip the focused button's grow and border while it fades in.
+                        compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
                     },
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
@@ -459,7 +470,10 @@ private fun ShuffleStage(
                     Text(meta, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 item.description?.let {
-                    Text(it, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.66f), maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    // [fork] same size as the details page description, up to six lines
+                    val base = MaterialTheme.typography.bodyMedium
+                    val style = if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.detailSynopsisStyle(base) else base
+                    Text(it, style = style, color = Color.White.copy(alpha = 0.66f), maxLines = 6, overflow = TextOverflow.Ellipsis)
                 }
                 Text(
                     text = stringResource(R.string.nuvio_c_shuffle_from, item.from),
@@ -492,7 +506,7 @@ private fun ShuffleStage(
                             focusedContentColor = Color.Black
                         )
                     ) {
-                        Icon(Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(painterResource(R.drawable.nuvio_c_ic_shuffle), contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(stringResource(R.string.nuvio_c_shuffle_again))
                     }
@@ -514,7 +528,7 @@ private fun kindLabel(kind: NuvioCShuffleKind): String = stringResource(
 @Composable
 private fun kindHint(kind: NuvioCShuffleKind): String = stringResource(
     when (kind) {
-        NuvioCShuffleKind.MOVIES -> R.string.nuvio_c_shuffle_movies_hint
+        NuvioCShuffleKind.MOVIES -> movieHintForNow() // [fork] roulette_page: wording follows the time of day
         NuvioCShuffleKind.SHOWS -> R.string.nuvio_c_shuffle_shows_hint
         NuvioCShuffleKind.EITHER -> R.string.nuvio_c_shuffle_either_hint
     }
@@ -531,3 +545,16 @@ private fun moodLabel(mood: NuvioCShuffleMood): String = stringResource(
         NuvioCShuffleMood.MIND_BENDING -> R.string.nuvio_c_shuffle_mood_mind_bending
     }
 )
+
+/** Five time bands for the Movies tile: morning 5-11, afternoon 12-16, evening 17-20, night 21-23, late 0-4. */
+@Composable
+private fun movieHintForNow(): Int {
+    val hour = remember { java.time.LocalTime.now().hour }
+    return when (hour) {
+        in 5..11 -> R.string.nuvio_c_shuffle_movies_hint_morning
+        in 12..16 -> R.string.nuvio_c_shuffle_movies_hint_afternoon
+        in 17..20 -> R.string.nuvio_c_shuffle_movies_hint_evening
+        in 21..23 -> R.string.nuvio_c_shuffle_movies_hint
+        else -> R.string.nuvio_c_shuffle_movies_hint_late
+    }
+}

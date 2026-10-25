@@ -33,8 +33,8 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - Background trailers: muted by default, pause behind popups and other pages, skipped for titles you've started, no stutter as they start.
 - IMDb trailers only when YouTube rate-limits or only offers low quality (one small request, no hidden browser, never during playback).
 
-**Shuffle**
-- **Shuffle** in the sidebar (idea from [TitansparkDev's fork](https://github.com/TitansparkDev/NuvioTV)): pick Movies, Shows or Either, a mood (Feel-good, Gripping, Funny, Dark, Mind-bending) and Unwatched, and a poster reel glides to a random pick with Open and Shuffle again. Picks come from a Blend you set in Settings > Layout > Shuffle: For you (recommendations from your recent watches and top ratings), Trakt recommendations, add-on catalogs, Home rows and Library, each Off or ×1 to ×3. Truly random, skipping your last 40 picks, films not yet out to stream, and (with Unwatched) anything you've watched or started.
+**Roulette**
+- **Roulette** in the sidebar (idea from [TitansparkDev's fork](https://github.com/TitansparkDev/NuvioTV)): pick Movies, Shows or Either, a mood (Feel-good, Gripping, Funny, Dark, Mind-bending) and Unwatched, and a poster reel glides to a random pick with Open and Shuffle again. Picks come from a Blend you set on the Roulette screen (Blend chip): For you (recommendations from your recent watches and top ratings), Trakt recommendations, add-on catalogs, Home rows and Library, each Off or ×1 to ×3. Settings > Layout > Roulette only has the sidebar switch and Refresh picks. The Movies tile wording follows the time of day. Truly random, skipping your last 40 picks, films not yet out to stream, and (with Unwatched) anything you've watched or started.
 
 **Library and cast**
 - Watched tab for Trakt, MDBList and Simkl.

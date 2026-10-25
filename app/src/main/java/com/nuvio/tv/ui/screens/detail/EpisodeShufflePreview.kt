@@ -165,7 +165,7 @@ internal fun EpisodeShufflePreview(
                                 onClick = { if (!starting) onShuffleAgain() },
                                 modifier = Modifier.focusProperties { up = backFocus; down = FocusRequester.Cancel }
                             ) {
-                                Icon(Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Icon(com.nuvio.tv.ui.components.NuvioCIcons.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
                                 Text(stringResource(R.string.shuffle_again), modifier = Modifier.padding(start = 8.dp))
                             }
                         }
@@ -216,7 +216,7 @@ private fun ShuffleEpisodeArtwork(episode: Video, isWatched: Boolean, hidden: Bo
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(if (hidden) Icons.Default.VisibilityOff else Icons.Default.Shuffle, contentDescription = null,
+            Icon(if (hidden) Icons.Default.VisibilityOff else com.nuvio.tv.ui.components.NuvioCIcons.Shuffle, contentDescription = null,
                 tint = NuvioTheme.colors.TextSecondary, modifier = Modifier.size(48.dp))
             if (hidden) Text(stringResource(R.string.shuffle_artwork_hidden), style = MaterialTheme.typography.bodySmall,
                 color = NuvioTheme.colors.TextSecondary)

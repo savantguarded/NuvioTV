@@ -36,7 +36,7 @@ internal fun ShuffleButton(
             .onFocusChanged { if (it.isFocused) onFocused() }
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(if (active) Icons.Default.Stop else Icons.Default.Shuffle, null, Modifier.size(18.dp))
+            Icon(if (active) Icons.Default.Stop else com.nuvio.tv.ui.components.NuvioCIcons.Shuffle, null, Modifier.size(18.dp))
             Text(stringResource(if (active) R.string.shuffle_stop else R.string.random_episode_title))
         }
     }

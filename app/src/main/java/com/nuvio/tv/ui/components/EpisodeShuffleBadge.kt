@@ -28,7 +28,7 @@ internal fun EpisodeShuffleBadge(modifier: Modifier = Modifier) {
         return
     }
     Icon(
-        imageVector = Icons.Default.Shuffle,
+        imageVector = com.nuvio.tv.ui.components.NuvioCIcons.Shuffle,
         contentDescription = stringResource(R.string.shuffle_badge),
         tint = Color.White,
         modifier = modifier.padding(8.dp).background(Color.Black.copy(alpha = 0.8f), CircleShape)

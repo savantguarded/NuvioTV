@@ -114,20 +114,29 @@ internal fun NuvioCFilmographyItem(
     }
 }
 
+/** Also used by the player's Cast panel rows (round 29), with its own text styles. */
 @Composable
-private fun NuvioCTurnTakingLines(title: String, role: String?, focused: Boolean) {
-    val titleStyle = MaterialTheme.typography.titleMedium
-    val roleStyle = MaterialTheme.typography.bodySmall.copy(
+internal fun NuvioCTurnTakingLines(
+    title: String,
+    role: String?,
+    focused: Boolean,
+    titleStyle: TextStyle = MaterialTheme.typography.titleMedium,
+    roleStyle: TextStyle = MaterialTheme.typography.bodySmall.copy(
         fontSize = 12.sp,
         lineHeight = 16.sp,
         fontWeight = FontWeight.Normal
-    )
+    ),
+    titleColor: Color = NuvioTheme.colors.TextPrimary,
+    roleColor: Color = ROLE_COLOR,
+    titleTopPadding: Dp = NuvioTheme.spacing.sm,
+    sidePadding: Dp = NuvioTheme.spacing.xxs
+) {
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = NuvioTheme.spacing.xxs, end = NuvioTheme.spacing.xxs)
+            .padding(start = sidePadding, end = sidePadding)
     ) {
         val boxPx = constraints.maxWidth
         val titleW = remember(title, titleStyle) {
@@ -178,17 +187,17 @@ private fun NuvioCTurnTakingLines(title: String, role: String?, focused: Boolean
             NuvioCMarqueeLine(
                 text = title,
                 style = titleStyle,
-                color = NuvioTheme.colors.TextPrimary,
+                color = titleColor,
                 scrolling = focused && moving == 1,
                 offsetPx = titleOffset.value,
                 gapPx = gapPx,
-                modifier = Modifier.padding(top = NuvioTheme.spacing.sm)
+                modifier = Modifier.padding(top = titleTopPadding)
             )
             if (role != null) {
                 NuvioCMarqueeLine(
                     text = role,
                     style = roleStyle,
-                    color = ROLE_COLOR,
+                    color = roleColor,
                     scrolling = focused && moving == 2,
                     offsetPx = roleOffset.value,
                     gapPx = gapPx,

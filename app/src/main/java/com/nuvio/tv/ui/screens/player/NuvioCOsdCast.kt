@@ -34,6 +34,17 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.Surface
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.Key
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.runtime.SideEffect
@@ -49,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -81,6 +93,7 @@ import com.nuvio.tv.ui.theme.NuvioTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -119,19 +132,32 @@ internal interface NuvioCOsdCastTmdbApi {
     suspend fun person(
         @Path("person_id") personId: Int,
         @Query("api_key") apiKey: String,
-        @Query("append_to_response") append: String = "combined_credits"
+        @Query("append_to_response") append: String = "combined_credits",
+        @Query("language") language: String = "en-US"
+    ): Response<ResponseBody>
+
+    /** For cast the meta add-on gave no TMDB id for (round 29): found by name. */
+    @GET("search/person")
+    suspend fun searchPerson(
+        @Query("api_key") apiKey: String,
+        @Query("query") query: String,
+        @Query("include_adult") includeAdult: Boolean = false
     ): Response<ResponseBody>
 }
 
 data class NuvioCCastPerson(val name: String, val character: String?, val photo: String?, val tmdbId: Int?)
 
-data class NuvioCCastBio(val tmdbId: Int, val biography: String?, val knownFor: List<String>)
+/** [biography] is TMDB's text; [summary] is the fallback line (known for / born) used when TMDB has no biography. */
+data class NuvioCCastBio(val tmdbId: Int?, val biography: String?, val knownFor: List<String>, val summary: String? = null)
 
 data class NuvioCOsdCastUi(
     val guests: List<NuvioCCastPerson> = emptyList(),
     val regulars: List<NuvioCCastPerson> = emptyList(),
     val selected: NuvioCCastPerson? = null,
-    val bio: NuvioCCastBio? = null
+    val bio: NuvioCCastBio? = null,
+    val bioLoading: Boolean = false,
+    /** List key of the person last opened, so focus returns to them when coming back from their view. */
+    val lastKey: String? = null
 )
 
 @HiltViewModel
@@ -178,31 +204,80 @@ class NuvioCOsdCastViewModel @Inject constructor(
         return NuvioCCastPerson(name, str("character"), str("profile_path")?.let { "https://image.tmdb.org/t/p/w185$it" }, int("id"))
     }
 
-    fun select(person: NuvioCCastPerson) {
-        _ui.value = _ui.value.copy(selected = person, bio = person.tmdbId?.let(bioCache::get))
-        val id = person.tmdbId ?: return
-        if (bioCache.containsKey(id)) return
+    private val nameIds = HashMap<String, Int?>()
+    private val nameBios = HashMap<String, NuvioCCastBio>()
+
+    fun select(person: NuvioCCastPerson, key: String? = null) {
+        val nameKey = person.name.lowercase()
+        val knownId = person.tmdbId ?: nameIds[nameKey]
+        val cached = knownId?.let(bioCache::get) ?: nameBios[nameKey]
+        _ui.value = _ui.value.copy(selected = person, bio = cached, bioLoading = cached == null, lastKey = key ?: _ui.value.lastKey)
+        if (cached != null) return
         viewModelScope.launch {
-            val bio = runCatching {
-                val body = api.person(id, tmdbService.apiKey()).takeIf { it.isSuccessful }?.body()?.use { it.string() } ?: return@runCatching null
-                val root = json.parseToJsonElement(body).jsonObject
-                val credits = ((root["combined_credits"] as? JsonObject)?.get("cast") as? JsonArray).orEmpty()
-                    .mapNotNull { it as? JsonObject }
-                    .filter { it.str("poster_path") != null }
-                    .sortedByDescending { (it["vote_count"] as? JsonPrimitive)?.intOrNull ?: 0 }
-                    .distinctBy { it.int("id") }
-                    .take(4)
-                    .mapNotNull { c -> c.str("poster_path")?.let { "https://image.tmdb.org/t/p/w185$it" } }
-                NuvioCCastBio(id, root.str("biography"), credits)
-            }.getOrNull() ?: return@launch
-            bioCache[id] = bio
-            if (_ui.value.selected?.tmdbId == id) _ui.value = _ui.value.copy(bio = bio)
+            val id = knownId ?: lookupByName(person.name)
+            val bio = if (id == null) {
+                NuvioCCastBio(null, null, emptyList(), null).also { nameBios[nameKey] = it }
+            } else {
+                bioCache[id] ?: runCatching { fetchBio(id) }.getOrNull()?.also { bioCache[id] = it }
+            }
+            if (_ui.value.selected === person) _ui.value = _ui.value.copy(bio = bio, bioLoading = false)
         }
     }
 
     fun back() {
-        _ui.value = _ui.value.copy(selected = null, bio = null)
+        _ui.value = _ui.value.copy(selected = null, bio = null, bioLoading = false)
     }
+
+    /** TMDB person search: the exact-name match with the highest popularity, or null. */
+    private suspend fun lookupByName(name: String): Int? {
+        val key = name.lowercase()
+        if (nameIds.containsKey(key)) return nameIds[key]
+        val found = runCatching {
+            val body = api.searchPerson(tmdbService.apiKey(), name).takeIf { it.isSuccessful }?.body()?.use { it.string() } ?: return@runCatching null
+            val results = (json.parseToJsonElement(body).jsonObject["results"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
+            results.filter { it.str("name")?.equals(name, ignoreCase = true) == true }
+                .maxByOrNull { (it["popularity"] as? JsonPrimitive)?.contentOrNull?.toDoubleOrNull() ?: 0.0 }
+                ?.int("id")
+        }.getOrNull()
+        nameIds[key] = found
+        return found
+    }
+
+    private suspend fun fetchBio(id: Int): NuvioCCastBio? {
+        val body = api.person(id, tmdbService.apiKey()).takeIf { it.isSuccessful }?.body()?.use { it.string() } ?: return null
+        val root = json.parseToJsonElement(body).jsonObject
+        val credits = ((root["combined_credits"] as? JsonObject)?.get("cast") as? JsonArray).orEmpty()
+            .mapNotNull { it as? JsonObject }
+            .sortedByDescending { (it["vote_count"] as? JsonPrimitive)?.intOrNull ?: 0 }
+            .distinctBy { it.int("id") }
+        val posters = credits.filter { it.str("poster_path") != null }.take(4)
+            .mapNotNull { c -> c.str("poster_path")?.let { "https://image.tmdb.org/t/p/w185$it" } }
+        val biography = root.str("biography")
+        val summary = if (biography == null) fallbackSummary(root, credits) else null
+        return NuvioCCastBio(id, biography, posters, summary)
+    }
+
+    /** Used when TMDB has no biography: what they're known for plus birth / death, from the same TMDB record. */
+    private fun fallbackSummary(root: JsonObject, credits: List<JsonObject>): String? {
+        val titles = credits.mapNotNull { it.str("title") ?: it.str("name") }.distinct().take(3)
+        val lines = buildList {
+            if (titles.isNotEmpty()) {
+                val list = if (titles.size == 1) titles[0] else titles.dropLast(1).joinToString(", ") + " and " + titles.last()
+                add("Known for $list.")
+            } else {
+                root.str("known_for_department")?.let { add("Known for ${it.lowercase()}.") }
+            }
+            val born = root.str("birthday")?.let(::prettyDate)
+            val place = root.str("place_of_birth")
+            if (born != null) add("Born $born${place?.let { " in $it" } ?: ""}.") else if (place != null) add("Born in $place.")
+            root.str("deathday")?.let(::prettyDate)?.let { add("Died $it.") }
+        }
+        return lines.joinToString(" ").takeIf { it.isNotBlank() }
+    }
+
+    private fun prettyDate(iso: String): String? = runCatching {
+        java.time.LocalDate.parse(iso).format(java.time.format.DateTimeFormatter.ofPattern("d MMMM yyyy", java.util.Locale.ENGLISH))
+    }.getOrNull()
 
     private fun JsonObject.str(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
     private fun JsonObject.int(key: String): Int? = (this[key] as? JsonPrimitive)?.intOrNull
@@ -258,7 +333,7 @@ internal fun NuvioCOsdCastPanel(
                         .background(NuvioTheme.colors.BackgroundElevated)
                 ) {
                     val selected = ui.selected
-                    if (selected == null) CastList(ui) { viewModel.select(it) } else PersonView(selected, ui.bio)
+                    if (selected == null) CastList(ui) { person, key -> viewModel.select(person, key) } else PersonView(selected, ui.bio, ui.bioLoading)
                 }
             }
         }
@@ -266,10 +341,24 @@ internal fun NuvioCOsdCastPanel(
 }
 
 @Composable
-private fun CastList(ui: NuvioCOsdCastUi, onSelect: (NuvioCCastPerson) -> Unit) {
-    val first = remember { FocusRequester() }
+private fun CastList(ui: NuvioCOsdCastUi, onSelect: (NuvioCCastPerson, String) -> Unit) {
     val listState = rememberLazyListState()
-    LaunchedEffect(Unit) { first.requestFocusAfterFrames() }
+    val guestKeys = ui.guests.mapIndexed { i, p -> "g$i${p.name}" }
+    val regularKeys = ui.regulars.mapIndexed { i, p -> "r$i${p.name}" }
+    // Coming back from a person's view, focus lands on that person again; otherwise on the first row.
+    val firstKey = guestKeys.firstOrNull() ?: regularKeys.firstOrNull()
+    val targetKey = ui.lastKey?.takeIf { it in guestKeys || it in regularKeys } ?: firstKey
+    val target = remember { FocusRequester() }
+    val headerOffset = if (ui.guests.isNotEmpty()) 1 else 0
+    val targetIndex = when {
+        targetKey == null -> 0
+        targetKey in guestKeys -> headerOffset + guestKeys.indexOf(targetKey)
+        else -> headerOffset + guestKeys.size + headerOffset + regularKeys.indexOf(targetKey)
+    }
+    LaunchedEffect(targetKey) {
+        if (targetIndex > 1) listState.scrollToItem((targetIndex - 1).coerceAtLeast(0))
+        target.requestFocusAfterFrames()
+    }
     Column(Modifier.fillMaxSize().padding(NuvioTheme.spacing.xl)) {
         Text(
             text = stringResource(R.string.nuvio_c_osd_cast),
@@ -286,12 +375,12 @@ private fun CastList(ui: NuvioCOsdCastUi, onSelect: (NuvioCCastPerson) -> Unit) 
             if (ui.guests.isNotEmpty()) {
                 item(key = "h_guests") { GroupLabel(stringResource(R.string.nuvio_c_osd_cast_episode)) }
                 itemsIndexed(ui.guests, key = { i, p -> "g$i${p.name}" }) { i, p ->
-                    PersonRow(p, if (i == 0) first else null, onSelect)
+                    PersonRow(p, guestKeys[i], if (guestKeys[i] == targetKey) target else null, onSelect)
                 }
                 item(key = "h_regulars") { GroupLabel(stringResource(R.string.nuvio_c_osd_cast_regulars)) }
             }
             itemsIndexed(ui.regulars, key = { i, p -> "r$i${p.name}" }) { i, p ->
-                PersonRow(p, if (ui.guests.isEmpty() && i == 0) first else null, onSelect)
+                PersonRow(p, regularKeys[i], if (regularKeys[i] == targetKey) target else null, onSelect)
             }
         }
     }
@@ -309,11 +398,13 @@ private fun GroupLabel(text: String) {
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun PersonRow(person: NuvioCCastPerson, focusRequester: FocusRequester?, onSelect: (NuvioCCastPerson) -> Unit) {
+private fun PersonRow(person: NuvioCCastPerson, itemKey: String, focusRequester: FocusRequester?, onSelect: (NuvioCCastPerson, String) -> Unit) {
     val shape = RoundedCornerShape(14.dp)
+    var focused by remember { mutableStateOf(false) }
     Card(
-        onClick = { onSelect(person) },
-        modifier = Modifier.fillMaxWidth().then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier),
+        onClick = { onSelect(person, itemKey) },
+        modifier = Modifier.fillMaxWidth().then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .onFocusChanged { focused = it.hasFocus },
         shape = CardDefaults.shape(shape),
         scale = CardDefaults.scale(focusedScale = 1f),
         colors = CardDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.White.copy(alpha = 0.12f)),
@@ -325,10 +416,17 @@ private fun PersonRow(person: NuvioCCastPerson, focusRequester: FocusRequester?,
             Face(person.photo, person.name, 52)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(person.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = NuvioTheme.colors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                person.character?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = NuvioTheme.colors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+                // [fork] round 29: long names / characters scroll on focus, one line at a time, like the cast page
+                com.nuvio.tv.ui.screens.cast.NuvioCTurnTakingLines(
+                    title = person.name,
+                    role = person.character,
+                    focused = focused,
+                    titleStyle = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    roleStyle = MaterialTheme.typography.bodySmall,
+                    roleColor = NuvioTheme.colors.TextSecondary,
+                    titleTopPadding = 0.dp,
+                    sidePadding = 0.dp
+                )
             }
         }
     }
@@ -348,17 +446,26 @@ private fun Face(url: String?, name: String, sizeDp: Int) {
     }
 }
 
+@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun PersonView(person: NuvioCCastPerson, bio: NuvioCCastBio?) {
-    val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocusAfterFrames() }
+private fun PersonView(person: NuvioCCastPerson, bio: NuvioCCastBio?, loading: Boolean) {
+    val holder = remember { FocusRequester() }
+    val seeMore = remember { FocusRequester() }
     val context = LocalContext.current
+    var expanded by remember(person) { mutableStateOf(false) }
+    var truncated by remember(person, bio) { mutableStateOf(false) }
+    val scroll = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    val text = bio?.biography ?: bio?.summary
+    val hasBio = text != null
+    // "See more" takes focus when the bio is cut off; otherwise the view holds focus itself so keys stay in the panel.
+    LaunchedEffect(truncated) { if (truncated) seeMore.requestFocusAfterFrames() else holder.requestFocusAfterFrames() }
     Column(
         Modifier
             .fillMaxSize()
             .padding(NuvioTheme.spacing.xl)
-            .focusRequester(focus)
-            .focusable(), // nothing in it is clickable, so the view holds focus itself and keys stay in the panel
+            .focusRequester(holder)
+            .focusable(),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -371,15 +478,61 @@ private fun PersonView(person: NuvioCCastPerson, bio: NuvioCCastBio?) {
                 }
             }
         }
-        val text = bio?.biography
-        Text(
-            text = text ?: if (bio == null && person.tmdbId != null) " " else stringResource(R.string.nuvio_c_osd_cast_no_bio),
-            style = MaterialTheme.typography.bodyMedium,
-            color = NuvioTheme.colors.TextSecondary,
-            maxLines = 9,
-            overflow = TextOverflow.Ellipsis
-        )
-        if (!bio?.knownFor.isNullOrEmpty()) {
+        val bodyText = when {
+            text != null -> text
+            loading -> " "
+            else -> stringResource(R.string.nuvio_c_osd_cast_no_bio)
+        }
+        if (expanded) {
+            // The whole bio scrolls (Up / Down while "See less" is focused); the button stays put below it.
+            Box(Modifier.weight(1f, fill = false)) {
+                Column(Modifier.verticalScroll(scroll)) {
+                    Text(bodyText, style = MaterialTheme.typography.bodyMedium, color = NuvioTheme.colors.TextSecondary)
+                }
+            }
+        } else {
+            Text(
+                text = bodyText,
+                style = MaterialTheme.typography.bodyMedium,
+                color = NuvioTheme.colors.TextSecondary,
+                maxLines = 9,
+                overflow = TextOverflow.Ellipsis,
+                onTextLayout = { truncated = it.hasVisualOverflow }
+            )
+        }
+        if (truncated || expanded) {
+            Surface(
+                onClick = {
+                    expanded = !expanded
+                    if (!expanded) scope.launch { scroll.scrollTo(0) }
+                },
+                modifier = Modifier
+                    .focusRequester(seeMore)
+                    .onPreviewKeyEvent { event ->
+                        if (!expanded || event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        when (event.key) {
+                            Key.DirectionDown -> { scope.launch { scroll.animateScrollBy(160f) }; true }
+                            Key.DirectionUp -> { scope.launch { scroll.animateScrollBy(-160f) }; true }
+                            else -> false
+                        }
+                    },
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
+                scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
+                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = Color.White.copy(alpha = 0.10f),
+                    contentColor = NuvioTheme.colors.TextPrimary,
+                    focusedContainerColor = Color.White,
+                    focusedContentColor = Color.Black
+                )
+            ) {
+                Text(
+                    text = stringResource(if (expanded) R.string.nuvio_c_osd_cast_see_less else R.string.nuvio_c_osd_cast_see_more),
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+        }
+        if (!expanded && !bio?.knownFor.isNullOrEmpty()) {
             Text(
                 stringResource(R.string.nuvio_c_osd_cast_known_for).uppercase(),
                 style = MaterialTheme.typography.labelMedium,

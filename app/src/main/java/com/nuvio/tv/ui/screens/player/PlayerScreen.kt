@@ -240,6 +240,7 @@ fun PlayerScreen(
     val nuvioCHdr = rememberNuvioCHdrDim(viewModel, uiState) // [fork] 60% subtitles + controls in HDR
     val nuvioCOsdAnchor = remember { NuvioCOsdAnchor() } // [fork] where the seek bar is, for Skip Intro
     val nuvioCCast = remember { NuvioCOsdCastState() } // [fork] round 28 osd_cast
+    LaunchedEffect(nuvioCCast.open) { viewModel.onCastPanelChanged(nuvioCCast.open) } // [fork] round 29: Cast acts like the other OSD panels
     val nuvioCCastScope = androidx.compose.runtime.rememberCoroutineScope() // [fork] round 28 osd_cast
     val nuvioCLift = remember { NuvioCOsdState() } // [fork] OSD layout facts + subtitle lift (OSD and pause screen share it)
     var nuvioCOfficialLiftKey by remember { mutableFloatStateOf(0f) } // [fork] official subtitle lift, so the Nuvio C lift re-applies after it

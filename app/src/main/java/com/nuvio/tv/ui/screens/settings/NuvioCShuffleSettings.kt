@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -103,41 +104,17 @@ private fun weightLabel(weight: Int): String =
 @Composable
 internal fun LayoutShuffleSection(viewModel: NuvioCShuffleSettingsViewModel = hiltViewModel()) {
     val config by viewModel.config.collectAsState()
-    var catalogsOpen by remember { mutableStateOf(false) }
     SettingsToggleRow(
         title = stringResource(R.string.nuvio_c_shuffle_setting_menu),
         subtitle = stringResource(R.string.nuvio_c_shuffle_setting_menu_sub),
         checked = config.menuVisible,
         onToggle = { viewModel.setMenuVisible(!config.menuVisible) }
     )
-    NuvioCShuffleSource.entries.forEach { source ->
-        SettingsActionRow(
-            title = sourceTitle(source),
-            subtitle = sourceSubtitle(source),
-            value = weightLabel(config.weight(source)),
-            onClick = { viewModel.cycleWeight(source) }
-        )
-        if (source == NuvioCShuffleSource.ADDON && config.weight(source) > 0) {
-            SettingsActionRow(
-                title = stringResource(R.string.nuvio_c_shuffle_catalogs),
-                subtitle = stringResource(R.string.nuvio_c_shuffle_catalogs_sub),
-                value = config.catalogKeys?.size?.let { stringResource(R.string.nuvio_c_shuffle_catalogs_count, it) }
-                    ?: stringResource(R.string.nuvio_c_shuffle_catalogs_auto),
-                onClick = {
-                    viewModel.loadCatalogs()
-                    catalogsOpen = true
-                }
-            )
-        }
-    }
     SettingsActionRow(
         title = stringResource(R.string.nuvio_c_shuffle_refresh),
         subtitle = stringResource(R.string.nuvio_c_shuffle_refresh_sub),
         onClick = { viewModel.refreshPicks() }
     )
-    if (catalogsOpen) {
-        ShuffleCatalogDialog(viewModel = viewModel, onDismiss = { catalogsOpen = false })
-    }
 }
 
 @Composable
@@ -183,18 +160,46 @@ private fun ShuffleCatalogDialog(viewModel: NuvioCShuffleSettingsViewModel, onDi
 internal fun NuvioCShuffleSourcesDialog(onDismiss: () -> Unit, viewModel: NuvioCShuffleSettingsViewModel = hiltViewModel()) {
     val config by viewModel.config.collectAsState()
     val first = remember { FocusRequester() }
+    var catalogsOpen by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { first.requestFocusAfterFrames() }
     NuvioDialog(
         onDismiss = onDismiss,
         title = stringResource(R.string.nuvio_c_shuffle_blend_title),
-        subtitle = stringResource(R.string.nuvio_c_shuffle_blend_sub)
+        subtitle = stringResource(R.string.nuvio_c_shuffle_blend_sub),
+        width = 640.dp
     ) {
-        NuvioCShuffleSource.entries.forEachIndexed { index, source ->
-            PanelActionRow(
-                label = "${sourceTitle(source)}  ·  ${weightLabel(config.weight(source))}",
-                onClick = { viewModel.cycleWeight(source) },
-                focusRequester = if (index == 0) first else null
-            )
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().heightIn(max = 340.dp),
+            verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
+        ) {
+            NuvioCShuffleSource.entries.forEachIndexed { index, source ->
+                item(key = source.name) {
+                    SettingsActionRow(
+                        title = sourceTitle(source),
+                        subtitle = sourceSubtitle(source),
+                        value = weightLabel(config.weight(source)),
+                        onClick = { viewModel.cycleWeight(source) },
+                        modifier = if (index == 0) Modifier.focusRequester(first) else Modifier
+                    )
+                }
+                if (source == NuvioCShuffleSource.ADDON && config.weight(source) > 0) {
+                    item(key = "catalogs") {
+                        SettingsActionRow(
+                            title = stringResource(R.string.nuvio_c_shuffle_catalogs),
+                            subtitle = stringResource(R.string.nuvio_c_shuffle_catalogs_sub),
+                            value = config.catalogKeys?.size?.let { stringResource(R.string.nuvio_c_shuffle_catalogs_count, it) }
+                                ?: stringResource(R.string.nuvio_c_shuffle_catalogs_auto),
+                            onClick = {
+                                viewModel.loadCatalogs()
+                                catalogsOpen = true
+                            }
+                        )
+                    }
+                }
+            }
         }
+    }
+    if (catalogsOpen) {
+        ShuffleCatalogDialog(viewModel = viewModel, onDismiss = { catalogsOpen = false })
     }
 }

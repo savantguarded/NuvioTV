@@ -55,17 +55,25 @@
     <string name="nuvio_c_osd_cast_episode">In this episode</string>
     <string name="nuvio_c_osd_cast_regulars">Series regulars</string>
     <string name="nuvio_c_osd_cast_as">as %1$s</string>
-    <string name="nuvio_c_osd_cast_no_bio">No biography on TMDB.</string>
+    <string name="nuvio_c_osd_cast_no_bio">No biography available.</string>
     <string name="nuvio_c_osd_cast_known_for">Known for</string>
+    <string name="nuvio_c_osd_cast_see_more">See more</string>
+    <string name="nuvio_c_osd_cast_see_less">See less</string>
     <!-- round 28: Shuffle -->
     <string name="nuvio_c_shuffle">Shuffle</string>
-    <string name="nuvio_c_shuffle_settings_desc">Sidebar entry, where picks come from and how often</string>
-    <string name="nuvio_c_shuffle_title">What are you in the mood for?</string>
+    <string name="nuvio_c_roulette">Roulette</string>
+    <string name="nuvio_c_shuffle_settings_desc">Sidebar entry and refreshing picks</string>
+    <string name="nuvio_c_shuffle_title">Roulette</string>
+    <string name="nuvio_c_shuffle_title_sub">What are you in the mood for?</string>
     <string name="nuvio_c_shuffle_nothing_left">Nothing fits those choices right now. Try another mood, or turn off Unwatched.</string>
     <string name="nuvio_c_shuffle_movies">Movies</string>
     <string name="nuvio_c_shuffle_shows">Shows</string>
     <string name="nuvio_c_shuffle_either">Either</string>
     <string name="nuvio_c_shuffle_movies_hint">Something for tonight</string>
+    <string name="nuvio_c_shuffle_movies_hint_morning">Something for the morning</string>
+    <string name="nuvio_c_shuffle_movies_hint_afternoon">Something for this afternoon</string>
+    <string name="nuvio_c_shuffle_movies_hint_evening">Something for this evening</string>
+    <string name="nuvio_c_shuffle_movies_hint_late">A late-night pick</string>
     <string name="nuvio_c_shuffle_shows_hint">Something to get into</string>
     <string name="nuvio_c_shuffle_either_hint">Leave it to chance</string>
     <string name="nuvio_c_shuffle_mood">Mood</string>
@@ -103,6 +111,6 @@
     <string name="nuvio_c_shuffle_loading">Loading…</string>
     <string name="nuvio_c_shuffle_refresh">Refresh picks</string>
     <string name="nuvio_c_shuffle_refresh_sub">Rebuild the pool now (it refreshes by itself every 12 hours)</string>
-    <string name="nuvio_c_shuffle_setting_menu">Show Shuffle in the sidebar</string>
+    <string name="nuvio_c_shuffle_setting_menu">Show Roulette in the sidebar</string>
     <string name="nuvio_c_shuffle_setting_menu_sub">After Calendar, before Settings</string>
 </resources>

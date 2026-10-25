@@ -26,7 +26,7 @@ internal enum class LayoutSection(
     HOME_CONTENT(R.string.layout_section_content, R.string.layout_section_content_desc, Icons.Default.ViewAgenda),
     SIDEBAR(R.string.layout_section_sidebar, R.string.layout_section_sidebar_desc, Icons.AutoMirrored.Filled.ViewSidebar),
     CALENDAR(R.string.calendar_settings_title, R.string.calendar_settings_desc, Icons.Default.CalendarMonth), // [fork] library_calendar
-    SHUFFLE(R.string.nuvio_c_shuffle, R.string.nuvio_c_shuffle_settings_desc, Icons.Default.Shuffle), // [fork] shuffle_page
+    SHUFFLE(R.string.nuvio_c_roulette, R.string.nuvio_c_shuffle_settings_desc, com.nuvio.tv.ui.components.NuvioCIcons.Dice), // [fork] shuffle_page
     CONTINUE_WATCHING(R.string.layout_section_continue_watching, R.string.layout_section_continue_watching_desc, Icons.Default.History),
     FOCUSED_POSTER(R.string.layout_section_focused, R.string.layout_section_focused_desc, Icons.Default.CenterFocusStrong),
     POSTER_CARD(R.string.layout_section_card_style, R.string.layout_section_card_style_desc, Icons.Default.RoundedCorner),
