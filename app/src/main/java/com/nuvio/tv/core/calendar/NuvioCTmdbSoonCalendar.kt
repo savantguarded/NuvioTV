@@ -20,7 +20,8 @@ data class TmdbSoonItem(
     val type: CalendarTitleType,
     val title: String?,
     val poster: String?,
-    val popularity: Double
+    val popularity: Double,
+    val year: Int? = null
 )
 
 internal const val TMDB_SOON_DAYS = 30L
@@ -28,6 +29,7 @@ internal const val TMDB_SOON_MIN_POPULARITY = 10.0
 internal const val TMDB_SOON_FOREIGN_MIN_VOTES = 50
 internal const val TMDB_SOON_MAX_TITLES = 40
 private const val TMDB_SOON_RETURNING_CHECKS = 25
+private const val TMDB_SOON_FILM_MAX_AGE_DAYS = 90L
 /** Kids, news, reality, soap, talk (TMDB tv genre ids), as in the Top 20 add-on. */
 private const val TMDB_SOON_SKIP_GENRES = "10762,10763,10764,10766,10767"
 
@@ -47,7 +49,7 @@ class TmdbSoonClient @Inject constructor(
             val body = api.discoverSoonMovies(apiKey, region, "3|4", from.toString(), to.toString(), page = page)
             if (!body.isSuccessful) throw CalendarFetchException("TMDB ${body.code()}")
             films += body.body()?.results.orEmpty().mapNotNull { it.toItem(CalendarTitleType.MOVIE) }
-                .filter { keepFilm(it, body.body()?.results.orEmpty()) }
+                .filter { keepFilm(it, body.body()?.results.orEmpty(), today) }
         }
         val shows = linkedMapOf<Long, TmdbSoonItem>()
         // New shows first airing in the window.
@@ -78,9 +80,13 @@ class TmdbSoonClient @Inject constructor(
         null
     }
 
-    private fun keepFilm(item: TmdbSoonItem, raw: List<NuvioCCalendarDiscoverItem>): Boolean {
+    private fun keepFilm(item: TmdbSoonItem, raw: List<NuvioCCalendarDiscoverItem>, today: LocalDate): Boolean {
         val source = raw.firstOrNull { it.id?.toLong() == item.ids.tmdb } ?: return false
         if (item.popularity < TMDB_SOON_MIN_POPULARITY) return false
+        // Only new films: TMDB also matches old ones with a re-release or a new 4K / digital date (Jurassic World 2015).
+        // The film's own (primary) release date must be no older than 90 days.
+        val primary = source.releaseDate?.let { runCatching { LocalDate.parse(it.take(10)) }.getOrNull() } ?: return false
+        if (primary.isBefore(today.minusDays(TMDB_SOON_FILM_MAX_AGE_DAYS))) return false
         // Films in other languages need a following already (Top 20 does the same).
         return source.originalLanguage.equals("en", ignoreCase = true) || (source.voteCount ?: 0) >= TMDB_SOON_FOREIGN_MIN_VOTES
     }
@@ -93,7 +99,8 @@ class TmdbSoonClient @Inject constructor(
             type = type,
             title = (if (type == CalendarTitleType.MOVIE) title else name)?.takeIf(String::isNotBlank),
             poster = tmdbPosterUrl(posterPath),
-            popularity = popularity ?: 0.0
+            popularity = popularity ?: 0.0,
+            year = releaseDate?.take(4)?.toIntOrNull()
         )
     }
 
@@ -119,7 +126,8 @@ fun bridgeTmdbSoonIds(items: List<TmdbSoonItem>, known: List<CalendarIds>): List
 fun tmdbSoonCandidates(items: List<TmdbSoonItem>): List<CalendarTitleCandidate> = items.map { item ->
     CalendarTitleCandidate(
         item.ids, item.type, CalendarOrigin.TMDB_SOON,
-        name = item.title, contentId = item.ids.imdb ?: item.ids.tmdb?.let { "tmdb:$it" }, poster = item.poster
+        name = item.title, contentId = item.ids.imdb ?: item.ids.tmdb?.let { "tmdb:$it" }, poster = item.poster,
+        year = item.year.takeIf { item.type == CalendarTitleType.MOVIE }
     )
 }
 

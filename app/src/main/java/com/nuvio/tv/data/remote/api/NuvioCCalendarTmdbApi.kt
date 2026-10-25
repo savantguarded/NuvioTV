@@ -73,7 +73,8 @@ data class NuvioCCalendarDiscoverItem(
     @Json(name = "popularity") val popularity: Double? = null,
     @Json(name = "original_language") val originalLanguage: String? = null,
     @Json(name = "vote_count") val voteCount: Int? = null,
-    @Json(name = "adult") val adult: Boolean? = null
+    @Json(name = "adult") val adult: Boolean? = null,
+    @Json(name = "release_date") val releaseDate: String? = null
 )
 
 @JsonClass(generateAdapter = true)
