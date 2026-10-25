@@ -75,13 +75,16 @@ fun calendarZoneOptions(
 @HiltViewModel
 class CalendarSettingsViewModel @Inject constructor(
     private val data: CalendarScreenData,
-    private val viewStore: com.nuvio.tv.ui.screens.calendar.NuvioCCalendarViewStore // [fork] calendar_start_view
+    private val viewStore: com.nuvio.tv.ui.screens.calendar.NuvioCCalendarViewStore, // [fork] calendar_start_view
+    private val trackingProviders: com.nuvio.tv.core.tracking.TrackingProviderRegistry // [fork] calendar_mdblist: hide the switch when not connected
 ) : ViewModel() {
     // [fork] calendar_start_view
     val startView: StateFlow<com.nuvio.tv.ui.screens.calendar.NuvioCCalendarStart> get() = viewStore.start
     fun setStartView(start: com.nuvio.tv.ui.screens.calendar.NuvioCCalendarStart) = viewStore.setStart(start)
 
     val settings: StateFlow<CalendarSettings?> = data.settings
+
+    fun mdbListSignedIn(): Boolean = trackingProviders.isAuthenticated(com.nuvio.tv.core.tracking.TrackingProviderId.MDBLIST)
 
     fun now(): Instant = data.now()
 
@@ -251,7 +254,7 @@ internal fun LayoutCalendarSection(viewModel: CalendarSettingsViewModel = hiltVi
         checked = current.followOtherServices,
         onToggle = { viewModel.setFollowOtherServices(!current.followOtherServices) }
     )
-    if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MDBLIST) { // [fork] calendar_mdblist
+    if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MDBLIST && viewModel.mdbListSignedIn()) { // [fork] calendar_mdblist: only on profiles connected to MDBList
         SettingsToggleRow(
             title = stringResource(R.string.nuvio_c_calendar_mdblist),
             subtitle = stringResource(R.string.nuvio_c_calendar_mdblist_sub),
