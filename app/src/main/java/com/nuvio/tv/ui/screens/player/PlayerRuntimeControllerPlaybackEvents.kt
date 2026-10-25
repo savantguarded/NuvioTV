@@ -1843,6 +1843,15 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
         is PlayerEvent.OnSetSubtitleVerticalOffset -> {
             scope.launch { playerSettingsDataStore.setSubtitleVerticalOffset(event.offset) }
         }
+        is PlayerEvent.OnSetSubtitleBackgroundColor -> { // [fork] round 29
+            scope.launch { playerSettingsDataStore.setSubtitleBackgroundColor(event.color) }
+        }
+        is PlayerEvent.OnSetSubtitleOutlineWidth -> { // [fork] round 29
+            scope.launch { playerSettingsDataStore.setSubtitleOutlineWidth(event.width) }
+        }
+        is PlayerEvent.OnSetSubtitleStripSdh -> { // [fork] round 29
+            scope.launch { playerSettingsDataStore.setSubtitleStripSdh(event.enabled) }
+        }
         PlayerEvent.OnResetSubtitleDefaults -> {
             val editingHdr = _uiState.value.isEditingHdrSubtitleStyle
             scope.launch {

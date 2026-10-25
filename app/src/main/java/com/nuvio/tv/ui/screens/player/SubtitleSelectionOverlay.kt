@@ -1062,6 +1062,61 @@ private fun SubtitleStyleRail(
                     )
                 }
             }
+            item { // [fork] round 29: background box, changed from the player
+                val presets = NuvioCSubtitleBackground.presets
+                val index = presets.indexOfFirst { it.argb == subtitleStyle.backgroundColor }
+                OverlaySectionCard(
+                    title = stringResource(R.string.nuvio_c_subtitle_background_title),
+                    modifier = styleCardModifier
+                ) {
+                    StepperRow(
+                        value = if (index >= 0) stringResource(presets[index].label) else stringResource(R.string.nuvio_c_subtitle_background_custom),
+                        valueWidth = 136.dp,
+                        onDecrease = { dispatchStyleEvent(PlayerEvent.OnSetSubtitleBackgroundColor(NuvioCSubtitleBackground.step(subtitleStyle.backgroundColor, -1))) },
+                        onIncrease = { dispatchStyleEvent(PlayerEvent.OnSetSubtitleBackgroundColor(NuvioCSubtitleBackground.step(subtitleStyle.backgroundColor, 1))) },
+                        onMoveLeft = onMoveLeft,
+                        decrementFocusRequester = focusRequesters[NUVIO_C_BG_PREV],
+                        incrementFocusRequester = focusRequesters[NUVIO_C_BG_NEXT],
+                        decrementFocusKey = NUVIO_C_BG_PREV,
+                        incrementFocusKey = NUVIO_C_BG_NEXT,
+                        onFocusChanged = onStyleFocused
+                    )
+                }
+            }
+            item { // [fork] round 29: outline width (1 to 5)
+                OverlaySectionCard(
+                    title = stringResource(R.string.nuvio_c_subtitle_outline_width_title),
+                    modifier = styleCardModifier
+                ) {
+                    StepperRow(
+                        value = subtitleStyle.outlineWidth.toString(),
+                        onDecrease = { dispatchStyleEvent(PlayerEvent.OnSetSubtitleOutlineWidth(subtitleStyle.outlineWidth - 1)) },
+                        onIncrease = { dispatchStyleEvent(PlayerEvent.OnSetSubtitleOutlineWidth(subtitleStyle.outlineWidth + 1)) },
+                        onMoveLeft = onMoveLeft,
+                        decrementFocusRequester = focusRequesters[NUVIO_C_WIDTH_PREV],
+                        incrementFocusRequester = focusRequesters[NUVIO_C_WIDTH_NEXT],
+                        decrementFocusKey = NUVIO_C_WIDTH_PREV,
+                        incrementFocusKey = NUVIO_C_WIDTH_NEXT,
+                        onFocusChanged = onStyleFocused
+                    )
+                }
+            }
+            item { // [fork] round 29: strip SDH (sound descriptions, speaker labels) from text subtitles
+                OverlaySectionCard(
+                    title = stringResource(R.string.nuvio_c_subtitle_sdh_title),
+                    modifier = styleCardModifier
+                ) {
+                    ToggleChip(
+                        label = if (subtitleStyle.stripSdh) stringResource(R.string.subtitle_style_on) else stringResource(R.string.subtitle_style_off),
+                        isEnabled = subtitleStyle.stripSdh,
+                        onMoveLeft = onMoveLeft,
+                        focusRequester = focusRequesters[NUVIO_C_SDH],
+                        focusKey = NUVIO_C_SDH,
+                        onFocused = onStyleFocused,
+                        onClick = { dispatchStyleEvent(PlayerEvent.OnSetSubtitleStripSdh(!subtitleStyle.stripSdh)) }
+                    )
+                }
+            }
             item {
                 Card(
                     onClick = { dispatchStyleEvent(PlayerEvent.OnResetSubtitleDefaults) },
@@ -1724,6 +1779,11 @@ private fun overlayCardBorder() = CardDefaults.border(
 // [fork] Nuvio C subtitle font stepper focus keys
 private const val NUVIO_C_FONT_PREV = "nuvio_c_font_prev"
 private const val NUVIO_C_FONT_NEXT = "nuvio_c_font_next"
+private const val NUVIO_C_BG_PREV = "nuvio_c_bg_prev" // [fork] round 29
+private const val NUVIO_C_BG_NEXT = "nuvio_c_bg_next"
+private const val NUVIO_C_WIDTH_PREV = "nuvio_c_width_prev"
+private const val NUVIO_C_WIDTH_NEXT = "nuvio_c_width_next"
+private const val NUVIO_C_SDH = "nuvio_c_sdh"
 
 private object StyleFocusKey {
     const val FontSizeDecrease = "font_size_decrease"
@@ -1768,7 +1828,11 @@ private fun styleListIndexForFocusKey(focusKey: String): Int {
         focusKey == StyleFocusKey.OutlineToggle || focusKey.startsWith("${StyleFocusKey.OutlineColorPrefix}:") -> 5
         focusKey == StyleFocusKey.OffsetDecrease || focusKey == StyleFocusKey.OffsetIncrease -> 6
         focusKey == NUVIO_C_FONT_PREV || focusKey == NUVIO_C_FONT_NEXT -> 7 // [fork]
-        focusKey == StyleFocusKey.Reset -> if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_FONT) 8 else 7 // [fork] was 7
+        // [fork] round 29: Background, Outline width and Remove SDH sit between the font and Reset
+        focusKey == NUVIO_C_BG_PREV || focusKey == NUVIO_C_BG_NEXT -> if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_FONT) 8 else 7
+        focusKey == NUVIO_C_WIDTH_PREV || focusKey == NUVIO_C_WIDTH_NEXT -> if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_FONT) 9 else 8
+        focusKey == NUVIO_C_SDH -> if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_FONT) 10 else 9
+        focusKey == StyleFocusKey.Reset -> if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_FONT) 11 else 10 // [fork] was 8 / 7
         else -> 0
     }
 }
@@ -1794,7 +1858,8 @@ private fun rememberStyleFocusRequesters(): Map<String, FocusRequester> {
             StyleFocusKey.OffsetIncrease,
             StyleFocusKey.DelaySet,
             StyleFocusKey.Reset,
-            NUVIO_C_FONT_PREV, NUVIO_C_FONT_NEXT // [fork]
+            NUVIO_C_FONT_PREV, NUVIO_C_FONT_NEXT, // [fork]
+            NUVIO_C_BG_PREV, NUVIO_C_BG_NEXT, NUVIO_C_WIDTH_PREV, NUVIO_C_WIDTH_NEXT, NUVIO_C_SDH // [fork] round 29
         ).associateWith { FocusRequester() } +
             SubtitleTextColorPresets.associate { color ->
                 "${StyleFocusKey.TextColorPrefix}:${color.toArgb()}" to FocusRequester()

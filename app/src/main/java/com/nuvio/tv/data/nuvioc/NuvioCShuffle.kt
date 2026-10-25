@@ -42,7 +42,13 @@ enum class NuvioCShuffleMood(val key: String, val genres: Set<String>) {
     GRIPPING("gripping", setOf("thriller", "action", "crime", "action & adventure", "suspense")),
     FUNNY("funny", setOf("comedy")),
     DARK("dark", setOf("horror", "crime", "war", "war & politics")),
-    MIND_BENDING("mind_bending", setOf("science fiction", "sci fi & fantasy", "sci fi", "mystery"))
+    MIND_BENDING("mind_bending", setOf("science fiction", "sci fi & fantasy", "sci fi", "mystery")),
+    // [fork] round 29: appended after the originals so saved choices and the cycle order stay as they were
+    ROMANTIC("romantic", setOf("romance")),
+    ANIMATED("animated", setOf("animation", "anime")),
+    TRUE_STORY("true_story", setOf("history", "biography")),
+    WESTERN("western", setOf("western")),
+    DOCUMENTARY("documentary", setOf("documentary"))
 }
 
 /** One title in the pool. [id] is what opens its details page (IMDb when known, else "tmdb:<id>"). */

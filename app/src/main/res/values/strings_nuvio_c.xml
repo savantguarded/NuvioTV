@@ -83,6 +83,11 @@
     <string name="nuvio_c_shuffle_mood_funny">Funny</string>
     <string name="nuvio_c_shuffle_mood_dark">Dark</string>
     <string name="nuvio_c_shuffle_mood_mind_bending">Mind-bending</string>
+    <string name="nuvio_c_shuffle_mood_romantic">Romantic</string>
+    <string name="nuvio_c_shuffle_mood_animated">Animated</string>
+    <string name="nuvio_c_shuffle_mood_true_story">True story</string>
+    <string name="nuvio_c_shuffle_mood_western">Western</string>
+    <string name="nuvio_c_shuffle_mood_documentary">Documentary</string>
     <string name="nuvio_c_shuffle_unwatched">Unwatched</string>
     <string name="nuvio_c_shuffle_blend">Blend</string>
     <string name="nuvio_c_shuffle_again">Shuffle again</string>
@@ -113,4 +118,12 @@
     <string name="nuvio_c_shuffle_refresh_sub">Rebuild the pool now (it refreshes by itself every 12 hours)</string>
     <string name="nuvio_c_shuffle_setting_menu">Show Roulette in the sidebar</string>
     <string name="nuvio_c_shuffle_setting_menu_sub">After Calendar, before Settings</string>
+    <string name="nuvio_c_subtitle_background_title">Background</string>
+    <string name="nuvio_c_subtitle_background_off">Off</string>
+    <string name="nuvio_c_subtitle_background_light">Light</string>
+    <string name="nuvio_c_subtitle_background_medium">Medium</string>
+    <string name="nuvio_c_subtitle_background_solid">Solid</string>
+    <string name="nuvio_c_subtitle_background_custom">Custom</string>
+    <string name="nuvio_c_subtitle_outline_width_title">Outline width</string>
+    <string name="nuvio_c_subtitle_sdh_title">Hide SDH text</string>
 </resources>

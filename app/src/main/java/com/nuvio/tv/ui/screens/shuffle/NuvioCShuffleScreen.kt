@@ -543,6 +543,11 @@ private fun moodLabel(mood: NuvioCShuffleMood): String = stringResource(
         NuvioCShuffleMood.FUNNY -> R.string.nuvio_c_shuffle_mood_funny
         NuvioCShuffleMood.DARK -> R.string.nuvio_c_shuffle_mood_dark
         NuvioCShuffleMood.MIND_BENDING -> R.string.nuvio_c_shuffle_mood_mind_bending
+        NuvioCShuffleMood.ROMANTIC -> R.string.nuvio_c_shuffle_mood_romantic
+        NuvioCShuffleMood.ANIMATED -> R.string.nuvio_c_shuffle_mood_animated
+        NuvioCShuffleMood.TRUE_STORY -> R.string.nuvio_c_shuffle_mood_true_story
+        NuvioCShuffleMood.WESTERN -> R.string.nuvio_c_shuffle_mood_western
+        NuvioCShuffleMood.DOCUMENTARY -> R.string.nuvio_c_shuffle_mood_documentary
     }
 )
 
