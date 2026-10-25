@@ -379,6 +379,27 @@ private fun ShuffleStage(
             }
         }
 
+        // While the pick is being found (first use, before the pool exists, this can take a few seconds) a quiet line
+        // under the still frame says so; it only appears if the wait passes 0.7 s.
+        val waiting = !landed && (ui.spin?.token ?: 0) < 0
+        var showWaiting by remember { mutableStateOf(false) }
+        LaunchedEffect(waiting) {
+            showWaiting = false
+            if (waiting) {
+                kotlinx.coroutines.delay(700)
+                showWaiting = true
+            }
+        }
+        val waitingAlpha by animateFloatAsState(if (showWaiting && waiting) 1f else 0f, tween(250), label = "waiting")
+        if (waitingAlpha > 0f) {
+            Text(
+                text = stringResource(R.string.nuvio_c_shuffle_finding),
+                style = MaterialTheme.typography.bodyMedium,
+                color = NuvioTheme.colors.TextSecondary,
+                modifier = Modifier.align(Alignment.Center).padding(top = 290.dp).graphicsLayer { alpha = waitingAlpha }
+            )
+        }
+
         // Choices along the top; changing one rolls again.
         Row(
             Modifier.align(Alignment.TopStart).padding(start = EDGE, top = 28.dp, end = EDGE),

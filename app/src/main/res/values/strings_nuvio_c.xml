@@ -78,6 +78,7 @@
     <string name="nuvio_c_shuffle_unwatched">Unwatched</string>
     <string name="nuvio_c_shuffle_blend">Blend</string>
     <string name="nuvio_c_shuffle_again">Shuffle again</string>
+    <string name="nuvio_c_shuffle_finding">Finding something…</string>
     <string name="nuvio_c_shuffle_from">from %1$s</string>
     <string name="nuvio_c_shuffle_blend_title">Shuffle picks from</string>
     <string name="nuvio_c_shuffle_blend_sub">OK on a source steps through Off, ×1, ×2 and ×3. A higher number gets the turn more often.</string>
