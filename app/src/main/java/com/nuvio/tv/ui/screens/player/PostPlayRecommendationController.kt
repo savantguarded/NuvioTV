@@ -155,6 +155,26 @@ internal class PostPlayRecommendationController(
                     }
                     lastPlaybackIdentity = snapshot.identity
                     lastSnapshot = snapshot
+                    // [fork] round 28 post_play_rating: note a finished movie (same trigger point as the movie post-play screen)
+                    NuvioCFinishTracker.onTick(
+                        contentType = snapshot.identity.contentType,
+                        contentId = snapshot.identity.contentId,
+                        positionMs = snapshot.positionMs,
+                        durationMs = snapshot.durationMs.takeIf { it > 0L } ?: playbackController.lastKnownDuration,
+                        ended = snapshot.playbackEnded
+                    ) {
+                        val duration = snapshot.durationMs.takeIf { it > 0L } ?: playbackController.lastKnownDuration
+                        movieRecommendationTriggerPositionMs(
+                            duration, snapshot.postPlayMovieThresholdPercent.coerceIn(
+                                com.nuvio.tv.data.local.PlayerSettings.MIN_POST_PLAY_MOVIE_THRESHOLD_PERCENT,
+                                com.nuvio.tv.data.local.PlayerSettings.MAX_POST_PLAY_MOVIE_THRESHOLD_PERCENT
+                            ),
+                            playbackController.skipIntervals,
+                            playbackController.nextEpisodeThresholdModeSetting,
+                            playbackController.nextEpisodeThresholdPercentSetting,
+                            playbackController.nextEpisodeThresholdMinutesBeforeEndSetting
+                        )
+                    }
                     evaluate(snapshot)
                 }
         }

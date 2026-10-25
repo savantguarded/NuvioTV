@@ -158,6 +158,10 @@ internal fun CalendarWeekView(
     val stripRequester = remember { FocusRequester() }
     val nuvioCRowStates = remember(weekStart, filter) { mutableMapOf<LocalDate, androidx.compose.foundation.lazy.LazyListState>() } // [fork] calendar_week_first_card
     var placed by remember { mutableStateOf(false) }
+    // [fork] calendar_week_back_first: which card of which day has focus, so Back can send it to the row's start.
+    var nuvioCBackDate by remember { mutableStateOf<LocalDate?>(null) }
+    var nuvioCBackIndex by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    var nuvioCShelvesFocused by remember { mutableStateOf(false) }
     val lastKeyRepeat = remember { longArrayOf(0L) }
 
     val openingKey = remember(week) { calendarWeekOpeningKey(week) }
@@ -218,6 +222,16 @@ internal fun CalendarWeekView(
         if (shelves.isEmpty()) stripRequester.requestFocusAfterFrames() else jumpTo(date, focusCard = true)
     }
 
+    androidx.activity.compose.BackHandler(
+        enabled = com.nuvio.tv.NuvioCFeatures.CALENDAR_WEEK_BACK_FIRST && nuvioCShelvesFocused && nuvioCBackIndex > 0 && nuvioCBackDate != null
+    ) { // [fork] calendar_week_back_first: Back on a later card goes to the day's first card (like Home rows)
+        val date = nuvioCBackDate ?: return@BackHandler
+        nuvioCBackIndex = 0
+        scope.launch {
+            nuvioCRowStates[date]?.let { runCatching { it.scrollToItem(0) } }
+            shelfRequesters[date]?.requestFocusAfterFrames(1)
+        }
+    }
     Column(Modifier.fillMaxSize()) {
         CalendarWeekStrip(
             modifier = Modifier.onPreviewKeyEvent { event ->
@@ -262,6 +276,7 @@ internal fun CalendarWeekView(
                 .requiredWidth(maxWidth + FOCUS_ROOM * 2)
                 .fillMaxHeight()
                 .clipToBounds()
+                .onFocusChanged { nuvioCShelvesFocused = it.hasFocus } // [fork] calendar_week_back_first
                 .onPreviewKeyEvent { event ->
                     val native = event.nativeKeyEvent
                     if (native.action == AndroidKeyEvent.ACTION_DOWN && native.repeatCount > 0) {
@@ -287,6 +302,7 @@ internal fun CalendarWeekView(
                     performance = performance,
                     firstRequester = shelfRequesters[day.date],
                     rowState = nuvioCRowStates.getOrPut(day.date) { androidx.compose.foundation.lazy.LazyListState() }, // [fork] calendar_week_first_card
+                    onCardIndex = { cardIndex -> nuvioCBackDate = day.date; nuvioCBackIndex = cardIndex }, // [fork] calendar_week_back_first
                     onFocused = { row ->
                         focusedShelf[0] = index
                         lastCard[0] = (week.flatMap { it.cards }.firstOrNull { card -> card.rows.any { it.key == row.key } }?.key ?: row.key) to day.date
@@ -547,6 +563,7 @@ private fun CalendarDayShelf(
     performance: Boolean,
     firstRequester: FocusRequester?,
     rowState: androidx.compose.foundation.lazy.LazyListState, // [fork] calendar_week_first_card
+    onCardIndex: (Int) -> Unit, // [fork] calendar_week_back_first
     onFocused: (CalendarRow) -> Unit,
     onOpen: (CalendarRow) -> Unit,
     onOptions: (CalendarRow) -> Unit
@@ -598,7 +615,7 @@ private fun CalendarDayShelf(
                 contentPadding = PaddingValues(horizontal = FOCUS_ROOM, vertical = FOCUS_ROOM)
             ) {
                 itemsIndexed(day.cards, key = { _, card -> card.key }) { index, card ->
-                    Box(if (index == 0) Modifier.nuvioCBrakeEdge(nuvioCBrake) else Modifier) { // [fork] calendar_edge_brake
+                    Box((if (index == 0) Modifier.nuvioCBrakeEdge(nuvioCBrake) else Modifier).onFocusChanged { if (it.hasFocus) onCardIndex(index) }) { // [fork] calendar_edge_brake, calendar_week_back_first
                     CalendarShelfCard(
                         card = card,
                         width = cardWidth,

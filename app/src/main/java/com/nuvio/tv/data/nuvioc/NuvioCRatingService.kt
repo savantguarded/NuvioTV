@@ -134,6 +134,27 @@ class NuvioCRatingService @Inject constructor(
         target.keys().firstNotNullOfOrNull { scores[it] }
     }.getOrNull()
 
+    /**
+     * [fork] round 28 shuffle: every Trakt score on this TV for the active profile ("movie:tt…", "show:tt…",
+     * "movie:tmdb123" keys), refreshed the same light way as [traktScore]. Empty when Trakt isn't connected.
+     */
+    suspend fun traktScores(): Map<String, Int> = runCatching {
+        if (NuvioCTracker.TRAKT !in connected()) return emptyMap()
+        refreshTrakt()
+        trakt?.scores?.toMap().orEmpty()
+    }.getOrDefault(emptyMap())
+
+    /** [fork] round 28 shuffle: scores sent from this TV for the active profile (same keys as [NuvioCRatingTarget.key]). */
+    fun localScores(): Map<String, Int> {
+        val prefix = profileKey("")
+        return prefs.all.mapNotNull { (k, v) ->
+            if (!k.startsWith(prefix)) return@mapNotNull null
+            val key = k.removePrefix(prefix)
+            if (!key.startsWith("movie:") && !key.startsWith("show:")) return@mapNotNull null
+            (v as? Int)?.takeIf { it in 1..10 }?.let { key to it }
+        }.toMap()
+    }
+
     private suspend fun refreshTrakt() = traktMutex.withLock {
         val profile = profiles.activeProfileId.value
         if (trakt?.profile != profile) trakt = loadTrakt(profile)
@@ -191,6 +212,11 @@ class NuvioCRatingService @Inject constructor(
         if (r.profile != profiles.activeProfileId.value) return
         target.keys().forEach { if (score == null) r.scores.remove(it) else r.scores[it] = score }
     }
+
+    /** [fork] round 28 post_play_rating: asked once after finishing this title already (per profile). */
+    fun askedAfterFinish(target: NuvioCRatingTarget): Boolean = prefs.getBoolean(profileKey("asked:" + target.key), false)
+
+    fun markAskedAfterFinish(target: NuvioCRatingTarget) = prefs.edit { putBoolean(profileKey("asked:" + target.key), true) }
 
     /** Score last sent from this TV for this profile, or null. */
     fun savedScore(target: NuvioCRatingTarget): Int? =

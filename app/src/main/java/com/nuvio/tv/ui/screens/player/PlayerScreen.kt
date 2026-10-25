@@ -80,6 +80,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.RecentActors
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -179,6 +180,7 @@ import com.nuvio.tv.libass.media.widget.AssSubtitleSurfaceView
 import kotlin.math.abs
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch // [fork] round 28 osd_cast
 
 private fun PlayerUiState.returnFocusSeasonEpisode(completed: Boolean): Pair<Int?, Int?> {
     val next = nextEpisode?.takeIf {
@@ -237,6 +239,8 @@ fun PlayerScreen(
     SideEffect { nuvioCFocus.moreRowOpen = uiState.showMoreDialog } // [fork]
     val nuvioCHdr = rememberNuvioCHdrDim(viewModel, uiState) // [fork] 60% subtitles + controls in HDR
     val nuvioCOsdAnchor = remember { NuvioCOsdAnchor() } // [fork] where the seek bar is, for Skip Intro
+    val nuvioCCast = remember { NuvioCOsdCastState() } // [fork] round 28 osd_cast
+    val nuvioCCastScope = androidx.compose.runtime.rememberCoroutineScope() // [fork] round 28 osd_cast
     val nuvioCLift = remember { NuvioCOsdState() } // [fork] OSD layout facts + subtitle lift (OSD and pause screen share it)
     var nuvioCOfficialLiftKey by remember { mutableFloatStateOf(0f) } // [fork] official subtitle lift, so the Nuvio C lift re-applies after it
     // [fork] player_lift_light: read only inside the lift effect, so a change doesn't rebuild this whole screen
@@ -1624,7 +1628,7 @@ fun PlayerScreen(
         ) {
             val context = LocalContext.current
             val nuvioCOsd = nuvioCLift // [fork] badges + subtitle lift (lift effect runs at screen level, below)
-            CompositionLocalProvider(LocalNuvioCFocusMemory provides nuvioCFocus, LocalNuvioCHdrDim provides nuvioCHdr, LocalNuvioCOsdAnchor provides nuvioCOsdAnchor) { // [fork]
+            CompositionLocalProvider(LocalNuvioCFocusMemory provides nuvioCFocus, LocalNuvioCHdrDim provides nuvioCHdr, LocalNuvioCOsdAnchor provides nuvioCOsdAnchor, LocalNuvioCOsdCast provides nuvioCCast) { // [fork]
             NuvioCOsdAnchorReset(nuvioCOsdAnchor) // [fork]
             PlayerControlsOverlay(
                 osdLogoAllowed = osdLogoAllowed, // [fork]
@@ -1876,6 +1880,33 @@ fun PlayerScreen(
                 )
             }
         }
+
+        // [fork] round 28 osd_cast: cast panel (its own window, built only while open); keeps the controls up
+        // while it's open and puts focus back on the Cast button when it closes.
+        if (nuvioCCast.open) {
+            LaunchedEffect(Unit) {
+                while (true) {
+                    viewModel.scheduleHideControls()
+                    kotlinx.coroutines.delay(3_000)
+                }
+            }
+        }
+        NuvioCOsdCastPanel(
+            state = nuvioCCast,
+            cast = uiState.castMembers,
+            contentId = viewModel.controller.contentId,
+            season = uiState.currentSeason,
+            episode = uiState.currentEpisode,
+            hdrDim = nuvioCHdr,
+            onClosed = {
+                viewModel.scheduleHideControls()
+                if (uiState.showControls) {
+                    nuvioCCastScope.launch {
+                        runCatching { nuvioCFocus.restore(playPauseFocusRequester) { viewModel.onEvent(PlayerEvent.OnShowMoreDialog) } }
+                    }
+                }
+            }
+        )
 
         // Episodes/streams side panel (slides in from right)
         AnimatedVisibility(
@@ -3139,6 +3170,17 @@ private fun PlayerControlsOverlay(
                             icon = Icons.AutoMirrored.Filled.Toc,
                             contentDescription = stringResource(R.string.player_chapters),
                             onClick = onShowChaptersPanel,
+                            upFocusRequester = progressUpTarget,
+                            onDownKey = onHideControls,
+                            onFocused = onResetHideTimer
+                        )
+                    }
+
+                    LocalNuvioCOsdCast.current?.takeIf { nuvioCOsdCastAvailable(uiState.castMembers) && !isLivePlayback }?.let { nuvioCCastState -> // [fork] round 28 osd_cast
+                        ControlButton(
+                            icon = Icons.Default.RecentActors,
+                            contentDescription = stringResource(R.string.nuvio_c_osd_cast),
+                            onClick = { nuvioCCastState.open = true },
                             upFocusRequester = progressUpTarget,
                             onDownKey = onHideControls,
                             onFocused = onResetHideTimer

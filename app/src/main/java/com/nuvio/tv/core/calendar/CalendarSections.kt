@@ -63,8 +63,9 @@ fun buildCalendarSections(
 
     val sections = mutableListOf<CalendarSection>()
     val byDay = dated.groupBy { it.date!! }
-    byDay.filterKeys { it < today }.toSortedMap(reverseOrder()).values
-        .flatMap { day -> day.sortedWith(itemOrder.reversed()) }
+    val nuvioCAscending = com.nuvio.tv.NuvioCFeatures.CALENDAR_JUST_AIRED_ASCENDING // [fork] calendar_just_aired_ascending: oldest day first, like the rest of the list
+    byDay.filterKeys { it < today }.let { if (nuvioCAscending) it.toSortedMap() else it.toSortedMap(reverseOrder()) }.values
+        .flatMap { day -> day.sortedWith(if (nuvioCAscending) itemOrder else itemOrder.reversed()) }
         .takeIf { it.isNotEmpty() }
         ?.let { sections += CalendarSection(CalendarSectionKind.JUST_AIRED, null, it) }
     byDay.filterKeys { it >= today }.toSortedMap().forEach { (day, items) ->

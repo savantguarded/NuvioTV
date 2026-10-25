@@ -91,6 +91,10 @@ data class CalendarListModel(
     fun firstRowKeyIn(section: CalendarSectionKind): String? =
         entries.firstNotNullOfOrNull { (it as? CalendarRowEntry)?.row?.takeIf { row -> row.section == section }?.key }
 
+    /** [fork] calendar_just_aired_ascending: the last row of [section] (the newest Just aired once that group runs oldest first). */
+    fun lastRowKeyIn(section: CalendarSectionKind): String? =
+        entries.lastOrNull { (it as? CalendarRowEntry)?.row?.section == section }?.let { (it as CalendarRowEntry).row.key }
+
     /** The first row on [date] or the first one after it; the last row when the date is past them all. */
     fun rowKeyFor(date: LocalDate): String? {
         val rows = entries.filterIsInstance<CalendarRowEntry>().map { it.row }
@@ -187,7 +191,9 @@ fun buildCalendarList(
             if (startRowKey == null && section.kind != CalendarSectionKind.JUST_AIRED) startRowKey = key
         }
     }
-    return CalendarListModel(entries, startRowKey ?: firstRowKey)
+    // [fork] calendar_just_aired_ascending: with only Just aired rows, open on the newest (now the last one).
+    val nuvioCFallback = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_JUST_AIRED_ASCENDING) (entries.lastOrNull { it is CalendarRowEntry } as? CalendarRowEntry)?.row?.key else null
+    return CalendarListModel(entries, startRowKey ?: nuvioCFallback ?: firstRowKey)
 }
 
 /** Every dated release by day, for the month view. A day's rows are in time order. */

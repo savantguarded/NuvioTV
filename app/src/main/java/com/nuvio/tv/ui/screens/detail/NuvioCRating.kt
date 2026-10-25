@@ -80,7 +80,11 @@ data class NuvioCRatingUiState(
     val ticked: Set<NuvioCTracker> = emptySet(),
     val saving: Boolean = false,
     val failed: Set<NuvioCTracker> = emptySet(),
-    val needScore: Boolean = false
+    val needScore: Boolean = false,
+    /** [fork] round 28 post_play_rating: opened because you just finished this movie. */
+    val justFinished: Boolean = false,
+    /** [fork] round 28: the Trakt / Simkl lookups for this title are done. */
+    val checked: Boolean = false
 ) {
     val available: Boolean get() = target != null && connected.isNotEmpty()
 }
@@ -115,7 +119,22 @@ class NuvioCRatingViewModel @Inject constructor(
                     _state.update { if (it.open) it.copy(simkl = simkl) else it.copy(simkl = simkl, saved = it.saved ?: simkl) }
                 }
             }
+            if (_state.value.target == target) _state.update { it.copy(checked = true) }
         }
+    }
+
+    /**
+     * [fork] round 28 post_play_rating: after a finished movie, opens the dialog once, unless it is already
+     * rated (here, on Trakt or on Simkl) or was asked before for this title.
+     */
+    fun openAfterFinish() {
+        val s = _state.value
+        val target = s.target ?: return
+        if (!s.available || s.open || s.saved != null || s.trakt != null || s.simkl != null) return
+        if (service.askedAfterFinish(target)) return
+        service.markAskedAfterFinish(target)
+        open()
+        _state.update { it.copy(justFinished = true) }
     }
 
     fun open() = _state.update { s ->
@@ -123,7 +142,7 @@ class NuvioCRatingViewModel @Inject constructor(
         s.copy(open = true, score = s.saved, ticked = remembered ?: s.connected.toSet(), failed = emptySet(), needScore = false)
     }
 
-    fun close() = _state.update { it.copy(open = false, saving = false) }
+    fun close() = _state.update { it.copy(open = false, saving = false, justFinished = false) }
     fun pick(score: Int) = _state.update { it.copy(score = score, needScore = false) }
     fun toggle(tracker: NuvioCTracker) = _state.update { s ->
         s.copy(ticked = if (tracker in s.ticked) s.ticked - tracker else s.ticked + tracker, failed = emptySet())
@@ -139,7 +158,7 @@ class NuvioCRatingViewModel @Inject constructor(
             val failed = service.send(target, score, s.ticked)
             val saved = service.savedScore(target)
             _state.update {
-                if (failed.isEmpty()) it.copy(saving = false, open = false, saved = saved,
+                if (failed.isEmpty()) it.copy(saving = false, open = false, justFinished = false, saved = saved,
                     trakt = if (NuvioCTracker.TRAKT in s.ticked) score else it.trakt,
                     simkl = if (NuvioCTracker.SIMKL in s.ticked) score else it.simkl)
                 // keep only the failed ones ticked, so Save retries just those
@@ -159,10 +178,23 @@ internal fun rememberNuvioCRating(meta: Meta, starFocusRequester: FocusRequester
     val target = remember(meta.id, meta.imdbId, meta.type) { meta.nuvioCRatingTarget() }
     LaunchedEffect(target) { viewModel.bind(target) }
     val state by viewModel.state.collectAsState()
+    // [fork] round 28 post_play_rating: back on the details page of the movie you just finished
+    if (NuvioCFeatures.POST_PLAY_RATING) {
+        val finished = remember(meta.id) { com.nuvio.tv.data.nuvioc.NuvioCJustFinished.take(listOf(meta.id, meta.imdbId)) }
+        if (finished) {
+            LaunchedEffect(state.checked) {
+                if (!state.checked) return@LaunchedEffect
+                kotlinx.coroutines.delay(500) // let the page settle first
+                viewModel.openAfterFinish()
+            }
+        }
+    }
     if (state.open) {
         NuvioCRatingDialog(
             title = stringResource(R.string.nuvio_c_rate_your_rating),
-            subtitle = meta.name,
+            subtitle = if (state.justFinished) {
+                stringResource(R.string.nuvio_c_rate_just_finished, listOfNotNull(meta.name, meta.releaseInfo?.take(4)?.let { "($it)" }).joinToString(" "))
+            } else meta.name,
             state = state,
             onPick = viewModel::pick,
             onToggle = viewModel::toggle,
@@ -306,7 +338,16 @@ private fun NuvioCRatingDialog(
             horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            if (state.saved != null) {
+            if (state.justFinished) { // [fork] round 28: "Not now" instead of Remove
+                Button(
+                    onClick = onDismiss,
+                    enabled = !state.saving,
+                    colors = ButtonDefaults.colors(
+                        containerColor = NuvioTheme.colors.BackgroundCard,
+                        contentColor = NuvioTheme.colors.TextPrimary
+                    )
+                ) { Text(stringResource(R.string.nuvio_c_rate_not_now)) }
+            } else if (state.saved != null) {
                 Button(
                     onClick = onRemove,
                     enabled = !state.saving,

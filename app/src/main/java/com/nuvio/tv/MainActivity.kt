@@ -50,6 +50,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Search
@@ -277,6 +278,12 @@ open class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var nuvioCStreamBadgeSettings: com.nuvio.tv.data.local.StreamBadgeSettingsDataStore // [fork] badge_prefetch
+
+    @Inject
+    lateinit var nuvioCShufflePrefs: com.nuvio.tv.data.nuvioc.NuvioCShufflePrefs // [fork] shuffle_page
+
+    @Inject
+    lateinit var nuvioCShufflePool: dagger.Lazy<com.nuvio.tv.data.nuvioc.NuvioCShufflePool> // [fork] shuffle_page
 
     @Inject
     lateinit var layoutPreferenceDataStore: LayoutPreferenceDataStore
@@ -1093,12 +1100,19 @@ open class MainActivity : ComponentActivity() {
                             .map { com.nuvio.tv.NuvioCFeatures.LIBRARY_CALENDAR && com.nuvio.tv.NuvioCFeatures.CALENDAR_PAGE && com.nuvio.tv.ui.screens.calendar.calendarMenuVisible(it) }
                             .distinctUntilChanged()
                     }.collectAsState(initial = false)
-                    val rootRoutes = remember(discoverLocation, calendarInMenu) {
+                    // [fork] shuffle_page: Shuffle sits after Calendar when its setting is on.
+                    val shuffleInMenu by remember {
+                        nuvioCShufflePrefs.config
+                            .map { com.nuvio.tv.NuvioCFeatures.SHUFFLE_PAGE && it.menuVisible }
+                            .distinctUntilChanged()
+                    }.collectAsState(initial = false)
+                    val rootRoutes = remember(discoverLocation, calendarInMenu, shuffleInMenu) {
                         buildSet {
                             add(Screen.Home.route)
                             add(Screen.Search.route)
                             add(Screen.Library.route)
                             if (calendarInMenu) add(Screen.Calendar.route)
+                            if (shuffleInMenu) add(Screen.Shuffle.route) // [fork] shuffle_page
                             add(Screen.Settings.route)
                             if (discoverLocation == DiscoverLocation.IN_SIDEBAR) {
                                 add(Screen.Discover.route)
@@ -1112,6 +1126,7 @@ open class MainActivity : ComponentActivity() {
                     val strNavLibrary = stringResource(R.string.nav_library)
                     val strNavSettings = stringResource(R.string.nav_settings)
                     val strNavCalendar = stringResource(R.string.nav_calendar)
+                    val strNavShuffle = stringResource(R.string.nuvio_c_shuffle) // [fork] shuffle_page
                     val drawerItems = remember(
                         strNavHome,
                         strNavDiscover,
@@ -1119,8 +1134,10 @@ open class MainActivity : ComponentActivity() {
                         strNavLibrary,
                         strNavSettings,
                         strNavCalendar,
+                        strNavShuffle,
                         discoverLocation,
-                        calendarInMenu
+                        calendarInMenu,
+                        shuffleInMenu
                     ) {
                         buildList {
                             add(
@@ -1159,6 +1176,15 @@ open class MainActivity : ComponentActivity() {
                                         route = Screen.Calendar.route,
                                         label = strNavCalendar,
                                         icon = Icons.Default.CalendarMonth
+                                    )
+                                )
+                            }
+                            if (shuffleInMenu) { // [fork] shuffle_page
+                                add(
+                                    DrawerItem(
+                                        route = Screen.Shuffle.route,
+                                        label = strNavShuffle,
+                                        icon = Icons.Default.Shuffle
                                     )
                                 )
                             }
@@ -1357,6 +1383,12 @@ open class MainActivity : ComponentActivity() {
                             .map { it.rules }
                             .distinctUntilChanged()
                             .collectLatest { rules -> com.nuvio.tv.ui.components.NuvioCBadgePrefetch.run(applicationContext, rules) }
+                    }
+                    // [fork] round 28 shuffle_page: a minute after start-up settles, build the Shuffle pool if it's missing or over 12 h old
+                    LaunchedEffect(showSplash, startupLoadingState.complete) {
+                        if (!com.nuvio.tv.NuvioCFeatures.SHUFFLE_PAGE || showSplash || !startupLoadingState.complete) return@LaunchedEffect
+                        kotlinx.coroutines.delay(60_000)
+                        if (nuvioCShufflePrefs.config.value.menuVisible) nuvioCShufflePool.get().warmUp()
                     }
                     // [fork] startup_to_profiles: remember whether this launch went through the profile screen
                     LaunchedEffect(hasSelectedProfileThisSession) {
@@ -2542,6 +2574,14 @@ private fun navigateToDrawerRoute(
             }
             val homeViewModel = androidx.lifecycle.ViewModelProvider(homeEntry)[com.nuvio.tv.ui.screens.home.HomeViewModel::class.java]
             homeViewModel.requestScrollToTop()
+        }
+        if (targetRoute == Screen.Shuffle.route) { // [fork] shuffle_page: Shuffle again = back to the mood screen
+            runCatching {
+                val entry = navController.getBackStackEntry(Screen.Shuffle.route)
+                androidx.lifecycle.ViewModelProvider(entry)[
+                    com.nuvio.tv.ui.screens.shuffle.NuvioCShuffleViewModel::class.java
+                ].backToMood()
+            }
         }
         if (targetRoute == Screen.Calendar.route) { // [fork] calendar_page: Calendar again = back to today
             runCatching {

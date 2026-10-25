@@ -1264,6 +1264,14 @@ private fun PlaybackNavHost(
             } // [fork] sidebar_page_smooth
         }
 
+        composable(Screen.Shuffle.route) { // [fork] shuffle_page
+            com.nuvio.tv.ui.components.NuvioCSidebarSettleGate {
+            com.nuvio.tv.ui.screens.shuffle.NuvioCShuffleScreen(
+                onOpenTitle = { id, type -> navController.navigate(Screen.Detail.createRoute(id, type)) }
+            )
+            }
+        }
+
         composable(Screen.Settings.route) {
             com.nuvio.tv.ui.components.NuvioCSidebarSettleGate { // [fork] sidebar_page_smooth
             SettingsScreen(

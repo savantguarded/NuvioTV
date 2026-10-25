@@ -31,7 +31,6 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -44,9 +43,6 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
-import coil3.compose.AsyncImage
-import coil3.request.ImageRequest
-import coil3.request.crossfade
 import com.nuvio.tv.NuvioCFeatures
 import com.nuvio.tv.R
 import com.nuvio.tv.domain.model.LibraryEntry
@@ -59,8 +55,6 @@ import com.nuvio.tv.ui.theme.NuvioTheme
 // description, with Pick again and Open (Open is focused and goes to the details page, as a poster click does).
 // Mockup: artifact "Nuvio C Round 27".
 
-/** Gaps between roll frames: quick, then slowing like a reel (about 0.85 s in all). */
-private val ROLL_STEPS_MS = longArrayOf(55, 60, 70, 85, 105, 130, 160, 190)
 
 /** Remembers the last few picks so Pick again doesn't bounce between the same titles. */
 internal class NuvioCRandomPicker {
@@ -115,31 +109,21 @@ internal fun NuvioCRandomPickDialog(
     onDismiss: () -> Unit
 ) {
     val openRequester = remember { FocusRequester() }
-    // The roll: the poster flicks through a few other titles from the page, slowing like a reel, then the pick
-    // settles (96% -> 100%) and its text fades in. Only the poster's image source changes during the roll, and the
-    // scale / fade are read in graphicsLayer, so nothing is laid out again. Posters come from the page, which
-    // has mostly loaded them already.
-    var shown by remember { androidx.compose.runtime.mutableStateOf(item) }
-    var rolling by remember { androidx.compose.runtime.mutableStateOf(false) }
-    val settle = remember { androidx.compose.animation.core.Animatable(1f) }
-    val textAlpha = remember { androidx.compose.animation.core.Animatable(1f) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    // [fork] round 28: the roll is the shared poster reel (NuvioCPosterReel): the posters are decoded first, then
+    // the whole strip glides and slows into the centre frame. Round 27 swapped one poster's picture 8 times, which
+    // showed as flicker on the TV. The text fades in once the pick has landed.
+    var rolling by remember { androidx.compose.runtime.mutableStateOf(true) }
+    val textAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
+    val lastPoster = remember { arrayOfNulls<String>(1) } // the poster in the frame now, so Pick again rolls on from it
+    val spin = remember(pickToken) {
+        val pick = item.poster ?: item.rawPosterUrl
+        val others = pool.filter { !(it.id == item.id && it.type == item.type) }.mapNotNull { it.poster ?: it.rawPosterUrl }
+        com.nuvio.tv.ui.components.nuvioCReelSpin(pickToken, pick, others, lastPoster[0]).also { lastPoster[0] = pick }
+    }
     LaunchedEffect(pickToken) {
-        val others = pool.filter { it.poster != null && !(it.id == item.id && it.type == item.type) }.shuffled().take(ROLL_STEPS_MS.size)
-        if (others.size >= 3) {
-            rolling = true
-            textAlpha.snapTo(0f)
-            others.forEachIndexed { i, entry ->
-                shown = entry
-                kotlinx.coroutines.delay(ROLL_STEPS_MS[i])
-            }
-        }
-        shown = item
-        rolling = false
-        settle.snapTo(0.96f)
-        kotlinx.coroutines.coroutineScope {
-            launch { settle.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.6f, stiffness = 500f)) }
-            launch { textAlpha.animateTo(1f, androidx.compose.animation.core.tween(220)) }
-        }
+        rolling = true
+        textAlpha.snapTo(0f)
     }
     // Each pick lands back on Open, so the remote's centre key always means "go to this one".
     LaunchedEffect(item.id, item.type) {
@@ -158,28 +142,20 @@ internal fun NuvioCRandomPickDialog(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            val poster = shown.poster ?: shown.rawPosterUrl
-            Box(
-                modifier = Modifier
-                    .width(132.dp)
-                    .height(198.dp)
-                    .graphicsLayer {
-                        scaleX = settle.value
-                        scaleY = settle.value
-                        alpha = if (rolling) 0.75f else 1f
+            com.nuvio.tv.ui.components.NuvioCPosterReel(
+                spin = spin,
+                cardWidth = 132.dp,
+                cardHeight = 198.dp,
+                edgeColor = NuvioTheme.colors.BackgroundElevated,
+                modifier = Modifier.fillMaxWidth(),
+                edgeFade = 56.dp,
+                onLanded = { token ->
+                    if (token == pickToken) {
+                        rolling = false
+                        scope.launch { textAlpha.animateTo(1f, androidx.compose.animation.core.tween(220)) }
                     }
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(NuvioTheme.colors.BackgroundCard)
-            ) {
-                if (!poster.isNullOrBlank()) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current).data(poster).crossfade(false).build(),
-                        contentDescription = shown.name,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.width(132.dp).height(198.dp)
-                    )
                 }
-            }
+            )
             Spacer(Modifier.height(4.dp))
             Column(
                 modifier = Modifier.fillMaxWidth().graphicsLayer { alpha = textAlpha.value },

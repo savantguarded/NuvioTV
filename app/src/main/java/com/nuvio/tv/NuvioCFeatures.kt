@@ -370,4 +370,16 @@ object NuvioCFeatures {
     const val HOME_CATALOG_SWEEP = true
     /** Stream badges: once start-up has settled (and whenever the pack changes) every imported badge logo is fetched and decoded once, so the sources list shows them all at once and nothing downloads during playback; badges use the app's TV-tuned connection (16 at a time, IPv4 first) and a failed one is tried again instead of staying blank. Off = official on-demand loading. */
     const val BADGE_PREFETCH = true
+
+    // ---- Round 28 (2026-10-25) ----
+    /** Calendar Week: Back on any card after the first in a day's row scrolls that row back to its start and focuses its first card (like Home rows); Back on a first card leaves as before. Off = Back always leaves. */
+    const val CALENDAR_WEEK_BACK_FIRST = true
+    /** Calendar List: Just aired runs oldest day first, so the whole list reads in date order; "See all in Calendar" from a reminder lands on the newest Just aired row. Off = Just aired newest first. */
+    const val CALENDAR_JUST_AIRED_ASCENDING = true
+    /** Shuffle in the sidebar (idea from TitansparkDev's "Surprise me"): a mood screen (Movies / Shows / Either, mood chips, Unwatched), a poster reel, then the pick with Open and Shuffle again. Picks come from a Blend of For you (TMDB recommendations from your watches and ratings), Trakt recommendations, add-on catalogs, Home rows and Library, each with its own weight; truly random draws, last 40 picks skipped. Off = no Shuffle entry or page, nothing built. */
+    const val SHUFFLE_PAGE = true
+    /** After a movie you actually watched to the end (past the IntroDB end-credits marker, or the post-play threshold), its details page asks for your rating once with your usual rate dialog ("You just finished…", Not now / Save). Not when it's already rated, when you jumped to the end, or for a title already asked about. No change to where the player goes. Off = no prompt. */
+    const val POST_PLAY_RATING = true
+    /** Player: a Cast button in the main row (after Audio / Chapters, before Sources) when the title has cast. It opens a side panel like Episodes: for an episode, its guest stars first, then the series regulars; OK on a person shows a short bio and four known-for posters. Built only when opened; playback carries on. Off = no button. */
+    const val OSD_CAST = true
 }

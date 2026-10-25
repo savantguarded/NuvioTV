@@ -158,7 +158,8 @@ class CalendarViewModel internal constructor(
                 val state = uiState.first { it.phase != CalendarPhase.LOADING && it.phase != CalendarPhase.BUILDING }
                 data.consumeOpenAtJustAired()
                 if (state.phase != CalendarPhase.READY) return@collect
-                _pendingListKey.value = state.list.firstRowKeyIn(CalendarSectionKind.JUST_AIRED) ?: state.list.startRowKey
+                _pendingListKey.value = (if (com.nuvio.tv.NuvioCFeatures.CALENDAR_JUST_AIRED_ASCENDING) state.list.lastRowKeyIn(CalendarSectionKind.JUST_AIRED) else null) // [fork] calendar_just_aired_ascending: newest
+                    ?: state.list.firstRowKeyIn(CalendarSectionKind.JUST_AIRED) ?: state.list.startRowKey
                 _viewMode.value = CalendarViewMode.LIST
             }
         }
