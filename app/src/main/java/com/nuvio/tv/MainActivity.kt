@@ -218,6 +218,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.collectLatest
 import com.nuvio.tv.ui.screens.calendar.openCalendarWatchTarget
 import kotlinx.coroutines.launch
 
@@ -273,6 +274,9 @@ open class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var themeDataStore: ThemeDataStore
+
+    @Inject
+    lateinit var nuvioCStreamBadgeSettings: com.nuvio.tv.data.local.StreamBadgeSettingsDataStore // [fork] badge_prefetch
 
     @Inject
     lateinit var layoutPreferenceDataStore: LayoutPreferenceDataStore
@@ -1345,6 +1349,15 @@ open class MainActivity : ComponentActivity() {
                         complete = startupLoadingState.complete && nuvioCSettled, // [fork] startup_settle
                         destination = startupDestination
                     ) && (nuvioCPickerWaitOver || splashTriggered || hasSelectedProfileThisSession) // [fork] startup_to_profiles
+                    // [fork] round 27c badge_prefetch: once start-up has settled, get every badge logo ready (again when the pack changes)
+                    LaunchedEffect(showSplash, startupLoadingState.complete) {
+                        if (!com.nuvio.tv.NuvioCFeatures.BADGE_PREFETCH || showSplash || !startupLoadingState.complete) return@LaunchedEffect
+                        kotlinx.coroutines.delay(2_500)
+                        nuvioCStreamBadgeSettings.settings
+                            .map { it.rules }
+                            .distinctUntilChanged()
+                            .collectLatest { rules -> com.nuvio.tv.ui.components.NuvioCBadgePrefetch.run(applicationContext, rules) }
+                    }
                     // [fork] startup_to_profiles: remember whether this launch went through the profile screen
                     LaunchedEffect(hasSelectedProfileThisSession) {
                         if (com.nuvio.tv.NuvioCFeatures.STARTUP_TO_PROFILES && hasSelectedProfileThisSession) {

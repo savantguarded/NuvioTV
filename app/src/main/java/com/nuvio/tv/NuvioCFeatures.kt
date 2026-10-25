@@ -368,4 +368,6 @@ object NuvioCFeatures {
     const val STARTUP_TO_PROFILES = true
     /** Home: the first 8 catalogs load in the order the rows appear (official: the first 4 in addon order), then the rest load quietly in the background, one at a time, never ahead of a row you're looking at; Classic looks 3 rows ahead. Idea from ysosrs123's fork. Off = official lazy loading. */
     const val HOME_CATALOG_SWEEP = true
+    /** Stream badges: once start-up has settled (and whenever the pack changes) every imported badge logo is fetched and decoded once, so the sources list shows them all at once and nothing downloads during playback; badges use the app's TV-tuned connection (16 at a time, IPv4 first) and a failed one is tried again instead of staying blank. Off = official on-demand loading. */
+    const val BADGE_PREFETCH = true
 }

@@ -43,6 +43,9 @@ import coil3.request.allowHardware
 import coil3.request.allowRgb565
 import coil3.request.crossfade
 import coil3.size.Precision
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import com.nuvio.tv.domain.model.StreamBadge
 import okio.Path.Companion.toOkioPath
 import kotlin.math.round
@@ -62,9 +65,14 @@ private val badgeImageRequestCache = HashMap<String, ImageRequest>(32)
 
 private var badgeImageLoader: ImageLoader? = null
 
-private fun getBadgeImageLoader(context: android.content.Context): ImageLoader {
+internal fun getBadgeImageLoader(context: android.content.Context): ImageLoader {
     badgeImageLoader?.let { return it }
     val loader = ImageLoader.Builder(context.applicationContext)
+        .apply { // [fork] round 27c badge_prefetch: the app's TV-tuned network setup instead of Coil's default client
+            if (com.nuvio.tv.NuvioCFeatures.BADGE_PREFETCH) components {
+                add(coil3.network.okhttp.OkHttpNetworkFetcherFactory(callFactory = { nuvioCBadgeHttpClient }))
+            }
+        }
         .memoryCache {
             MemoryCache.Builder()
                 .maxSizePercent(context.applicationContext, 0.05)
@@ -168,6 +176,50 @@ private fun StreamFileSizeBadge(bytes: Long) {
     }
 }
 
+/**
+ * [fork] round 27c badge_prefetch: badges used Coil's default OkHttp client (5 downloads at once per host,
+ * 10 s timeouts, no retry), so with every logo on one host most queued, and during playback the video
+ * download starved them until some timed out. This one matches the app's poster client: 16 per host,
+ * IPv4 first, short timeouts with one retry on a dropped connection.
+ */
+private val nuvioCBadgeHttpClient: okhttp3.OkHttpClient by lazy {
+    okhttp3.OkHttpClient.Builder()
+        .dispatcher(okhttp3.Dispatcher().apply { maxRequests = 32; maxRequestsPerHost = 16 })
+        .dns(com.nuvio.tv.core.network.IPv4FirstDns())
+        .socketFactory(com.nuvio.tv.core.network.NoDelaySocketFactory)
+        .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(8, java.util.concurrent.TimeUnit.SECONDS)
+        .callTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        .retryOnConnectionFailure(true)
+        .followRedirects(true)
+        .followSslRedirects(true)
+        .build()
+}
+
+/** Decode size every badge uses (2x its 16 dp height, up to 92 dp wide), in px. Shared by the chips and the prefetch. */
+internal fun badgeDecodeSize(density: Float): Pair<Int, Int> =
+    (92f * density).roundToIntCompat() * 2 to (16f * density).roundToIntCompat() * 2
+
+private fun Float.roundToIntCompat(): Int = kotlin.math.round(this).toInt()
+
+/** The one request per badge URL (same memory key everywhere, so a prefetched badge is an instant memory hit). */
+internal fun badgeImageRequest(context: android.content.Context, url: String, decodeWidth: Int, decodeHeight: Int): ImageRequest {
+    val cacheKey = "${url}_${decodeWidth}x${decodeHeight}"
+    return synchronized(badgeImageRequestCache) {
+        badgeImageRequestCache.getOrPut(cacheKey) {
+            ImageRequest.Builder(context.applicationContext)
+                .data(url)
+                .size(width = decodeWidth, height = decodeHeight)
+                .memoryCacheKey(cacheKey)
+                .diskCacheKey(url)
+                .memoryCachePolicy(CachePolicy.ENABLED)
+                .diskCachePolicy(CachePolicy.ENABLED)
+                .crossfade(false)
+                .build()
+        }
+    }
+}
+
 @Composable
 internal fun StreamImportedBadgeChip(badge: StreamBadge, crossfade: Boolean = false) {
     val context = LocalContext.current
@@ -193,8 +245,12 @@ internal fun StreamImportedBadgeChip(badge: StreamBadge, crossfade: Boolean = fa
     // recomposition and ensures Coil's internal equality checks hit the same
     // object reference — preventing redundant decode dispatches.
     val cacheKey = "${badge.imageURL}_${decodeWidth}x${decodeHeight}"
+    // [fork] badge_prefetch: a failed load is tried again (after 1 s, then 3 s) instead of staying blank
+    var nuvioCAttempt by androidx.compose.runtime.remember(cacheKey) { androidx.compose.runtime.mutableIntStateOf(0) }
+    val nuvioCScope = androidx.compose.runtime.rememberCoroutineScope()
     val imageRequest = remember(cacheKey) {
-        badgeImageRequestCache.getOrPut(cacheKey) {
+        if (com.nuvio.tv.NuvioCFeatures.BADGE_PREFETCH) badgeImageRequest(context, badge.imageURL, decodeWidth, decodeHeight)
+        else badgeImageRequestCache.getOrPut(cacheKey) {
             ImageRequest.Builder(context)
                 .data(badge.imageURL)
                 .size(width = decodeWidth, height = decodeHeight)
@@ -216,6 +272,7 @@ internal fun StreamImportedBadgeChip(badge: StreamBadge, crossfade: Boolean = fa
             .padding(horizontal = 3.dp, vertical = NuvioTheme.spacing.xxs),
         contentAlignment = Alignment.Center
     ) {
+        androidx.compose.runtime.key(nuvioCAttempt) {
         AsyncImage(
             model = imageRequest,
             imageLoader = getBadgeImageLoader(context),
@@ -224,8 +281,15 @@ internal fun StreamImportedBadgeChip(badge: StreamBadge, crossfade: Boolean = fa
                 .height(NuvioTheme.spacing.lg)
                 .widthIn(min = 34.dp, max = 92.dp)
                 .clip(BadgeChipShape),
-            contentScale = ContentScale.Fit
+            contentScale = ContentScale.Fit,
+            onError = if (com.nuvio.tv.NuvioCFeatures.BADGE_PREFETCH && nuvioCAttempt < 2) {{
+                nuvioCScope.launch {
+                    kotlinx.coroutines.delay(if (nuvioCAttempt == 0) 1_000L else 3_000L)
+                    nuvioCAttempt++
+                }
+            }} else null
         )
+        }
     }
 }
 

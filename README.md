@@ -43,6 +43,7 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - Smoother scrolling on Home, collections and the details page, including moving between its sections.
 - Even spacing next to a focused button; the app font everywhere, ambient screen included.
 - Source picker without an "All" tab when there's only one source (Refresh still reachable).
+- Stream badges are fetched once after start-up (and when the pack changes), so the sources list shows them all at once, during playback too; a badge that fails to load is tried again.
 - Modern sidebar closes smoothly, blur included; a page picked from it is built once the sidebar has closed, then fades in.
 
 **Stability on 2 GB TVs**
