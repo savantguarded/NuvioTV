@@ -77,57 +77,30 @@ fun NuvioCStartupBreathe(logoRes: Int, contentDescription: String?, modifier: Mo
 }
 
 /**
- * [fork] round 27 startup_arc (27b: no by-line, thin arc instead of the morph): the still logo (same smooth
- * bitmap, size and centre as round 26c) with a hairline turning arc centred underneath. The arc is an
- * AnimatedVectorDrawable played by the render thread; nothing else on the screen animates.
+ * [fork] round 27 startup_static (27d: Charles still saw the turning arc stutter on the 2 GB TV, so nothing moves):
+ * the still logo only, the same smooth bitmap, size and centre as round 26c. With nothing animating there is
+ * nothing that can hitch while the app works behind it.
  */
 @Composable
-fun NuvioCStartupArc(logoRes: Int, contentDescription: String?, modifier: Modifier = Modifier) {
+fun NuvioCStartupStatic(logoRes: Int, contentDescription: String?, modifier: Modifier = Modifier) {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val context = androidx.compose.ui.platform.LocalContext.current
     val heightPx = with(density) { LOGO_HEIGHT.roundToPx() }
     val logo = remember(logoRes, heightPx) { nuvioCSmoothBitmap(context.resources, logoRes, heightPx) }
-    androidx.compose.ui.layout.Layout(
-        modifier = modifier,
-        content = {
-            if (logo != null) {
-                val widthDp = with(density) { logo.width.toDp() }
-                val heightDp = with(density) { logo.height.toDp() }
-                AndroidView(
-                    factory = { ctx ->
-                        ImageView(ctx).apply {
-                            setImageBitmap(logo)
-                            scaleType = ImageView.ScaleType.FIT_CENTER
-                            this.contentDescription = contentDescription
-                        }
-                    },
-                    modifier = Modifier.size(width = widthDp, height = heightDp)
-                )
-            } else {
-                androidx.compose.foundation.layout.Box(Modifier.size(width = 150.dp, height = LOGO_HEIGHT))
-            }
+    androidx.compose.foundation.layout.Box(modifier, contentAlignment = androidx.compose.ui.Alignment.Center) {
+        if (logo != null) {
+            val widthDp = with(density) { logo.width.toDp() }
+            val heightDp = with(density) { logo.height.toDp() }
             AndroidView(
                 factory = { ctx ->
                     ImageView(ctx).apply {
-                        val arc = ctx.getDrawable(R.drawable.nuvio_c_startup_arc)
-                        setImageDrawable(arc)
-                        (arc as? Animatable)?.start()
+                        setImageBitmap(logo)
+                        scaleType = ImageView.ScaleType.FIT_CENTER
+                        this.contentDescription = contentDescription
                     }
                 },
-                onRelease = { view -> (view.drawable as? Animatable)?.stop() },
-                modifier = Modifier.size(30.dp)
+                modifier = Modifier.size(width = widthDp, height = heightDp)
             )
-        }
-    ) { measurables, constraints ->
-        val loose = constraints.copy(minWidth = 0, minHeight = 0)
-        val logoP = measurables[0].measure(loose)
-        val loaderP = measurables[1].measure(loose)
-        val w = constraints.maxWidth
-        val h = constraints.maxHeight
-        val logoY = (h - logoP.height) / 2
-        layout(w, h) {
-            logoP.place((w - logoP.width) / 2, logoY)
-            loaderP.place((w - loaderP.width) / 2, logoY + logoP.height + 44.dp.roundToPx())
         }
     }
 }
