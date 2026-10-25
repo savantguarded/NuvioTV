@@ -7,4 +7,6 @@
     <string name="nuvio_c_calendar_start_last">Last used</string>
     <string name="nuvio_c_calendar_mdblist">Use my MDBList calendar</string>
     <string name="nuvio_c_calendar_mdblist_sub">When signed in to MDBList, follows what your MDBList calendar shows (set under Preferences &gt; Calendar on mdblist.com) and uses its release dates.</string>
+    <string name="nuvio_c_calendar_tmdb_soon">Show coming soon titles</string>
+    <string name="nuvio_c_calendar_tmdb_soon_sub">Adds films and shows coming in the next 30 days (from TMDB, no MDBList needed) to the Calendar. Not shown in the Upcoming row.</string>
 </resources>

@@ -29,7 +29,52 @@ interface NuvioCCalendarTmdbApi {
         @Path("season_number") seasonNumber: Int,
         @Query("api_key") apiKey: String
     ): Response<NuvioCCalendarTmdbSeason>
+
+    // [fork] calendar_tmdb_soon: the two discover calls behind the coming-soon list
+    @GET("discover/movie")
+    suspend fun discoverSoonMovies(
+        @Query("api_key") apiKey: String,
+        @Query("region") region: String,
+        @Query("with_release_type") releaseTypes: String,
+        @Query("release_date.gte") from: String,
+        @Query("release_date.lte") to: String,
+        @Query("sort_by") sortBy: String = "popularity.desc",
+        @Query("include_adult") includeAdult: Boolean = false,
+        @Query("language") language: String = "en-US",
+        @Query("page") page: Int = 1
+    ): Response<NuvioCCalendarDiscover>
+
+    @GET("discover/tv")
+    suspend fun discoverSoonShows(
+        @Query("api_key") apiKey: String,
+        @Query("first_air_date.gte") firstFrom: String? = null,
+        @Query("first_air_date.lte") firstTo: String? = null,
+        @Query("air_date.gte") airFrom: String? = null,
+        @Query("air_date.lte") airTo: String? = null,
+        @Query("with_original_language") language: String = "en",
+        @Query("without_genres") withoutGenres: String,
+        @Query("sort_by") sortBy: String = "popularity.desc",
+        @Query("include_adult") includeAdult: Boolean = false,
+        @Query("page") page: Int = 1
+    ): Response<NuvioCCalendarDiscover>
 }
+
+@JsonClass(generateAdapter = true)
+data class NuvioCCalendarDiscover(
+    @Json(name = "results") val results: List<NuvioCCalendarDiscoverItem>? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class NuvioCCalendarDiscoverItem(
+    @Json(name = "id") val id: Int? = null,
+    @Json(name = "title") val title: String? = null,
+    @Json(name = "name") val name: String? = null,
+    @Json(name = "poster_path") val posterPath: String? = null,
+    @Json(name = "popularity") val popularity: Double? = null,
+    @Json(name = "original_language") val originalLanguage: String? = null,
+    @Json(name = "vote_count") val voteCount: Int? = null,
+    @Json(name = "adult") val adult: Boolean? = null
+)
 
 @JsonClass(generateAdapter = true)
 data class NuvioCCalendarTmdbShow(

@@ -42,7 +42,9 @@ data class CalendarSettings(
     /** The view last picked in the Calendar header (Week, List or Month), by name; null until one was picked. */
     val viewMode: String? = null,
     /** [fork] calendar_mdblist: use MDBList's own release calendar when signed in to MDBList. */
-    val useMdbListCalendar: Boolean = true
+    val useMdbListCalendar: Boolean = true,
+    /** [fork] calendar_tmdb_soon: list TMDB's coming-soon films and shows in the Calendar. */
+    val useTmdbSoonCalendar: Boolean = true
 )
 
 internal object CalendarSettingsKeys {
@@ -60,6 +62,7 @@ internal object CalendarSettingsKeys {
     val comingUpHiddenNames = stringSetPreferencesKey("calendar_coming_up_hidden_names")
     val viewMode = stringPreferencesKey("calendar_view_mode")
     val useMdbListCalendar = booleanPreferencesKey("nuvio_c_calendar_mdblist") // [fork] calendar_mdblist
+    val useTmdbSoonCalendar = booleanPreferencesKey("nuvio_c_calendar_tmdb_soon") // [fork] calendar_tmdb_soon
 }
 
 private const val NAME_SEPARATOR = '\u001F'
@@ -96,7 +99,8 @@ internal fun Preferences.toCalendarSettings() = CalendarSettings(
     comingUpHiddenNames = decodeCalendarHiddenNames(this[CalendarSettingsKeys.comingUpHiddenNames])
         .filterKeys { it in this[CalendarSettingsKeys.comingUpHiddenKeys].orEmpty() },
     viewMode = this[CalendarSettingsKeys.viewMode],
-    useMdbListCalendar = this[CalendarSettingsKeys.useMdbListCalendar] ?: true
+    useMdbListCalendar = this[CalendarSettingsKeys.useMdbListCalendar] ?: true,
+    useTmdbSoonCalendar = this[CalendarSettingsKeys.useTmdbSoonCalendar] ?: true
 )
 
 /** Turning a title off also removes keys that name the same title by another of its ids. */
@@ -167,6 +171,9 @@ class CalendarSettingsDataStore @Inject constructor(
 
     suspend fun setUseMdbListCalendar(use: Boolean) = // [fork] calendar_mdblist
         store().edit { it[CalendarSettingsKeys.useMdbListCalendar] = use }
+
+    suspend fun setUseTmdbSoonCalendar(use: Boolean) = // [fork] calendar_tmdb_soon
+        store().edit { it[CalendarSettingsKeys.useTmdbSoonCalendar] = use }
 
     suspend fun setTitleHidden(titleKey: String, hidden: Boolean, name: String? = null) = store().edit {
         it.toggleNamed(CalendarSettingsKeys.hiddenTitleKeys, CalendarSettingsKeys.hiddenTitleNames, titleKey, hidden, name)

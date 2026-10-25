@@ -268,4 +268,5 @@ fun calendarOriginCode(origin: CalendarOrigin): String = when (origin) {
     CalendarOrigin.DROPPED -> "dropped"
     CalendarOrigin.BELL -> "bell"
     CalendarOrigin.MDBLIST_CALENDAR_EXTRA -> "mdblist-cal-extra"
+    CalendarOrigin.TMDB_SOON -> "tmdb-soon"
 }

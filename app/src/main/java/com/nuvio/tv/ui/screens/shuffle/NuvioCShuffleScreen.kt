@@ -146,6 +146,11 @@ private fun ShuffleMood(
                 color = NuvioTheme.colors.TextPrimary,
                 maxLines = 1
             )
+            Spacer(Modifier.weight(1f))
+            // [fork] roulette_page: Unwatched and Blend sit top right
+            ShuffleChip(label = stringResource(R.string.nuvio_c_shuffle_unwatched), selected = ui.unwatched, dot = ui.unwatched, onClick = onUnwatched)
+            Spacer(Modifier.width(8.dp))
+            ShuffleChip(label = stringResource(R.string.nuvio_c_shuffle_blend), selected = false, onClick = onSources)
         }
         Text(
             text = if (ui.nothingLeft) stringResource(R.string.nuvio_c_shuffle_nothing_left) else stringResource(R.string.nuvio_c_shuffle_title_sub),
@@ -184,10 +189,6 @@ private fun ShuffleMood(
                     ShuffleChip(label = moodLabel(mood), selected = ui.mood == mood, onClick = { onMood(mood) })
                 }
             }
-            Spacer(Modifier.width(12.dp))
-            ShuffleChip(label = stringResource(R.string.nuvio_c_shuffle_unwatched), selected = ui.unwatched, dot = ui.unwatched, onClick = onUnwatched)
-            Spacer(Modifier.width(8.dp))
-            ShuffleChip(label = stringResource(R.string.nuvio_c_shuffle_blend), selected = false, onClick = onSources)
         }
     }
 }

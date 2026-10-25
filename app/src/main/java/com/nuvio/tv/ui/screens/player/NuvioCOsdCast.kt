@@ -305,8 +305,11 @@ internal fun NuvioCOsdCastPanel(
         state.open = false
         onClosed()
     }
+    // [fork] One Back closes the overlay; only an opened "See more" takes a Back of its own first.
+    var bioExpanded by remember { mutableStateOf(false) }
+    LaunchedEffect(ui.selected) { bioExpanded = false }
     Dialog(
-        onDismissRequest = { if (ui.selected != null) viewModel.back() else close() },
+        onDismissRequest = { if (bioExpanded) bioExpanded = false else close() },
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
         val window = (LocalView.current.parent as? DialogWindowProvider)?.window
@@ -333,7 +336,7 @@ internal fun NuvioCOsdCastPanel(
                         .background(NuvioTheme.colors.BackgroundElevated)
                 ) {
                     val selected = ui.selected
-                    if (selected == null) CastList(ui) { person, key -> viewModel.select(person, key) } else PersonView(selected, ui.bio, ui.bioLoading)
+                    if (selected == null) CastList(ui) { person, key -> viewModel.select(person, key) } else PersonView(selected, ui.bio, ui.bioLoading, bioExpanded) { bioExpanded = it }
                 }
             }
         }
@@ -447,11 +450,10 @@ private fun Face(url: String?, name: String, sizeDp: Int) {
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun PersonView(person: NuvioCCastPerson, bio: NuvioCCastBio?, loading: Boolean) {
+private fun PersonView(person: NuvioCCastPerson, bio: NuvioCCastBio?, loading: Boolean, expanded: Boolean, onExpandedChange: (Boolean) -> Unit) {
     val holder = remember { FocusRequester() }
     val seeMore = remember { FocusRequester() }
     val context = LocalContext.current
-    var expanded by remember(person) { mutableStateOf(false) }
     var truncated by remember(person, bio) { mutableStateOf(false) }
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
@@ -502,8 +504,8 @@ private fun PersonView(person: NuvioCCastPerson, bio: NuvioCCastBio?, loading: B
         if (truncated || expanded) {
             Surface(
                 onClick = {
-                    expanded = !expanded
-                    if (!expanded) scope.launch { scroll.scrollTo(0) }
+                    onExpandedChange(!expanded)
+                    if (expanded) scope.launch { scroll.scrollTo(0) }
                 },
                 modifier = Modifier
                     .focusRequester(seeMore)

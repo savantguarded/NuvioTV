@@ -900,6 +900,27 @@ private fun SubtitleStyleRail(
                     )
                 }
             }
+            if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_FONT) item { // [fork] Nuvio C subtitle font
+                val nuvioCContext = androidx.compose.ui.platform.LocalContext.current
+                val nuvioCFont = NuvioCSubtitleFont.let { it.load(nuvioCContext); it.current }
+                OverlaySectionCard(
+                    title = stringResource(R.string.nuvio_c_subtitle_font_title),
+                    modifier = styleCardModifier
+                ) {
+                    StepperRow(
+                        value = nuvioCFont.label,
+                        valueWidth = 136.dp,
+                        onDecrease = { if (!isStyleDisabledByLibass) NuvioCSubtitleFont.step(nuvioCContext, -1) },
+                        onIncrease = { if (!isStyleDisabledByLibass) NuvioCSubtitleFont.step(nuvioCContext, 1) },
+                        onMoveLeft = onMoveLeft,
+                        decrementFocusRequester = focusRequesters[NUVIO_C_FONT_PREV],
+                        incrementFocusRequester = focusRequesters[NUVIO_C_FONT_NEXT],
+                        decrementFocusKey = NUVIO_C_FONT_PREV,
+                        incrementFocusKey = NUVIO_C_FONT_NEXT,
+                        onFocusChanged = onStyleFocused
+                    )
+                }
+            }
             item {
                 OverlaySectionCard(
                     title = stringResource(R.string.subtitle_style_bold),
@@ -962,6 +983,32 @@ private fun SubtitleStyleRail(
                         incrementFocusRequester = focusRequesters[StyleFocusKey.OpacityIncrease],
                         decrementFocusKey = StyleFocusKey.OpacityDecrease,
                         incrementFocusKey = StyleFocusKey.OpacityIncrease,
+                        onFocusChanged = onStyleFocused
+                    )
+                }
+            }
+            item { // [fork] round 29: background box opacity, changed from the player (steps of 10%, like Text opacity)
+                OverlaySectionCard(
+                    title = stringResource(R.string.nuvio_c_subtitle_background_title),
+                    modifier = styleCardModifier
+                ) {
+                    val bgColor = Color(subtitleStyle.backgroundColor)
+                    val bgPercent = (bgColor.alpha * 100f).roundToInt().coerceIn(0, 100)
+                    StepperRow(
+                        value = "$bgPercent%",
+                        onDecrease = {
+                            val a = (bgPercent - 10).coerceAtLeast(0) / 100f
+                            dispatchStyleEvent(PlayerEvent.OnSetSubtitleBackgroundColor(bgColor.copy(alpha = a).toArgb()))
+                        },
+                        onIncrease = {
+                            val a = (bgPercent + 10).coerceAtMost(100) / 100f
+                            dispatchStyleEvent(PlayerEvent.OnSetSubtitleBackgroundColor(bgColor.copy(alpha = a).toArgb()))
+                        },
+                        onMoveLeft = onMoveLeft,
+                        decrementFocusRequester = focusRequesters[NUVIO_C_BG_PREV],
+                        incrementFocusRequester = focusRequesters[NUVIO_C_BG_NEXT],
+                        decrementFocusKey = NUVIO_C_BG_PREV,
+                        incrementFocusKey = NUVIO_C_BG_NEXT,
                         onFocusChanged = onStyleFocused
                     )
                 }
@@ -1038,82 +1085,6 @@ private fun SubtitleStyleRail(
                         decrementFocusKey = StyleFocusKey.OffsetDecrease,
                         incrementFocusKey = StyleFocusKey.OffsetIncrease,
                         onFocusChanged = onStyleFocused
-                    )
-                }
-            }
-            if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_FONT) item { // [fork] Nuvio C subtitle font
-                val nuvioCContext = androidx.compose.ui.platform.LocalContext.current
-                val nuvioCFont = NuvioCSubtitleFont.let { it.load(nuvioCContext); it.current }
-                OverlaySectionCard(
-                    title = stringResource(R.string.nuvio_c_subtitle_font_title),
-                    modifier = styleCardModifier
-                ) {
-                    StepperRow(
-                        value = nuvioCFont.label,
-                        valueWidth = 136.dp,
-                        onDecrease = { if (!isStyleDisabledByLibass) NuvioCSubtitleFont.step(nuvioCContext, -1) },
-                        onIncrease = { if (!isStyleDisabledByLibass) NuvioCSubtitleFont.step(nuvioCContext, 1) },
-                        onMoveLeft = onMoveLeft,
-                        decrementFocusRequester = focusRequesters[NUVIO_C_FONT_PREV],
-                        incrementFocusRequester = focusRequesters[NUVIO_C_FONT_NEXT],
-                        decrementFocusKey = NUVIO_C_FONT_PREV,
-                        incrementFocusKey = NUVIO_C_FONT_NEXT,
-                        onFocusChanged = onStyleFocused
-                    )
-                }
-            }
-            item { // [fork] round 29: background box, changed from the player
-                val presets = NuvioCSubtitleBackground.presets
-                val index = presets.indexOfFirst { it.argb == subtitleStyle.backgroundColor }
-                OverlaySectionCard(
-                    title = stringResource(R.string.nuvio_c_subtitle_background_title),
-                    modifier = styleCardModifier
-                ) {
-                    StepperRow(
-                        value = if (index >= 0) stringResource(presets[index].label) else stringResource(R.string.nuvio_c_subtitle_background_custom),
-                        valueWidth = 136.dp,
-                        onDecrease = { dispatchStyleEvent(PlayerEvent.OnSetSubtitleBackgroundColor(NuvioCSubtitleBackground.step(subtitleStyle.backgroundColor, -1))) },
-                        onIncrease = { dispatchStyleEvent(PlayerEvent.OnSetSubtitleBackgroundColor(NuvioCSubtitleBackground.step(subtitleStyle.backgroundColor, 1))) },
-                        onMoveLeft = onMoveLeft,
-                        decrementFocusRequester = focusRequesters[NUVIO_C_BG_PREV],
-                        incrementFocusRequester = focusRequesters[NUVIO_C_BG_NEXT],
-                        decrementFocusKey = NUVIO_C_BG_PREV,
-                        incrementFocusKey = NUVIO_C_BG_NEXT,
-                        onFocusChanged = onStyleFocused
-                    )
-                }
-            }
-            item { // [fork] round 29: outline width (1 to 5)
-                OverlaySectionCard(
-                    title = stringResource(R.string.nuvio_c_subtitle_outline_width_title),
-                    modifier = styleCardModifier
-                ) {
-                    StepperRow(
-                        value = subtitleStyle.outlineWidth.toString(),
-                        onDecrease = { dispatchStyleEvent(PlayerEvent.OnSetSubtitleOutlineWidth(subtitleStyle.outlineWidth - 1)) },
-                        onIncrease = { dispatchStyleEvent(PlayerEvent.OnSetSubtitleOutlineWidth(subtitleStyle.outlineWidth + 1)) },
-                        onMoveLeft = onMoveLeft,
-                        decrementFocusRequester = focusRequesters[NUVIO_C_WIDTH_PREV],
-                        incrementFocusRequester = focusRequesters[NUVIO_C_WIDTH_NEXT],
-                        decrementFocusKey = NUVIO_C_WIDTH_PREV,
-                        incrementFocusKey = NUVIO_C_WIDTH_NEXT,
-                        onFocusChanged = onStyleFocused
-                    )
-                }
-            }
-            item { // [fork] round 29: strip SDH (sound descriptions, speaker labels) from text subtitles
-                OverlaySectionCard(
-                    title = stringResource(R.string.nuvio_c_subtitle_sdh_title),
-                    modifier = styleCardModifier
-                ) {
-                    ToggleChip(
-                        label = if (subtitleStyle.stripSdh) stringResource(R.string.subtitle_style_on) else stringResource(R.string.subtitle_style_off),
-                        isEnabled = subtitleStyle.stripSdh,
-                        onMoveLeft = onMoveLeft,
-                        focusRequester = focusRequesters[NUVIO_C_SDH],
-                        focusKey = NUVIO_C_SDH,
-                        onFocused = onStyleFocused,
-                        onClick = { dispatchStyleEvent(PlayerEvent.OnSetSubtitleStripSdh(!subtitleStyle.stripSdh)) }
                     )
                 }
             }
@@ -1781,9 +1752,6 @@ private const val NUVIO_C_FONT_PREV = "nuvio_c_font_prev"
 private const val NUVIO_C_FONT_NEXT = "nuvio_c_font_next"
 private const val NUVIO_C_BG_PREV = "nuvio_c_bg_prev" // [fork] round 29
 private const val NUVIO_C_BG_NEXT = "nuvio_c_bg_next"
-private const val NUVIO_C_WIDTH_PREV = "nuvio_c_width_prev"
-private const val NUVIO_C_WIDTH_NEXT = "nuvio_c_width_next"
-private const val NUVIO_C_SDH = "nuvio_c_sdh"
 
 private object StyleFocusKey {
     const val FontSizeDecrease = "font_size_decrease"
@@ -1811,28 +1779,31 @@ private enum class OverlayFocusRail {
 private fun String.isHdrBrightnessFocusKey(): Boolean =
     this == StyleFocusKey.HdrBrightnessDecrease || this == StyleFocusKey.HdrBrightnessIncrease
 
-/** The HDR brightness item sits right after opacity, shifting every later item down by one. */
+/**
+ * [fork] Order: delay, font size, font, bold, colour, text opacity, background opacity, (HDR brightness),
+ * outline, bottom offset, reset. The HDR brightness item sits right after background opacity.
+ */
 private fun styleListIndexForFocusKey(focusKey: String, hasHdrBrightnessItem: Boolean): Int {
-    if (focusKey.isHdrBrightnessFocusKey()) return 5
+    val f = if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_FONT) 1 else 0
+    val bg = 5 + f
+    if (focusKey.isHdrBrightnessFocusKey()) return bg + 1
     val index = styleListIndexForFocusKey(focusKey)
-    return if (hasHdrBrightnessItem && index >= 5) index + 1 else index
+    return if (hasHdrBrightnessItem && index > bg) index + 1 else index
 }
 
 private fun styleListIndexForFocusKey(focusKey: String): Int {
+    val f = if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_FONT) 1 else 0
     return when {
         focusKey == StyleFocusKey.DelaySet -> 0
         focusKey == StyleFocusKey.FontSizeDecrease || focusKey == StyleFocusKey.FontSizeIncrease -> 1
-        focusKey == StyleFocusKey.Bold -> 2
-        focusKey.startsWith("${StyleFocusKey.TextColorPrefix}:") -> 3
-        focusKey == StyleFocusKey.OpacityDecrease || focusKey == StyleFocusKey.OpacityIncrease -> 4
-        focusKey == StyleFocusKey.OutlineToggle || focusKey.startsWith("${StyleFocusKey.OutlineColorPrefix}:") -> 5
-        focusKey == StyleFocusKey.OffsetDecrease || focusKey == StyleFocusKey.OffsetIncrease -> 6
-        focusKey == NUVIO_C_FONT_PREV || focusKey == NUVIO_C_FONT_NEXT -> 7 // [fork]
-        // [fork] round 29: Background, Outline width and Remove SDH sit between the font and Reset
-        focusKey == NUVIO_C_BG_PREV || focusKey == NUVIO_C_BG_NEXT -> if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_FONT) 8 else 7
-        focusKey == NUVIO_C_WIDTH_PREV || focusKey == NUVIO_C_WIDTH_NEXT -> if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_FONT) 9 else 8
-        focusKey == NUVIO_C_SDH -> if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_FONT) 10 else 9
-        focusKey == StyleFocusKey.Reset -> if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_FONT) 11 else 10 // [fork] was 8 / 7
+        focusKey == NUVIO_C_FONT_PREV || focusKey == NUVIO_C_FONT_NEXT -> 2 // [fork]
+        focusKey == StyleFocusKey.Bold -> 2 + f
+        focusKey.startsWith("${StyleFocusKey.TextColorPrefix}:") -> 3 + f
+        focusKey == StyleFocusKey.OpacityDecrease || focusKey == StyleFocusKey.OpacityIncrease -> 4 + f
+        focusKey == NUVIO_C_BG_PREV || focusKey == NUVIO_C_BG_NEXT -> 5 + f
+        focusKey == StyleFocusKey.OutlineToggle || focusKey.startsWith("${StyleFocusKey.OutlineColorPrefix}:") -> 6 + f
+        focusKey == StyleFocusKey.OffsetDecrease || focusKey == StyleFocusKey.OffsetIncrease -> 7 + f
+        focusKey == StyleFocusKey.Reset -> 8 + f
         else -> 0
     }
 }
@@ -1859,7 +1830,7 @@ private fun rememberStyleFocusRequesters(): Map<String, FocusRequester> {
             StyleFocusKey.DelaySet,
             StyleFocusKey.Reset,
             NUVIO_C_FONT_PREV, NUVIO_C_FONT_NEXT, // [fork]
-            NUVIO_C_BG_PREV, NUVIO_C_BG_NEXT, NUVIO_C_WIDTH_PREV, NUVIO_C_WIDTH_NEXT, NUVIO_C_SDH // [fork] round 29
+            NUVIO_C_BG_PREV, NUVIO_C_BG_NEXT // [fork] round 29
         ).associateWith { FocusRequester() } +
             SubtitleTextColorPresets.associate { color ->
                 "${StyleFocusKey.TextColorPrefix}:${color.toArgb()}" to FocusRequester()

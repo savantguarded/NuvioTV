@@ -87,6 +87,7 @@ class NuvioCShuffleViewModel @Inject constructor(
         }
         rollJob?.cancel()
         pool.beginVisit()
+        prefs.setMood(NuvioCShuffleMood.ANY) // [fork] roulette_page: the mood starts fresh on every visit
         _ui.update { fromPrefs(it).copy(phase = NuvioCShufflePhase.MOOD, pick = null, spin = null, landed = false, nothingLeft = false) }
         loadFans()
     }

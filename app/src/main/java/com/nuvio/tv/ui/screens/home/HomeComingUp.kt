@@ -63,7 +63,7 @@ internal const val NUVIO_C_UPCOMING_DAYS = 14L
 
 /** [fork] calendar_mdblist_extra_calendar_only: followed only because MDBList lists a favourite person's or a popular release. */
 internal fun nuvioCCalendarOnly(title: CalendarTitleRecord): Boolean =
-    title.origins.isNotEmpty() && title.origins.all { it == com.nuvio.tv.core.calendar.CalendarOrigin.MDBLIST_CALENDAR_EXTRA }
+    title.origins.isNotEmpty() && title.origins.all { it == com.nuvio.tv.core.calendar.CalendarOrigin.MDBLIST_CALENDAR_EXTRA || it == com.nuvio.tv.core.calendar.CalendarOrigin.TMDB_SOON }
 
 /** The words on the Coming up cards, so the labels can be checked without Android resources. */
 data class CalendarComingUpText(

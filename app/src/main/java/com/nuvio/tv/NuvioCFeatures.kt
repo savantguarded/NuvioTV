@@ -280,6 +280,9 @@ object NuvioCFeatures {
     // ---- Round 23 (2026-10-23) ----
     /** Calendar: MDBList's own release calendar (Settings > Layout > Calendar > "Use my MDBList calendar", on by default) when signed in to MDBList. Its titles (from Preferences > Calendar on mdblist.com) are followed and its dates used; TVmaze still adds air times. Asked every 6 h and a few seconds after anything is added to or removed from a library. Off = ysosrs123's sources only. */
     const val CALENDAR_MDBLIST = true
+    // ---- Round 30 (2026-10-26) ----
+    /** Calendar: a "coming soon" list from TMDB (Settings > Layout > Calendar > "Show coming soon titles", on by default), for films and shows, no MDBList needed. Window of 30 days from tomorrow; films with a cinema or digital release in your region and some buzz; English-language new shows and season premieres, without kids, news, reality, soap and talk shows. Calendar only, never the Upcoming row. A title MDBList's calendar also lists is shown once. Asked every 6 h. Off = no coming-soon titles. */
+    const val CALENDAR_TMDB_SOON = true
     /** Calendar: a title saved in a library (or listed by MDBList's calendar) is never dropped for being removed from Continue Watching or for an old watch; over the 300-title cap, titles with something still ahead and saved ones go first. MDBList's saved data is loaded before it is read. Off = ysosrs123's rules. */
     const val CALENDAR_LIBRARY_WINS = true
     /** Calendar: one log block (tag CalendarRefresher, "followed N") naming every followed title and where it came from, written only when that list changes. Off = no block. */

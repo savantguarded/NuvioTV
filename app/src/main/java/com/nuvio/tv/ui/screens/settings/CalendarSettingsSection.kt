@@ -92,6 +92,7 @@ class CalendarSettingsViewModel @Inject constructor(
     fun setIncludePersonalLists(include: Boolean) = viewModelScope.launch { data.setIncludePersonalLists(include) }
     fun setFollowOtherServices(follow: Boolean) = viewModelScope.launch { data.setFollowOtherServices(follow) }
     fun setUseMdbListCalendar(use: Boolean) = viewModelScope.launch { data.setUseMdbListCalendar(use) } // [fork] calendar_mdblist
+    fun setUseTmdbSoonCalendar(use: Boolean) = viewModelScope.launch { data.setUseTmdbSoonCalendar(use) } // [fork] calendar_tmdb_soon
     fun setComingUpRow(enabled: Boolean) = viewModelScope.launch { data.setComingUpRow(enabled) }
     fun unhide(titleKey: String) = viewModelScope.launch { data.setHidden(titleKey, hidden = false, name = null) }
     fun unhideFromComingUp(titleKey: String) = viewModelScope.launch { data.setHiddenFromComingUp(titleKey, hidden = false) }
@@ -256,6 +257,14 @@ internal fun LayoutCalendarSection(viewModel: CalendarSettingsViewModel = hiltVi
             subtitle = stringResource(R.string.nuvio_c_calendar_mdblist_sub),
             checked = current.useMdbListCalendar,
             onToggle = { viewModel.setUseMdbListCalendar(!current.useMdbListCalendar) }
+        )
+    }
+    if (com.nuvio.tv.NuvioCFeatures.CALENDAR_TMDB_SOON) { // [fork] calendar_tmdb_soon
+        SettingsToggleRow(
+            title = stringResource(R.string.nuvio_c_calendar_tmdb_soon),
+            subtitle = stringResource(R.string.nuvio_c_calendar_tmdb_soon_sub),
+            checked = current.useTmdbSoonCalendar,
+            onToggle = { viewModel.setUseTmdbSoonCalendar(!current.useTmdbSoonCalendar) }
         )
     }
     val hiddenCount = current.hiddenTitleKeys.size

@@ -105,6 +105,9 @@ interface CalendarRefreshInputs {
 
     /** [fork] calendar_mdblist_art: the IMDb id of a title known only by its TMDB id; null when TMDB has none. */
     suspend fun imdbForTmdb(type: String, tmdb: Long): String? = null
+
+    /** [fork] calendar_tmdb_soon: TMDB's coming-soon films and shows; null when they could not be read. */
+    suspend fun tmdbSoon(today: LocalDate, region: String): List<TmdbSoonItem>? = null
 }
 
 @Singleton
@@ -121,7 +124,8 @@ class DefaultCalendarRefreshInputs @Inject constructor(
     private val mdbListCalendarClient: MdbListCalendarClient, // [fork] calendar_mdblist
     libraryPreferences: com.nuvio.tv.data.local.LibraryPreferences,
     mdbListSync: com.nuvio.tv.data.mdblist.MdbListSyncRepository,
-    private val tmdbService: com.nuvio.tv.core.tmdb.TmdbService // [fork] calendar_mdblist_art
+    private val tmdbService: com.nuvio.tv.core.tmdb.TmdbService, // [fork] calendar_mdblist_art
+    private val tmdbSoonClient: TmdbSoonClient // [fork] calendar_tmdb_soon
 ) : CalendarRefreshInputs {
     override val activeProfileId = profileManager.activeProfileId
     override val playbackActive: StateFlow<Boolean> = NuvioCPlayback.state // [nuvio c] official has no ScreensaverController
@@ -134,6 +138,8 @@ class DefaultCalendarRefreshInputs @Inject constructor(
     override suspend fun traktCalendar(today: LocalDate) = traktCalendarClient.myShows(today)
     override suspend fun refreshConcurrency() = deviceTier.refreshConcurrency()
     override fun zone(): ZoneId = zoneProvider.zone()
+
+    override suspend fun tmdbSoon(today: LocalDate, region: String) = tmdbSoonClient.items(today, region) // [fork] calendar_tmdb_soon
 
     // [fork] calendar_mdblist
     override fun mdbListSignedIn() = trackingProviders.isAuthenticated(TrackingProviderId.MDBLIST)
@@ -391,6 +397,28 @@ class CalendarRefresher internal constructor(
                         .map { CalendarTitleCandidate(record.ids, record.type, it, name = record.name, contentId = record.contentId, poster = record.poster) }
                 }
             }
+            // [fork] calendar_tmdb_soon: TMDB's coming-soon list, every 6 hours or at once after a settings change.
+            val tmdbSoonOn = com.nuvio.tv.NuvioCFeatures.CALENDAR_TMDB_SOON && settings.useTmdbSoonCalendar
+            val tmdbSoonDue = reason == CalendarRefreshReason.SETTINGS_CHANGED || reason == CalendarRefreshReason.MANUAL ||
+                now.toEpochMilli() - snapshot.tmdbSoonFetchedAtMs >= CALENDAR_TMDB_SOON_REFRESH.toMillis()
+            val tmdbSoonItems = if (tmdbSoonOn && tmdbSoonDue) {
+                awaitNoPlayback()
+                inputs.tmdbSoon(now.atZone(inputs.zone()).toLocalDate(), inputs.region())?.let { items ->
+                    bridgeTmdbSoonIds(
+                        items,
+                        sources.candidates.map { it.ids } + traktCandidates.map { it.ids } + mdbListCandidates.map { it.ids } + snapshot.titles.map { it.ids }
+                    )
+                }
+            } else {
+                null
+            }
+            val tmdbSoonCandidates = when {
+                !tmdbSoonOn -> emptyList()
+                tmdbSoonItems != null -> tmdbSoonCandidates(tmdbSoonItems)
+                else -> snapshot.titles.filter { CalendarOrigin.TMDB_SOON in it.origins }.map {
+                    CalendarTitleCandidate(it.ids, it.type, CalendarOrigin.TMDB_SOON, name = it.name, contentId = it.contentId, poster = it.poster)
+                }
+            }
             // [fork] calendar_done_memory
             val doneMemory = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_DONE_MEMORY) {
                 calendarDoneMemory(snapshot.doneUntil, snapshot.titles, now)
@@ -409,7 +437,7 @@ class CalendarRefresher internal constructor(
             )
             val unread = if (traktItems != null) sources.unreadOrigins - CalendarOrigin.TRAKT_CALENDAR else sources.unreadOrigins
             val carried = carriedCalendarCandidates(snapshot.titles, unread)
-            val result = followCalendarTitles(sources.candidates + traktCandidates + mdbListCandidates + carried, rules, now)
+            val result = followCalendarTitles(sources.candidates + traktCandidates + mdbListCandidates + tmdbSoonCandidates + carried, rules, now)
             val followed = result.titles.withCachedPosters(sources.cachedPosters)
 
             val due = withOwner(current) {
@@ -437,6 +465,11 @@ class CalendarRefresher internal constructor(
                         mdbListItems != null -> now.toEpochMilli()
                         mdbListOn -> data.mdbListCalendarFetchedAtMs
                         else -> 0L
+                    },
+                    tmdbSoonFetchedAtMs = when { // [fork] calendar_tmdb_soon
+                        tmdbSoonItems != null -> now.toEpochMilli()
+                        tmdbSoonOn -> data.tmdbSoonFetchedAtMs
+                        else -> 0L
                     }
                 )
                 publishLocked()
@@ -447,7 +480,8 @@ class CalendarRefresher internal constructor(
             Log.i(
                 TAG,
                 "refresh reason=$reason titles=${followed.size} due=${due.size} trakt=${traktItems?.size ?: "-"}" +
-                    " mdblist=${if (!mdbListOn) "off" else mdbListItems?.size ?: "-"}"
+                    " mdblist=${if (!mdbListOn) "off" else mdbListItems?.size ?: "-"}" +
+                    " tmdbsoon=${if (!tmdbSoonOn) "off" else tmdbSoonItems?.size ?: "-"}"
             )
             calendarLeftOutSummary(result.leftOut).forEach { Log.i(TAG, it) }
             if (com.nuvio.tv.NuvioCFeatures.CALENDAR_DONE_MEMORY) Log.i(TAG, "done remembered=${doneMemory.size} dated=${followed.count { it.dated }}")

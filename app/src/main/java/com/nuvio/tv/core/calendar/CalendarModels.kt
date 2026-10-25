@@ -106,7 +106,9 @@ enum class CalendarOrigin(
     DROPPED,
     BELL(savesFilms = true),
     /** [fork] calendar_mdblist_extra_calendar_only: MDBList's calendar lists it for a favourite cast/crew member or as a popular release. Calendar only, never the Upcoming row. */
-    MDBLIST_CALENDAR_EXTRA(current = true)
+    MDBLIST_CALENDAR_EXTRA(current = true),
+    /** [fork] calendar_tmdb_soon: TMDB's coming-soon list (films and shows). Calendar only, never the Upcoming row. */
+    TMDB_SOON(current = true)
 }
 
 @Serializable
@@ -231,6 +233,7 @@ data class CalendarSnapshot(
     val tvmazeIds: Map<String, CalendarTvMazeId> = emptyMap(),
     val traktCalendarFetchedAtMs: Long = 0L,
     val mdbListCalendarFetchedAtMs: Long = 0L, // [fork] calendar_mdblist
+    val tmdbSoonFetchedAtMs: Long = 0L, // [fork] calendar_tmdb_soon
     val doneUntil: Map<String, Long> = emptyMap(), // [fork] calendar_done_memory: alias -> may be read again after (ms)
     val seenReminders: Map<String, Long> = emptyMap(),
     val updatedAtMs: Long = 0L
