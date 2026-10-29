@@ -116,8 +116,9 @@ enum class CalendarSource(val priority: Int) {
     TRAKT(0),
     TRAKT_NEXT(1),
     TVMAZE(2),
-    TMDB(3),
-    ADDON(4);
+    TVDB(3),
+    TMDB(4),
+    ADDON(5);
 
     val isTrakt: Boolean get() = this == TRAKT || this == TRAKT_NEXT
 }
@@ -211,11 +212,16 @@ data class CalendarTitleRecord(
 @Serializable
 data class CalendarTvMazeId(val id: Int? = null, val checkedAtMs: Long = 0L)
 
+/** The ids found for a content id the Calendar cannot read (such as kitsu:); empty when its details had none. */
+@Serializable
+data class CalendarResolvedIds(val ids: CalendarIds = CalendarIds(), val checkedAtMs: Long = 0L)
+
 @Serializable
 data class CalendarSnapshot(
     val version: Int = CURRENT_VERSION,
     val titles: List<CalendarTitleRecord> = emptyList(),
     val tvmazeIds: Map<String, CalendarTvMazeId> = emptyMap(),
+    val resolvedIds: Map<String, CalendarResolvedIds> = emptyMap(),
     val traktCalendarFetchedAtMs: Long = 0L,
     val seenReminders: Map<String, Long> = emptyMap(),
     val updatedAtMs: Long = 0L
