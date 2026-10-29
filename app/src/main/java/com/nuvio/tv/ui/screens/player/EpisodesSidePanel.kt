@@ -964,6 +964,9 @@ private fun EpisodeItem(
                             if (formattedDate != null) {
                                 Text(" · ", style = MaterialTheme.typography.bodySmall, color = NuvioTheme.extendedColors.textTertiary)
                             }
+                            if (com.nuvio.tv.NuvioCFeatures.IMDB_LOGO_EVERYWHERE) {
+                                com.nuvio.tv.ui.components.NuvioCImdbRating(nuvioCRating, iconSize = 20.dp, textStyle = MaterialTheme.typography.bodySmall) // [fork] round 32
+                            } else {
                             Text(
                                 text = "IMDb",
                                 style = MaterialTheme.typography.bodySmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
@@ -974,6 +977,7 @@ private fun EpisodeItem(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = NuvioTheme.extendedColors.textSecondary
                             )
+                            }
                         }
                     }
                 }

@@ -304,6 +304,7 @@ internal fun NuvioCDetailInfoBlock(metaId: String) {
     if (!NuvioCFeatures.DETAIL_INFO_BLOCK) return
     val info by NuvioCDetailInfoStore.current.collectAsState()
     val rows = info?.takeIf { it.metaId == metaId }?.rows.orEmpty()
+        .filter { !com.nuvio.tv.NuvioCFeatures.DETAIL_INFO_TRIM || it.label !in NUVIO_C_INFO_TRIMMED } // [fork] round 32 detail_info_trim
     if (rows.isEmpty()) return
     val margin = com.nuvio.tv.ui.components.nuvioCDetailMargin
     Column(
@@ -355,3 +356,6 @@ private fun JsonObject.str(key: String): String? = (this[key] as? JsonPrimitive)
 private fun JsonObject.int(key: String): Int? = (this[key] as? JsonPrimitive)?.intOrNull
 private fun JsonObject.long(key: String): Long? = (this[key] as? JsonPrimitive)?.longOrNull
 private fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject
+
+/** [fork] round 32 detail_info_trim: rows the details page already shows elsewhere. */
+private val NUVIO_C_INFO_TRIMMED = setOf(R.string.nuvio_c_info_runtime, R.string.nuvio_c_info_language)

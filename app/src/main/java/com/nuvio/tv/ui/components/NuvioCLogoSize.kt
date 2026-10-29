@@ -57,6 +57,8 @@ object NuvioCLogoSize {
     val enabled: Boolean get() = NuvioCFeatures.LOGO_WEIGHT
 
     val HOME = NuvioCLogoBox(area = 17_000f, maxWidth = 340.dp, maxHeight = 110.dp, tallMaxHeight = 140.dp) // 2026-10-12: was 12,500 dp² / 260 x 80; still capped by the free height above the text (NuvioCHeroStack)
+    /** [fork] round 32 ambient_logo_size: the screensaver's logo, sized by area like Home (max 460 x 150). */
+    val AMBIENT = NuvioCLogoBox(area = 24_000f, maxWidth = 460.dp, maxHeight = 150.dp, tallMaxHeight = 170.dp)
     val DETAIL = NuvioCLogoBox(area = 9_000f, maxWidth = 220.dp, maxHeight = 64.dp, tallMaxHeight = 92.dp)
     val OSD = NuvioCLogoBox(area = 7_000f, maxWidth = 200.dp, maxHeight = 52.dp, tallMaxHeight = 68.dp)
 

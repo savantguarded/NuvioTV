@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 // current layout, so nothing moves until you change it. Kept on this TV (fork prefs).
 
 internal enum class NuvioCOsdButton(val key: String, @StringRes val label: Int, val defaultInMore: Boolean) {
+    PLAY("play", R.string.cd_play, false), // [fork] round 32 osd_order_all: main row only
     START_OVER("start_over", R.string.nuvio_c_start_over, false),
     NEXT("next", R.string.next_episode_label, false),
     SUBTITLES("subtitles", R.string.cd_subtitles, false),
@@ -24,21 +25,36 @@ internal enum class NuvioCOsdButton(val key: String, @StringRes val label: Int, 
     EPISODES("episodes", R.string.cd_episodes, false),
     SPEED("speed", R.string.cd_playback_speed, true),
     ASPECT("aspect", R.string.cd_aspect_ratio, true),
+    PARTY("party", R.string.party_title, true), // [fork] round 32 osd_order_all: still joins the main row while a party runs
     ENGINE("engine", R.string.cd_switch_player_engine, true),
     EXTERNAL("external", R.string.cd_open_external_player, true),
-    INFO("info", R.string.cd_stream_info, true);
+    INFO("info", R.string.cd_stream_info, true),
+    REPORT("report", R.string.player_report_issue, true); // [fork] round 32 osd_order_all: only when reports are on
+
+    /** [fork] round 32: Play, Watch Party and Report are listed only with `osd_order_all`. */
+    val listed: Boolean get() = NuvioCFeatures.OSD_ORDER_ALL || this !in NUVIO_C_ROUND32_BUTTONS
+
+    /** Play / Pause can move but never goes behind More. */
+    val mainOnly: Boolean get() = this == PLAY
 
     companion object {
         fun byKey(key: String): NuvioCOsdButton? = entries.firstOrNull { it.key == key }
     }
 }
 
+private val NUVIO_C_ROUND32_BUTTONS = setOf(NuvioCOsdButton.PLAY, NuvioCOsdButton.PARTY, NuvioCOsdButton.REPORT)
+
+/** [fork] round 32 osd_details_label: the Cast button reads "Details" while it also opens the About tab. */
+@StringRes
+internal fun NuvioCOsdButton.nuvioCLabel(): Int =
+    if (this == NuvioCOsdButton.CAST && NuvioCFeatures.OSD_DETAILS_LABEL && NuvioCFeatures.OSD_ABOUT_TAB) R.string.nuvio_c_osd_details else label
+
 internal data class NuvioCOsdSlot(val button: NuvioCOsdButton, val inMore: Boolean)
 
 internal object NuvioCOsdOrder {
     private const val PREFS = "nuvio_c_osd"
     private const val KEY = "button_order"
-    val defaults: List<NuvioCOsdSlot> = NuvioCOsdButton.entries.map { NuvioCOsdSlot(it, it.defaultInMore) }
+    val defaults: List<NuvioCOsdSlot> = NuvioCOsdButton.entries.filter { it.listed }.map { NuvioCOsdSlot(it, it.defaultInMore) }
     private val _slots = MutableStateFlow(defaults)
     val slots: StateFlow<List<NuvioCOsdSlot>> = _slots.asStateFlow()
     @Volatile private var loaded = false
@@ -68,11 +84,19 @@ internal object NuvioCOsdOrder {
     internal fun parse(raw: String?): List<NuvioCOsdSlot> {
         if (raw.isNullOrBlank()) return defaults
         val read = raw.split(',').mapNotNull { part ->
-            val button = NuvioCOsdButton.byKey(part.substringBefore(':')) ?: return@mapNotNull null
-            NuvioCOsdSlot(button, part.substringAfter(':', "m") == "x")
+            val button = NuvioCOsdButton.byKey(part.substringBefore(':'))?.takeIf { it.listed } ?: return@mapNotNull null
+            NuvioCOsdSlot(button, !button.mainOnly && part.substringAfter(':', "m") == "x")
         }.distinctBy { it.button }
-        val missing = defaults.filter { d -> read.none { it.button == d.button } }
-        return read + missing
+        // [fork] round 32: a button the saved order doesn't know goes in at its default place (Play first), not last.
+        val out = read.toMutableList()
+        defaults.forEachIndexed { defaultIndex, d ->
+            if (out.none { it.button == d.button }) {
+                val before = defaults.take(defaultIndex).map { it.button }
+                val at = out.indexOfLast { it.button in before } + 1
+                out.add(at, d)
+            }
+        }
+        return out
     }
 
     fun moved(slots: List<NuvioCOsdSlot>, index: Int, delta: Int): List<NuvioCOsdSlot> {
@@ -82,5 +106,5 @@ internal object NuvioCOsdOrder {
     }
 
     fun toggled(slots: List<NuvioCOsdSlot>, index: Int): List<NuvioCOsdSlot> =
-        slots.mapIndexed { i, s -> if (i == index) s.copy(inMore = !s.inMore) else s }
+        slots.mapIndexed { i, s -> if (i == index && !s.button.mainOnly) s.copy(inMore = !s.inMore) else s }
 }

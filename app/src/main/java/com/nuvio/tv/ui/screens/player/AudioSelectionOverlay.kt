@@ -36,6 +36,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -201,7 +202,10 @@ internal fun AudioSelectionOverlay(
                         onTrackSelected = onTrackSelected
                     )
                 }
-                Column(modifier = Modifier.width(268.dp)) {
+                Column(
+                    modifier = Modifier.width(268.dp)
+                        .then(if (com.nuvio.tv.NuvioCFeatures.NIGHT_MODE_V2) Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()) else Modifier) // [fork] round 32: the column scrolls to what's focused
+                ) {
                     AudioControlsContent(
                         audioDelayMs = audioDelayMs,
                         audioAmplificationDb = audioAmplificationDb,
@@ -405,6 +409,15 @@ private fun AudioControlsContent(
     val canDecreaseCenterMix = isCenterMixAvailable && currentCenterMixDb > CENTER_MIX_LEVEL_MIN_DB
     val canIncreaseCenterMix = isCenterMixAvailable && currentCenterMixDb < CENTER_MIX_LEVEL_MAX_DB
 
+    // [fork] round 32 night_mode_v2: night mode sits between Downmix and Persist in the focus order.
+    val nuvioCNightContext = androidx.compose.ui.platform.LocalContext.current
+    val nuvioCNightShown = nuvioCOnNightChange != null && com.nuvio.tv.NuvioCFeatures.NIGHT_MODE &&
+        remember { NuvioCNight.active(nuvioCNightContext) } &&
+        NuvioCNight.enabled.collectAsState().value
+    val nuvioCNightMinus = remember { FocusRequester() }
+    val nuvioCNightPlus = remember { FocusRequester() }
+    val nuvioCNightAt = com.nuvio.tv.data.local.NightModeLevel.entries.indexOf(NuvioCNight.level.collectAsState().value)
+    val nuvioCNightFirst = if (nuvioCNightAt > 0) nuvioCNightMinus else nuvioCNightPlus
     val firstDelayFocusRequester = if (canDecreaseDelay) {
         delayMinusFocusRequester
     } else {
@@ -415,11 +428,13 @@ private fun AudioControlsContent(
         canIncreaseAmp -> ampPlusFocusRequester
         canDecreaseCenterMix -> centerMinusFocusRequester
         canIncreaseCenterMix -> centerPlusFocusRequester
+        nuvioCNightShown -> nuvioCNightFirst // [fork] round 32
         else -> persistFocusRequester
     }
     val firstCenterFocusRequester = when {
         canDecreaseCenterMix -> centerMinusFocusRequester
         canIncreaseCenterMix -> centerPlusFocusRequester
+        nuvioCNightShown -> nuvioCNightFirst // [fork] round 32
         else -> persistFocusRequester
     }
     val persistUpFocusRequester = when {
@@ -452,6 +467,9 @@ private fun AudioControlsContent(
         canDecreaseAmp -> ampMinusFocusRequester
         else -> leftFocusRequester
     }
+    val nuvioCAboveNight = persistUpFocusRequester
+    val nuvioCBelowCentre = if (nuvioCNightShown) nuvioCNightFirst else persistFocusRequester
+    val nuvioCPersistUp = if (nuvioCNightShown) nuvioCNightFirst else persistUpFocusRequester
     val centerHelperText = if (isCenterMixAvailable) {
         stringResource(R.string.audio_center_mix_help)
     } else {
@@ -577,7 +595,7 @@ private fun AudioControlsContent(
                 minusLeftFocusRequester = leftFocusRequester,
                 plusLeftFocusRequester = centerPlusLeftFocusRequester,
                 upFocusRequester = firstAmpFocusRequester,
-                downFocusRequester = persistFocusRequester,
+                downFocusRequester = nuvioCBelowCentre, // [fork] round 32
                 onDecrease = {
                     val nextDb = currentCenterMixDb - 1
                     onCenterMixLevelChange(nextDb)
@@ -594,6 +612,38 @@ private fun AudioControlsContent(
                 }
             )
 
+            // [fork] Nuvio C night_mode (round 32: directly under Downmix, above Persist; follows Persist; hidden when
+            // switched off in Settings). Off / Light / Medium / Strong.
+            if (nuvioCNightShown && nuvioCOnNightChange != null) {
+                remember { NuvioCNight.load(nuvioCNightContext) }
+                val night by NuvioCNight.level.collectAsState()
+                val levels = com.nuvio.tv.data.local.NightModeLevel.entries
+                val at = levels.indexOf(night)
+                AdjustmentSection(
+                    title = stringResource(R.string.nuvio_c_night_mode),
+                    valueText = stringResource(nuvioCNightLabel(night)),
+                    helperText = stringResource(R.string.nuvio_c_night_mode_help),
+                    canDecrease = at > 0,
+                    canIncrease = at < levels.lastIndex,
+                    minusFocusRequester = nuvioCNightMinus,
+                    plusFocusRequester = nuvioCNightPlus,
+                    minusLeftFocusRequester = leftFocusRequester,
+                    plusLeftFocusRequester = if (at > 0) nuvioCNightMinus else leftFocusRequester,
+                    upFocusRequester = nuvioCAboveNight,
+                    downFocusRequester = persistFocusRequester,
+                    onDecrease = {
+                        val next = NuvioCNight.next(night, -1)
+                        nuvioCOnNightChange(next)
+                        if (next == levels.first()) runCatching { nuvioCNightPlus.requestFocus() }
+                    },
+                    onIncrease = {
+                        val next = NuvioCNight.next(night, 1)
+                        nuvioCOnNightChange(next)
+                        if (next == levels.last()) runCatching { nuvioCNightMinus.requestFocus() }
+                    }
+                )
+            }
+
             Card(
                 onClick = { onPersistAmplificationChange(!persistAmplification) },
                 modifier = Modifier
@@ -601,7 +651,7 @@ private fun AudioControlsContent(
                     .focusRequester(persistFocusRequester)
                     .focusProperties {
                         left = persistLeftFocusRequester
-                        up = persistUpFocusRequester
+                        up = nuvioCPersistUp // [fork] round 32
                     },
                 colors = CardDefaults.colors(
                     containerColor = if (persistAmplification) NuvioTheme.colors.Secondary else Color.Transparent,
@@ -632,39 +682,6 @@ private fun AudioControlsContent(
                 )
             }
 
-            // [fork] Nuvio C round 31 night_mode: Off / Light / Medium / Strong under Amplification.
-            if (nuvioCOnNightChange != null && com.nuvio.tv.NuvioCFeatures.NIGHT_MODE) {
-                val context = androidx.compose.ui.platform.LocalContext.current
-                remember { NuvioCNight.load(context) }
-                val night by NuvioCNight.level.collectAsState()
-                val nightMinus = remember { FocusRequester() }
-                val nightPlus = remember { FocusRequester() }
-                val levels = com.nuvio.tv.data.local.NightModeLevel.entries
-                val at = levels.indexOf(night)
-                AdjustmentSection(
-                    title = stringResource(R.string.nuvio_c_night_mode),
-                    valueText = stringResource(nuvioCNightLabel(night)),
-                    helperText = stringResource(R.string.nuvio_c_night_mode_help),
-                    canDecrease = at > 0,
-                    canIncrease = at < levels.lastIndex,
-                    minusFocusRequester = nightMinus,
-                    plusFocusRequester = nightPlus,
-                    minusLeftFocusRequester = leftFocusRequester,
-                    plusLeftFocusRequester = if (at > 0) nightMinus else leftFocusRequester,
-                    upFocusRequester = persistFocusRequester,
-                    downFocusRequester = null,
-                    onDecrease = {
-                        val next = NuvioCNight.next(night, -1)
-                        nuvioCOnNightChange(next)
-                        if (next == levels.first()) runCatching { nightPlus.requestFocus() }
-                    },
-                    onIncrease = {
-                        val next = NuvioCNight.next(night, 1)
-                        nuvioCOnNightChange(next)
-                        if (next == levels.last()) runCatching { nightMinus.requestFocus() }
-                    }
-                )
-            }
         }
     }
 }

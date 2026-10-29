@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -195,9 +196,16 @@ fun AmbientSlideshow(
                     contentDescription = loaded.slide.title,
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.BottomCenter,
-                    modifier = titleModifier
-                        .heightIn(max = 150.dp)
-                        .widthIn(max = 460.dp)
+                    modifier = titleModifier.then(
+                        if (com.nuvio.tv.NuvioCFeatures.AMBIENT_LOGO_SIZE) {
+                            // [fork] round 32 ambient_logo_size: an explicit size so small logo files scale up
+                            val nuvioCSize = com.nuvio.tv.ui.components.NuvioCLogoSize.AMBIENT
+                                .sizeFor(loaded.logo.width.toFloat() / loaded.logo.height.coerceAtLeast(1))
+                            Modifier.size(nuvioCSize)
+                        } else Modifier
+                            .heightIn(max = 150.dp)
+                            .widthIn(max = 460.dp)
+                    )
                 )
             } else {
                 Text(

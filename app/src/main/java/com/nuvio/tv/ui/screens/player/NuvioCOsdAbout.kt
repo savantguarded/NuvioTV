@@ -192,7 +192,9 @@ private fun NuvioCAboutContent(about: NuvioCAboutInfo) {
         }
         val episodeRating = ratings.episodeRating(about.season, about.episode)
         val filmRatings = ratings.ratings
-        if (episodeRating != null) {
+        if (episodeRating != null && com.nuvio.tv.NuvioCFeatures.IMDB_LOGO_EVERYWHERE) {
+            com.nuvio.tv.ui.components.NuvioCImdbRating(episodeRating) // [fork] round 32
+        } else if (episodeRating != null) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text("IMDb", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFFF5C518))
                 Text(episodeRating, style = MaterialTheme.typography.labelLarge, color = NuvioTheme.colors.TextPrimary)

@@ -126,6 +126,7 @@
     <string name="nuvio_c_night_light">Light</string>
     <string name="nuvio_c_night_medium">Medium</string>
     <string name="nuvio_c_night_strong">Strong</string>
+    <string name="nuvio_c_night_mode_toggle_sub">Shows Night mode in the player\'s Audio panel. Off leaves the sound path alone.</string>
     <string name="nuvio_c_night_mode_settings_sub">Lifts quiet moments so you can keep the volume down. Also in the player\'s Audio panel.</string>
     <string name="nuvio_c_previous_episode">Previous episode · S%1$d E%2$d</string>
     <string name="nuvio_c_osd_buttons">Player buttons</string>
@@ -136,6 +137,7 @@
     <string name="nuvio_c_osd_buttons_reset">Reset to default</string>
     <string name="nuvio_c_osd_about">About</string>
     <string name="nuvio_c_osd_about_cast">About &amp; cast</string>
+    <string name="nuvio_c_osd_details">Details</string>
     <string name="tvdb_metadata_credit">Metadata provided by %1$s</string>
     <string name="nuvio_c_shuffle_anime">Anime</string>
     <string name="nuvio_c_shuffle_anime_hint">Japanese animation, films and series</string>

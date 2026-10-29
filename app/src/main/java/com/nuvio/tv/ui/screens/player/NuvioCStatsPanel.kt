@@ -79,6 +79,8 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
             waited += 250L
         }
         while (true) {
+            // [fork] round 32 stats_panel_safe: one bad read skips that second instead of taking the app down.
+            try {
             val controller = viewModel.controller
             val player = viewModel.exoPlayer
             val snapshot = player?.let {
@@ -88,16 +90,15 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
                     audioBitrate = runCatching { it.audioFormat?.bitrate }.getOrNull() ?: -1,
                     durationMs = runCatching { it.duration }.getOrNull() ?: -1L,
                     droppedFrames = runCatching { it.videoDecoderCounters?.droppedBufferCount }.getOrNull() ?: 0,
-                    fileSizeBytes = viewModel.getCurrentFileSizeBytes(),
-                    nativeMemoryBytes = viewModel.getPlayerNativeMemoryBytes()
+                    fileSizeBytes = runCatching { viewModel.getCurrentFileSizeBytes() }.getOrNull(),
+                    nativeMemoryBytes = runCatching { viewModel.getPlayerNativeMemoryBytes() }.getOrNull()
                 )
             }
             val info = runCatching { controller.buildStreamInfoData() }.getOrNull()
             val audioMime = runCatching { player?.audioFormat?.sampleMimeType }.getOrNull()
+            // [fork] round 32: read the sink's own playback-thread state; never call DefaultAudioSink from here.
             val passthrough = player != null && audioMime != null && audioMime != MimeTypes.AUDIO_RAW &&
-                controller.playbackSpeedAwareAudioSink?.let { sink ->
-                    player.audioFormat?.let { f -> !sink.shouldForcePcmForFormat(f) && sink.supportsFormat(f) }
-                } == true
+                controller.playbackSpeedAwareAudioSink?.nuvioCPassthrough == true
             val visual = runCatching { nuvioCVisualTag(controller, controller.uiState.value) }.getOrNull()
             val server = NuvioCStreamServer.host(runCatching { controller.getCurrentStreamUrl() }.getOrNull())
             val engineName = when (controller.currentInternalPlayerEngine) {
@@ -146,6 +147,12 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
                     live["throttle"]?.let { NuvioCStatsRow("Throttle", it.value, it.severity) }
                 )))
             }.filter { it.rows.isNotEmpty() }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (t: Throwable) {
+                if (!com.nuvio.tv.NuvioCFeatures.STATS_PANEL_SAFE) throw t
+                android.util.Log.w("NuvioCStats", "stats sample skipped", t)
+            }
             delay(1000L)
         }
     }

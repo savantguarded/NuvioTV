@@ -2510,7 +2510,10 @@ private fun MetaDetailsContent(
                             }
                         }
                         val primary = requesterForKey(target?.key)
-                        val fallback = visibleItems.firstNotNullOfOrNull { item ->
+                        // [fork] round 32 detail_hold_down_land: going down onto a last row that takes no focus (the
+                        // Information block), land on the lowest focusable row on screen, not the first one from the top.
+                        val nuvioCFromBottom = com.nuvio.tv.NuvioCFeatures.DETAIL_HOLD_DOWN_LAND && sign > 0 && primary == null
+                        val fallback = (if (nuvioCFromBottom) visibleItems.asReversed() else visibleItems).firstNotNullOfOrNull { item ->
                             requesterForKey(item.key)?.takeIf { it != primary }
                         }
                         val landingToken = detailFastScrollToken

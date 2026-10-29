@@ -1407,6 +1407,7 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
             val currentDb = _uiState.value.audioAmplificationDb
             val currentCenterMixDb = _uiState.value.centerMixLevelDb
             _uiState.update { it.copy(persistAudioAmplification = event.enabled) }
+            NuvioCNight.setPersist(context, event.enabled) // [fork] round 32 night_mode_v2
             scope.launch {
                 playerSettingsDataStore.setPersistAudioAmplification(
                     enabled = event.enabled,

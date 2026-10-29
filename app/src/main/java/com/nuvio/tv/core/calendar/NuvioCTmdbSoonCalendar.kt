@@ -94,7 +94,11 @@ class TmdbSoonClient @Inject constructor(
 
     private class Checked(val at: Long, val keep: Boolean)
     private val checks = java.util.concurrent.ConcurrentHashMap<String, Checked>()
-    private fun cached(key: String): Boolean? = checks[key]?.takeIf { System.currentTimeMillis() - it.at < CHECK_TTL_MS }?.keep
+    private fun cached(key: String): Boolean? = checks[key]?.takeIf {
+        // [fork] round 32 tmdb_soon_recheck: a show's "no" is kept 6 h (a new season can be dated later that day)
+        val ttl = if (com.nuvio.tv.NuvioCFeatures.TMDB_SOON_RECHECK && key.startsWith("s") && !it.keep) SHOW_NO_TTL_MS else CHECK_TTL_MS
+        System.currentTimeMillis() - it.at < ttl
+    }?.keep
 
     private suspend fun top20Items(today: LocalDate): List<TmdbSoonItem>? = try {
         val from = today.plusDays(1)
@@ -142,7 +146,10 @@ class TmdbSoonClient @Inject constructor(
             val keep = cached("s$id") ?: run {
                 showChecks++
                 val details = api.getTvDetails(id, apiKey).takeIf { it.isSuccessful }?.body() ?: return@run null
-                top20KeepShow(details, today, from, to).also { checks["s$id"] = Checked(System.currentTimeMillis(), it) }
+                top20KeepShow(details, today, from, to).also {
+                    checks["s$id"] = Checked(System.currentTimeMillis(), it)
+                    if (!it && com.nuvio.tv.NuvioCFeatures.TMDB_SOON_RECHECK) Log.d(TAG, "Coming soon: left out ${details.name} (${top20ShowReason(details, today, from, to)})")
+                }
             } ?: continue
             if (keep) shows += item
         }
@@ -186,6 +193,7 @@ class TmdbSoonClient @Inject constructor(
         const val TOP20_MAX_CHECKS = 70
         const val TOP20_MAX_TITLES = 60
         const val CHECK_TTL_MS = 24L * 60 * 60 * 1000
+        const val SHOW_NO_TTL_MS = 6L * 60 * 60 * 1000
     }
 }
 
@@ -248,6 +256,11 @@ internal fun top20KeepShow(details: com.nuvio.tv.data.remote.api.NuvioCCalendarT
     val next = details.nextEpisodeToAir
     val firstAir = details.firstAirDate.date()
     if (firstAir != null && firstAir.isAfter(today) && inWindow(firstAir)) return true // premiere
+    // [fork] round 32 tmdb_soon_recheck: TMDB often leaves next_episode_to_air empty until days before a new season
+    // (Dexter: Resurrection S2) while the season list already has its date.
+    if (com.nuvio.tv.NuvioCFeatures.TMDB_SOON_RECHECK &&
+        details.seasons.orEmpty().any { (it.seasonNumber ?: 0) >= 2 && inWindow(it.airDate.date()) }
+    ) return true
     val upcoming = listOfNotNull(last, next).firstOrNull { inWindow(it.airDate.date()) } ?: return false
     if (upcoming.episodeNumber == 1 && (upcoming.seasonNumber ?: 0) >= 2) return true // new season
     if (upcoming === next) {
@@ -282,3 +295,13 @@ fun tmdbSoonCandidates(items: List<TmdbSoonItem>): List<CalendarTitleCandidate> 
 
 /** Six hours between asks; a settings change or a manual refresh asks at once. */
 val CALENDAR_TMDB_SOON_REFRESH: java.time.Duration = java.time.Duration.ofHours(6)
+
+/** [fork] round 32: why [top20KeepShow] left a show out, for the log line only. */
+internal fun top20ShowReason(details: com.nuvio.tv.data.remote.api.NuvioCCalendarTmdbShow, today: LocalDate, from: LocalDate, to: LocalDate): String {
+    val networks = details.networks.orEmpty()
+    return when {
+        networks.any { top20ServiceKey(it.name) in TOP20_KIDS_NETWORKS } -> "kids network"
+        networks.none { top20MajorOutlet(it.name) } -> "network not listed: ${networks.joinToString { it.name.orEmpty() }}"
+        else -> "nothing starts in $from..$to (next ${details.nextEpisodeToAir?.let { "S${it.seasonNumber}E${it.episodeNumber} ${it.airDate}" } ?: "none"})"
+    }
+}

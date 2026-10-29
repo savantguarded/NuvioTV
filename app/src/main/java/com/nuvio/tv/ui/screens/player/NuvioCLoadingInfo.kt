@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -83,7 +84,9 @@ internal fun NuvioCLoadingInfo(viewModel: PlayerViewModel, uiState: PlayerUiStat
             }
             if (ratingsKnown) {
                 Box(Modifier.height(26.dp), contentAlignment = Alignment.Center) {
-                    if (episodeRating != null) {
+                    if (episodeRating != null && com.nuvio.tv.NuvioCFeatures.IMDB_LOGO_EVERYWHERE) {
+                        com.nuvio.tv.ui.components.NuvioCImdbRating(episodeRating) // [fork] round 32
+                    } else if (episodeRating != null) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text("IMDb", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFFF5C518))
                             Text(episodeRating, style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.85f))
@@ -96,7 +99,7 @@ internal fun NuvioCLoadingInfo(viewModel: PlayerViewModel, uiState: PlayerUiStat
             about.synopsis?.takeIf { it.isNotBlank() }?.let {
                 Text(
                     text = it,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = if (com.nuvio.tv.NuvioCFeatures.LOADING_TEXT_SMALLER) MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 18.sp) else MaterialTheme.typography.bodyMedium, // [fork] round 32
                     color = Color.White.copy(alpha = 0.62f),
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,

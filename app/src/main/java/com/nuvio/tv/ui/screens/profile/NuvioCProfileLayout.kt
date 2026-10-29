@@ -462,10 +462,10 @@ internal fun androidx.compose.ui.unit.Dp.nuvioCAvatar(): androidx.compose.ui.uni
 internal fun NuvioCProfileInUseBadge(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .offset(x = 4.dp, y = 4.dp)
+            .then(if (NuvioCFeatures.PROFILE_CHECK_EDGE) Modifier else Modifier.offset(x = 4.dp, y = 4.dp))
             .size(24.dp)
             .background(Color.Black, CircleShape)
-            .padding(2.dp)
+            .padding(if (NuvioCFeatures.PROFILE_CHECK_EDGE) 1.5.dp else 2.dp)
             .background(Color.White, CircleShape),
         contentAlignment = Alignment.Center
     ) {
@@ -473,16 +473,21 @@ internal fun NuvioCProfileInUseBadge(modifier: Modifier = Modifier) {
             imageVector = androidx.compose.material.icons.Icons.Default.Check,
             contentDescription = null,
             tint = Color.Black,
-            modifier = Modifier.size(14.dp)
+            modifier = Modifier.size(15.dp)
         )
     }
 }
+
+/** [fork] round 32 `profile_check_edge`: offset from the avatar box's centre that puts the badge's centre on the
+ *  ring at the lower-right 45 degree point (ring radius = [ringSize] / 2, badge 24 dp). */
+internal fun nuvioCProfileBadgeOffset(ringSize: androidx.compose.ui.unit.Dp): androidx.compose.ui.unit.Dp =
+    ringSize / 2 * 0.7071f
 
 /** "Choose a profile" with "Select a profile to continue" under it, above the profiles on the left rail. */
 @Composable
 internal fun NuvioCProfileHeading(subtitle: String) {
     androidx.compose.foundation.layout.Column(
-        modifier = Modifier.padding(start = 12.dp, bottom = 22.dp)
+        modifier = Modifier.padding(start = 12.dp, bottom = 22.dp, top = if (NuvioCFeatures.PROFILE_HEADING_DROP) 40.dp else 0.dp) // [fork] round 32
     ) {
         androidx.tv.material3.Text(
             text = androidx.compose.ui.res.stringResource(com.nuvio.tv.R.string.nuvio_c_profile_choose),

@@ -4,6 +4,7 @@ package com.nuvio.tv.ui.screens.settings
 // buttons in their order. OK on a name picks it up (Up / Down then moves it, OK again puts it down); Right
 // reaches its Main row / More switch. Reset puts back the fork's default layout.
 
+import com.nuvio.tv.ui.screens.player.nuvioCLabel
 import android.view.KeyEvent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -130,7 +131,7 @@ private fun NuvioCOsdButtonsDialog(onDismiss: () -> Unit) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = (if (isMoving) "↕  " else "${index + 1}.  ") + stringResource(slot.button.label),
+                                text = (if (isMoving) "↕  " else "${index + 1}.  ") + stringResource(slot.button.nuvioCLabel()),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color.White,
                                 maxLines = 1,

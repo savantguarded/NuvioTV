@@ -1401,7 +1401,8 @@ fun PlayerScreen(
                 .nuvioCHdrDim(nuvioCHdr, isolated = true) // [fork] media info panel dims with the OSD
         )
 
-        if (com.nuvio.tv.NuvioCFeatures.STATS_PANEL_RIGHT && uiState.playerStatsHudEnabled && uiState.playerStatsHudButtonAvailable && uiState.error == null) {
+        if (com.nuvio.tv.NuvioCFeatures.STATS_PANEL_RIGHT && uiState.playerStatsHudEnabled && uiState.playerStatsHudButtonAvailable && uiState.error == null &&
+            !(com.nuvio.tv.NuvioCFeatures.STATS_PANEL_SAFE && uiState.showLoadingOverlay)) { // [fork] round 32: not over the loading screen
             NuvioCStatsPanel( // [fork] stats_panel_right: ysosrs123's layout, on the right
                 viewModel = viewModel,
                 modifier = Modifier
@@ -3106,6 +3107,7 @@ private fun PlayerControlsOverlay(
                             !it.searching && it.countdownSec == null
                         } != false
 
+                    val nuvioCPlayButton: @Composable () -> Unit = {
                     ControlButton(
                         icon = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         iconPainter = if (uiState.isPlaying) customPausePainter else customPlayPainter,
@@ -3116,6 +3118,10 @@ private fun PlayerControlsOverlay(
                         onDownKey = onHideControls,
                         onFocused = onResetHideTimer
                     )
+                    }
+                    // [fork] round 32 osd_order_all: Play is a slot (always in the main row) when its order is set.
+                    val nuvioCPlaySlotted = com.nuvio.tv.NuvioCFeatures.OSD_ORDER_ALL && com.nuvio.tv.NuvioCFeatures.OSD_BUTTON_ORDER && !nuvioCSplit
+                    if (!nuvioCPlaySlotted) nuvioCPlayButton()
 
                     // [fork] round 31 osd_button_order: every button below is a slot, laid out in the order (and main
                     // row / More) saved in Settings > Playback > Player buttons. The default order is the layout
@@ -3219,7 +3225,7 @@ private fun PlayerControlsOverlay(
                                     upFocusRequester = progressUpTarget,
                                     onDownKey = onHideControls,
                                     onFocused = onResetHideTimer,
-                                    nuvioCLabel = if (com.nuvio.tv.NuvioCFeatures.OSD_ABOUT_TAB) stringResource(R.string.nuvio_c_osd_about_cast) else null
+                                    nuvioCLabel = if (com.nuvio.tv.NuvioCFeatures.OSD_ABOUT_TAB) stringResource(if (com.nuvio.tv.NuvioCFeatures.OSD_DETAILS_LABEL) R.string.nuvio_c_osd_details else R.string.nuvio_c_osd_about_cast) else null
                                 )
                             }
                             NuvioCOsdButton.SOURCES -> ControlButton(
@@ -3292,6 +3298,7 @@ private fun PlayerControlsOverlay(
                                 onDownKey = onHideControls,
                                 onFocused = onResetHideTimer
                             )
+                            NuvioCOsdButton.PLAY, NuvioCOsdButton.PARTY, NuvioCOsdButton.REPORT -> Unit // [fork] round 32: placed by the loops below
                         }
                     }
                     val nuvioCPartyButton: @Composable (Boolean) -> Unit = { highlighted ->
@@ -3308,8 +3315,31 @@ private fun PlayerControlsOverlay(
                         }
                     }
 
-                    nuvioCSlots.filter { !it.inMore }.forEach { slot ->
-                        nuvioCButton(slot.button)
+                    val nuvioCReportButton: @Composable () -> Unit = {
+                        if (uiState.playbackIssueReportsEnabled) {
+                            ReportControlButton(
+                                reportId = uiState.playbackIssueReportId,
+                                showReportId = reportCodeVisible,
+                                onClick = onReportPlaybackIssue,
+                                enabled = uiState.playbackIssueReportStatus != PlaybackIssueReportStatus.Sending &&
+                                    uiState.playbackIssueReportStatus != PlaybackIssueReportStatus.Sent,
+                                upFocusRequester = progressUpTarget,
+                                onDownKey = onHideControls,
+                                onFocused = onResetHideTimer
+                            )
+                        }
+                    }
+                    // [fork] round 32 osd_order_all: Play, Watch Party and Report placed from the saved order.
+                    val nuvioCOrderAll = nuvioCSlots.any { it.button == NuvioCOsdButton.PARTY }
+                    val nuvioCPartyMain = nuvioCOrderAll && nuvioCSlots.any { it.button == NuvioCOsdButton.PARTY && !it.inMore }
+
+                    nuvioCSlots.filter { !it.inMore || it.button == NuvioCOsdButton.PLAY }.forEach { slot ->
+                        when (slot.button) {
+                            NuvioCOsdButton.PLAY -> if (nuvioCPlaySlotted) nuvioCPlayButton()
+                            NuvioCOsdButton.PARTY -> nuvioCPartyButton(partyActive)
+                            NuvioCOsdButton.REPORT -> nuvioCReportButton()
+                            else -> nuvioCButton(slot.button)
+                        }
                         // [fork] split layout: playback buttons (and Episodes) left, track buttons right
                         if (nuvioCSplit && slot.button == NuvioCOsdButton.NEXT) {
                             if (hasEpisodeContext) {
@@ -3327,7 +3357,9 @@ private fun PlayerControlsOverlay(
                         }
                     }
 
-                    if (onShowPartyPanel != null && (!com.nuvio.tv.NuvioCFeatures.PARTY_IN_MORE || partyActive)) { // [fork] party_in_more: main row only while a party runs
+                    if (nuvioCOrderAll) {
+                        if (!nuvioCPartyMain && partyActive) nuvioCPartyButton(true) // [fork] round 32: a running party still shows here
+                    } else if (onShowPartyPanel != null && (!com.nuvio.tv.NuvioCFeatures.PARTY_IN_MORE || partyActive)) { // [fork] party_in_more: main row only while a party runs
                         nuvioCPartyButton(partyActive)
                     }
 
@@ -3346,7 +3378,16 @@ private fun PlayerControlsOverlay(
                             horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val nuvioCMore = nuvioCSlots.filter { it.inMore }
+                            val nuvioCMore = nuvioCSlots.filter { it.inMore && it.button != NuvioCOsdButton.PLAY }
+                            if (nuvioCOrderAll) {
+                                nuvioCMore.forEach { slot ->
+                                    when (slot.button) {
+                                        NuvioCOsdButton.PARTY -> if (!partyActive) nuvioCPartyButton(false)
+                                        NuvioCOsdButton.REPORT -> nuvioCReportButton()
+                                        else -> nuvioCButton(slot.button)
+                                    }
+                                }
+                            } else {
                             val nuvioCPartyInMore = com.nuvio.tv.NuvioCFeatures.PARTY_IN_MORE && onShowPartyPanel != null && !partyActive // [fork] party_in_more: Watch Party tucked in here when no party runs
                             // Watch Party keeps its old place: just before the engine switch (else after the others).
                             val nuvioCPartyBefore = nuvioCMore.indexOfFirst { it.button == NuvioCOsdButton.ENGINE }
@@ -3355,18 +3396,8 @@ private fun PlayerControlsOverlay(
                                 nuvioCButton(slot.button)
                             }
                             if (nuvioCPartyInMore && nuvioCPartyBefore < 0) nuvioCPartyButton(false)
-                            if (uiState.playbackIssueReportsEnabled) {
-                                ReportControlButton(
-                                    reportId = uiState.playbackIssueReportId,
-                                    showReportId = reportCodeVisible,
-                                    onClick = onReportPlaybackIssue,
-                                    enabled = uiState.playbackIssueReportStatus != PlaybackIssueReportStatus.Sending &&
-                                        uiState.playbackIssueReportStatus != PlaybackIssueReportStatus.Sent,
-                                    upFocusRequester = progressUpTarget,
-                                    onDownKey = onHideControls,
-                                    onFocused = onResetHideTimer
-                                )
-                            }
+                            nuvioCReportButton()
+                            } // [fork] round 32
                         }
                     }
 

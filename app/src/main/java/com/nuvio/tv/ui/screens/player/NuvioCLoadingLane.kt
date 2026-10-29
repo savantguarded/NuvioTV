@@ -72,9 +72,9 @@ internal fun NuvioCLoadingLane(
             ) {
                 Text(
                     text = text,
-                    style = MaterialTheme.typography.labelLarge.copy(
+                    style = (if (com.nuvio.tv.NuvioCFeatures.LOADING_TEXT_SMALLER) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge).copy( // [fork] round 32
                         fontFeatureSettings = "tnum",
-                        lineHeight = 20.sp,
+                        lineHeight = if (com.nuvio.tv.NuvioCFeatures.LOADING_TEXT_SMALLER) 17.sp else 20.sp,
                         lineBreak = LineBreak.Paragraph
                     ),
                     color = Color.White.copy(alpha = 0.86f),

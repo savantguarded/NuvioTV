@@ -78,6 +78,9 @@ internal fun CalendarMonthView(
     val focusedDay = monthState.focusedDay(today)
     val gridRequester = remember { FocusRequester() }
     val dayListRequester = remember { FocusRequester() }
+    val nuvioCLeftArrow = remember { FocusRequester() } // [fork] round 32 calendar_month_keys
+    val nuvioCRightArrow = remember { FocusRequester() }
+    var nuvioCInDayList by remember { mutableStateOf(false) }
     var gridFocused by remember { mutableStateOf(false) }
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val grid = remember(month, formats.firstDayOfWeek) { calendarMonthGrid(month, formats.firstDayOfWeek) }
@@ -93,12 +96,16 @@ internal fun CalendarMonthView(
     Row(
         Modifier.fillMaxSize().onPreviewKeyEvent { event ->
             if (event.nativeKeyEvent.keyCode != AndroidKeyEvent.KEYCODE_BACK) return@onPreviewKeyEvent false
+            if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MONTH_KEYS && nuvioCInDayList) { // [fork] round 32: day list -> grid
+                if (event.nativeKeyEvent.action == AndroidKeyEvent.ACTION_UP) runCatching { gridRequester.requestFocus() }
+                return@onPreviewKeyEvent true
+            }
             if (!nuvioCBackToTabs) return@onPreviewKeyEvent false // [fork] calendar_back_leaves: Back leaves the page
             if (event.nativeKeyEvent.action == AndroidKeyEvent.ACTION_UP) runCatching { tabsRequester.requestFocus() }
             true
         }
     ) {
-        Column(Modifier.weight(NUVIO_C_MONTH_GRID_WEIGHT).fillMaxHeight().padding(bottom = NuvioTheme.spacing.xxl)) { // [fork] calendar_month_wide
+        Column(Modifier.weight(NUVIO_C_MONTH_GRID_WEIGHT).fillMaxHeight().padding(bottom = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MONTH_FILL) 12.dp else NuvioTheme.spacing.xxl)) { // [fork] calendar_month_wide
             // Up from the grid turns the month, so the month row is how focus gets back up to Week / List / Month;
             // Back from the grid jumps here.
             Row(
@@ -112,7 +119,7 @@ internal fun CalendarMonthView(
                     description = formats.month(month.minusMonths(1)),
                     performance = performance,
                     onClick = { viewModel.focusDay(focusedDay.minusMonths(1)) },
-                    modifier = Modifier.focusProperties { up = tabsRequester }
+                    modifier = Modifier.focusRequester(nuvioCLeftArrow).focusProperties { up = tabsRequester }
                 )
                 Text(
                     text = formats.month(month),
@@ -127,7 +134,7 @@ internal fun CalendarMonthView(
                     description = formats.month(month.plusMonths(1)),
                     performance = performance,
                     onClick = { viewModel.focusDay(focusedDay.plusMonths(1)) },
-                    modifier = Modifier.focusProperties { up = tabsRequester }
+                    modifier = Modifier.focusRequester(nuvioCRightArrow).focusProperties { up = tabsRequester }
                 )
             }
             Spacer(Modifier.height(NuvioTheme.spacing.sm))
@@ -173,7 +180,7 @@ internal fun CalendarMonthView(
                             }
                             key == null || native.action != AndroidKeyEvent.ACTION_DOWN -> false
                             else -> when (val move = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MONTH_NAV) { // [fork] calendar_month_nav
-                                nuvioCMonthMoveInside(focusedDay, month, formats.firstDayOfWeek, key, held = native.repeatCount > 0) // [fork] calendar_month_wide
+                                nuvioCMonthMoveRound32(focusedDay, month, formats.firstDayOfWeek, key, held = native.repeatCount > 0) // [fork] calendar_month_wide + round 32 keys
                             } else calendarMonthMove(focusedDay, month, formats.firstDayOfWeek, key)) {
                                 is CalendarMonthMove.To -> {
                                     viewModel.focusDay(move.date)
@@ -184,13 +191,18 @@ internal fun CalendarMonthView(
                                     // [fork] calendar_month_nav: nothing on that day = no list to go to, so wrap to the next day.
                                     else if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MONTH_NAV && native.repeatCount == 0) viewModel.focusDay(focusedDay.plusDays(1))
                                     true
+                                } else if (move.key == CalendarMonthKey.UP && com.nuvio.tv.NuvioCFeatures.CALENDAR_MONTH_KEYS) {
+                                    // [fork] round 32: the arrow on your side of the grid
+                                    val toRight = nuvioCMonthUpToRight(nuvioCMonthColumn(focusedDay, month, formats.firstDayOfWeek))
+                                    runCatching { (if (toRight) nuvioCRightArrow else nuvioCLeftArrow).requestFocus() }
+                                    true
                                 } else false
                             }
                         }
                     }
                     .focusable()
             ) {
-                grid.chunked(7).forEach { week ->
+                nuvioCMonthWeeks(grid, month).forEach { week -> // [fork] round 32 calendar_month_fill
                     Row(Modifier.fillMaxWidth().weight(1f)) {
                         week.forEach { date ->
                             CalendarMonthCell(
@@ -216,7 +228,9 @@ internal fun CalendarMonthView(
             formats = formats,
             performance = performance,
             firstRequester = dayListRequester,
-            modifier = Modifier.weight(NUVIO_C_MONTH_LIST_WEIGHT).fillMaxHeight().padding(bottom = NuvioTheme.spacing.xxl), // [fork] calendar_month_wide
+            modifier = Modifier.weight(NUVIO_C_MONTH_LIST_WEIGHT).fillMaxHeight()
+                .padding(bottom = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MONTH_FILL) 12.dp else NuvioTheme.spacing.xxl)
+                .onFocusChanged { nuvioCInDayList = it.hasFocus }, // [fork] calendar_month_wide + round 32
             onFocused = { viewModel.onRowFocused(it, fromList = false) },
             onOpen = onOpen,
             onOptions = onOptions

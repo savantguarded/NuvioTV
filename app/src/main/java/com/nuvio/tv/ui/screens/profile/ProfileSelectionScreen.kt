@@ -70,6 +70,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
@@ -1271,7 +1272,12 @@ private fun ProfileCard(
                 )
             }
 
-            if (nuvioCInUse && com.nuvio.tv.NuvioCFeatures.PROFILE_CHECK) NuvioCProfileInUseBadge(Modifier.align(Alignment.BottomEnd)) // [fork] profile_check
+            if (nuvioCInUse && com.nuvio.tv.NuvioCFeatures.PROFILE_CHECK) {
+                if (com.nuvio.tv.NuvioCFeatures.PROFILE_CHECK_EDGE) { // [fork] round 32: on the ring's edge, over the ring
+                    val nuvioCBadgeAt = nuvioCProfileBadgeOffset(outerAvatarSize)
+                    NuvioCProfileInUseBadge(Modifier.align(Alignment.Center).offset(x = nuvioCBadgeAt, y = nuvioCBadgeAt).zIndex(1f))
+                } else NuvioCProfileInUseBadge(Modifier.align(Alignment.BottomEnd)) // [fork] profile_check
+            }
             if (profile.isPrimary && !LocalNuvioCProfileClean.current) { // [fork] no star on the clean screen
                 Box(
                     modifier = Modifier

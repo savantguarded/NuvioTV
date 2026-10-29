@@ -331,6 +331,7 @@ internal fun PlayerRuntimeController.observeSubtitleSettings() {
                 else -> currentState.centerMixLevelDb
             }
 
+            NuvioCNight.setPersist(context, settings.persistAudioAmplification) // [fork] round 32 night_mode_v2
             _uiState.update { state ->
                 val shouldShowOverlay = when {
                     !settings.loadingOverlayEnabled -> false

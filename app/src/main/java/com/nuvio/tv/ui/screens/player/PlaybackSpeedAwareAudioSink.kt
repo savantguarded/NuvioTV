@@ -34,7 +34,7 @@ internal class PlaybackSpeedAwareAudioSink(
     private var bluetoothForcePcm: Boolean = forcePcmForBluetooth
 
     @Volatile
-    private var currentInputFormat: Format? = null
+    private var currentInputFormat: Format? = null // [fork] round 32: read by the stats panel
 
     @Volatile
     private var listener: AudioSink.Listener? = null
@@ -82,6 +82,13 @@ internal class PlaybackSpeedAwareAudioSink(
         this.listener = listener
         super.setListener(listener)
     }
+
+    /**
+     * [fork] Nuvio C round 32: true while the sink is configured with a bitstream (passthrough), read by the stats
+     * panel. Set here on the playback thread so the UI never calls into DefaultAudioSink (it asserts one thread
+     * and crashed the app when the stats panel asked supportsFormat from the main thread).
+     */
+    val nuvioCPassthrough: Boolean get() = currentInputFormat?.sampleMimeType?.let { it != MimeTypes.AUDIO_RAW } == true
 
     override fun configure(inputFormat: Format, specifiedBufferSize: Int, outputChannels: IntArray?) {
         currentInputFormat = inputFormat

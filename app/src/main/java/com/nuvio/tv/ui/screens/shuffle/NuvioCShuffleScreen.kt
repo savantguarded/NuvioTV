@@ -162,8 +162,12 @@ private fun ShuffleMood(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 4.dp)
         )
-        Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+        Spacer(Modifier.height(if (com.nuvio.tv.NuvioCFeatures.ROULETTE_TILES_SLIM) 18.dp else 10.dp)) // [fork] round 32 roulette_tiles_slim
+        Row(
+            Modifier.fillMaxWidth().weight(1f)
+                .then(if (com.nuvio.tv.NuvioCFeatures.ROULETTE_TILES_SLIM) Modifier.padding(vertical = 12.dp) else Modifier),
+            horizontalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
             com.nuvio.tv.data.nuvioc.nuvioCShuffleKinds.forEach { kind -> // [fork] roulette_anime
                 ShuffleTile(
                     kind = kind,

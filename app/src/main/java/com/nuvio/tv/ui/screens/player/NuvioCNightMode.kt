@@ -26,25 +26,81 @@ import kotlin.math.pow
 object NuvioCNight {
     private const val PREFS = "nuvio_c_audio"
     private const val KEY = "night_mode"
+    private const val KEY_ENABLED = "night_enabled" // [fork] round 32 night_mode_v2
+    private const val KEY_PERSIST = "night_persist" // mirror of the player's "Persist between sessions"
     private val _level = MutableStateFlow(NightModeLevel.OFF)
     val level: StateFlow<NightModeLevel> = _level.asStateFlow()
+    private val _enabled = MutableStateFlow(true)
+    /** [fork] round 32: the Settings switch. Off = no night mode control in the player, audio path untouched. */
+    val enabled: StateFlow<Boolean> = _enabled.asStateFlow()
     @Volatile private var loaded = false
+    @Volatile private var persist = false
+
+    private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+
+    private fun ensureLoaded(context: Context) {
+        if (loaded) return
+        loaded = true
+        val p = prefs(context)
+        _enabled.value = !NuvioCFeatures.NIGHT_MODE_V2 || p.getBoolean(KEY_ENABLED, true)
+        persist = p.getBoolean(KEY_PERSIST, false)
+        val saved = NightModeLevel.fromKey(p.getString(KEY, null))
+        _level.value = when {
+            !_enabled.value -> NightModeLevel.OFF
+            NuvioCFeatures.NIGHT_MODE_V2 && !persist -> NightModeLevel.OFF
+            else -> saved
+        }
+    }
+
+    /** True when the player should offer and apply night mode at all. */
+    fun active(context: Context): Boolean {
+        if (!NuvioCFeatures.NIGHT_MODE) return false
+        ensureLoaded(context)
+        return _enabled.value
+    }
 
     fun load(context: Context): NightModeLevel {
         if (!NuvioCFeatures.NIGHT_MODE) return NightModeLevel.OFF
-        if (!loaded) {
-            loaded = true
-            _level.value = NightModeLevel.fromKey(
-                context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY, null)
-            )
+        ensureLoaded(context)
+        return if (_enabled.value) _level.value else NightModeLevel.OFF
+    }
+
+    /**
+     * [fork] round 32: a new player session (a new player screen) starts with the saved level when
+     * "Persist between sessions" is on, else Off. Episodes and engine switches inside the session keep it.
+     */
+    fun beginSession(context: Context) {
+        if (!NuvioCFeatures.NIGHT_MODE || !NuvioCFeatures.NIGHT_MODE_V2) return
+        ensureLoaded(context)
+        _level.value = when {
+            !_enabled.value -> NightModeLevel.OFF
+            persist -> NightModeLevel.fromKey(prefs(context).getString(KEY, null))
+            else -> NightModeLevel.OFF
         }
-        return _level.value
     }
 
     fun save(context: Context, level: NightModeLevel) {
+        ensureLoaded(context)
         _level.value = level
-        loaded = true
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY, level.key).apply()
+        if (!NuvioCFeatures.NIGHT_MODE_V2 || persist) prefs(context).edit().putString(KEY, level.key).apply()
+    }
+
+    /** Keeps the night level saved together with the player's "Persist between sessions" setting. */
+    fun setPersist(context: Context, enabled: Boolean) {
+        if (!NuvioCFeatures.NIGHT_MODE_V2) return
+        ensureLoaded(context)
+        if (persist == enabled) return
+        persist = enabled
+        val editor = prefs(context).edit().putBoolean(KEY_PERSIST, enabled)
+        if (enabled) editor.putString(KEY, _level.value.key)
+        editor.apply()
+    }
+
+    fun setEnabled(context: Context, enabled: Boolean) {
+        ensureLoaded(context)
+        _enabled.value = enabled
+        if (!enabled) _level.value = NightModeLevel.OFF
+        prefs(context).edit().putBoolean(KEY_ENABLED, enabled).apply()
     }
 
     fun next(level: NightModeLevel, step: Int): NightModeLevel {
@@ -66,6 +122,7 @@ internal fun nuvioCMpvNightChain(level: NightModeLevel): String {
 /** Applies [level] to the playing title (and saves it as the choice for the next ones). */
 internal fun PlayerRuntimeController.nuvioCApplyNightMode(level: NightModeLevel, save: Boolean = true) {
     if (!NuvioCFeatures.NIGHT_MODE) return
+    if (NuvioCFeatures.NIGHT_MODE_V2 && !NuvioCNight.active(context)) return // [fork] round 32: switched off in Settings
     if (save) NuvioCNight.save(context, level)
     val on = level != NightModeLevel.OFF
     if (isUsingMpvEngine()) {

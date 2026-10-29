@@ -212,6 +212,7 @@ class PlayerRuntimeController(
 
     init {
         PlayerMediaSourceFactory.vodCachePlayheadBytesProvider = vodCachePlayheadBytesProvider
+        NuvioCNight.beginSession(context) // [fork] round 32 night_mode_v2
     }
 
     // Closed on exit (stopAndRelease) or when the ViewModel is cleared, whichever comes first.

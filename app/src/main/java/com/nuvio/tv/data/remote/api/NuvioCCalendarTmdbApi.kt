@@ -122,7 +122,15 @@ data class NuvioCCalendarTmdbShow(
     @Json(name = "first_air_date") val firstAirDate: String? = null, // [fork] round 31
     @Json(name = "genres") val genres: List<NuvioCCalendarNamed>? = null, // [fork] round 31
     @Json(name = "last_episode_to_air") val lastEpisodeToAir: TmdbEpisodeToAir? = null,
-    @Json(name = "next_episode_to_air") val nextEpisodeToAir: TmdbEpisodeToAir? = null
+    @Json(name = "next_episode_to_air") val nextEpisodeToAir: TmdbEpisodeToAir? = null,
+    @Json(name = "seasons") val seasons: List<NuvioCCalendarSeasonSummary>? = null // [fork] round 32 tmdb_soon_recheck
+)
+
+/** [fork] round 32: a season as TMDB's show details list it (its first air date). */
+@JsonClass(generateAdapter = true)
+data class NuvioCCalendarSeasonSummary(
+    @Json(name = "season_number") val seasonNumber: Int? = null,
+    @Json(name = "air_date") val airDate: String? = null
 )
 
 @JsonClass(generateAdapter = true)

@@ -32,7 +32,8 @@ internal fun PlaybackAudioSection(
         onClick = { onOpenDialog(PlaybackDialog.AUDIO_LANGUAGE) }
     )
     // [fork] Nuvio C round 31 night_mode: OK steps through Off, Light, Medium, Strong.
-    if (com.nuvio.tv.NuvioCFeatures.NIGHT_MODE) {
+    // Round 32 (night_mode_v2): replaced by an on/off switch under "Remember audio delay" (below).
+    if (com.nuvio.tv.NuvioCFeatures.NIGHT_MODE && !com.nuvio.tv.NuvioCFeatures.NIGHT_MODE_V2) {
         val nightContext = androidx.compose.ui.platform.LocalContext.current
         androidx.compose.runtime.remember { com.nuvio.tv.ui.screens.player.NuvioCNight.load(nightContext) }
         val night = com.nuvio.tv.ui.screens.player.NuvioCNight.level.collectAsState().value
@@ -71,6 +72,19 @@ internal fun PlaybackAudioSection(
         onToggle = { onUpdate { setRememberAudioDelayPerDevice(!settings.rememberAudioDelayPerDevice) } },
         enabled = enabled
     )
+    // [fork] Nuvio C round 32 night_mode_v2: on / off only. Off = no night mode in the player, audio path untouched.
+    if (com.nuvio.tv.NuvioCFeatures.NIGHT_MODE && com.nuvio.tv.NuvioCFeatures.NIGHT_MODE_V2) {
+        val nightContext = androidx.compose.ui.platform.LocalContext.current
+        androidx.compose.runtime.remember { com.nuvio.tv.ui.screens.player.NuvioCNight.active(nightContext) }
+        val nightOn = com.nuvio.tv.ui.screens.player.NuvioCNight.enabled.collectAsState().value
+        SettingsToggleRow(
+            title = stringResource(R.string.nuvio_c_night_mode),
+            subtitle = stringResource(R.string.nuvio_c_night_mode_toggle_sub),
+            checked = nightOn,
+            onToggle = { com.nuvio.tv.ui.screens.player.NuvioCNight.setEnabled(nightContext, !nightOn) },
+            enabled = enabled
+        )
+    }
 
     if (!isExoEngine) return
 

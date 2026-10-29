@@ -330,7 +330,14 @@ internal fun NuvioCOsdCastPanel(
     var bioExpanded by remember { mutableStateOf(false) }
     LaunchedEffect(ui.selected) { bioExpanded = false }
     Dialog(
-        onDismissRequest = { if (bioExpanded) bioExpanded = false else close() },
+        onDismissRequest = {
+            when {
+                bioExpanded -> bioExpanded = false
+                // [fork] round 32 osd_cast_back_stack: Back on a person goes back to the list (focus on them)
+                NuvioCFeatures.OSD_CAST_BACK_STACK && ui.selected != null -> viewModel.back()
+                else -> close()
+            }
+        },
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
         val window = (LocalView.current.parent as? DialogWindowProvider)?.window

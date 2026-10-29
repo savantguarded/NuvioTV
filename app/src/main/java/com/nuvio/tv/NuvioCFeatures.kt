@@ -443,4 +443,38 @@ object NuvioCFeatures {
     const val DETAIL_INFO_BLOCK = true
     /** Details: a show's status badge ("ONGOING") reads the next episode's countdown when it has a date ("S5 E4 IN 3 DAYS", "TONIGHT 9:00 PM"). Off = official badge. */
     const val DETAIL_NEXT_EP_BADGE = true
+
+    // ---- Round 32 (2026-10-29) ----
+    /** Stats panel crash fix: passthrough read from the audio sink's own state (no DefaultAudioSink call from the UI thread), every sample guarded, and the panel waits until the loading screen is gone. Off = round 31 panel. */
+    const val STATS_PANEL_SAFE = true
+    /** Profile screen: the "Choose a profile" heading sits 40 dp lower, clear of the top edge. Off = round 31 place. */
+    const val PROFILE_HEADING_DROP = true
+    /** Profile screen: the in-use check badge sits on the ring's lower-right edge (follows the ring's focus growth), solid and drawn over it. Off = round 31 corner badge. */
+    const val PROFILE_CHECK_EDGE = true
+    /** Player loading screen: filename one size smaller, synopsis one step smaller. Off = round 31 sizes. */
+    const val LOADING_TEXT_SMALLER = true
+    /** IMDb ratings on the loading screen, the player's About tab and Episodes panel use the details page's IMDb logo and number. Off = yellow "IMDb" text. */
+    const val IMDB_LOGO_EVERYWHERE = true
+    /** Roulette: the three tiles are a little shorter so the focus zoom clears the copy above. Off = round 31 tiles. */
+    const val ROULETTE_TILES_SLIM = true
+    /** Calendar Month keys: Right on the last column and Left / Right at a row end stay in the row; Left on the first column opens the sidebar (one press, not held); Back in the day list returns to the grid; Up from the top row lands on the nearer month arrow. Off = round 31 keys. */
+    const val CALENDAR_MONTH_KEYS = true
+    /** Calendar Month: only the weeks the month needs (4 to 6 rows) fill the height, less bottom padding. Off = always 6 rows. */
+    const val CALENDAR_MONTH_FILL = true
+    /** Player: "About & cast" is called "Details" (OSD label and Player buttons settings). Off = "About & cast". */
+    const val OSD_DETAILS_LABEL = true
+    /** Player buttons settings also list Play / Pause (main row only), Watch Party and Report. Off = round 31 list. */
+    const val OSD_ORDER_ALL = true
+    /** Player Details panel Back order: expanded bio, then person (focus back on them in the list), then the panel. Off = round 31 (one Back closes). */
+    const val OSD_CAST_BACK_STACK = true
+    /** Night mode: player control under Downmix, follows "Persist between sessions" (off = every session starts Off); the Settings row is an on/off switch under "Remember audio delay", off = no night mode in the player and the audio path left alone. Off = round 31 night mode. */
+    const val NIGHT_MODE_V2 = true
+    /** Details: held Down lands on the lowest row it can focus (not back up on comments / episodes) when the page ends on the Information block. Off = official landing. */
+    const val DETAIL_HOLD_DOWN_LAND = true
+    /** Details Information block without Runtime and Original language (shown elsewhere on the page). Off = round 31 rows. */
+    const val DETAIL_INFO_TRIM = true
+    /** Calendar coming soon: a show's "no" is kept 6 h instead of 24 h (a new season can be dated later in the day) and the reason is logged. Off = round 31. */
+    const val TMDB_SOON_RECHECK = true
+    /** Ambient screen logos sized by area like Home (small source logos scale up). Off = drawn at the image's own size. */
+    const val AMBIENT_LOGO_SIZE = true
 }
