@@ -62,6 +62,7 @@ fun TrailerPlayer(
     autoCropLetterbox: Boolean = false,
     nuvioCHold: Boolean = false, // [fork] page covered: pause here, carry on from the same spot (NuvioCTrailerHold.kt)
     nuvioCFadeInOnStart: Boolean = false, // [fork] start silent and fade the sound in over 1 s (background trailer with sound)
+    nuvioCResume: Boolean = false, // [fork] round 31 trailer_resume: details background trailer only (NuvioCTrailerResume.kt)
     modifier: Modifier = Modifier,
     enter: EnterTransition = fadeIn(animationSpec = tween(800)),
     exit: ExitTransition = fadeOut(animationSpec = tween(500)),
@@ -77,6 +78,7 @@ fun TrailerPlayer(
     val currentOnFirstFrameRendered by rememberUpdatedState(onFirstFrameRendered)
     val currentOnProgressChanged by rememberUpdatedState(onProgressChanged)
     val currentOnRemoteKey by rememberUpdatedState(onRemoteKey)
+    val currentResume by rememberUpdatedState(nuvioCResume) // [fork] trailer_resume
     val zoomScale = if (cropToFill) overscanZoom.coerceAtLeast(1f) else 1f
     var hasRenderedFirstFrame by remember(trailerUrl) { mutableStateOf(false) }
     val playerAlphaState = animateFloatAsState(
@@ -152,6 +154,7 @@ fun TrailerPlayer(
             } else {
                 player.setMediaItem(MediaItem.fromUri(trailerUrl))
             }
+            if (nuvioCResume) NuvioCTrailerResume.startAt(trailerUrl).takeIf { it > 0L }?.let { player.seekTo(it) } // [fork] trailer_resume
             player.prepare()
             player.playWhenReady = true
         } else {
@@ -237,6 +240,7 @@ fun TrailerPlayer(
         while (isPlaying) {
             val position = player.currentPosition.coerceAtLeast(0L)
             val duration = player.duration.takeIf { it > 0 } ?: 0L
+            if (currentResume && player.isPlaying) NuvioCTrailerResume.record(currentTrailerUrl, position) // [fork] trailer_resume
             currentOnProgressChanged(position, duration)
             delay(250)
         }
@@ -252,6 +256,7 @@ fun TrailerPlayer(
                     player.playWhenReady &&
                     !nuvioCHoldBusy // [fork] not another page's trailer ending
                 ) {
+                    NuvioCTrailerResume.forget(currentTrailerUrl) // [fork] trailer_resume: watched to the end
                     currentOnEnded()
                 }
             }

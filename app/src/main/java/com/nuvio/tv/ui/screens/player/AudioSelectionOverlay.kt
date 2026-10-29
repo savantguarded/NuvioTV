@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -76,7 +77,8 @@ internal fun AudioSelectionOverlay(
     onCenterMixLevelChange: (Int) -> Unit,
     onPersistAmplificationChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    nuvioCOnNightChange: ((com.nuvio.tv.data.local.NightModeLevel) -> Unit)? = null // [fork] night_mode
 ) {
     val tracksFocusRequester = remember { FocusRequester() }
     val delayMinusFocusRequester = remember { FocusRequester() }
@@ -221,7 +223,8 @@ internal fun AudioSelectionOverlay(
                             onAmplificationChange(nextDb)
                         },
                         onCenterMixLevelChange = onCenterMixLevelChange,
-                        onPersistAmplificationChange = onPersistAmplificationChange
+                        onPersistAmplificationChange = onPersistAmplificationChange,
+                        nuvioCOnNightChange = nuvioCOnNightChange
                     )
                 }
             }
@@ -389,7 +392,8 @@ private fun AudioControlsContent(
     onAudioDelayChange: (Int) -> Unit,
     onAmplificationChange: (Int, AudioControlFocusTarget) -> Unit,
     onCenterMixLevelChange: (Int) -> Unit,
-    onPersistAmplificationChange: (Boolean) -> Unit
+    onPersistAmplificationChange: (Boolean) -> Unit,
+    nuvioCOnNightChange: ((com.nuvio.tv.data.local.NightModeLevel) -> Unit)? = null
 ) {
     val currentDelayMs = audioDelayMs.coerceIn(AUDIO_DELAY_MIN_MS, AUDIO_DELAY_MAX_MS)
     val canDecreaseDelay = currentDelayMs > AUDIO_DELAY_MIN_MS
@@ -627,8 +631,50 @@ private fun AudioControlsContent(
                     modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp)
                 )
             }
+
+            // [fork] Nuvio C round 31 night_mode: Off / Light / Medium / Strong under Amplification.
+            if (nuvioCOnNightChange != null && com.nuvio.tv.NuvioCFeatures.NIGHT_MODE) {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                remember { NuvioCNight.load(context) }
+                val night by NuvioCNight.level.collectAsState()
+                val nightMinus = remember { FocusRequester() }
+                val nightPlus = remember { FocusRequester() }
+                val levels = com.nuvio.tv.data.local.NightModeLevel.entries
+                val at = levels.indexOf(night)
+                AdjustmentSection(
+                    title = stringResource(R.string.nuvio_c_night_mode),
+                    valueText = stringResource(nuvioCNightLabel(night)),
+                    helperText = stringResource(R.string.nuvio_c_night_mode_help),
+                    canDecrease = at > 0,
+                    canIncrease = at < levels.lastIndex,
+                    minusFocusRequester = nightMinus,
+                    plusFocusRequester = nightPlus,
+                    minusLeftFocusRequester = leftFocusRequester,
+                    plusLeftFocusRequester = if (at > 0) nightMinus else leftFocusRequester,
+                    upFocusRequester = persistFocusRequester,
+                    downFocusRequester = null,
+                    onDecrease = {
+                        val next = NuvioCNight.next(night, -1)
+                        nuvioCOnNightChange(next)
+                        if (next == levels.first()) runCatching { nightPlus.requestFocus() }
+                    },
+                    onIncrease = {
+                        val next = NuvioCNight.next(night, 1)
+                        nuvioCOnNightChange(next)
+                        if (next == levels.last()) runCatching { nightMinus.requestFocus() }
+                    }
+                )
+            }
         }
     }
+}
+
+// [fork] night_mode
+internal fun nuvioCNightLabel(level: com.nuvio.tv.data.local.NightModeLevel): Int = when (level) {
+    com.nuvio.tv.data.local.NightModeLevel.OFF -> R.string.nuvio_c_night_off
+    com.nuvio.tv.data.local.NightModeLevel.LIGHT -> R.string.nuvio_c_night_light
+    com.nuvio.tv.data.local.NightModeLevel.MEDIUM -> R.string.nuvio_c_night_medium
+    com.nuvio.tv.data.local.NightModeLevel.STRONG -> R.string.nuvio_c_night_strong
 }
 
 @Composable

@@ -254,6 +254,7 @@ internal class PlayerMediaSourceFactory(private val context: Context) {
         }
         val progressiveUpstreamFactory: DataSource.Factory =
             RedirectReportingDataSource.Factory(networkProgressiveFactory, url) { resolvedUrl ->
+                NuvioCStreamServer.record(url, resolvedUrl) // [fork] stats_panel_right
                 onStreamRedirected?.invoke(url, resolvedUrl)
             }
 

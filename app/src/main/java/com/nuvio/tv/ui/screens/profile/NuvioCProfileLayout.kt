@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.runtime.Composable
@@ -452,3 +453,51 @@ internal fun NuvioCProfileLeftColumn(itemCount: Int, content: @Composable () -> 
 @androidx.compose.runtime.ReadOnlyComposable
 internal fun androidx.compose.ui.unit.Dp.nuvioCAvatar(): androidx.compose.ui.unit.Dp =
     if (NuvioCFeatures.PROFILE_AVATAR_SMALL && LocalNuvioCProfileClean.current) this * 0.9f else this
+
+// ---- [fork] round 31 profile_check ----
+
+/** Solid white disc with a black tick on the profile in use. Sits at the avatar's corner, just outside the ring
+ *  (black outline keeps it apart from the ring and the picture), fully opaque, and scales with the card. */
+@Composable
+internal fun NuvioCProfileInUseBadge(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .offset(x = 4.dp, y = 4.dp)
+            .size(24.dp)
+            .background(Color.Black, CircleShape)
+            .padding(2.dp)
+            .background(Color.White, CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        androidx.tv.material3.Icon(
+            imageVector = androidx.compose.material.icons.Icons.Default.Check,
+            contentDescription = null,
+            tint = Color.Black,
+            modifier = Modifier.size(14.dp)
+        )
+    }
+}
+
+/** "Choose a profile" with "Select a profile to continue" under it, above the profiles on the left rail. */
+@Composable
+internal fun NuvioCProfileHeading(subtitle: String) {
+    androidx.compose.foundation.layout.Column(
+        modifier = Modifier.padding(start = 12.dp, bottom = 22.dp)
+    ) {
+        androidx.tv.material3.Text(
+            text = androidx.compose.ui.res.stringResource(com.nuvio.tv.R.string.nuvio_c_profile_choose),
+            color = com.nuvio.tv.ui.theme.NuvioTheme.colors.TextPrimary,
+            fontSize = 26.sp,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+            maxLines = 1
+        )
+        androidx.compose.foundation.layout.Spacer(Modifier.height(4.dp))
+        androidx.tv.material3.Text(
+            text = subtitle,
+            color = com.nuvio.tv.ui.theme.NuvioTheme.colors.TextSecondary,
+            fontSize = 15.sp,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+            maxLines = 1
+        )
+    }
+}

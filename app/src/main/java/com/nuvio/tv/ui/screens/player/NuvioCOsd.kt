@@ -320,6 +320,12 @@ private fun buildBadgeParts(controller: PlayerRuntimeController, uiState: Player
         if (NuvioCFeatures.OSD_BADGE_NAMES && NuvioCOsdBadges.isImax(names)) add(NuvioCBadge("IMAX")) // [fork] round 27
         NuvioCOsdBadges.sourceFromName(names)?.let { add(NuvioCBadge(it, NuvioCBadgeKind.OUTLINED)) }
         NuvioCOsdBadges.sizeLabel(controller.currentVideoSize)?.let { add(NuvioCBadge(it, if (NuvioCFeatures.OSD_BADGES_LEFT) NuvioCBadgeKind.FILLED else NuvioCBadgeKind.PLAIN)) }
+    }.let { parts -> // [fork] round 31 dolby_full_names, only while the badge line stays short enough to fit
+        if (!NuvioCFeatures.DOLBY_FULL_NAMES) parts
+        else {
+            val full = parts.map { it.copy(text = NuvioCOsdBadges.dolbyFull(it.text)) }
+            if (full.sumOf { it.text.length + 2 } <= NuvioCOsdBadges.FULL_NAMES_MAX_CHARS) full else parts
+        }
     }
 }
 
@@ -561,6 +567,16 @@ internal object NuvioCOsdBadges {
     /** Audio tile text: Atmos spelled out ("DOLBY ATMOS 7.1"), everything else unchanged. */
     fun audioDisplay(tile: String): String =
         if (NuvioCFeatures.OSD_BADGE_NAMES && tile.startsWith("ATMOS")) "DOLBY $tile" else tile
+
+    /** [fork] round 31 dolby_full_names: "DD+ 5.1" -> "DOLBY DIGITAL PLUS 5.1", "DD 5.1" -> "DOLBY DIGITAL 5.1". */
+    fun dolbyFull(tile: String): String = when {
+        tile == "DD+" || tile.startsWith("DD+ ") -> "DOLBY DIGITAL PLUS" + tile.removePrefix("DD+")
+        tile == "DD" || tile.startsWith("DD ") -> "DOLBY DIGITAL" + tile.removePrefix("DD")
+        else -> tile
+    }
+
+    /** [fork] round 31: longest badge line (characters) the spelled-out Dolby names may make; longer = short names. */
+    const val FULL_NAMES_MAX_CHARS = 64
 
     /** Release name says IMAX (incl. "IMAX Enhanced"). */
     fun isImax(names: String): Boolean = nuvioCRe("""(\b|[._ -])imax(\b|[._ -])""").containsMatchIn(names.lowercase(Locale.US))

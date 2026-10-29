@@ -41,7 +41,10 @@ class TmdbSoonClient @Inject constructor(
     private val apiKey: String get() = tmdbService.apiKey()
 
     /** Tomorrow to 30 days on, in popularity order; null when TMDB could not be read at all. */
-    suspend fun items(today: LocalDate, region: String): List<TmdbSoonItem>? = try {
+    suspend fun items(today: LocalDate, region: String): List<TmdbSoonItem>? =
+        if (com.nuvio.tv.NuvioCFeatures.TMDB_SOON_TOP20_RULES) top20Items(today) else round30Items(today, region)
+
+    private suspend fun round30Items(today: LocalDate, region: String): List<TmdbSoonItem>? = try {
         val from = today.plusDays(1)
         val to = today.plusDays(TMDB_SOON_DAYS)
         val films = mutableListOf<TmdbSoonItem>()
@@ -80,6 +83,78 @@ class TmdbSoonClient @Inject constructor(
         null
     }
 
+    // ---- [fork] round 31 tmdb_soon_top20_rules: the Top 20 add-on's Coming Soon rules ('notable' mode) ----
+    //
+    // Films: the first US digital release falls tomorrow..+30 days, the film isn't already for rent or sale in the
+    // US, and it is a real release: a US cinema run (popularity 3+), a streamer as a production company, or on a
+    // US subscription service. No popularity floor (that was what dropped most of them), no cinema-only titles.
+    // Shows: English, no kids / news / reality / soap / talk, no anime, on a major streamer or US / UK network,
+    // and something starts in the window: a premiere, a new season (episode 1 of season 2+) or the next episode
+    // after a break of more than 14 days. Up to 5 pages of each discover list, each title's check kept 24 h.
+
+    private class Checked(val at: Long, val keep: Boolean)
+    private val checks = java.util.concurrent.ConcurrentHashMap<String, Checked>()
+    private fun cached(key: String): Boolean? = checks[key]?.takeIf { System.currentTimeMillis() - it.at < CHECK_TTL_MS }?.keep
+
+    private suspend fun top20Items(today: LocalDate): List<TmdbSoonItem>? = try {
+        val from = today.plusDays(1)
+        val to = today.plusDays(TMDB_SOON_DAYS)
+        val films = mutableListOf<TmdbSoonItem>()
+        val filmRaw = mutableListOf<NuvioCCalendarDiscoverItem>()
+        for (page in 1..TOP20_PAGES) {
+            val body = api.discoverSoonMovies(apiKey, TOP20_REGION, "4", from.toString(), to.toString(), page = page)
+            if (!body.isSuccessful) { if (page == 1) throw CalendarFetchException("TMDB ${body.code()}") else break }
+            val results = body.body()?.results.orEmpty()
+            filmRaw += results
+            if (results.size < 20) break
+        }
+        var filmChecks = 0
+        for (raw in filmRaw.distinctBy { it.id }) {
+            if (filmChecks >= TOP20_MAX_CHECKS) break
+            val item = raw.toItem(CalendarTitleType.MOVIE) ?: continue
+            if (!raw.originalLanguage.equals("en", true) && (raw.voteCount ?: 0) < TMDB_SOON_FOREIGN_MIN_VOTES) continue
+            val id = raw.id ?: continue
+            val keep = cached("m$id") ?: run {
+                filmChecks++
+                val details = api.getSoonMovie(id, apiKey).takeIf { it.isSuccessful }?.body() ?: return@run null
+                top20KeepFilm(details, raw.popularity ?: 0.0, from, to).also { checks["m$id"] = Checked(System.currentTimeMillis(), it) }
+            } ?: continue
+            if (keep) films += item
+        }
+        val showRaw = mutableListOf<NuvioCCalendarDiscoverItem>()
+        for (first in listOf(true, false)) {
+            for (page in 1..TOP20_PAGES) {
+                val body = if (first) api.discoverSoonShows(apiKey, firstFrom = from.toString(), firstTo = to.toString(), withoutGenres = TMDB_SOON_SKIP_GENRES, page = page)
+                else api.discoverSoonShows(apiKey, airFrom = from.toString(), airTo = to.toString(), withoutGenres = TMDB_SOON_SKIP_GENRES, page = page)
+                if (!body.isSuccessful) break
+                val results = body.body()?.results.orEmpty()
+                showRaw += results
+                if (results.size < 20) break
+            }
+        }
+        val shows = mutableListOf<TmdbSoonItem>()
+        var showChecks = 0
+        for (raw in showRaw.distinctBy { it.id }.sortedByDescending { it.popularity ?: 0.0 }) {
+            if (showChecks >= TOP20_MAX_CHECKS) break
+            if (!top20WantedShow(raw.originalLanguage, raw.genreIds.orEmpty(), raw.originCountry.orEmpty())) continue
+            val item = raw.toItem(CalendarTitleType.SERIES) ?: continue
+            val id = raw.id ?: continue
+            val keep = cached("s$id") ?: run {
+                showChecks++
+                val details = api.getTvDetails(id, apiKey).takeIf { it.isSuccessful }?.body() ?: return@run null
+                top20KeepShow(details, today, from, to).also { checks["s$id"] = Checked(System.currentTimeMillis(), it) }
+            } ?: continue
+            if (keep) shows += item
+        }
+        Log.d(TAG, "Top 20 rules: ${films.size} films, ${shows.size} shows (checked $filmChecks + $showChecks new)")
+        (films + shows).sortedByDescending { it.popularity }.take(TOP20_MAX_TITLES)
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (error: Exception) {
+        Log.w(TAG, "TMDB coming soon skipped: ${error.javaClass.simpleName} ${error.message}")
+        null
+    }
+
     private fun keepFilm(item: TmdbSoonItem, raw: List<NuvioCCalendarDiscoverItem>, today: LocalDate): Boolean {
         val source = raw.firstOrNull { it.id?.toLong() == item.ids.tmdb } ?: return false
         if (item.popularity < TMDB_SOON_MIN_POPULARITY) return false
@@ -106,7 +181,81 @@ class TmdbSoonClient @Inject constructor(
 
     private companion object {
         const val TAG = "CalendarTmdbSoon"
+        const val TOP20_REGION = "US"
+        const val TOP20_PAGES = 5
+        const val TOP20_MAX_CHECKS = 70
+        const val TOP20_MAX_TITLES = 60
+        const val CHECK_TTL_MS = 24L * 60 * 60 * 1000
     }
+}
+
+// [fork] round 31 tmdb_soon_top20_rules: the rules, kept as plain functions so they can be tested.
+
+private val TOP20_MAJOR_OUTLETS = listOf(
+    "netflix", "appletv", "apple", "primevideo", "hulu", "disney", "peacock", "paramount", "hbo", "max",
+    "amc", "starz", "mgm", "showtime", "fx", "cbs", "nbc", "abc", "fox", "thecw", "pbs", "usanetwork",
+    "syfy", "bravo", "freeform", "tnt", "tbs", "adultswim", "cartoonnetwork", "nickelodeon",
+    "comedycentral", "bet", "shudder", "acorntv", "britbox", "bbc", "itv", "channel4", "sky",
+    "nationalgeographic", "history", "ae", "epix", "cinemax", "youtubepremium", "roku",
+    "cbc", "ctv", "citytv", "global"
+)
+private val TOP20_KIDS_NETWORKS = setOf(
+    "disneyxd", "disneyjunior", "disneychannel", "nickjr", "nickelodeon", "nicktoons", "cartoonnetwork",
+    "cartoonito", "pbskids", "universalkids", "cbeebies", "cbbc", "babytv", "discoveryfamily"
+)
+private val TOP20_STREAMER_STUDIOS = Regex("netflix|apple|amazon|prime video|disney\\+|hbo|max original|peacock|paramount\\+|hulu", RegexOption.IGNORE_CASE)
+private const val TOP20_THEATRICAL_MIN_POPULARITY = 3.0
+private const val TOP20_BREAK_DAYS = 14L
+
+internal fun top20ServiceKey(name: String?): String =
+    (name ?: "").lowercase().replace(Regex("\\bamazon\\b|\\bwith ads\\b|\\bplus\\b|\\+"), "").replace(Regex("[^a-z0-9]"), "")
+
+internal fun top20MajorOutlet(name: String?): Boolean {
+    val k = top20ServiceKey(name)
+    return k.length >= 2 && TOP20_MAJOR_OUTLETS.any { k == it || k.startsWith(it) }
+}
+
+/** English, not kids / anime; discover's genre ids already leave out news, reality, soap and talk. */
+internal fun top20WantedShow(language: String?, genreIds: List<Int>, originCountry: List<String>): Boolean {
+    if (!language.equals("en", true)) return false
+    if (16 in genreIds && 10751 in genreIds) return false // animated family = kids
+    if (16 in genreIds && originCountry.any { it in setOf("JP", "CN", "KR", "TW") }) return false // anime / donghua
+    return listOf(10762, 10763, 10764, 10766, 10767).none { it in genreIds }
+}
+
+private fun String?.date(): LocalDate? = this?.take(10)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
+internal fun top20KeepFilm(details: com.nuvio.tv.data.remote.api.NuvioCCalendarSoonMovie, popularity: Double, from: LocalDate, to: LocalDate): Boolean {
+    val us = details.releaseDates?.results.orEmpty().firstOrNull { it.iso31661 == "US" }?.releaseDates.orEmpty()
+    val firstDigital = us.filter { it.type == 4 }.mapNotNull { it.releaseDate.date() }.minOrNull() ?: return false
+    if (firstDigital.isBefore(from) || firstDigital.isAfter(to)) return false
+    val region = details.watchProviders?.results?.get("US")
+    if (!region?.rent.isNullOrEmpty() || !region?.buy.isNullOrEmpty()) return false // out already, TMDB's date is stale
+    val types = us.mapNotNull { it.type }
+    return (popularity >= TOP20_THEATRICAL_MIN_POPULARITY && (3 in types || 2 in types)) ||
+        details.productionCompanies.orEmpty().any { TOP20_STREAMER_STUDIOS.containsMatchIn(it.name.orEmpty()) } ||
+        !region?.flatrate.isNullOrEmpty()
+}
+
+internal fun top20KeepShow(details: com.nuvio.tv.data.remote.api.NuvioCCalendarTmdbShow, today: LocalDate, from: LocalDate, to: LocalDate): Boolean {
+    val networks = details.networks.orEmpty()
+    if (networks.any { top20ServiceKey(it.name) in TOP20_KIDS_NETWORKS }) return false
+    val genreIds = details.genres.orEmpty().mapNotNull { it.id }
+    if (16 in genreIds && 10751 in genreIds) return false
+    if (networks.none { top20MajorOutlet(it.name) }) return false
+    fun inWindow(d: LocalDate?) = d != null && !d.isBefore(from) && !d.isAfter(to)
+    val last = details.lastEpisodeToAir
+    val next = details.nextEpisodeToAir
+    val firstAir = details.firstAirDate.date()
+    if (firstAir != null && firstAir.isAfter(today) && inWindow(firstAir)) return true // premiere
+    val upcoming = listOfNotNull(last, next).firstOrNull { inWindow(it.airDate.date()) } ?: return false
+    if (upcoming.episodeNumber == 1 && (upcoming.seasonNumber ?: 0) >= 2) return true // new season
+    if (upcoming === next) {
+        val prior = last?.airDate.date()
+        val nextDate = next.airDate.date() ?: return false
+        if (prior == null || java.time.temporal.ChronoUnit.DAYS.between(prior, nextDate) > TOP20_BREAK_DAYS) return true // back from a break
+    }
+    return false
 }
 
 /**

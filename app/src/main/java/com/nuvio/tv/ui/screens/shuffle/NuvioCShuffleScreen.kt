@@ -27,6 +27,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -162,7 +164,7 @@ private fun ShuffleMood(
         )
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            NuvioCShuffleKind.entries.forEach { kind ->
+            com.nuvio.tv.data.nuvioc.nuvioCShuffleKinds.forEach { kind -> // [fork] roulette_anime
                 ShuffleTile(
                     kind = kind,
                     posters = ui.fans[kind].orEmpty(),
@@ -180,13 +182,18 @@ private fun ShuffleMood(
                 color = NuvioTheme.colors.TextSecondary,
                 modifier = Modifier.padding(end = 12.dp)
             )
+            val nuvioCMoods = com.nuvio.tv.data.nuvioc.nuvioCShuffleMoods // [fork] roulette_v2
+            var nuvioCFocusedMood by remember { mutableStateOf(-1) } // [fork] roulette_hold_right
             LazyRow(
-                modifier = Modifier.weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f).nuvioCHoldRightStop { nuvioCFocusedMood == nuvioCMoods.lastIndex }, // [fork] roulette_hold_right
+                horizontalArrangement = Arrangement.spacedBy(if (com.nuvio.tv.NuvioCFeatures.ROULETTE_V2) 6.dp else 8.dp),
                 contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)
             ) {
-                items(NuvioCShuffleMood.entries, key = { it.key }) { mood ->
-                    ShuffleChip(label = moodLabel(mood), selected = ui.mood == mood, onClick = { onMood(mood) })
+                itemsIndexed(nuvioCMoods, key = { _, it -> it.key }) { index, mood ->
+                    ShuffleChip(
+                        label = moodLabel(mood), selected = ui.mood == mood, onClick = { onMood(mood) },
+                        modifier = Modifier.onFocusChanged { if (it.isFocused) nuvioCFocusedMood = index }
+                    )
                 }
             }
         }
@@ -297,7 +304,7 @@ private fun Fan(posters: List<String>, width: Dp, height: Dp, spread: () -> Floa
 private fun ShuffleChip(label: String, selected: Boolean, onClick: () -> Unit, dot: Boolean = false, modifier: Modifier = Modifier) {
     Surface(
         onClick = onClick,
-        modifier = modifier.height(36.dp),
+        modifier = modifier.height(if (com.nuvio.tv.NuvioCFeatures.ROULETTE_V2) 32.dp else 36.dp), // [fork] roulette_v2: smaller chips
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
         colors = ClickableSurfaceDefaults.colors(
@@ -307,7 +314,7 @@ private fun ShuffleChip(label: String, selected: Boolean, onClick: () -> Unit, d
             focusedContentColor = Color.Black
         )
     ) {
-        Row(Modifier.fillMaxHeight().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxHeight().padding(horizontal = if (com.nuvio.tv.NuvioCFeatures.ROULETTE_V2) 12.dp else 14.dp), verticalAlignment = Alignment.CenterVertically) {
             if (dot) {
                 Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF5FD39A)))
                 Spacer(Modifier.width(7.dp))
@@ -464,7 +471,7 @@ private fun ShuffleStage(
                 }
                 val meta = listOfNotNull(
                     item.year,
-                    pick.runtime?.takeIf { it.isNotBlank() },
+                    com.nuvio.tv.ui.util.nuvioCRuntime(pick.runtime)?.takeIf { it.isNotBlank() }, // [fork] runtime_format
                     item.genres.take(2).takeIf { it.isNotEmpty() }?.joinToString(" · ") { g -> g.split(' ').joinToString(" ") { it.replaceFirstChar(Char::uppercase) } }
                 ).joinToString("  ·  ")
                 if (meta.isNotBlank()) {
@@ -475,6 +482,9 @@ private fun ShuffleStage(
                     val base = MaterialTheme.typography.bodyMedium
                     val style = if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.detailSynopsisStyle(base) else base
                     Text(it, style = style, color = Color.White.copy(alpha = 0.66f), maxLines = 6, overflow = TextOverflow.Ellipsis)
+                }
+                nuvioCBecauseText(item.because)?.let { reason -> // [fork] roulette_v2: why this pick
+                    Text(reason, style = MaterialTheme.typography.labelLarge, color = NuvioTheme.colors.Secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Text(
                     text = stringResource(R.string.nuvio_c_shuffle_from, item.from),
@@ -523,6 +533,7 @@ private fun kindLabel(kind: NuvioCShuffleKind): String = stringResource(
         NuvioCShuffleKind.MOVIES -> R.string.nuvio_c_shuffle_movies
         NuvioCShuffleKind.SHOWS -> R.string.nuvio_c_shuffle_shows
         NuvioCShuffleKind.EITHER -> R.string.nuvio_c_shuffle_either
+        NuvioCShuffleKind.ANIME -> R.string.nuvio_c_shuffle_anime // [fork] roulette_anime
     }
 )
 
@@ -532,6 +543,7 @@ private fun kindHint(kind: NuvioCShuffleKind): String = stringResource(
         NuvioCShuffleKind.MOVIES -> movieHintForNow() // [fork] roulette_page: wording follows the time of day
         NuvioCShuffleKind.SHOWS -> R.string.nuvio_c_shuffle_shows_hint
         NuvioCShuffleKind.EITHER -> R.string.nuvio_c_shuffle_either_hint
+        NuvioCShuffleKind.ANIME -> R.string.nuvio_c_shuffle_anime_hint // [fork] roulette_anime
     }
 )
 
@@ -549,6 +561,9 @@ private fun moodLabel(mood: NuvioCShuffleMood): String = stringResource(
         NuvioCShuffleMood.TRUE_STORY -> R.string.nuvio_c_shuffle_mood_true_story
         NuvioCShuffleMood.WESTERN -> R.string.nuvio_c_shuffle_mood_western
         NuvioCShuffleMood.DOCUMENTARY -> R.string.nuvio_c_shuffle_mood_documentary
+        NuvioCShuffleMood.ADVENTURE -> R.string.nuvio_c_shuffle_mood_adventure // [fork] roulette_v2
+        NuvioCShuffleMood.FAMILY -> R.string.nuvio_c_shuffle_mood_family
+        NuvioCShuffleMood.MUSIC -> R.string.nuvio_c_shuffle_mood_music
     }
 )
 
@@ -564,3 +579,28 @@ private fun movieHintForNow(): Int {
         else -> R.string.nuvio_c_shuffle_movies_hint_late
     }
 }
+
+/** [fork] round 31 roulette_v2: "Because you rated Arrival ★★★★½" / "Because you watched Arrival". */
+@Composable
+private fun nuvioCBecauseText(because: String?): String? {
+    if (!com.nuvio.tv.NuvioCFeatures.ROULETTE_V2 || because.isNullOrBlank()) return null
+    val parts = because.split('|')
+    return when (parts.firstOrNull()) {
+        "rated" -> {
+            val title = parts.getOrNull(1) ?: return null
+            val score = parts.getOrNull(2)?.toIntOrNull()?.coerceIn(1, 10) ?: return null
+            val stars = "★".repeat(score / 2) + if (score % 2 == 1) "½" else ""
+            stringResource(R.string.nuvio_c_shuffle_because_rated, title, stars)
+        }
+        "watched" -> parts.getOrNull(1)?.let { stringResource(R.string.nuvio_c_shuffle_because_watched, it) }
+        else -> null
+    }
+}
+
+/** [fork] round 31 roulette_hold_right: a held Right on the last mood chip stops there; a fresh press moves on. */
+private fun Modifier.nuvioCHoldRightStop(atLast: () -> Boolean): Modifier =
+    if (!com.nuvio.tv.NuvioCFeatures.ROULETTE_HOLD_RIGHT) this else this.onPreviewKeyEvent { event ->
+        val native = event.nativeKeyEvent
+        native.keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && native.action == android.view.KeyEvent.ACTION_DOWN &&
+            native.repeatCount > 0 && atLast()
+    }

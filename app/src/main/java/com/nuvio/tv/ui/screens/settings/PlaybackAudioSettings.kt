@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.screens.settings
 
+import androidx.compose.runtime.collectAsState
+
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -29,6 +31,21 @@ internal fun PlaybackAudioSection(
         enabled = enabled,
         onClick = { onOpenDialog(PlaybackDialog.AUDIO_LANGUAGE) }
     )
+    // [fork] Nuvio C round 31 night_mode: OK steps through Off, Light, Medium, Strong.
+    if (com.nuvio.tv.NuvioCFeatures.NIGHT_MODE) {
+        val nightContext = androidx.compose.ui.platform.LocalContext.current
+        androidx.compose.runtime.remember { com.nuvio.tv.ui.screens.player.NuvioCNight.load(nightContext) }
+        val night = com.nuvio.tv.ui.screens.player.NuvioCNight.level.collectAsState().value
+        SettingsActionRow(
+            title = stringResource(R.string.nuvio_c_night_mode),
+            subtitle = stringResource(R.string.nuvio_c_night_mode_settings_sub),
+            value = stringResource(com.nuvio.tv.ui.screens.player.nuvioCNightLabel(night)),
+            onClick = {
+                val all = com.nuvio.tv.data.local.NightModeLevel.entries
+                com.nuvio.tv.ui.screens.player.NuvioCNight.save(nightContext, all[(all.indexOf(night) + 1) % all.size])
+            }
+        )
+    }
     SettingsActionRow(
         title = stringResource(R.string.sub_secondary_lang),
         subtitle = null,

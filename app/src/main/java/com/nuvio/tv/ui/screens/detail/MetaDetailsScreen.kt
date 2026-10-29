@@ -463,6 +463,9 @@ fun MetaDetailsScreen(
 ) {
     val playbackAvailability = LocalPlaybackAvailability.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // [fork] round 31 detail_info_block / detail_next_ep_badge: release info and next-episode time (NuvioCDetailInfo.kt)
+    val nuvioCInfoViewModel: NuvioCDetailInfoViewModel = hiltViewModel()
+    LaunchedEffect(uiState.meta?.id) { uiState.meta?.let(nuvioCInfoViewModel::load) }
     // [fork] timing log (NuvioCPerf): first frame and meta arriving after a Home / carousel press
     LaunchedEffect(Unit) { withFrameNanos { }; com.nuvio.tv.core.NuvioCPerf.detailStage("first frame") }
     val nuvioCMetaReady = uiState.meta != null
@@ -507,7 +510,9 @@ fun MetaDetailsScreen(
         } else if (uiState.isTrailerPlaying) {
             restorePlayFocusAfterTrailerBackToken += 1
             isTrailerPaused = false
-            viewModel.onEvent(MetaDetailsEvent.OnTrailerEnded)
+            // [fork] round 31 trailer_resume: back to the page with the trailer carrying on behind it (before the end only;
+            // a trailer that finished has already gone through onEnded).
+            viewModel.onEvent(if (com.nuvio.tv.NuvioCFeatures.TRAILER_RESUME) MetaDetailsEvent.NuvioCTrailerToBackground else MetaDetailsEvent.OnTrailerEnded)
         } else if (uiState.nuvioCBackgroundLayer && uiState.isBackgroundTrailerPlaying) { // [fork]
             viewModel.onEvent(MetaDetailsEvent.OnTrailerEnded) // stop first so no sound runs into the exit
             if (com.nuvio.tv.NuvioCFeatures.BG_TRAILER_BACK_EXITS) onBackPress() // one Back leaves the page
@@ -3122,6 +3127,9 @@ private fun MetaDetailsContent(
                     }
                 }
             }
+            if (com.nuvio.tv.NuvioCFeatures.DETAIL_INFO_BLOCK) {
+                item(key = "nuvio_c_info", contentType = "nuvio_c_info") { NuvioCDetailInfoBlock(meta.id) } // [fork] round 31 detail_info_block
+            }
         }
         }
 
@@ -3400,6 +3408,7 @@ private fun BackdropLayer(
             muted = nuvioCLayer && isBackgroundTrailerPlaying && nuvioCBackgroundMuted, // [fork] "Play Trailer Muted"; trailer button = sound
             nuvioCFadeInOnStart = nuvioCLayer && isBackgroundTrailerPlaying && !nuvioCBackgroundMuted, // [fork]
             nuvioCHold = isBackgroundTrailerPlaying && nuvioCHold, // [fork]
+            nuvioCResume = nuvioCLayer && (isBackgroundTrailerPlaying || isTrailerPlaying), // [fork] round 31 trailer_resume
             seekRequestToken = if (showTrailerControls) trailerSeekToken else 0,
             seekDeltaMs = if (showTrailerControls) trailerSeekDeltaMs else 0L,
             onRemoteKey = onTrailerControlKey,

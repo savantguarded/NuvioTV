@@ -20,14 +20,42 @@ internal class GainAudioProcessor : BaseAudioProcessor() {
         val clampedDb = db.coerceIn(AUDIO_AMPLIFICATION_MIN_DB, AUDIO_AMPLIFICATION_MAX_DB)
         gainDb = clampedDb
         gainScale = gainToLinearScale(clampedDb)
+        nuvioCDynamics.setGainDb(clampedDb.toFloat()) // [fork] night_mode
     }
 
     fun isGainEnabled(): Boolean {
         return gainDb != AUDIO_AMPLIFICATION_MIN_DB
     }
 
+    // [fork] Nuvio C round 31 night_mode: while a night mode level is on, the samples go through
+    // ysosrs123's PcmDynamics (gain, compressor that only lifts, limiter). Off = the official path below,
+    // byte for byte.
+    private val nuvioCDynamics = PcmDynamics()
+    @Volatile private var nuvioCNight: com.nuvio.tv.data.local.NightModeLevel = com.nuvio.tv.data.local.NightModeLevel.OFF
+    private var nuvioCFrame = FloatArray(0)
+
+    fun setNightMode(level: com.nuvio.tv.data.local.NightModeLevel) {
+        nuvioCNight = level
+        nuvioCDynamics.setNightMode(level)
+    }
+
+    fun isNightModeEnabled(): Boolean = nuvioCNight != com.nuvio.tv.data.local.NightModeLevel.OFF
+
     override fun isActive(): Boolean {
-        return super.isActive() && isGainEnabled()
+        return super.isActive() && (isGainEnabled() || isNightModeEnabled())
+    }
+
+    override fun onFlush() {
+        val format = inputAudioFormat
+        if (format.channelCount > 0 && format.sampleRate > 0) {
+            if (nuvioCFrame.size != format.channelCount) nuvioCFrame = FloatArray(format.channelCount)
+            nuvioCDynamics.setGainDb(gainDb.toFloat())
+            nuvioCDynamics.configure(format.sampleRate, format.channelCount)
+        }
+    }
+
+    override fun onReset() {
+        nuvioCFrame = FloatArray(0)
     }
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
@@ -43,6 +71,10 @@ internal class GainAudioProcessor : BaseAudioProcessor() {
 
         val inputSize = inputBuffer.remaining()
         val outputBuffer = replaceOutputBuffer(inputSize)
+        if (isNightModeEnabled() && nuvioCFrame.isNotEmpty()) { // [fork] night_mode
+            nuvioCProcess(inputBuffer, outputBuffer)
+            return
+        }
         val scale = gainScale
 
         if (scale == 1f) {
@@ -95,5 +127,36 @@ internal class GainAudioProcessor : BaseAudioProcessor() {
     private fun gainToLinearScale(db: Int): Float {
         if (db == 0) return 1f
         return 10.0.pow(db / 20.0).toFloat()
+    }
+
+    // [fork] night_mode: ysosrs123's frame loop, so all channels share one detector and gain.
+    private fun nuvioCProcess(inputBuffer: ByteBuffer, outputBuffer: ByteBuffer) {
+        inputBuffer.order(ByteOrder.nativeOrder())
+        outputBuffer.order(ByteOrder.nativeOrder())
+        nuvioCDynamics.prepareBuffer()
+        val samples = nuvioCFrame
+        when (inputAudioFormat.encoding) {
+            C.ENCODING_PCM_16BIT -> {
+                val frameBytes = samples.size * 2
+                while (inputBuffer.remaining() >= frameBytes) {
+                    for (c in samples.indices) samples[c] = inputBuffer.short / 32768f
+                    nuvioCDynamics.processFrame(samples)
+                    for (c in samples.indices) {
+                        outputBuffer.putShort((samples[c] * 32768f).roundToInt()
+                            .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort())
+                    }
+                }
+            }
+            C.ENCODING_PCM_FLOAT -> {
+                val frameBytes = samples.size * 4
+                while (inputBuffer.remaining() >= frameBytes) {
+                    for (c in samples.indices) samples[c] = inputBuffer.float
+                    nuvioCDynamics.processFrame(samples)
+                    for (c in samples.indices) outputBuffer.putFloat(samples[c])
+                }
+            }
+        }
+        if (inputBuffer.hasRemaining()) outputBuffer.put(inputBuffer)
+        outputBuffer.flip()
     }
 }

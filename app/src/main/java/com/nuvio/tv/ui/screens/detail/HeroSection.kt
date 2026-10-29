@@ -39,6 +39,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -782,7 +783,7 @@ private fun MetaInfoRow(
     }
     val runtimeText = remember(meta.runtime) { meta.runtime?.let { formatRuntime(it) } }
     val yearText = remember(meta.releaseInfo, meta.released, meta.type, showFullReleaseDate) {
-        if (showFullReleaseDate && meta.type == ContentType.MOVIE) {
+        if (showFullReleaseDate && meta.type == ContentType.MOVIE && !com.nuvio.tv.NuvioCFeatures.DETAIL_INFO_BLOCK) { // [fork] detail_info_block: the date moves to the Information block
             meta.released
                 ?.let { runCatching { java.time.OffsetDateTime.parse(it).toLocalDate() }.getOrNull() }
                 ?.let { val locale = java.util.Locale.getDefault(); java.text.SimpleDateFormat(android.text.format.DateFormat.getBestDateTimePattern(locale, "dMMMMy"), locale).format(java.util.Date(it.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli())) }
@@ -908,31 +909,37 @@ private fun MetaInfoRow(
             }
         }
 
+        // [fork] round 31 detail_next_ep_badge: a show's status badge reads the next episode's countdown when it has a date.
+        val nuvioCInfo by NuvioCDetailInfoStore.current.collectAsState()
+        val nuvioCCountdown = if (com.nuvio.tv.NuvioCFeatures.DETAIL_NEXT_EP_BADGE && isSeries) {
+            nuvioCInfo?.takeIf { it.metaId == meta.id }?.next?.let { nuvioCNextEpisodeBadge(it) }
+        } else null
+        val nuvioCStatus = nuvioCCountdown ?: statusBadge
         // Secondary row: Runtime, Age Rating, Status, Country, Language
-        if (ageRatingBadge != null || statusBadge != null || secondaryItems.isNotEmpty()) {
+        if (ageRatingBadge != null || nuvioCStatus != null || secondaryItems.isNotEmpty()) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (ageRatingBadge != null && statusBadge != null) {
+                if (ageRatingBadge != null && nuvioCStatus != null) {
                     CombinedMetaBadge(
                         leftText = ageRatingBadge,
                         leftColor = NuvioTheme.colors.TextSecondary,
-                        rightText = statusBadge,
-                        rightColor = NuvioTheme.colors.TextPrimary
+                        rightText = nuvioCStatus,
+                        rightColor = if (nuvioCCountdown != null) NuvioTheme.colors.Secondary else NuvioTheme.colors.TextPrimary // [fork] detail_next_ep_badge
                     )
                 } else {
                     ageRatingBadge?.let { badge ->
                         HeroMetaBadge(text = badge)
                     }
-                    statusBadge?.let { badge ->
+                    nuvioCStatus?.let { badge ->
                         HeroMetaBadge(
                             text = badge,
-                            contentColor = NuvioTheme.colors.TextPrimary
+                            contentColor = if (nuvioCCountdown != null) NuvioTheme.colors.Secondary else NuvioTheme.colors.TextPrimary // [fork] detail_next_ep_badge
                         )
                     }
                 }
-                if ((ageRatingBadge != null || statusBadge != null) && secondaryItems.isNotEmpty()) {
+                if ((ageRatingBadge != null || nuvioCStatus != null) && secondaryItems.isNotEmpty()) {
                     MetaInfoDivider()
                 }
                 secondaryItems.forEachIndexed { index, value ->

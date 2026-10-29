@@ -382,6 +382,13 @@ class MetaDetailsViewModel @Inject constructor(
             MetaDetailsEvent.OnPlayButtonFocused -> handlePlayButtonFocused()
             MetaDetailsEvent.OnTrailerButtonClick -> handleTrailerButtonClick()
             MetaDetailsEvent.OnTrailerEnded -> handleTrailerEnded()
+            MetaDetailsEvent.NuvioCTrailerToBackground -> { // [fork] round 31 trailer_resume
+                if (com.nuvio.tv.NuvioCFeatures.TRAILER_RESUME && _uiState.value.nuvioCBackgroundLayer && trailerPlayInBackground) {
+                    trailerHasPlayed = true
+                    isPlayButtonFocused = false
+                    setTrailerPlaybackState(isPlaying = false, showControls = false, hideLogo = false, isBackgroundPlaying = true)
+                } else handleTrailerEnded()
+            }
             is MetaDetailsEvent.OnSharedTrailerSelected -> handleSharedTrailerSelected(event.trailer)
             MetaDetailsEvent.OnDismissSharedTrailer -> dismissSharedTrailerOverlay()
             MetaDetailsEvent.OnRetrySharedTrailer -> retrySharedTrailer()
@@ -3143,6 +3150,7 @@ class MetaDetailsViewModel @Inject constructor(
 
     override fun onCleared() {
         super.onCleared()
+        com.nuvio.tv.ui.components.NuvioCTrailerResume.forget(_uiState.value.trailerUrl) // [fork] trailer_resume: leaving the page
         idleTimerJob?.cancel()
         trailerFetchJob?.cancel()
         nextToWatchJob?.cancel()

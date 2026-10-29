@@ -411,6 +411,11 @@ private fun NuvioCFeaturedHome(
         } else if (!carouselOn && !sliding && !awaiting && progress.value != 1f) {
             progress.snapTo(1f)
         }
+        // [fork] offline_home: no titles for the carousel once the wait is over, so the rows take focus.
+        if (com.nuvio.tv.NuvioCFeatures.OFFLINE_HOME && !available && !awaiting && !sliding && !rowsFocused) {
+            repeat(2) { withFrameNanos { } }
+            runCatching { rowsRequester.requestFocus() }
+        }
     }
     // Sidebar "Home" again (scroll to top) = back to the carousel.
     var lastScrollTrigger by rememberSaveable { mutableIntStateOf(scrollToTopTrigger) }
@@ -570,7 +575,10 @@ private fun NuvioCFeaturedHome(
                 .onFocusChanged { rowsFocused = it.hasFocus }
                 .focusProperties {
                     onEnter = {
-                        val blocked = if (com.nuvio.tv.NuvioCFeatures.FEATURED_FAST_FOCUS) shown else (shown || sliding)
+                        // [fork] offline_home: with no carousel titles (offline, or none came) the rows must take
+                        // focus, or Home had nothing focusable and only the sidebar worked.
+                        val carouselUp = if (com.nuvio.tv.NuvioCFeatures.OFFLINE_HOME) shown && available else shown
+                        val blocked = if (com.nuvio.tv.NuvioCFeatures.FEATURED_FAST_FOCUS) carouselUp else (carouselUp || sliding)
                         if (blocked) cancelFocusChange()
                     }
                 }

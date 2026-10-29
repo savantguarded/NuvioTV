@@ -70,6 +70,22 @@ class MDBListRepository internal constructor(
         return ratingsLoader.getRatings(ref.provider, ref.mediaType, ref.id, credential)?.imdb
     }
 
+    // [fork] Nuvio C round 31: the same ratings as the details page for an id the player knows (served
+    // from the ratings disk cache when the details page already asked), plus your rating order.
+    suspend fun nuvioCRatingsForItem(itemId: String, itemType: String): MDBListRatings? = runCatching {
+        val meta = Meta(
+            id = itemId,
+            type = if (normalizeMediaType(itemType) == "show") com.nuvio.tv.domain.model.ContentType.SERIES else com.nuvio.tv.domain.model.ContentType.MOVIE,
+            name = itemId, poster = null, posterShape = com.nuvio.tv.domain.model.PosterShape.POSTER, background = null,
+            logo = null, description = null, releaseInfo = null, imdbRating = null, genres = emptyList(), runtime = null,
+            director = emptyList(), cast = emptyList(), videos = emptyList(), country = null, awards = null, language = null,
+            links = emptyList()
+        )
+        getRatingsForMeta(meta, itemId, itemType)?.ratings
+    }.getOrNull()
+
+    suspend fun nuvioCRatingOrder(): List<String> = settingsDataStore.settings.first().enabledRatingOrder()
+
     suspend fun getRatingsForMeta(
         meta: Meta,
         fallbackItemId: String,

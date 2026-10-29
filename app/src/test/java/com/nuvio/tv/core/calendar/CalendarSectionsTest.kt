@@ -79,7 +79,9 @@ class CalendarSectionsTest {
         // [fork] calendar_dated_only: no "No date yet" group
         assertEquals(if (com.nuvio.tv.NuvioCFeatures.CALENDAR_DATED_ONLY) listOf(CalendarSectionKind.JUST_AIRED) else listOf(CalendarSectionKind.JUST_AIRED, CalendarSectionKind.NO_DATE), sections.map { it.kind })
         val justAired = sections.first()
-        assertEquals(listOf("yesterday", "twoDays", "sevenDays"), justAired.items.map { it.title.key })
+        // [fork] calendar_just_aired_ascending: oldest first
+        val expected = listOf("yesterday", "twoDays", "sevenDays")
+        assertEquals(if (com.nuvio.tv.NuvioCFeatures.CALENDAR_JUST_AIRED_ASCENDING) expected.reversed() else expected, justAired.items.map { it.title.key })
     }
 
     @Test fun aPlainDateStaysOnItsDateAndHasNoTime() {

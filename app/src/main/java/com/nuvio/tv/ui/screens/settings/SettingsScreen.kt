@@ -2,6 +2,8 @@
 
 package com.nuvio.tv.ui.screens.settings
 
+import com.nuvio.tv.ui.util.nuvioCListGate
+
 import com.nuvio.tv.ui.screens.party.PartySettingsContent
 import com.nuvio.tv.ui.screens.party.PartyViewModel
 import com.nuvio.tv.ui.theme.NuvioTheme
@@ -408,6 +410,7 @@ fun SettingsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .nuvioCListGate() // [fork] list_repeat_gate: held Up / Down no longer sticks
             .background(NuvioTheme.colors.Background)
             .padding(
                 start = NuvioTheme.spacing.xxl,

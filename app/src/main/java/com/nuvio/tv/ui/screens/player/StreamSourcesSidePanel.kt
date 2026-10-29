@@ -68,7 +68,9 @@ internal fun StreamSourcesSidePanel(
     onAddonFilterSelected: (String?) -> Unit,
     onStreamSelected: (Stream) -> Unit,
     onExpandStreams: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    nuvioCFilename: String? = null, // [fork] playing_tag_match
+    nuvioCFileSize: Long? = null // [fork] playing_tag_match
 ) {
     val isRtl = androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
     val streamListState = rememberLazyListState()
@@ -345,7 +347,10 @@ internal fun StreamSourcesSidePanel(
                         currentStreamAddonName = uiState.currentStreamAddonName,
                         currentStreamUrl = uiState.currentStreamUrl,
                         currentStreamName = uiState.currentStreamName
-                    )
+                    ).let { found -> // [fork] playing_tag_match
+                        if (found >= 0 || !com.nuvio.tv.NuvioCFeatures.PLAYING_TAG_MATCH) found
+                        else nuvioCFindPlayingStream(streams = uiState.sourceFilteredStreams, filename = nuvioCFilename, addonName = uiState.currentStreamAddonName, streamName = uiState.currentStreamName, size = nuvioCFileSize)
+                    }
 
                     val lastKeyRepeatDispatchRef = remember { java.util.concurrent.atomic.AtomicLong(0L) }
 
@@ -502,5 +507,33 @@ private fun findCurrentStreamIndex(
         if (urlMatch >= 0) return urlMatch
     }
 
+    return -1
+}
+
+// [fork] Nuvio C round 31 (switch `playing_tag_match`): a source remembered for Continue Watching comes
+// back with a fresh debrid link and no info hash, so neither of official's matches finds it. Same file
+// name first (the add-on's own file name), then same add-on + same name + same size.
+private fun nuvioCFindPlayingStream(
+    streams: List<Stream>,
+    filename: String?,
+    addonName: String?,
+    streamName: String?,
+    size: Long?
+): Int {
+    if (streams.isEmpty()) return -1
+    val file = filename?.trim()?.takeIf { it.isNotEmpty() }
+    if (file != null) {
+        val byFile = streams.indexOfFirst { it.behaviorHints?.filename?.trim()?.equals(file, ignoreCase = true) == true }
+        if (byFile >= 0) return byFile
+    }
+    val name = streamName?.trim()?.takeIf { it.isNotEmpty() } ?: return -1
+    val sameName = streams.withIndex().filter { (_, stream) ->
+        (addonName == null || stream.addonName == addonName) &&
+            (stream.name?.trim() == name || stream.title?.trim() == name)
+    }
+    if (sameName.size == 1) return sameName.first().index
+    if (size != null && size > 0) {
+        sameName.firstOrNull { (_, stream) -> stream.behaviorHints?.videoSize == size }?.let { return it.index }
+    }
     return -1
 }

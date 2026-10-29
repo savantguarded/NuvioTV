@@ -2221,6 +2221,10 @@ private class SubtitleOffsetRenderersFactory(
             forcePcmForBluetooth = bluetoothForcePcm
         )
         playbackSpeedAwareAudioSink.setInitialPlaybackSpeed(playbackSpeedProvider())
+        // [fork] night_mode: a new player starts with the saved night mode (decoded to PCM while it's on).
+        val nuvioCNight = NuvioCNight.load(context)
+        gainAudioProcessor.setNightMode(nuvioCNight)
+        playbackSpeedAwareAudioSink.nuvioCSetNightForcePcm(nuvioCNight != com.nuvio.tv.data.local.NightModeLevel.OFF)
         onPlaybackSpeedAwareAudioSinkCreated(playbackSpeedAwareAudioSink)
         return playbackSpeedAwareAudioSink
     }

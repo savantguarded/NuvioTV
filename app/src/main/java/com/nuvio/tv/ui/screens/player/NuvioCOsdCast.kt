@@ -60,6 +60,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import com.nuvio.tv.ui.util.nuvioCListGate
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -157,7 +158,9 @@ data class NuvioCOsdCastUi(
     val bio: NuvioCCastBio? = null,
     val bioLoading: Boolean = false,
     /** List key of the person last opened, so focus returns to them when coming back from their view. */
-    val lastKey: String? = null
+    val lastKey: String? = null,
+    /** [fork] round 31 osd_about_tab: 0 = About, 1 = Cast; remembered per title like [lastKey]. */
+    val tab: Int = if (NuvioCFeatures.OSD_ABOUT_TAB) 0 else 1
 )
 
 @HiltViewModel
@@ -173,9 +176,22 @@ class NuvioCOsdCastViewModel @Inject constructor(
     val ui = _ui.asStateFlow()
 
     /** Fills the panel: the cast the player has, plus this episode's guest stars for a show. */
+    // [fork] round 31: reopening the panel for the same title keeps the tab and the last person opened
+    // (before, every open reset them, so coming back never landed where you had been).
+    private var loadedKey: String? = null
+
     fun load(cast: List<MetaCastMember>, contentId: String?, season: Int?, episode: Int?) {
         val regulars = cast.map { NuvioCCastPerson(it.name, it.character?.takeIf(String::isNotBlank), it.photo, it.tmdbId) }
-        _ui.value = NuvioCOsdCastUi(regulars = regulars)
+        val titleKey = "$contentId:$season:$episode"
+        val previous = _ui.value
+        val same = loadedKey == titleKey
+        loadedKey = titleKey
+        _ui.value = NuvioCOsdCastUi(
+            regulars = regulars,
+            guests = if (same) previous.guests else emptyList(),
+            lastKey = if (same) previous.lastKey else null,
+            tab = if (same) previous.tab else NuvioCOsdCastUi().tab
+        )
         if (contentId == null || season == null || episode == null) return
         val key = "$contentId:$season:$episode"
         episodeCache[key]?.let { cached -> _ui.value = _ui.value.copy(guests = cached.notIn(regulars)); return }
@@ -226,6 +242,10 @@ class NuvioCOsdCastViewModel @Inject constructor(
 
     fun back() {
         _ui.value = _ui.value.copy(selected = null, bio = null, bioLoading = false)
+    }
+
+    fun setTab(tab: Int) {
+        _ui.value = _ui.value.copy(tab = tab)
     }
 
     /** TMDB person search: the exact-name match with the highest popularity, or null. */
@@ -294,7 +314,8 @@ internal fun NuvioCOsdCastPanel(
     season: Int?,
     episode: Int?,
     hdrDim: Boolean,
-    onClosed: () -> Unit
+    onClosed: () -> Unit,
+    about: NuvioCAboutInfo? = null // [fork] round 31 osd_about_tab
 ) {
     if (!state.open) return
     val viewModel: NuvioCOsdCastViewModel = hiltViewModel()
@@ -336,7 +357,21 @@ internal fun NuvioCOsdCastPanel(
                         .background(NuvioTheme.colors.BackgroundElevated)
                 ) {
                     val selected = ui.selected
-                    if (selected == null) CastList(ui) { person, key -> viewModel.select(person, key) } else PersonView(selected, ui.bio, ui.bioLoading, bioExpanded) { bioExpanded = it }
+                    val hasCast = ui.regulars.isNotEmpty() || ui.guests.isNotEmpty()
+                    if (selected != null) {
+                        PersonView(selected, ui.bio, ui.bioLoading, bioExpanded) { bioExpanded = it }
+                    } else if (about != null && NuvioCFeatures.OSD_ABOUT_TAB) {
+                        // [fork] round 31 osd_about_tab: About | Cast tabs over the same panel
+                        NuvioCAboutCastTabs(
+                            tab = if (hasCast) ui.tab else 0,
+                            hasCast = hasCast,
+                            onTab = viewModel::setTab,
+                            about = about,
+                            castContent = { tabRequester -> CastList(ui, showHeader = false, upRequester = tabRequester) { person, key -> viewModel.select(person, key) } }
+                        )
+                    } else {
+                        CastList(ui) { person, key -> viewModel.select(person, key) }
+                    }
                 }
             }
         }
@@ -344,7 +379,12 @@ internal fun NuvioCOsdCastPanel(
 }
 
 @Composable
-private fun CastList(ui: NuvioCOsdCastUi, onSelect: (NuvioCCastPerson, String) -> Unit) {
+private fun CastList(
+    ui: NuvioCOsdCastUi,
+    showHeader: Boolean = true,
+    upRequester: FocusRequester? = null,
+    onSelect: (NuvioCCastPerson, String) -> Unit
+) {
     val listState = rememberLazyListState()
     val guestKeys = ui.guests.mapIndexed { i, p -> "g$i${p.name}" }
     val regularKeys = ui.regulars.mapIndexed { i, p -> "r$i${p.name}" }
@@ -362,18 +402,22 @@ private fun CastList(ui: NuvioCOsdCastUi, onSelect: (NuvioCCastPerson, String) -
         if (targetIndex > 1) listState.scrollToItem((targetIndex - 1).coerceAtLeast(0))
         target.requestFocusAfterFrames()
     }
-    Column(Modifier.fillMaxSize().padding(NuvioTheme.spacing.xl)) {
-        Text(
-            text = stringResource(R.string.nuvio_c_osd_cast),
-            style = MaterialTheme.typography.headlineSmall,
-            color = NuvioTheme.colors.TextPrimary
-        )
-        Spacer(Modifier.height(NuvioTheme.spacing.md))
+    Column(Modifier.fillMaxSize().padding(if (showHeader) NuvioTheme.spacing.xl else 0.dp)) {
+        if (showHeader) {
+            Text(
+                text = stringResource(R.string.nuvio_c_osd_cast),
+                style = MaterialTheme.typography.headlineSmall,
+                color = NuvioTheme.colors.TextPrimary
+            )
+            Spacer(Modifier.height(NuvioTheme.spacing.md))
+        }
         LazyColumn(
             state = listState,
             verticalArrangement = Arrangement.spacedBy(6.dp),
             contentPadding = PaddingValues(vertical = 6.dp, horizontal = 4.dp),
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .fillMaxSize()
+                .nuvioCListGate() // [fork] round 31 list_repeat_gate
         ) {
             if (ui.guests.isNotEmpty()) {
                 item(key = "h_guests") { GroupLabel(stringResource(R.string.nuvio_c_osd_cast_episode)) }

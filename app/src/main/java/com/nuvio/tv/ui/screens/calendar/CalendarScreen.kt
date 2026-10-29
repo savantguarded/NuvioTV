@@ -1,5 +1,6 @@
 package com.nuvio.tv.ui.screens.calendar
 
+import com.nuvio.tv.ui.util.nuvioCListGate
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.ScrollState
@@ -91,6 +92,7 @@ import com.nuvio.tv.ui.components.EmptyScreenState
 import com.nuvio.tv.ui.components.LoadingIndicator
 import com.nuvio.tv.ui.components.MonochromePosterPlaceholder
 import com.nuvio.tv.ui.components.NuvioDialog
+import com.nuvio.tv.ui.components.TvdbCreditLine
 import com.nuvio.tv.ui.screens.detail.requestFocusAfterFrames
 import com.nuvio.tv.ui.screens.home.HeroBackdropState
 import com.nuvio.tv.ui.theme.NuvioTheme
@@ -142,7 +144,7 @@ fun CalendarScreen(
     BackHandler(enabled = finding != null) { finding = null }
     val nuvioCContent = remember { FocusRequester() } // [fork] calendar_tab_focus
     var nuvioCContentFocused by remember { mutableStateOf(false) } // [fork] calendar_tab_focus
-    NuvioCCalendarBackToTabs(nuvioCContentFocused, finding != null, modeFocusRequester) // [fork] calendar_tab_focus
+    NuvioCCalendarBackToTabs(nuvioCContentFocused && nuvioCBackToTabs, finding != null, modeFocusRequester) // [fork] calendar_tab_focus; round 31 calendar_back_leaves
     val nuvioCFromMonth by viewModel.nuvioCFromMonth.collectAsState() // [fork] calendar_month_back
     BackHandler(enabled = nuvioCFromMonth != null && viewMode == CalendarViewMode.WEEK && finding == null) { viewModel.nuvioCBackToMonth() } // [fork] calendar_month_back
     val nuvioCRefreshing by viewModel.nuvioCRefreshing.collectAsState() // [fork] calendar_refresh_button
@@ -229,6 +231,11 @@ fun CalendarScreen(
                     else -> CalendarStateMessage(uiState, modeFocusRequester)
                 }
             }
+            TvdbCreditLine(
+                Modifier
+                    .align(Alignment.End)
+                    .padding(top = NuvioTheme.spacing.xs, bottom = NuvioTheme.spacing.sm)
+            )
         }
     }
     } // [fork] calendar_edge_brake
@@ -304,7 +311,7 @@ private fun CalendarHeader(
             modifier = nuvioCContent?.let { Modifier.nuvioCCalendarTabs(modeFocusRequester, it) } ?: Modifier // [fork] calendar_tab_focus
         ) {
             val nuvioCBrake = LocalNuvioCEdgeBrake.current // [fork] calendar_edge_brake
-            CalendarViewMode.entries.forEachIndexed { nuvioCIndex, mode ->
+            nuvioCCalendarModes.forEachIndexed { nuvioCIndex, mode -> // [fork] calendar_no_week
                 val selected = mode == viewMode
                 val pill = RoundedCornerShape(NuvioTheme.radii.full)
                 Button(
@@ -460,7 +467,7 @@ private fun CalendarListView(
             performance = performance,
             targetKey = targetKey,
             targetRequester = targetRequester,
-            modifier = Modifier.weight(0.62f).fillMaxHeight(),
+            modifier = Modifier.weight(0.62f).fillMaxHeight().then(Modifier.nuvioCListGate()), // [fork] list_repeat_gate
             onFocused = { viewModel.onRowFocused(it, fromList = userMoved[0]) },
             onUserKey = { userMoved[0] = true },
             onOpen = onOpen,
@@ -1205,5 +1212,5 @@ internal fun calendarRuntimeText(details: CalendarRowDetails): String? {
             stringResource(R.string.calendar_runtime_minutes)
         )
     }
-    return details.filmRuntime
+    return com.nuvio.tv.ui.util.nuvioCRuntime(details.filmRuntime) // [fork] runtime_format
 }

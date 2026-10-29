@@ -1982,8 +1982,18 @@ private suspend fun HomeViewModel.enrichInProgressItem(
         externalRating ?: addonRating
     } else null
 
+    // [fork] round 31 cw_mdblist_ratings: a film in Continue Watching gets the same MDBList ratings as other Home
+    // items (served from the ratings cache when the details page or a row already asked). Series keep the episode's
+    // IMDb rating, like official.
+    val nuvioCMdbRatings = if (com.nuvio.tv.NuvioCFeatures.CW_MDBLIST_RATINGS && !isSeriesTypeCW(item.progress.contentType) &&
+        item.mdbListRatings == null && mdbListRepository.isAvailable(currentMdbListSettings)
+    ) {
+        runCatching { mdbListRepository.nuvioCRatingsForItem(item.progress.contentId, "movie") }.getOrNull()
+    } else null
+
     val settings = currentTmdbSettings
     item.copy(
+        mdbListRatings = nuvioCMdbRatings ?: item.mdbListRatings, // [fork] cw_mdblist_ratings
         progress = item.progress.copy(
             videoId = if (item.progress.source != WatchProgress.SOURCE_LOCAL && video != null) {
                 video.id.takeIf { it.isNotBlank() } ?: item.progress.videoId

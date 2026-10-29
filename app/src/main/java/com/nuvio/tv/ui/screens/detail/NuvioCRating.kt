@@ -137,9 +137,20 @@ class NuvioCRatingViewModel @Inject constructor(
         _state.update { it.copy(justFinished = true) }
     }
 
-    fun open() = _state.update { s ->
-        val remembered = service.lastChoice()?.intersect(s.connected.toSet())?.takeIf { it.isNotEmpty() }
-        s.copy(open = true, score = s.saved, ticked = remembered ?: s.connected.toSet(), failed = emptySet(), needScore = false)
+    fun open() {
+        _state.update { s ->
+            val remembered = service.lastChoice()?.intersect(s.connected.toSet())?.takeIf { it.isNotEmpty() }
+            s.copy(open = true, score = s.saved, ticked = remembered ?: s.connected.toSet(), failed = emptySet(), needScore = false)
+        }
+        // [fork] rate_connected_only: the list of services was read when the page opened; a service
+        // signed out since then (or on another profile) kept its "Sync to" line. Checked again on open.
+        if (NuvioCFeatures.RATE_CONNECTED_ONLY) viewModelScope.launch {
+            val now = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { service.connected() }
+            _state.update { s ->
+                if (!s.open || now == s.connected) s
+                else s.copy(connected = now, ticked = s.ticked.intersect(now.toSet()).ifEmpty { now.toSet() })
+            }
+        }
     }
 
     fun close() = _state.update { it.copy(open = false, saving = false, justFinished = false) }

@@ -157,7 +157,7 @@ internal fun PlayerDebugStatsOverlay(
 }
 
 @OptIn(UnstableApi::class)
-private class DebugStatsSampler(context: Context) {
+internal class DebugStatsSampler(context: Context) { // [fork] stats_panel_right reuses it (was private)
 
     private val appContext = context.applicationContext
     private val powerManager = appContext

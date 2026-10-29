@@ -119,6 +119,8 @@ sealed class MetaDetailsEvent {
     data object OnPlayButtonFocused : MetaDetailsEvent()
     data object OnTrailerButtonClick : MetaDetailsEvent()
     data object OnTrailerEnded : MetaDetailsEvent()
+    /** [fork] round 31 trailer_resume: Back on the full trailer hands it back to the background, still playing. */
+    data object NuvioCTrailerToBackground : MetaDetailsEvent()
     data class OnSharedTrailerSelected(val trailer: MetaTrailer) : MetaDetailsEvent()
     data object OnDismissSharedTrailer : MetaDetailsEvent()
     data object OnRetrySharedTrailer : MetaDetailsEvent()

@@ -94,6 +94,20 @@ internal interface NuvioCShuffleTmdbApi {
         @Query("api_key") apiKey: String,
         @Query("page") page: Int
     ): Response<ResponseBody>
+
+    /** [fork] round 31 roulette_anime: Japanese animation, well rated. */
+    @GET("discover/{type}")
+    suspend fun discoverAnime(
+        @Path("type") type: String,
+        @Query("api_key") apiKey: String,
+        @Query("page") page: Int,
+        @Query("sort_by") sortBy: String,
+        @Query("vote_count.gte") minVotes: Int,
+        @Query("vote_average.gte") minScore: Float = 6.8f,
+        @Query("with_genres") genres: String = "16",
+        @Query("with_original_language") language: String = "ja",
+        @Query("include_adult") includeAdult: Boolean = false
+    ): Response<ResponseBody>
 }
 
 /** A finished pick, with what the result screen shows. */
@@ -211,6 +225,12 @@ class NuvioCShufflePool @Inject constructor(
             val list = lists[source] ?: previous?.items?.get(source.key).orEmpty()
             items[source.key] = list.filter { seen.add(it.identity) }
         }
+        // [fork] round 31 roulette_anime: a list of its own for Anime (titles already in a source above keep that credit).
+        if (com.nuvio.tv.NuvioCFeatures.ROULETTE_ANIME) {
+            val anime = runCatching { anime() }.onFailure { Log.w(TAG, "anime failed: ${it.message}") }.getOrNull()
+                ?: previous?.items?.get(ANIME_KEY).orEmpty()
+            items[ANIME_KEY] = anime.filter { seen.add(it.identity) }
+        }
         val file = NuvioCShufflePoolFile(profile, System.currentTimeMillis(), config.poolSignature, items)
         if (items.values.sumOf { it.size } > 0) {
             pool = file
@@ -242,10 +262,17 @@ class NuvioCShufflePool @Inject constructor(
             return scores[p + id] ?: id.removePrefix("tmdb:").toIntOrNull()?.let { scores[p + "tmdb" + it] }
         }
         val all = titles.values.toList()
-        val loved = all.mapNotNull { (isShow, id) -> score(isShow, id)?.takeIf { it >= 8 }?.let { Triple(isShow, id, it) } }
-            .sortedByDescending { it.third }.take(6).map { it.first to it.second }
+        // [fork] round 31 roulette_v2: seeds are your 4.5 to 5 star titles of the last months first (Trakt 9-10),
+        // then 4 stars, then recent finishes; each recommendation remembers which title it came from.
+        val v2 = com.nuvio.tv.NuvioCFeatures.ROULETTE_V2
+        val lovedFloor = if (v2) 9 else 8
+        val lovedAll = all.mapNotNull { (isShow, id) -> score(isShow, id)?.takeIf { it >= 8 }?.let { Triple(isShow, id, it) } }
+            .sortedByDescending { it.third }
+        val loved = (lovedAll.filter { it.third >= lovedFloor } + if (v2) lovedAll.filter { it.third < lovedFloor } else emptyList())
+            .take(if (v2) 8 else 6).map { it.first to it.second }
         val recent = all.filterNot { it in loved }.take(SEEDS - loved.size)
         val seeds = (loved + recent).take(SEEDS)
+        val names = watched.filter { it.season == null && it.episode == null }.associate { it.contentId to it.title } // whole titles only, never an episode's name
         val seedTmdb = java.util.Collections.synchronizedSet(HashSet<String>())
         return coroutineScope {
             seeds.map { (isShow, id) ->
@@ -254,7 +281,13 @@ class NuvioCShufflePool @Inject constructor(
                         ?: if (id.startsWith("tt")) limited { tmdbService.imdbToTmdb(id, if (isShow) "tv" else "movie") } else null
                     if (tmdb == null) return@async emptyList()
                     seedTmdb += "tmdb:$tmdb"
-                    (1..2).flatMap { page -> limited { tmdbRecommendations(isShow, tmdb, page) } }
+                    val title = names[id]?.takeIf { it.isNotBlank() }
+                    val because = when {
+                        !v2 || title == null -> null
+                        score(isShow, id) != null && score(isShow, id)!! >= 8 -> "rated|$title|${score(isShow, id)}"
+                        else -> "watched|$title"
+                    }
+                    (1..2).flatMap { page -> limited { tmdbRecommendations(isShow, tmdb, page) } }.map { it.copy(because = because) }
                 }
             }.awaitAll().flatten()
         }.filterNot { item -> item.id in seedTmdb || titles.containsKey(item.id) }.distinctBy { it.identity }
@@ -268,6 +301,9 @@ class NuvioCShufflePool @Inject constructor(
             val o = element as? JsonObject ?: return@mapNotNull null
             val id = o.int("id") ?: return@mapNotNull null
             if ((o.int("vote_count") ?: 0) < MIN_TMDB_VOTES) return@mapNotNull null
+            // [fork] round 31 roulette_v2: leave out the poorly rated and the barely known.
+            val score = o.float("vote_average")
+            if (com.nuvio.tv.NuvioCFeatures.ROULETTE_V2 && ((o.int("vote_count") ?: 0) < V2_MIN_VOTES || (score ?: 0f) < V2_MIN_SCORE)) return@mapNotNull null
             val name = o.str("title") ?: o.str("name") ?: return@mapNotNull null
             val released = o.str("release_date") ?: o.str("first_air_date")
             NuvioCShuffleItem(
@@ -281,9 +317,50 @@ class NuvioCShufflePool @Inject constructor(
                 released = released,
                 genres = (o["genre_ids"] as? JsonArray).orEmpty().mapNotNull { g -> g.jsonPrimitive.intOrNull?.let(TMDB_GENRES::get) },
                 tmdbId = id,
-                from = FROM_FOR_YOU
+                from = FROM_FOR_YOU,
+                score = score,
+                anime = o.isAnime()
             )
         }
+    }
+
+    // [fork] round 31 roulette_anime: well-rated Japanese animation, films and series, most loved and most popular.
+    private suspend fun anime(): List<NuvioCShuffleItem> = coroutineScope {
+        listOf(
+            Triple("movie", "vote_average.desc", 400), Triple("movie", "popularity.desc", 200),
+            Triple("tv", "vote_average.desc", 250), Triple("tv", "popularity.desc", 150)
+        ).map { (type, sort, votes) ->
+            async {
+                (1..2).flatMap { page ->
+                    limited {
+                        val response = runCatching { tmdbApi.discoverAnime(type, tmdbService.apiKey(), page, sort, votes) }.getOrNull()
+                        val body = response?.takeIf { it.isSuccessful }?.body()?.use { it.string() } ?: return@limited emptyList()
+                        val results = runCatching { json.parseToJsonElement(body).jsonObject["results"]?.jsonArray }.getOrNull().orEmpty()
+                        results.mapNotNull { element ->
+                            val o = element as? JsonObject ?: return@mapNotNull null
+                            val id = o.int("id") ?: return@mapNotNull null
+                            val name = o.str("title") ?: o.str("name") ?: return@mapNotNull null
+                            val released = o.str("release_date") ?: o.str("first_air_date")
+                            NuvioCShuffleItem(
+                                id = "tmdb:$id",
+                                type = if (type == "tv") "series" else "movie",
+                                name = name,
+                                poster = o.str("poster_path")?.let { "https://image.tmdb.org/t/p/w342$it" },
+                                background = o.str("backdrop_path")?.let { "https://image.tmdb.org/t/p/w1280$it" },
+                                description = o.str("overview"),
+                                year = released?.take(4),
+                                released = released,
+                                genres = (o["genre_ids"] as? JsonArray).orEmpty().mapNotNull { g -> g.jsonPrimitive.intOrNull?.let(TMDB_GENRES::get) },
+                                tmdbId = id,
+                                from = FROM_ANIME,
+                                score = o.float("vote_average"),
+                                anime = true
+                            )
+                        }
+                    }
+                }
+            }
+        }.awaitAll().flatten().distinctBy { it.identity }
     }
 
     private suspend fun trakt(): List<NuvioCShuffleItem> = coroutineScope {
@@ -308,7 +385,10 @@ class NuvioCShufflePool @Inject constructor(
                         genres = (o["genres"] as? JsonArray).orEmpty().mapNotNull { g -> g.jsonPrimitive.contentOrNull?.let(::normalizeShuffleGenre) },
                         imdbId = imdb,
                         tmdbId = tmdb,
-                        from = FROM_TRAKT
+                        from = FROM_TRAKT,
+                        score = o.float("rating"),
+                        anime = (o["genres"] as? JsonArray).orEmpty().any { g -> g.jsonPrimitive.contentOrNull == "anime" } ||
+                            (o.str("language") == "ja" && (o["genres"] as? JsonArray).orEmpty().any { g -> g.jsonPrimitive.contentOrNull == "animation" })
                     )
                 }
             }
@@ -444,7 +524,9 @@ class NuvioCShufflePool @Inject constructor(
 
     /** Posters for the mood tiles and the reel strip, from the pool (no requests). */
     suspend fun posters(kind: NuvioCShuffleKind, count: Int): List<String> {
-        val all = (currentPool() ?: return emptyList()).items.values.flatten()
+        val all = (currentPool() ?: return emptyList()).items
+            .filterKeys { kind == NuvioCShuffleKind.ANIME || it != ANIME_KEY } // [fork] roulette_anime
+            .values.flatten()
             .filter { nuvioCKindMatches(it, kind) && !it.poster.isNullOrBlank() }
         if (all.isEmpty()) return emptyList()
         return List(minOf(count * 3, all.size)) { all[shuffleRandom.nextInt(all.size)].poster!! }.distinct().take(count)
@@ -475,13 +557,16 @@ class NuvioCShufflePool @Inject constructor(
         val watched = if (filters.unwatched) watchedIds() else emptySet()
         repeat(MAX_TRIES) {
             val skip = synchronized(rejected) { recent + rejected }
-            val eligible = NuvioCShuffleSource.entries.associateWith { source ->
-                pool.items[source.key].orEmpty().filter { item ->
-                    nuvioCKindMatches(item, filters.kind) && nuvioCMoodMatches(item, filters.mood) &&
-                        item.identity !in skip && item.ids().none { it in watched }
-                }
-            }
-            val (_, item) = nuvioCDraw(eligible, config::weight, shuffleRandom) ?: return NuvioCShuffleOutcome.NothingLeft
+            fun keep(item: NuvioCShuffleItem) = nuvioCKindMatches(item, filters.kind) && nuvioCMoodMatches(item, filters.mood) &&
+                item.identity !in skip && item.ids().none { it in watched }
+            val (_, item) = if (filters.kind == NuvioCShuffleKind.ANIME) {
+                // [fork] roulette_anime: anime from every source plus the anime list, one pot (no source weights).
+                val pot = pool.items.values.flatten().filter(::keep).distinctBy { it.identity }
+                nuvioCDraw(mapOf(NuvioCShuffleSource.FOR_YOU to pot), { 1 }, shuffleRandom)
+            } else {
+                val eligible = NuvioCShuffleSource.entries.associateWith { source -> pool.items[source.key].orEmpty().filter(::keep) }
+                nuvioCDraw(eligible, config::weight, shuffleRandom)
+            } ?: return NuvioCShuffleOutcome.NothingLeft
             val checked = runCatching { check(item, watched) }.getOrNull()
             if (checked != null) return NuvioCShuffleOutcome.Picked(checked)
             synchronized(rejected) { rejected += item.identity }
@@ -556,6 +641,10 @@ class NuvioCShufflePool @Inject constructor(
         private const val SEED_WINDOW_MS = 120L * 24 * 60 * 60 * 1000
         private const val SEEDS = 10
         private const val MIN_TMDB_VOTES = 10
+        private const val V2_MIN_VOTES = 150 // [fork] round 31 roulette_v2
+        private const val V2_MIN_SCORE = 6.3f // [fork] round 31 roulette_v2
+        const val ANIME_KEY = "anime" // [fork] round 31 roulette_anime
+        const val FROM_ANIME = "Anime" // [fork] round 31 roulette_anime
         private const val MAX_CATALOGS = 24
         private const val MAX_TRIES = 8
         private const val OUT_AFTER_DAYS = 270L
@@ -585,3 +674,8 @@ fun nuvioCShuffleCatalogKey(addon: Addon, catalog: CatalogDescriptor): String = 
 
 private fun JsonObject.str(key: String): String? = (this[key] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() && it != "null" }
 private fun JsonObject.int(key: String): Int? = (this[key] as? kotlinx.serialization.json.JsonPrimitive)?.intOrNull
+private fun JsonObject.float(key: String): Float? = (this[key] as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull?.toFloatOrNull()
+
+/** [fork] round 31 roulette_anime: a TMDB result that is Japanese animation. */
+private fun JsonObject.isAnime(): Boolean =
+    str("original_language") == "ja" && (this["genre_ids"] as? JsonArray).orEmpty().any { it.jsonPrimitive.intOrNull == 16 }

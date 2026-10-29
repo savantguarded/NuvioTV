@@ -267,6 +267,7 @@ fun HomeScreen(
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
+        NuvioCOfflineNotice(onBackOnline = { viewModel.onEvent(HomeEvent.OnRetry) }) // [fork] offline_home
         when {
             !uiState.layoutPreferencesReady -> {
                 Unit

@@ -57,7 +57,40 @@ interface NuvioCCalendarTmdbApi {
         @Query("include_adult") includeAdult: Boolean = false,
         @Query("page") page: Int = 1
     ): Response<NuvioCCalendarDiscover>
+
+    // [fork] round 31 tmdb_soon_top20_rules: the details the Top 20 add-on's Coming Soon checks for a film
+    @GET("movie/{movie_id}")
+    suspend fun getSoonMovie(
+        @Path("movie_id") movieId: Int,
+        @Query("api_key") apiKey: String,
+        @Query("append_to_response") append: String = "release_dates,watch/providers"
+    ): Response<NuvioCCalendarSoonMovie>
 }
+
+@JsonClass(generateAdapter = true)
+data class NuvioCCalendarSoonMovie(
+    @Json(name = "production_companies") val productionCompanies: List<NuvioCCalendarNamed>? = null,
+    @Json(name = "release_dates") val releaseDates: NuvioCCalendarReleaseDates? = null,
+    @Json(name = "watch/providers") val watchProviders: NuvioCCalendarWatchProviders? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class NuvioCCalendarNamed(
+    @Json(name = "id") val id: Int? = null,
+    @Json(name = "name") val name: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class NuvioCCalendarWatchProviders(
+    @Json(name = "results") val results: Map<String, NuvioCCalendarWatchRegion>? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class NuvioCCalendarWatchRegion(
+    @Json(name = "flatrate") val flatrate: List<NuvioCCalendarNamed>? = null,
+    @Json(name = "rent") val rent: List<NuvioCCalendarNamed>? = null,
+    @Json(name = "buy") val buy: List<NuvioCCalendarNamed>? = null
+)
 
 @JsonClass(generateAdapter = true)
 data class NuvioCCalendarDiscover(
@@ -74,7 +107,10 @@ data class NuvioCCalendarDiscoverItem(
     @Json(name = "original_language") val originalLanguage: String? = null,
     @Json(name = "vote_count") val voteCount: Int? = null,
     @Json(name = "adult") val adult: Boolean? = null,
-    @Json(name = "release_date") val releaseDate: String? = null
+    @Json(name = "release_date") val releaseDate: String? = null,
+    @Json(name = "first_air_date") val firstAirDate: String? = null, // [fork] round 31
+    @Json(name = "genre_ids") val genreIds: List<Int>? = null, // [fork] round 31
+    @Json(name = "origin_country") val originCountry: List<String>? = null // [fork] round 31
 )
 
 @JsonClass(generateAdapter = true)
@@ -83,6 +119,8 @@ data class NuvioCCalendarTmdbShow(
     @Json(name = "status") val status: String? = null,
     @Json(name = "poster_path") val posterPath: String? = null,
     @Json(name = "networks") val networks: List<TmdbNetwork>? = null,
+    @Json(name = "first_air_date") val firstAirDate: String? = null, // [fork] round 31
+    @Json(name = "genres") val genres: List<NuvioCCalendarNamed>? = null, // [fork] round 31
     @Json(name = "last_episode_to_air") val lastEpisodeToAir: TmdbEpisodeToAir? = null,
     @Json(name = "next_episode_to_air") val nextEpisodeToAir: TmdbEpisodeToAir? = null
 )

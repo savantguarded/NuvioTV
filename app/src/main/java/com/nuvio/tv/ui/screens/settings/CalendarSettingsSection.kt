@@ -10,6 +10,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -26,6 +27,7 @@ import androidx.tv.material3.Text
 import com.nuvio.tv.R
 import com.nuvio.tv.core.calendar.CALENDAR_WINDOW_OPTIONS
 import com.nuvio.tv.core.calendar.CalendarSettings
+import com.nuvio.tv.core.tracking.TrackingProviderId
 import com.nuvio.tv.ui.components.NuvioDialog
 import com.nuvio.tv.ui.screens.calendar.PanelActionRow
 import com.nuvio.tv.ui.screens.calendar.CalendarScreenData
@@ -96,6 +98,7 @@ class CalendarSettingsViewModel @Inject constructor(
     fun setFollowOtherServices(follow: Boolean) = viewModelScope.launch { data.setFollowOtherServices(follow) }
     fun setUseMdbListCalendar(use: Boolean) = viewModelScope.launch { data.setUseMdbListCalendar(use) } // [fork] calendar_mdblist
     fun setUseTmdbSoonCalendar(use: Boolean) = viewModelScope.launch { data.setUseTmdbSoonCalendar(use) } // [fork] calendar_tmdb_soon
+    suspend fun librarySource(): TrackingProviderId? = data.librarySource()
     fun setComingUpRow(enabled: Boolean) = viewModelScope.launch { data.setComingUpRow(enabled) }
     fun unhide(titleKey: String) = viewModelScope.launch { data.setHidden(titleKey, hidden = false, name = null) }
     fun unhideFromComingUp(titleKey: String) = viewModelScope.launch { data.setHiddenFromComingUp(titleKey, hidden = false) }
@@ -248,9 +251,11 @@ internal fun LayoutCalendarSection(viewModel: CalendarSettingsViewModel = hiltVi
         checked = current.includePersonalLists,
         onToggle = { viewModel.setIncludePersonalLists(!current.includePersonalLists) }
     )
+    val librarySource by produceState<TrackingProviderId?>(null, viewModel) { value = viewModel.librarySource() }
     SettingsToggleRow(
         title = stringResource(R.string.calendar_setting_other_services),
-        subtitle = stringResource(R.string.calendar_setting_other_services_sub),
+        subtitle = librarySource?.let { stringResource(R.string.calendar_setting_other_services_from, calendarServiceName(it)) }
+            ?: stringResource(R.string.calendar_setting_other_services_nuvio),
         checked = current.followOtherServices,
         onToggle = { viewModel.setFollowOtherServices(!current.followOtherServices) }
     )
@@ -282,7 +287,7 @@ internal fun LayoutCalendarSection(viewModel: CalendarSettingsViewModel = hiltVi
     when (dialog) {
         "start" -> SettingsSingleChoiceDialog( // [fork] calendar_start_view
             title = stringResource(R.string.nuvio_c_calendar_start_in),
-            options = com.nuvio.tv.ui.screens.calendar.NuvioCCalendarStart.entries.map { option ->
+            options = com.nuvio.tv.ui.screens.calendar.nuvioCCalendarStarts.map { option -> // [fork] calendar_no_week
                 SettingsPickerOption(option, nuvioCCalendarStartLabel(option))
             },
             selectedValue = startView,
@@ -418,3 +423,9 @@ private fun nuvioCCalendarStartLabel(start: com.nuvio.tv.ui.screens.calendar.Nuv
         com.nuvio.tv.ui.screens.calendar.NuvioCCalendarStart.MONTH -> R.string.calendar_view_month
     }
 )
+
+private fun calendarServiceName(provider: TrackingProviderId): String = when (provider) {
+    TrackingProviderId.TRAKT -> "Trakt"
+    TrackingProviderId.SIMKL -> "Simkl"
+    TrackingProviderId.MDBLIST -> "MDBList"
+}

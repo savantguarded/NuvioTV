@@ -135,6 +135,8 @@ internal fun PlaybackPlayerInterfaceSection(
 ) {
     val internalPlayer = settings.playerPreference != PlayerPreference.EXTERNAL
 
+    NuvioCOsdButtonsRow() // [fork] round 31 osd_button_order
+
     SettingsToggleRow(
         title = stringResource(R.string.playback_loading_overlay),
         subtitle = stringResource(R.string.playback_loading_overlay_sub),

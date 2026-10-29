@@ -54,7 +54,7 @@ class NuvioCCalendarStartViewTest {
 
     private fun vm(prefs: Prefs?) = CalendarViewModel(Data(), Dispatchers.Unconfined, 3_600_000L, prefs)
 
-    @Test fun withoutPrefsStartsInWeekLikeYsos() = assertEquals(CalendarViewMode.WEEK, vm(null).viewMode.value)
+    @Test fun withoutPrefsStartsInWeekLikeYsos() = assertEquals(CalendarViewMode.WEEK.nuvioCNoWeek(), vm(null).viewMode.value) // [fork] calendar_no_week
 
     @Test fun lastUsedOpensWhereYouLeftAndRemembers() {
         val prefs = Prefs(NuvioCCalendarStart.LAST_USED, last = CalendarViewMode.MONTH)

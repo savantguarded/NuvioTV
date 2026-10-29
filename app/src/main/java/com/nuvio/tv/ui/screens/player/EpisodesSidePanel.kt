@@ -946,12 +946,36 @@ private fun EpisodeItem(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                if (formattedDate != null) {
-                    Text(
-                        text = formattedDate,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = NuvioTheme.extendedColors.textTertiary
-                    )
+                // [fork] round 31 player_episode_ratings: the episode's IMDb rating joins the date line (same height)
+                val nuvioCRating = NuvioCEpisodeRatingsHolder.map.takeIf { com.nuvio.tv.NuvioCFeatures.PLAYER_EPISODE_RATINGS }?.let { map ->
+                    val s = episode.season; val e = episode.episode
+                    if (s != null && e != null) map[s to e]?.takeIf { it > 0.0 }?.let { String.format(java.util.Locale.US, "%.1f", it) } else null
+                }
+                if (formattedDate != null || nuvioCRating != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (formattedDate != null) {
+                            Text(
+                                text = formattedDate,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = NuvioTheme.extendedColors.textTertiary
+                            )
+                        }
+                        if (nuvioCRating != null) {
+                            if (formattedDate != null) {
+                                Text(" · ", style = MaterialTheme.typography.bodySmall, color = NuvioTheme.extendedColors.textTertiary)
+                            }
+                            Text(
+                                text = "IMDb",
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                                color = Color(0xFFF5C518)
+                            )
+                            Text(
+                                text = " $nuvioCRating",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = NuvioTheme.extendedColors.textSecondary
+                            )
+                        }
+                    }
                 }
 
                 episode.overview?.takeIf { it.isNotBlank() }?.let {
@@ -969,4 +993,10 @@ private fun EpisodeItem(
             }
         }
     }
+}
+
+// [fork] round 31 player_episode_ratings: IMDb episode ratings for the Episodes panel, filled by PlayerScreen
+// (NuvioCPlayerInfoViewModel) while the panel is open.
+internal object NuvioCEpisodeRatingsHolder {
+    var map by androidx.compose.runtime.mutableStateOf<Map<Pair<Int, Int>, Double>>(emptyMap())
 }

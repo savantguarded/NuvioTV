@@ -107,7 +107,7 @@ class CalendarViewModel internal constructor(
             .flowOn(computeDispatcher)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), CalendarUiState())
 
-    private val _viewMode = MutableStateFlow(viewPrefs?.openingMode() ?: data.settings.value?.viewMode.toCalendarViewMode()) // [fork] calendar_start_view; off = ysosrs123's remembered view
+    private val _viewMode = MutableStateFlow((viewPrefs?.openingMode() ?: data.settings.value?.viewMode.toCalendarViewMode()).nuvioCNoWeek()) // [fork] calendar_start_view; off = ysosrs123's remembered view; round 31 calendar_no_week
     val viewMode: StateFlow<CalendarViewMode> = _viewMode.asStateFlow()
 
     private val _month = MutableStateFlow(CalendarMonthState())
@@ -173,7 +173,7 @@ class CalendarViewModel internal constructor(
             // [fork] calendar_start_view: a fixed "Start in" choice applies each time the page is opened afresh.
             // Not when "See all in Calendar" from a reminder is taking you to Just aired.
             if (!data.openAtJustAired.value && _pendingListKey.value == null) {
-                viewPrefs?.takeIf { it.start.value != NuvioCCalendarStart.LAST_USED }?.let { _viewMode.value = it.openingMode() }
+                viewPrefs?.takeIf { it.start.value != NuvioCCalendarStart.LAST_USED }?.let { _viewMode.value = it.openingMode().nuvioCNoWeek() } // [fork] calendar_no_week
             }
         }
         titleOpened = false
@@ -222,7 +222,8 @@ class CalendarViewModel internal constructor(
         )
     }
 
-    fun setViewMode(mode: CalendarViewMode) {
+    fun setViewMode(requested: CalendarViewMode) {
+        val mode = requested.nuvioCNoWeek() // [fork] calendar_no_week
         _nuvioCFromMonth.value = null // [fork] calendar_month_back
         if (mode != CalendarViewMode.LIST && _viewMode.value != mode) showToday()
         _viewMode.value = mode

@@ -1,5 +1,6 @@
 package com.nuvio.tv.ui.screens.calendar
 
+import com.nuvio.tv.ui.util.nuvioCListGate
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -92,17 +93,19 @@ internal fun CalendarMonthView(
     Row(
         Modifier.fillMaxSize().onPreviewKeyEvent { event ->
             if (event.nativeKeyEvent.keyCode != AndroidKeyEvent.KEYCODE_BACK) return@onPreviewKeyEvent false
+            if (!nuvioCBackToTabs) return@onPreviewKeyEvent false // [fork] calendar_back_leaves: Back leaves the page
             if (event.nativeKeyEvent.action == AndroidKeyEvent.ACTION_UP) runCatching { tabsRequester.requestFocus() }
             true
         }
     ) {
-        Column(Modifier.weight(0.62f).fillMaxHeight().padding(bottom = NuvioTheme.spacing.xxl)) {
+        Column(Modifier.weight(NUVIO_C_MONTH_GRID_WEIGHT).fillMaxHeight().padding(bottom = NuvioTheme.spacing.xxl)) { // [fork] calendar_month_wide
             // Up from the grid turns the month, so the month row is how focus gets back up to Week / List / Month;
             // Back from the grid jumps here.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
-                modifier = Modifier.focusRestorer()
+                // [fork] calendar_month_wide: the arrows sit at the grid's two edges, the month name between them.
+                horizontalArrangement = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MONTH_WIDE) Arrangement.SpaceBetween else Arrangement.spacedBy(NuvioTheme.spacing.md),
+                modifier = Modifier.focusRestorer().then(if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MONTH_WIDE) Modifier.fillMaxWidth() else Modifier)
             ) {
                 CalendarRoundButton(
                     icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
@@ -160,13 +163,17 @@ internal fun CalendarMonthView(
                         when {
                             select -> {
                                 if (native.action == AndroidKeyEvent.ACTION_UP) {
-                                    viewModel.openDayInWeek(focusedDay, calendarWeekStart(focusedDay, formats.firstDayOfWeek))
+                                    if (com.nuvio.tv.NuvioCFeatures.CALENDAR_NO_WEEK) { // [fork] calendar_no_week: OK moves into the day list
+                                        if (dayRows.isNotEmpty()) runCatching { dayListRequester.requestFocus() }
+                                    } else {
+                                        viewModel.openDayInWeek(focusedDay, calendarWeekStart(focusedDay, formats.firstDayOfWeek))
+                                    }
                                 }
                                 true
                             }
                             key == null || native.action != AndroidKeyEvent.ACTION_DOWN -> false
                             else -> when (val move = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MONTH_NAV) { // [fork] calendar_month_nav
-                                nuvioCMonthMove(focusedDay, month, formats.firstDayOfWeek, key, held = native.repeatCount > 0)
+                                nuvioCMonthMoveInside(focusedDay, month, formats.firstDayOfWeek, key, held = native.repeatCount > 0) // [fork] calendar_month_wide
                             } else calendarMonthMove(focusedDay, month, formats.firstDayOfWeek, key)) {
                                 is CalendarMonthMove.To -> {
                                     viewModel.focusDay(move.date)
@@ -209,7 +216,7 @@ internal fun CalendarMonthView(
             formats = formats,
             performance = performance,
             firstRequester = dayListRequester,
-            modifier = Modifier.weight(0.38f).fillMaxHeight().padding(bottom = NuvioTheme.spacing.xxl),
+            modifier = Modifier.weight(NUVIO_C_MONTH_LIST_WEIGHT).fillMaxHeight().padding(bottom = NuvioTheme.spacing.xxl), // [fork] calendar_month_wide
             onFocused = { viewModel.onRowFocused(it, fromList = false) },
             onOpen = onOpen,
             onOptions = onOptions
@@ -230,6 +237,7 @@ private fun CalendarMonthCell(
 ) {
     val v2 = LocalV2Appearance.current != null
     val shape = RoundedCornerShape(NuvioTheme.radii.sm)
+    if (!inMonth && !nuvioCMonthShowsOtherMonths) { Box(modifier); return } // [fork] calendar_month_wide: only this month's days
     Box(modifier.padding(NuvioTheme.spacing.xxs)) {
         Box(
             Modifier
@@ -398,6 +406,7 @@ private fun CalendarDayPanel(
                 modifier = Modifier.padding(start = NuvioTheme.spacing.xs, bottom = NuvioTheme.spacing.sm)
             )
             LazyColumn(
+                modifier = Modifier.nuvioCListGate(), // [fork] list_repeat_gate
                 contentPadding = PaddingValues(NuvioTheme.spacing.xs),
                 verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
             ) {

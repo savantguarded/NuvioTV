@@ -66,6 +66,18 @@ internal class PlaybackSpeedAwareAudioSink(
 
     fun isBluetoothForcePcm(): Boolean = bluetoothForcePcm
 
+    // [fork] Nuvio C round 31 night_mode: decode to PCM while night mode is on, so it can work on a title that
+    // would otherwise go out as passthrough. Same live switch as Bluetooth; the caller notifies the renderer.
+    @Volatile
+    private var nuvioCNightForcePcm: Boolean = false
+
+    /** @return true when the setting changed (the renderer then picks PCM or passthrough again). */
+    fun nuvioCSetNightForcePcm(enabled: Boolean): Boolean {
+        if (nuvioCNightForcePcm == enabled) return false
+        nuvioCNightForcePcm = enabled
+        return true
+    }
+
     override fun setListener(listener: AudioSink.Listener) {
         this.listener = listener
         super.setListener(listener)
@@ -119,7 +131,7 @@ internal class PlaybackSpeedAwareAudioSink(
             return false
         }
         // Bluetooth: always decode to PCM (Media3 DEFAULT_AUDIO_CAPABILITIES policy).
-        if (bluetoothForcePcm || forcePcmForCurrentSession) {
+        if (bluetoothForcePcm || forcePcmForCurrentSession || nuvioCNightForcePcm) { // [fork] night_mode
             return true
         }
         // Non-1x speed cannot be applied to bitstream passthrough tracks.

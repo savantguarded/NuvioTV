@@ -222,11 +222,12 @@ fun CustomProfileBackgroundImage(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val nuvioCKey = NuvioCProfileBg.cacheKey(imageUrl) // [fork] profile_bg_preload: this launch's preloaded file
     AsyncImage(
         model = ImageRequest.Builder(context)
-            .data(imageUrl)
-            .memoryCacheKey("custom-profile-background-$imageUrl")
-            .diskCacheKey("custom-profile-background-$imageUrl")
+            .data(NuvioCProfileBg.model(context, imageUrl)) // [fork] profile_bg_preload (was imageUrl)
+            .memoryCacheKey(nuvioCKey ?: "custom-profile-background-$imageUrl")
+            .diskCacheKey(nuvioCKey ?: "custom-profile-background-$imageUrl")
             .diskCachePolicy(CachePolicy.ENABLED)
             .allowRgb565(false)
             .crossfade(true)

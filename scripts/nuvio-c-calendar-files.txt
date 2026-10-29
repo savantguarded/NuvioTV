@@ -20,10 +20,14 @@ app/src/main/java/com/nuvio/tv/core/calendar/CalendarZoneProvider.kt
 app/src/main/java/com/nuvio/tv/core/calendar/TmdbCalendarClient.kt
 app/src/main/java/com/nuvio/tv/core/calendar/TraktCalendarClient.kt
 app/src/main/java/com/nuvio/tv/core/calendar/TvMazeCalendarClient.kt
+app/src/main/java/com/nuvio/tv/core/calendar/TvdbCalendarClient.kt
 app/src/main/java/com/nuvio/tv/core/di/CalendarModule.kt
 app/src/main/java/com/nuvio/tv/data/remote/api/TvMazeApi.kt
+app/src/main/java/com/nuvio/tv/data/remote/api/TvdbApi.kt
 app/src/main/java/com/nuvio/tv/data/remote/dto/TvMazeDto.kt
+app/src/main/java/com/nuvio/tv/data/remote/dto/TvdbDto.kt
 app/src/main/java/com/nuvio/tv/data/remote/dto/trakt/TraktCalendarDtos.kt
+app/src/main/java/com/nuvio/tv/ui/components/TvdbCredit.kt
 app/src/main/java/com/nuvio/tv/ui/screens/calendar/CalendarArtwork.kt
 app/src/main/java/com/nuvio/tv/ui/screens/calendar/CalendarFormats.kt
 app/src/main/java/com/nuvio/tv/ui/screens/calendar/CalendarMonthView.kt
@@ -37,6 +41,7 @@ app/src/main/java/com/nuvio/tv/ui/screens/calendar/CalendarWeekModel.kt
 app/src/main/java/com/nuvio/tv/ui/screens/calendar/CalendarWeekView.kt
 app/src/main/java/com/nuvio/tv/ui/screens/home/HomeComingUp.kt
 app/src/main/java/com/nuvio/tv/ui/screens/settings/CalendarSettingsSection.kt
+app/src/main/res/drawable-nodpi/tvdb_logo.png
 app/src/main/res/values-ar/strings_calendar.xml
 app/src/main/res/values-b+es+419/strings_calendar.xml
 app/src/main/res/values-b+sr+Latn/strings_calendar.xml
@@ -90,6 +95,7 @@ app/src/test/java/com/nuvio/tv/core/calendar/CalendarTitleFetcherTest.kt
 app/src/test/java/com/nuvio/tv/core/calendar/TmdbCalendarTest.kt
 app/src/test/java/com/nuvio/tv/core/calendar/TraktCalendarClientTest.kt
 app/src/test/java/com/nuvio/tv/core/calendar/TvMazeCalendarClientTest.kt
+app/src/test/java/com/nuvio/tv/core/calendar/TvdbCalendarClientTest.kt
 app/src/test/java/com/nuvio/tv/ui/screens/calendar/CalendarFormatsTest.kt
 app/src/test/java/com/nuvio/tv/ui/screens/calendar/CalendarUiModelTest.kt
 app/src/test/java/com/nuvio/tv/ui/screens/calendar/CalendarViewModelTest.kt

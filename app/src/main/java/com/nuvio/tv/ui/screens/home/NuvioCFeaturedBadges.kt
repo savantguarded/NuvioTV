@@ -92,8 +92,11 @@ internal fun NuvioCFeaturedRankLine(item: MetaPreview) {
                 }
             }
         }
+        val nuvioCLine = stringResource(R.string.nuvio_c_featured_rank, rank, entry!!.catalogName).uppercase()
+        val nuvioCAccent = com.nuvio.tv.ui.theme.NuvioTheme.colors.Secondary
         Text(
-            text = stringResource(R.string.nuvio_c_featured_rank, rank, entry!!.catalogName).uppercase(),
+            // [fork] round 31 featured_rank_accent: the "#3" in the theme accent, the rest as before.
+            text = if (NuvioCFeatures.FEATURED_RANK_ACCENT) nuvioCRankText(nuvioCLine, "#$rank", nuvioCAccent) else androidx.compose.ui.text.AnnotatedString(nuvioCLine),
             style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.2.sp, fontWeight = FontWeight.SemiBold),
             color = Color.White.copy(alpha = 0.82f),
             maxLines = 1,
@@ -118,3 +121,15 @@ internal fun NuvioCFeaturedStatusChip(status: NuvioCFeaturedBadgeRules.Status) {
             .padding(horizontal = 6.dp, vertical = 2.dp)
     )
 }
+
+/** [fork] round 31 featured_rank_accent: [line] with its leading [rankPart] in [accent]. */
+internal fun nuvioCRankText(line: String, rankPart: String, accent: Color): androidx.compose.ui.text.AnnotatedString =
+    androidx.compose.ui.text.buildAnnotatedString {
+        val at = line.indexOf(rankPart)
+        if (at < 0) { append(line); return@buildAnnotatedString }
+        append(line.substring(0, at))
+        pushStyle(androidx.compose.ui.text.SpanStyle(color = accent, fontWeight = FontWeight.Bold))
+        append(rankPart)
+        pop()
+        append(line.substring(at + rankPart.length))
+    }

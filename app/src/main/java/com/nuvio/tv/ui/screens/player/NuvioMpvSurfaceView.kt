@@ -283,6 +283,17 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
         }
     }
 
+    // [fork] Nuvio C round 31 night_mode: the compressor + limiter as a labelled audio filter, removed when off.
+    fun nuvioCApplyNightMode(level: com.nuvio.tv.data.local.NightModeLevel) {
+        if (!initialized) return
+        runCatching { mpv.command("af", "remove", "@nuvioc_night") }
+        val chain = nuvioCMpvNightChain(level)
+        if (chain.isNotEmpty()) {
+            runCatching { mpv.command("af", "add", "@nuvioc_night:$chain") }
+                .onFailure { Log.w(TAG, "Night mode filter not applied on mpv: ${it.message}") }
+        }
+    }
+
     fun applyAudioLanguagePreferences(languages: List<String>) {
         if (!initialized) return
         val normalized = languages

@@ -10,6 +10,7 @@ import com.nuvio.tv.core.calendar.DefaultCalendarReminderData
 import com.nuvio.tv.core.calendar.DefaultCalendarRemoteSources
 import com.nuvio.tv.core.profile.ProfileScopedCredentialStore
 import com.nuvio.tv.data.remote.api.TvMazeApi
+import com.nuvio.tv.data.remote.api.TvdbApi
 import com.nuvio.tv.ui.screens.calendar.CalendarScreenData
 import com.nuvio.tv.ui.screens.calendar.DefaultCalendarScreenData
 import com.squareup.moshi.Moshi
@@ -70,6 +71,20 @@ abstract class CalendarModule {
         @Singleton
         fun provideCalendarTraktApi(@Named("trakt") retrofit: Retrofit): com.nuvio.tv.data.remote.api.NuvioCCalendarTraktApi =
             retrofit.create(com.nuvio.tv.data.remote.api.NuvioCCalendarTraktApi::class.java)
+
+        @Provides
+        @Singleton
+        @Named("tvdb")
+        fun provideTvdbRetrofit(okHttpClient: OkHttpClient, moshi: Moshi): Retrofit = // [nuvio c] ysosrs123 uses his "validated" client; official has the plain one
+            Retrofit.Builder()
+                .baseUrl("https://api4.thetvdb.com/v4/")
+                .client(okHttpClient)
+                .addConverterFactory(MoshiConverterFactory.create(moshi))
+                .build()
+
+        @Provides
+        @Singleton
+        fun provideTvdbApi(@Named("tvdb") retrofit: Retrofit): TvdbApi = retrofit.create(TvdbApi::class.java)
 
         @Provides
         @CalendarClock

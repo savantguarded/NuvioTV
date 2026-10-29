@@ -48,15 +48,16 @@ fun StartupSplashScreen(
             val imageData: Any = if (profileBackgroundUrl.startsWith("file:")) {
                 java.io.File(java.net.URI(profileBackgroundUrl))
             } else {
-                profileBackgroundUrl
+                NuvioCProfileBg.model(LocalContext.current, profileBackgroundUrl) // [fork] profile_bg_preload (was the link)
             }
             val request = ImageRequest.Builder(LocalContext.current)
                 .data(imageData)
                 .crossfade(false)
-            if (backgroundCacheKey != null) {
-                request.memoryCacheKey(backgroundCacheKey)
-                    .diskCacheKey(backgroundCacheKey)
-                    .placeholderMemoryCacheKey(backgroundCacheKey)
+            val nuvioCKey = NuvioCProfileBg.cacheKey(profileBackgroundUrl) ?: backgroundCacheKey // [fork] profile_bg_preload
+            if (nuvioCKey != null) {
+                request.memoryCacheKey(nuvioCKey)
+                    .diskCacheKey(nuvioCKey)
+                    .placeholderMemoryCacheKey(nuvioCKey)
             }
             AsyncImage(
                 model = request.build(),

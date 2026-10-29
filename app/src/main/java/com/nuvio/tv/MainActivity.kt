@@ -81,6 +81,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.TransformOrigin
@@ -2313,6 +2314,15 @@ private fun ModernSidebarScaffold(
             }
         }
 
+        // [fork] round 31 sidebar_dim: a dark layer behind the open Modern sidebar, following its open / close curve.
+        // One plain draw, no blur, so it costs next to nothing; drawn under the panel and over the page.
+        if (com.nuvio.tv.NuvioCFeatures.SIDEBAR_DIM && showSidebar && sidebarShowExpandedPanel) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .drawBehind { drawRect(Color.Black.copy(alpha = 0.45f * sidebarExpandProgress.coerceIn(0f, 1f))) }
+            )
+        }
         if (showSidebar && (sidebarVisible || sidebarShowExpandedPanel)) {
             val panelShape = RoundedCornerShape(sidebarTokens.panelRadius)
             val showExpandedPanel = isSidebarExpanded || sidebarShowExpandedPanel

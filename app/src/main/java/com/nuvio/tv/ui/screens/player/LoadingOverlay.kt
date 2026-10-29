@@ -60,7 +60,8 @@ fun LoadingOverlay(
     title: String? = null,
     message: String? = null,
     progress: Float? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    nuvioCBelowLogo: (@Composable () -> Unit)? = null // [fork] round 31 loading_synopsis: ratings + synopsis under the logo
 ) {
     var logoLoadFailed by remember(logoUrl) { mutableStateOf(false) }
     val showLogo = !logoUrl.isNullOrBlank() && !logoLoadFailed
@@ -224,12 +225,28 @@ fun LoadingOverlay(
                         }
                     }
 
+                    // [fork] round 31 loading_synopsis: in the same column as the logo's fixed 320 x 180 box, so the
+                    // two are laid out one under the other and can never overlap; the pair stays centred.
+                    if (nuvioCBelowLogo != null) {
+                        Spacer(modifier = Modifier.height(18.dp))
+                        nuvioCBelowLogo()
+                        if (!message.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = message,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White.copy(alpha = 0.72f),
+                                textAlign = TextAlign.Center,
+                                maxLines = 2
+                            )
+                        }
+                    }
                 }
 
                 // The horizontal progress bar is suppressed when the show logo
                 // is acting as the fill indicator. The text message stays visible.
                 val showHorizontalBar = progress != null && !showLogo
-                if (!message.isNullOrBlank() || showHorizontalBar) {
+                if (nuvioCBelowLogo == null && (!message.isNullOrBlank() || showHorizontalBar)) { // [fork] loading_synopsis: message moves into the column
                     val messageOffset = if (showLogo || !title.isNullOrBlank()) 120.dp else 86.dp
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,

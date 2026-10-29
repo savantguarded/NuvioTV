@@ -98,7 +98,7 @@ class NuvioCShuffleViewModel @Inject constructor(
             // Wait for the pool (built in the background) without blocking the screen.
             repeat(60) {
                 if (pool.hasPool()) {
-                    val fans = NuvioCShuffleKind.entries.associateWith { pool.posters(it, 3) }
+                    val fans = com.nuvio.tv.data.nuvioc.nuvioCShuffleKinds.associateWith { pool.posters(it, 3) } // [fork] roulette_anime
                     _ui.update { it.copy(fans = fans) }
                     return@launch
                 }
@@ -129,12 +129,14 @@ class NuvioCShuffleViewModel @Inject constructor(
     }
 
     fun cycleKind() {
-        val next = NuvioCShuffleKind.entries[(_ui.value.kind.ordinal + 1) % NuvioCShuffleKind.entries.size]
+        val kinds = com.nuvio.tv.data.nuvioc.nuvioCShuffleKinds // [fork] roulette_anime
+        val next = kinds[(kinds.indexOf(_ui.value.kind) + 1).mod(kinds.size)]
         chooseKind(next)
     }
 
     fun cycleMood() {
-        val next = NuvioCShuffleMood.entries[(_ui.value.mood.ordinal + 1) % NuvioCShuffleMood.entries.size]
+        val moods = com.nuvio.tv.data.nuvioc.nuvioCShuffleMoods // [fork] roulette_v2
+        val next = moods[(moods.indexOf(_ui.value.mood) + 1).mod(moods.size)]
         setMood(next, reroll = true)
     }
 

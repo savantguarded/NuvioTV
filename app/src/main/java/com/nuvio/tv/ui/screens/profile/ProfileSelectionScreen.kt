@@ -947,6 +947,7 @@ private fun ProfileSelectionMainContent(
         Spacer(modifier = Modifier.height(ProfileSelectionSpacing.HeadingToSubheading))
         } // [fork]
 
+        if (nuvioCLeft && com.nuvio.tv.NuvioCFeatures.PROFILE_CHECK) NuvioCProfileHeading(screenSubtitle) // [fork] profile_check: heading on the left rail
         if (!(nuvioCClean && nuvioCProfileLeft())) { // [fork] profile_left: nothing written on the left rail
         Text(
             text = screenSubtitle,
@@ -1044,7 +1045,8 @@ private fun ProfileGrid(
                         profileTheme = profileThemes[profile.id],
                         onFocused = { onProfileFocused(profile) },
                         onClick = { onProfileSelected(profile) },
-                        onLongPress = { onProfileLongPress(profile) }
+                        onLongPress = { onProfileLongPress(profile) },
+                        nuvioCInUse = !isManagementMode && profile.id == activeProfileId // [fork] profile_check
                     )
                     } // [fork]
                 }
@@ -1096,7 +1098,8 @@ private fun ProfileGrid(
                         profileTheme = profileThemes[profile.id],
                         onFocused = { onProfileFocused(profile) },
                         onClick = { onProfileSelected(profile) },
-                        onLongPress = { onProfileLongPress(profile) }
+                        onLongPress = { onProfileLongPress(profile) },
+                        nuvioCInUse = nuvioCClean && !isManagementMode && profile.id == activeProfileId // [fork] profile_check
                     )
                 }
                 if (canAddProfile && !nuvioCClean) { // [fork] was if (canAddProfile)
@@ -1138,7 +1141,8 @@ private fun ProfileCard(
     profileTheme: com.nuvio.tv.domain.model.AppTheme? = null,
     onFocused: () -> Unit,
     onClick: () -> Unit,
-    onLongPress: () -> Unit
+    onLongPress: () -> Unit,
+    nuvioCInUse: Boolean = false // [fork] round 31 profile_check
 ) {
     var isFocused by remember { mutableStateOf(false) }
     var longPressTriggered by remember { mutableStateOf(false) }
@@ -1267,6 +1271,7 @@ private fun ProfileCard(
                 )
             }
 
+            if (nuvioCInUse && com.nuvio.tv.NuvioCFeatures.PROFILE_CHECK) NuvioCProfileInUseBadge(Modifier.align(Alignment.BottomEnd)) // [fork] profile_check
             if (profile.isPrimary && !LocalNuvioCProfileClean.current) { // [fork] no star on the clean screen
                 Box(
                     modifier = Modifier

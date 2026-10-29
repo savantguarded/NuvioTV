@@ -157,7 +157,8 @@ class CalendarViewModelTest {
 
     @Test fun theCalendarOpensOnWeekAndTheWeekFlipsBackToThisWeek() = runBlocking {
         val vm = viewModel()
-        assertEquals(CalendarViewMode.WEEK, vm.viewMode.value)
+        assertEquals(CalendarViewMode.WEEK.nuvioCNoWeek(), vm.viewMode.value) // [fork] calendar_no_week: Week opens Month
+        if (com.nuvio.tv.NuvioCFeatures.CALENDAR_NO_WEEK) return@runBlocking
         vm.shiftWeek(java.time.LocalDate.of(2026, 10, 19), 1)
         assertEquals(java.time.LocalDate.of(2026, 10, 26), vm.weekStart.value)
         vm.setFilter(CalendarFilter.FILMS)
