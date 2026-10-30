@@ -354,7 +354,7 @@ private fun CalendarMosaicArt(mosaic: CalendarMosaic, performance: Boolean, modi
 @Composable
 private fun CalendarMosaicTile(row: CalendarRow, logoHeight: Dp, modifier: Modifier) {
     Box(modifier) {
-        CalendarArtImage(url = row.backdrop, fallback = row.poster, modifier = Modifier.fillMaxSize())
+        CalendarArtImage(url = row.backdrop, fallback = row.poster, modifier = Modifier.fillMaxSize(), card = NuvioCCalendarCard(row.name, null, NuvioCCardSize.BARE))
         Box(Modifier.fillMaxSize().background(calendarArtScrim()))
         if (!row.logo.isNullOrBlank() || logoHeight >= 18.dp) {
             CalendarLogo(
@@ -465,6 +465,8 @@ private fun CalendarDayPanelItem(
         .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
         .calendarOptionsKeys(press) { onOptions(row) }
     val details = listOfNotNull(row.time?.let(formats::time), row.network)
+    val marquee = com.nuvio.tv.NuvioCFeatures.CALENDAR_DAY_MARQUEE // [fork] round 33
+    var bigFocused by remember { mutableStateOf(false) }
     if (big) {
         Column {
             CalendarFocusCard(
@@ -473,11 +475,25 @@ private fun CalendarDayPanelItem(
                 performance = performance,
                 focusedScale = 1.02f,
                 modifier = cardModifier.fillMaxWidth().aspectRatio(16f / 9f),
-                onFocus = { if (it) onFocused(row) }
+                onFocus = { bigFocused = it; if (it) onFocused(row) }
             ) {
                 CalendarArtTile(row, code, row.time, showLabel = true, logoHeight = 30.dp, modifier = Modifier.fillMaxSize().clip(shape), formats = formats)
             }
             Spacer(Modifier.height(NuvioTheme.spacing.xs))
+            if (marquee) {
+                com.nuvio.tv.ui.components.NuvioCTurnMarquee(
+                    first = com.nuvio.tv.ui.components.NuvioCMarqueeSpec(
+                        calendarRowLine(row),
+                        MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                        NuvioTheme.colors.TextPrimary
+                    ),
+                    second = details.takeIf { it.isNotEmpty() }?.let {
+                        com.nuvio.tv.ui.components.NuvioCMarqueeSpec(it.joinToString(" · "), MaterialTheme.typography.bodySmall, NuvioTheme.colors.TextSecondary)
+                    },
+                    focused = bigFocused
+                )
+                return@Column
+            }
             Text(
                 text = calendarRowLine(row),
                 style = MaterialTheme.typography.titleSmall,
@@ -514,8 +530,13 @@ private fun CalendarDayPanelItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(Modifier.size(100.dp, 56.dp).clip(RoundedCornerShape(NuvioTheme.radii.sm))) {
-                CalendarArtImage(url = row.backdrop, fallback = row.poster, modifier = Modifier.fillMaxSize())
-                if (!row.logo.isNullOrBlank()) {
+                var thumbNoArt by remember(row.key) { mutableStateOf(false) } // [fork] round 33
+                CalendarArtImage(
+                    url = row.backdrop, fallback = row.poster, modifier = Modifier.fillMaxSize(),
+                    card = NuvioCCalendarCard(row.name, row.network, NuvioCCardSize.THUMB),
+                    onNoArt = { thumbNoArt = it }
+                )
+                if (!row.logo.isNullOrBlank() && !(com.nuvio.tv.NuvioCFeatures.CALENDAR_NO_ART_CARD && thumbNoArt)) {
                     Box(Modifier.fillMaxSize().background(calendarArtScrim()))
                     CalendarLogo(
                         logo = row.logo,
@@ -528,7 +549,22 @@ private fun CalendarDayPanelItem(
                 }
             }
             Spacer(Modifier.width(NuvioTheme.spacing.sm))
-            Column(Modifier.weight(1f).alpha(if (row.dimmed) 0.6f else 1f)) {
+            if (marquee) {
+                com.nuvio.tv.ui.components.NuvioCTurnMarquee(
+                    first = com.nuvio.tv.ui.components.NuvioCMarqueeSpec(
+                        row.name ?: stringResource(R.string.calendar_unknown_title),
+                        MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                        NuvioTheme.colors.TextPrimary
+                    ),
+                    second = com.nuvio.tv.ui.components.NuvioCMarqueeSpec(
+                        (listOfNotNull(code ?: calendarRowLine(row).takeIf { it.isNotEmpty() }) + details).joinToString(" · "),
+                        MaterialTheme.typography.bodySmall,
+                        NuvioTheme.colors.TextSecondary
+                    ),
+                    focused = focused,
+                    modifier = Modifier.weight(1f).alpha(if (row.dimmed) 0.6f else 1f)
+                )
+            } else Column(Modifier.weight(1f).alpha(if (row.dimmed) 0.6f else 1f)) {
                 Text(
                     text = row.name ?: stringResource(R.string.calendar_unknown_title),
                     style = MaterialTheme.typography.titleSmall,

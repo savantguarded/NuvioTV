@@ -57,7 +57,7 @@ internal fun NuvioCLoadingLane(
         val (base, ext) = remember(name) { NuvioCLoadingLaneText.splitExtension(name) }
         val text = remember(base, ext) {
             buildAnnotatedString {
-                append(NuvioCLoadingLaneText.wrapFriendly(base))
+                append(if (com.nuvio.tv.NuvioCFeatures.LOADING_FILENAME_LINE) base else NuvioCLoadingLaneText.wrapFriendly(base)) // [fork] round 33: one line, no break points
                 if (ext != null) withStyle(SpanStyle(color = Color.White.copy(alpha = 0.45f))) { append(ext) }
             }
         }
@@ -70,7 +70,19 @@ internal fun NuvioCLoadingLane(
                     .background(Color.Black.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
                     .padding(horizontal = 16.dp, vertical = 9.dp)
             ) {
-                Text(
+                if (com.nuvio.tv.NuvioCFeatures.LOADING_FILENAME_LINE) {
+                    // [fork] round 33 loading_filename_line: one line, a notch smaller, cut in the middle so the
+                    // title / episode at the start and the tags, group and extension at the end stay readable
+                    Text(
+                        text = text,
+                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp, lineHeight = 15.sp, letterSpacing = 0.3.sp, fontFeatureSettings = "tnum"),
+                        color = Color.White.copy(alpha = 0.86f),
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.MiddleEllipsis,
+                        textAlign = TextAlign.Center
+                    )
+                } else Text(
                     text = text,
                     style = (if (com.nuvio.tv.NuvioCFeatures.LOADING_TEXT_SMALLER) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge).copy( // [fork] round 32
                         fontFeatureSettings = "tnum",

@@ -57,6 +57,7 @@ class NuvioCShuffleSettingsViewModel @Inject constructor(
     fun setMenuVisible(visible: Boolean) = prefs.setMenuVisible(visible)
     fun cycleWeight(source: NuvioCShuffleSource) = prefs.setWeight(source, (config.value.weight(source) + 1) % 4)
     fun refreshPicks() = pool.refresh()
+    val refreshStatus = pool.refreshStatus // [fork] round 33
 
     fun loadCatalogs() {
         viewModelScope.launch {
@@ -110,9 +111,19 @@ internal fun LayoutShuffleSection(viewModel: NuvioCShuffleSettingsViewModel = hi
         checked = config.menuVisible,
         onToggle = { viewModel.setMenuVisible(!config.menuVisible) }
     )
+    // [fork] round 33 roulette_refresh_feedback: the row says what's happening (value on the right)
+    val status by viewModel.refreshStatus.collectAsState()
     SettingsActionRow(
         title = stringResource(R.string.nuvio_c_shuffle_refresh),
         subtitle = stringResource(R.string.nuvio_c_shuffle_refresh_sub),
+        value = when (val s = status) {
+            com.nuvio.tv.data.nuvioc.NuvioCShufflePool.RefreshStatus.Busy -> stringResource(R.string.nuvio_c_shuffle_refreshing)
+            is com.nuvio.tv.data.nuvioc.NuvioCShufflePool.RefreshStatus.Done -> stringResource(R.string.nuvio_c_shuffle_refreshed, s.titles)
+            com.nuvio.tv.data.nuvioc.NuvioCShufflePool.RefreshStatus.Failed -> stringResource(R.string.nuvio_c_shuffle_refresh_failed)
+            else -> null
+        },
+        trailingIcon = if (status is com.nuvio.tv.data.nuvioc.NuvioCShufflePool.RefreshStatus.Done) androidx.compose.material.icons.Icons.Default.Check
+            else androidx.compose.material.icons.Icons.AutoMirrored.Filled.KeyboardArrowRight,
         onClick = { viewModel.refreshPicks() }
     )
 }

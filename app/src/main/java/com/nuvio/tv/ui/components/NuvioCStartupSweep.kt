@@ -155,6 +155,10 @@ internal fun nuvioCSmoothBitmap(resources: android.content.res.Resources, res: I
 private const val SETTLE_CAP_MS = 10_000L
 private const val SETTLE_SYNC_CAP_MS = 15_000L
 private const val SETTLE_MIN_MS = 600L
+// [fork] round 33 startup_settle_images: longer caps, a 1.2 s minimum and a 1.4 s steady window
+private const val SETTLE_IMAGES_CAP_MS = 14_000L
+private const val SETTLE_IMAGES_SYNC_CAP_MS = 20_000L
+private const val SETTLE_IMAGES_MIN_MS = 1_200L
 
 /**
  * startup_settle: false from the moment Home reports ready ([ready]) until it has settled, then true for good.
@@ -179,12 +183,21 @@ fun rememberNuvioCStartupSettled(key: Any, ready: Boolean): Boolean {
             val elapsed = (now - start) / 1_000_000L
             // startup_settle_sync: on a cold start the full watched-history sync is what freezes Home, so wait it out.
             val syncing = NuvioCFeatures.STARTUP_SETTLE_SYNC && com.nuvio.tv.core.nuvioc.NuvioCStartup.syncRunning.value
-            val cap = if (NuvioCFeatures.STARTUP_SETTLE_SYNC) SETTLE_SYNC_CAP_MS else SETTLE_CAP_MS
-            if (elapsed >= cap || (elapsed >= SETTLE_MIN_MS && !syncing && nuvioCStartupSettled(gaps))) break
+            val images = NuvioCFeatures.STARTUP_SETTLE_IMAGES // [fork] round 33: also wait for the first rows' pictures
+            val cap = when {
+                images && NuvioCFeatures.STARTUP_SETTLE_SYNC -> SETTLE_IMAGES_SYNC_CAP_MS
+                images -> SETTLE_IMAGES_CAP_MS
+                NuvioCFeatures.STARTUP_SETTLE_SYNC -> SETTLE_SYNC_CAP_MS
+                else -> SETTLE_CAP_MS
+            }
+            val pictures = !images || com.nuvio.tv.core.nuvioc.NuvioCStartup.imagesQuiet()
+            val steady = if (images) nuvioCStartupSettled(gaps, quietMs = 1_400L) else nuvioCStartupSettled(gaps)
+            if (elapsed >= cap || (elapsed >= (if (images) SETTLE_IMAGES_MIN_MS else SETTLE_MIN_MS) && !syncing && pictures && steady)) break
         }
         android.util.Log.i(
             "NuvioCStartup",
             "Home settled after ${(last - start) / 1_000_000L} ms behind the start-up screen" +
+                " (pictures loading=${com.nuvio.tv.core.nuvioc.NuvioCStartup.imagesInFlight.get()})" +
                 " (sync still running=${com.nuvio.tv.core.nuvioc.NuvioCStartup.syncRunning.value})"
         )
         settled = true

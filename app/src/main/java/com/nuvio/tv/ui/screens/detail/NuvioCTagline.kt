@@ -32,6 +32,9 @@ private val QUOTE_CHARS = charArrayOf('"', '\'', '“', '”', '‘', '’', '«
 internal fun nuvioCTaglineText(raw: String): String? =
     raw.trim().trim(*QUOTE_CHARS).trim().takeIf { it.isNotEmpty() }
 
+/** [fork] round 33: lines the tagline may take (the Featured hero provides 1). */
+internal val LocalNuvioCTaglineLines = androidx.compose.runtime.staticCompositionLocalOf { 2 }
+
 @Composable
 internal fun NuvioCTagline(
     tagline: String,
@@ -61,7 +64,7 @@ internal fun NuvioCTagline(
         text = annotated,
         style = style.copy(textIndent = TextIndent(restLine = restIndent)), // line two starts on the words, not the quote
         color = Color.White.copy(alpha = 0.88f),
-        maxLines = 2,
+        maxLines = LocalNuvioCTaglineLines.current,
         overflow = TextOverflow.Ellipsis,
         modifier = modifier.nuvioCHangingQuote(widthFraction, quoteWidthPx)
     )

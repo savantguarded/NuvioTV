@@ -487,7 +487,7 @@ internal fun nuvioCProfileBadgeOffset(ringSize: androidx.compose.ui.unit.Dp): an
 @Composable
 internal fun NuvioCProfileHeading(subtitle: String) {
     androidx.compose.foundation.layout.Column(
-        modifier = Modifier.padding(start = 12.dp, bottom = 22.dp, top = if (NuvioCFeatures.PROFILE_HEADING_DROP) 40.dp else 0.dp) // [fork] round 32
+        modifier = Modifier.padding(start = 12.dp, bottom = if (NuvioCFeatures.PROFILE_HEADING_TIGHT) 10.dp else 22.dp, top = if (NuvioCFeatures.PROFILE_HEADING_DROP) 40.dp else 0.dp) // [fork] round 32, round 33 profile_heading_tight
     ) {
         androidx.tv.material3.Text(
             text = androidx.compose.ui.res.stringResource(com.nuvio.tv.R.string.nuvio_c_profile_choose),
@@ -496,6 +496,7 @@ internal fun NuvioCProfileHeading(subtitle: String) {
             fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
             maxLines = 1
         )
+        if (NuvioCFeatures.PROFILE_HEADING_TIGHT) return@Column // [fork] round 33: no "Select a profile to continue" line
         androidx.compose.foundation.layout.Spacer(Modifier.height(4.dp))
         androidx.tv.material3.Text(
             text = subtitle,

@@ -48,7 +48,9 @@ internal fun CalendarArtImage(
     modifier: Modifier = Modifier,
     fallback: String? = null,
     alternate: String? = null,
-    alignment: Alignment = Alignment.Center
+    alignment: Alignment = Alignment.Center,
+    card: NuvioCCalendarCard? = null, // [fork] round 33 calendar_no_art_card
+    onNoArt: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val candidates = remember(url, alternate, fallback) {
@@ -57,8 +59,10 @@ internal fun CalendarArtImage(
     var index by remember(candidates) { mutableStateOf(0) }
     val chosen = candidates.getOrNull(index)
     Box(modifier.background(NuvioTheme.colors.BackgroundCard)) {
+        androidx.compose.runtime.LaunchedEffect(chosen == null) { onNoArt(chosen == null) }
         if (chosen == null) {
-            MonochromePosterPlaceholder()
+            if (com.nuvio.tv.NuvioCFeatures.CALENDAR_NO_ART_CARD && card != null) NuvioCCalendarTitleCard(card)
+            else MonochromePosterPlaceholder()
             return@Box
         }
         val request = remember(chosen) { ImageRequest.Builder(context).data(chosen).crossfade(false).build() }

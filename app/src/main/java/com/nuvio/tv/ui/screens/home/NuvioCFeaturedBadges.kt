@@ -1,6 +1,7 @@
 package com.nuvio.tv.ui.screens.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -111,6 +112,19 @@ internal fun NuvioCFeaturedStatusChip(status: NuvioCFeaturedBadgeRules.Status) {
     val label = stringResource(
         if (status == NuvioCFeaturedBadgeRules.Status.NEW_SEASON) R.string.nuvio_c_featured_new_season else R.string.nuvio_c_featured_new
     )
+    if (NuvioCFeatures.FEATURED_POLISH) {
+        // [fork] round 33 featured_polish P2: outline chip like the player's badges, quieter than a solid block
+        Text(
+            text = label.uppercase(),
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold, letterSpacing = 0.8.sp),
+            color = Color.White.copy(alpha = 0.92f),
+            maxLines = 1,
+            modifier = Modifier
+                .border(1.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(4.dp))
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+        )
+        return
+    }
     Text(
         text = label.uppercase(),
         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.8.sp),

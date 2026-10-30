@@ -172,6 +172,13 @@ fun ModernHomeContent(
                 trailerPlaybackTarget == FocusedPosterTrailerPlaybackTarget.HERO_MEDIA)
     val presentation = modernPresentation
     val carouselRows = presentation.rows
+    if (com.nuvio.tv.NuvioCFeatures.STARTUP_SETTLE_IMAGES) { // [fork] round 33
+        val warm = remember(carouselRows.size >= 3) {
+            if (carouselRows.size < 3) emptyList()
+            else carouselRows.take(5).flatMap { row -> row.items.take(10).mapNotNull { it.imageUrl } }.distinct()
+        }
+        com.nuvio.tv.core.nuvioc.NuvioCStartupWarmRows(warm)
+    }
 
     val hasCollections = remember(uiState.homeRows) {
         uiState.homeRows.any { it is HomeRow.CollectionRow }

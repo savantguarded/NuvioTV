@@ -116,6 +116,9 @@
     <string name="nuvio_c_shuffle_loading">Loading…</string>
     <string name="nuvio_c_shuffle_refresh">Refresh picks</string>
     <string name="nuvio_c_shuffle_refresh_sub">Rebuild the pool now (it refreshes by itself every 12 hours)</string>
+    <string name="nuvio_c_shuffle_refreshing">Refreshing…</string>
+    <string name="nuvio_c_shuffle_refreshed">Refreshed · %1$d titles</string>
+    <string name="nuvio_c_shuffle_refresh_failed">Couldn\'t refresh, kept the last picks</string>
     <string name="nuvio_c_shuffle_setting_menu">Show Roulette in the sidebar</string>
     <string name="nuvio_c_shuffle_setting_menu_sub">After Calendar, before Settings</string>
     <string name="nuvio_c_subtitle_background_title">Background opacity</string>

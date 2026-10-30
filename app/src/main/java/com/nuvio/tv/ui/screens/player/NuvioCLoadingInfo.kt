@@ -47,6 +47,7 @@ internal fun NuvioCLoadingInfo(viewModel: PlayerViewModel, uiState: PlayerUiStat
     }
     val info: NuvioCPlayerInfoViewModel = hiltViewModel()
     LaunchedEffect(about.contentId, about.type) { info.bind(about.contentId, about.type) }
+    LaunchedEffect(uiState.episodes) { info.setAddonEpisodes(uiState.episodes) } // [fork] round 33
     val ratings by info.state.collectAsState()
     val isEpisode = about.season != null && about.episode != null
     val episodeRating = ratings.episodeRating(about.season, about.episode)
@@ -56,7 +57,7 @@ internal fun NuvioCLoadingInfo(viewModel: PlayerViewModel, uiState: PlayerUiStat
     LaunchedEffect(Unit) {
         // Wait for the ratings (they come from caches, normally at once), never longer than 1.2 s.
         var waited = 0
-        while (!info.state.value.let { it.ratings != null || it.episodeRatings.isNotEmpty() } && waited < 12) {
+        while (!info.state.value.let { it.ratings != null || it.allEpisodeRatings.isNotEmpty() } && waited < 12) {
             delay(100); waited++
         }
         alpha.animateTo(1f, tween(400))

@@ -17,6 +17,32 @@ object NuvioCStartup {
     /** startup_settle_sync: true while the account's start-up sync (watched history, progress, library) runs. */
     val syncRunning = kotlinx.coroutines.flow.MutableStateFlow(false)
 
+    /**
+     * [fork] round 33 startup_settle_images: picture loads in flight (all of Coil's requests) and when the last
+     * one ended, so the start-up screen can wait until Home's first rows have their posters on screen.
+     */
+    val imagesInFlight = java.util.concurrent.atomic.AtomicInteger(0)
+    @Volatile var lastImageEndMs: Long = 0L
+
+    /** Counts Coil requests; installed on the app's image loader only with STARTUP_SETTLE_IMAGES. */
+    object ImageActivity : coil3.EventListener() {
+        override fun onStart(request: coil3.request.ImageRequest) { imagesInFlight.incrementAndGet() }
+        override fun onSuccess(request: coil3.request.ImageRequest, result: coil3.request.SuccessResult) = end()
+        override fun onError(request: coil3.request.ImageRequest, result: coil3.request.ErrorResult) = end()
+        override fun onCancel(request: coil3.request.ImageRequest) = end()
+        private fun end() {
+            if (imagesInFlight.decrementAndGet() < 0) imagesInFlight.set(0)
+            lastImageEndMs = android.os.SystemClock.uptimeMillis()
+        }
+    }
+
+    /** True when no picture has been loading for [quietMs]. */
+    fun imagesQuiet(quietMs: Long = 500L): Boolean {
+        val sinceEnd = android.os.SystemClock.uptimeMillis() - lastImageEndMs
+        // 3 s with nothing finishing also counts (a slow straggler or a request that never reports back)
+        return (imagesInFlight.get() <= 0 && sinceEnd >= quietMs) || sinceEnd >= 3_000L
+    }
+
     /** no_tv_channels: cancels the 15-minute and boot-time channel refresh jobs scheduled by earlier builds. */
     fun stopTvChannels(context: Context) {
         runCatching {
@@ -42,4 +68,29 @@ internal fun nuvioCStartupSettled(gaps: List<Long>, quietMs: Long = 900L, maxGap
         if (quiet >= quietMs) return true
     }
     return false
+}
+
+/**
+ * [fork] round 33 startup_settle_images: while the start-up screen is up, the first five Home rows' first ten
+ * posters are fetched to the disk cache (decoded at 1 x 1, not kept in memory), so scrolling down the first rows
+ * from a cold start reads them from disk instead of the network.
+ */
+@androidx.compose.runtime.Composable
+internal fun NuvioCStartupWarmRows(urls: List<String>) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(urls.isNotEmpty()) {
+        if (urls.isEmpty() || !NuvioCStartup.holdingKeys) return@LaunchedEffect
+        val loader = coil3.SingletonImageLoader.get(context)
+        urls.forEach { url ->
+            runCatching {
+                loader.enqueue(
+                    coil3.request.ImageRequest.Builder(context)
+                        .data(url)
+                        .size(1, 1)
+                        .memoryCachePolicy(coil3.request.CachePolicy.DISABLED)
+                        .build()
+                )
+            }
+        }
+    }
 }

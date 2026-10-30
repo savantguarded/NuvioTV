@@ -704,9 +704,17 @@ internal fun CalendarArtTile(
     picture: String? = null,
     formats: CalendarFormats = rememberCalendarFormats()
 ) {
+    var noArt by remember(row.key) { mutableStateOf(false) } // [fork] round 33 calendar_no_art_card
+    val cardOn = com.nuvio.tv.NuvioCFeatures.CALENDAR_NO_ART_CARD
     Box(modifier) {
-        CalendarArtImage(url = picture ?: row.backdrop, fallback = row.poster, modifier = Modifier.fillMaxSize())
-        Box(Modifier.fillMaxSize().background(calendarArtScrim()))
+        CalendarArtImage(
+            url = picture ?: row.backdrop,
+            fallback = row.poster,
+            modifier = Modifier.fillMaxSize(),
+            card = NuvioCCalendarCard(row.name, row.network, NuvioCCardSize.LARGE),
+            onNoArt = { noArt = it }
+        )
+        if (!(cardOn && noArt)) Box(Modifier.fillMaxSize().background(calendarArtScrim()))
         Row(
             Modifier.align(Alignment.TopStart).fillMaxWidth().padding(NuvioTheme.spacing.sm),
             horizontalArrangement = Arrangement.SpaceBetween
@@ -726,7 +734,8 @@ internal fun CalendarArtTile(
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
         ) {
-            CalendarLogo(
+            if (cardOn && noArt) Spacer(Modifier.weight(1f)) // the title card carries the name
+            else CalendarLogo(
                 logo = row.logo,
                 name = row.name,
                 height = logoHeight,

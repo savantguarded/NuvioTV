@@ -1951,8 +1951,9 @@ fun PlayerScreen(
                 if (com.nuvio.tv.NuvioCFeatures.PLAYER_EPISODE_RATINGS) { // [fork] round 31: IMDb ratings on the date lines
                     val nuvioCInfo: NuvioCPlayerInfoViewModel = androidx.hilt.navigation.compose.hiltViewModel()
                     LaunchedEffect(Unit) { nuvioCInfo.bind(viewModel.controller.contentId, viewModel.controller.contentType) }
+                    LaunchedEffect(uiState.episodes) { nuvioCInfo.setAddonEpisodes(uiState.episodes) } // [fork] round 33
                     val nuvioCEpRatings by nuvioCInfo.state.collectAsState()
-                    LaunchedEffect(nuvioCEpRatings.episodeRatings) { NuvioCEpisodeRatingsHolder.map = nuvioCEpRatings.episodeRatings }
+                    LaunchedEffect(nuvioCEpRatings.allEpisodeRatings) { NuvioCEpisodeRatingsHolder.map = nuvioCEpRatings.allEpisodeRatings }
                 }
                 EpisodesSidePanel(
                     uiState = uiState,

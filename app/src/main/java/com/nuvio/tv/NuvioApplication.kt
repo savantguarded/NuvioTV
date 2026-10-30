@@ -146,6 +146,7 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
                     )
                 )
             }
+            .apply { if (NuvioCFeatures.STARTUP_SETTLE_IMAGES) eventListener(com.nuvio.tv.core.nuvioc.NuvioCStartup.ImageActivity) } // [fork] round 33
             .memoryCache {
                 val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
                 val memoryInfo = ActivityManager.MemoryInfo()

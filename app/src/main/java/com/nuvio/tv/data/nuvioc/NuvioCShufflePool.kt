@@ -178,9 +178,39 @@ class NuvioCShufflePool @Inject constructor(
         scope.launch { ensure(rebuildIfOlderThanMs = MAX_AGE_MS) }
     }
 
+    /** [fork] round 33 roulette_refresh_feedback: what the settings row shows while / after "Refresh picks" runs. */
+    sealed interface RefreshStatus {
+        data object Idle : RefreshStatus
+        data object Busy : RefreshStatus
+        data class Done(val titles: Int) : RefreshStatus
+        data object Failed : RefreshStatus
+    }
+    private val _refreshStatus = kotlinx.coroutines.flow.MutableStateFlow<RefreshStatus>(RefreshStatus.Idle)
+    val refreshStatus: kotlinx.coroutines.flow.StateFlow<RefreshStatus> = _refreshStatus
+
     /** Rebuild now (settings "Refresh picks"). */
     fun refresh() {
-        scope.launch { ensure(rebuildIfOlderThanMs = 0L) }
+        if (!com.nuvio.tv.NuvioCFeatures.ROULETTE_REFRESH_FEEDBACK) {
+            scope.launch { ensure(rebuildIfOlderThanMs = 0L) }
+            return
+        }
+        if (_refreshStatus.value == RefreshStatus.Busy) return // presses while it works are ignored
+        _refreshStatus.value = RefreshStatus.Busy
+        scope.launch {
+            val started = System.currentTimeMillis()
+            val job = buildMutex.withLock {
+                building?.takeIf { it.isActive } ?: scope.async { build() }.also { building = it }
+            }
+            val built = runCatching { job.await() }.getOrNull()
+            val titles = built?.items?.values?.sumOf { it.size } ?: 0
+            // keep "Refreshing…" up for at least 700 ms, so a fast rebuild still reads as something happening
+            val elapsed = System.currentTimeMillis() - started
+            if (elapsed < 700) kotlinx.coroutines.delay(700 - elapsed)
+            val result = if (titles > 0) RefreshStatus.Done(titles) else RefreshStatus.Failed
+            _refreshStatus.value = result
+            kotlinx.coroutines.delay(4_000)
+            if (_refreshStatus.value == result) _refreshStatus.value = RefreshStatus.Idle
+        }
     }
 
     /**

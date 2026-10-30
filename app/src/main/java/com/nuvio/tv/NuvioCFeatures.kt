@@ -477,4 +477,26 @@ object NuvioCFeatures {
     const val TMDB_SOON_RECHECK = true
     /** Ambient screen logos sized by area like Home (small source logos scale up). Off = drawn at the image's own size. */
     const val AMBIENT_LOGO_SIZE = true
+
+    // ---- Round 33 (2026-10-30) ----
+    /** Player episode ratings (loading screen, Episodes panel): titles whose id isn't IMDb / TMDB (tvdb:, add-on ids) are looked up through TMDB like the details page, the meta add-on's own episode ratings fill gaps, and an empty ratings answer is kept 2 min instead of 30. Off = round 31 lookup. */
+    const val PLAYER_EPISODE_RATINGS_FIX = true
+    /** Profile screen: "Choose a profile" without the "Select a profile to continue" line under it, and a smaller gap (22 -> 10 dp) down to the first profile. Off = round 32 heading. */
+    const val PROFILE_HEADING_TIGHT = true
+    /** Settings > Layout > Roulette "Refresh picks" shows Refreshing… while the pool rebuilds, then "Refreshed · N titles" with a tick for 4 s; presses while it works are ignored. Off = silent refresh. */
+    const val ROULETTE_REFRESH_FEEDBACK = true
+    /** Player loading screen: the filename stays on one line, a notch smaller (11 sp), cut in the middle when too long so its start and end stay readable. Off = round 32 wrapping filename. */
+    const val LOADING_FILENAME_LINE = true
+    /** Details Information block as a two-column ledger (label left, value right, hairline above each line), like Apple TV. Off = round 31 three-column label / value grid. */
+    const val DETAIL_INFO_LEDGER = true
+    /** Calendar Month day list: the focused row's title, then its episode / time / network line, scroll when cut off, taking turns like the cast filmography; the big top tile's lines too. Off = ellipsized lines. */
+    const val CALENDAR_DAY_MARQUEE = true
+    /** Calendar pictures for titles with no art at all: a per-show tinted title card (network and a two-line name in big tiles, one line in thumbnails, gradient only in month tiles) instead of the grey placeholder. Off = grey placeholder. */
+    const val CALENDAR_NO_ART_CARD = true
+    /** Featured hero: the text is measured first and a tall or square logo shrinks to leave at least four synopsis lines (never under 64 dp tall); the tagline keeps to one line there. Off = logo first (round 15). */
+    const val FEATURED_LOGO_YIELD = true
+    /** Featured hero polish: the current page dot is a pill that fills until the next title (restarts on a key press); NEW / NEW SEASON as an outline chip; on a title change the logo, badges and synopsis fade up one after another. The timer already pauses while you're in the rows. Off = round 31 dots, solid chip, one fade. */
+    const val FEATURED_POLISH = true
+    /** With STARTUP_SETTLE: the start-up screen also waits until no picture is loading (Home's first rows have their posters) and the app has answered every frame for 1.4 s (was 0.9 s); meanwhile the first five rows' posters are fetched to disk. Caps 14 s, 20 s with the sync wait (were 10 / 15). Continue Watching and sync untouched. Off = round 26 settle. */
+    const val STARTUP_SETTLE_IMAGES = true
 }

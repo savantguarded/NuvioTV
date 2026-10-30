@@ -61,7 +61,10 @@ class ImdbEpisodeRatingsRepository @Inject constructor(
                     ).also { result ->
                         cache[cacheKey] = CacheEntry(
                             ratings = result,
-                            expiresAtMs = System.currentTimeMillis() + cacheTtlMs
+                            // [fork] round 33 player_episode_ratings_fix: an empty answer (a failed or timed-out call)
+                            // is only kept 2 min, so one bad answer no longer hides a show's ratings for 30 min.
+                            expiresAtMs = System.currentTimeMillis() +
+                                if (result.isEmpty() && com.nuvio.tv.NuvioCFeatures.PLAYER_EPISODE_RATINGS_FIX) 2L * 60L * 1000L else cacheTtlMs
                         )
                     }
                 } finally {

@@ -313,7 +313,7 @@ internal fun NuvioCFeaturedGate(
 private val SLIDE_MS = if (com.nuvio.tv.NuvioCFeatures.FEATURED_FAST_FOCUS) 260 else 380
 private val PEEK = 76.dp
 private val FEATURED_TOP_SAFE = 40.dp // [fork] featured_synopsis_six: the text block never rises above this
-private const val FEATURED_SYNOPSIS_LINES = 6
+internal const val FEATURED_SYNOPSIS_LINES = 6
 
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
@@ -492,6 +492,14 @@ private fun NuvioCFeaturedHome(
         ) { index = NuvioCFeaturedRules.nextIndex(index, items.size) }
     }
 
+    // [fork] round 33 featured_polish P1: when the current slide's timer started, for the filling page pill
+    val featuredTimer = remember(idleClock) { NuvioCFeaturedTimer(idleClock) }
+    val featuredTimerRunning = carouselOn && atRest && !showPlayOptions && items.size > 1
+    LaunchedEffect(featuredTimerRunning, index) {
+        featuredTimer.startMs = android.os.SystemClock.uptimeMillis()
+        featuredTimer.running = featuredTimerRunning
+    }
+
     val heroAlpha = remember(progress) { { progress.value } }
 
     val density = LocalDensity.current
@@ -649,6 +657,7 @@ private fun NuvioCFeaturedHome(
                         }
                     },
                     onButtonFocused = { lastButton = it },
+                    timer = featuredTimer.takeIf { com.nuvio.tv.NuvioCFeatures.FEATURED_POLISH && com.nuvio.tv.NuvioCFeatures.IDLE_TIMER_LIGHT },
                     onNext = { focusFirst ->
                         index = NuvioCFeaturedRules.nextIndex(index, items.size)
                         if (focusFirst) {
@@ -696,6 +705,9 @@ private fun backdropRequest(context: Context, url: String?, widthPx: Int, height
         .crossfade(false)
         .build()
 
+/** [fork] round 33: the same logo request for the round 33 text block (so the cold-start wait's copy is found). */
+internal fun nuvioCFeaturedLogoRequest(context: Context, url: String?): ImageRequest = logoRequest(context, url)
+
 private fun logoRequest(context: Context, url: String?): ImageRequest =
     ImageRequest.Builder(context)
         .data(url)
@@ -724,7 +736,8 @@ private fun NuvioCFeaturedSlide(
     onButtonFocused: (Int) -> Unit,
     onNext: (focusFirst: Boolean) -> Unit,
     onPrevious: () -> Unit,
-    ratingsPending: (String) -> Boolean = { false } // [fork] featured_cold_start
+    ratingsPending: (String) -> Boolean = { false }, // [fork] featured_cold_start
+    timer: NuvioCFeaturedTimer? = null // [fork] round 33 featured_polish P1
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -799,6 +812,7 @@ private fun NuvioCFeaturedSlide(
                 target = item,
                 key = { it.id },
                 contentAlignment = Alignment.BottomStart,
+                stagger = com.nuvio.tv.NuvioCFeatures.FEATURED_POLISH,
                 modifier = if (sixLines) Modifier.weight(1f, fill = false) else Modifier
             ) { slide ->
                 NuvioCFeaturedText(slide, ratings[slide.id], ratingOrder, taglines[slide.id], tagline, infos[slide.id], ratingsPending(slide.id))
@@ -863,7 +877,7 @@ private fun NuvioCFeaturedSlide(
             }
             if (items.size > 1) {
                 Spacer(Modifier.height(16.dp))
-                NuvioCFeaturedDots(count = items.size, active = index)
+                NuvioCFeaturedDots(count = items.size, active = index, timer = timer)
             }
         }
     }
@@ -883,29 +897,39 @@ internal fun <T> NuvioCFadeThrough(
     outMs: Int = 110,
     inMs: Int = 200,
     contentAlignment: Alignment = Alignment.TopStart,
+    stagger: Boolean = false, // [fork] round 33 featured_polish P3: the fade-in drives the parts one after another
     content: @Composable (T) -> Unit
 ) {
     var shown by remember { mutableStateOf(target) }
     val alpha = remember { Animatable(1f) }
+    val fadingIn = remember { mutableStateOf(false) }
     val targetKey = key(target)
     SideEffect { if (key(shown) == targetKey && shown != target) shown = target }
     LaunchedEffect(targetKey) {
         if (key(shown) == targetKey) return@LaunchedEffect
         if (outMs > 0) alpha.animateTo(0f, tween(outMs)) else alpha.snapTo(0f)
         shown = target
+        if (stagger) fadingIn.value = true
         withFrameNanos { }
-        alpha.animateTo(1f, tween(inMs))
+        alpha.animateTo(1f, tween(if (stagger) STAGGER_IN_MS else inMs, easing = androidx.compose.animation.core.LinearEasing.takeIf { stagger } ?: androidx.compose.animation.core.FastOutSlowInEasing))
+        fadingIn.value = false
     }
     Box(
         modifier = modifier.graphicsLayer {
-            this.alpha = alpha.value
+            // while staggering, the parts fade themselves; the block itself only fades out
+            this.alpha = if (stagger && fadingIn.value) 1f else alpha.value
             compositingStrategy = CompositingStrategy.ModulateAlpha
         },
         contentAlignment = contentAlignment
     ) {
-        content(shown)
+        if (stagger) {
+            val entrance = remember(alpha) { { if (fadingIn.value) alpha.value else 1f } }
+            NuvioCFeaturedStaggerScope(entrance) { content(shown) }
+        } else content(shown)
     }
 }
+
+private const val STAGGER_IN_MS = 420
 
 @Composable
 private fun NuvioCFeaturedText(
@@ -917,6 +941,10 @@ private fun NuvioCFeaturedText(
     info: com.nuvio.tv.core.di.NuvioCFeaturedInfo? = null,
     ratingsPending: Boolean = false
 ) {
+    if (com.nuvio.tv.NuvioCFeatures.FEATURED_LOGO_YIELD) { // [fork] round 33: logo yields to the synopsis
+        NuvioCFeaturedTextYield(item, ratings, ratingOrder, taglineText, tagline, info, ratingsPending, FEATURED_SYNOPSIS_LINES)
+        return
+    }
     val context = LocalContext.current
     Column(verticalArrangement = Arrangement.Bottom) {
         if (com.nuvio.tv.NuvioCFeatures.FEATURED_BADGES && NuvioCFeaturedBadgeRules.rank(NuvioCHeroSource.of(item.id)) != null) {
@@ -1090,9 +1118,9 @@ private fun NuvioCFeaturedNextButton(enabled: Boolean, onClick: () -> Unit, modi
 }
 
 @Composable
-private fun NuvioCFeaturedDots(count: Int, active: Int) {
+private fun NuvioCFeaturedDots(count: Int, active: Int, timer: NuvioCFeaturedTimer? = null) {
     if (com.nuvio.tv.NuvioCFeatures.FEATURED_DOTS_FIVE) {
-        NuvioCFeaturedDotsFive(count, active)
+        NuvioCFeaturedDotsFive(count, active, timer)
         return
     }
     val ring = NuvioTheme.focusRing.brush()
@@ -1112,7 +1140,7 @@ private fun NuvioCFeaturedDots(count: Int, active: Int) {
 // [fork] featured_dots_five (round 15): at most five plain dots in a fixed-width row. The window slides
 // with the active title; a dot at an edge with more titles beyond it is drawn smaller (iOS style).
 @Composable
-private fun NuvioCFeaturedDotsFive(count: Int, active: Int) {
+private fun NuvioCFeaturedDotsFive(count: Int, active: Int, timer: NuvioCFeaturedTimer? = null) {
     if (count <= 1) return
     val window = NuvioCFeaturedRules.dotWindow(count, active, NUVIO_C_DOTS_MAX)
     Row(
@@ -1124,6 +1152,10 @@ private fun NuvioCFeaturedDotsFive(count: Int, active: Int) {
                 dot.index == active -> 8.dp
                 dot.small -> 4.dp
                 else -> 6.dp
+            }
+            if (timer != null && dot.index == active) {
+                NuvioCFeaturedTimedPill(timer, active) // round 33 P1
+                return@forEach
             }
             Box(Modifier.size(8.dp), contentAlignment = Alignment.Center) {
                 Box(

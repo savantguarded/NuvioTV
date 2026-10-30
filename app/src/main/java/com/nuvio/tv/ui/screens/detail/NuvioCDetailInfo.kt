@@ -16,6 +16,7 @@ package com.nuvio.tv.ui.screens.detail
 // are kept for 6 h in memory, so going back and forth costs nothing. Your meta add-on stays the main source;
 // this only adds what it doesn't carry.
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -319,6 +320,10 @@ internal fun NuvioCDetailInfoBlock(metaId: String) {
             modifier = Modifier.padding(horizontal = margin)
         )
         Spacer(Modifier.height(14.dp))
+        if (NuvioCFeatures.DETAIL_INFO_LEDGER) {
+            NuvioCInfoLedger(rows, margin)
+            return@Column
+        }
         // Three across, rows of equal columns; long values ellipsize inside their column, never clip.
         rows.chunked(3).forEach { line ->
             Row(
@@ -347,6 +352,53 @@ internal fun NuvioCDetailInfoBlock(metaId: String) {
                     }
                 }
                 repeat(3 - line.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+
+/**
+ * [fork] round 33 detail_info_ledger (option A): two columns of label left / value right, a hairline above
+ * each line, read left to right. A long value ellipsizes inside its half; labels never shrink.
+ */
+@Composable
+private fun NuvioCInfoLedger(rows: List<NuvioCInfoRow>, margin: androidx.compose.ui.unit.Dp) {
+    val hairline = NuvioTheme.colors.TextPrimary.copy(alpha = 0.08f)
+    Column(Modifier.fillMaxWidth().padding(horizontal = margin)) {
+        rows.chunked(2).forEach { line ->
+            Row(horizontalArrangement = Arrangement.spacedBy(56.dp), modifier = Modifier.fillMaxWidth()) {
+                line.forEach { row ->
+                    val value = if (row.value.startsWith("\u0000")) {
+                        row.value.drop(1).toIntOrNull()?.let { stringResource(it) }.orEmpty()
+                    } else row.value
+                    Column(Modifier.weight(1f)) {
+                        androidx.compose.foundation.layout.Box(
+                            Modifier.fillMaxWidth().height(1.dp).then(Modifier.background(hairline))
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 11.dp),
+                            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(row.label),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = NuvioTheme.extendedColors.textTertiary,
+                                maxLines = 1
+                            )
+                            Spacer(Modifier.width(24.dp))
+                            Text(
+                                text = value,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = NuvioTheme.colors.TextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+                if (line.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }
