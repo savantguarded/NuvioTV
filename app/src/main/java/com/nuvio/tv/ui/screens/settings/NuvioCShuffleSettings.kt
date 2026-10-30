@@ -3,6 +3,8 @@ package com.nuvio.tv.ui.screens.settings
 // [fork] Nuvio C round 28 `shuffle_page`: Settings > Layout > Shuffle, and the sources dialog
 // (also opened from the Blend chip on the Shuffle page).
 
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
