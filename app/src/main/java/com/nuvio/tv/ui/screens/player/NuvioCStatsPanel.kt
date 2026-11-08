@@ -2,6 +2,7 @@ package com.nuvio.tv.ui.screens.player
 
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -62,7 +63,7 @@ internal object NuvioCStreamServer {
     }
 }
 
-private data class NuvioCStatsRow(val label: String, val value: String, val severity: DebugStatSeverity = DebugStatSeverity.NORMAL)
+private data class NuvioCStatsRow(val label: String, val value: String, val severity: DebugStatSeverity = DebugStatSeverity.NORMAL, val marquee: Boolean = false)
 private data class NuvioCStatsSection(val header: String, val rows: List<NuvioCStatsRow>)
 
 @OptIn(UnstableApi::class)
@@ -106,12 +107,40 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
                 else -> "ExoPlayer"
             }
             val live = withContext(Dispatchers.IO) { sampler.sample(snapshot) }.associateBy { it.label }
+            // [fork] round 34 stats_panel_full: more rows from the player's own data
+            val full = com.nuvio.tv.NuvioCFeatures.STATS_PANEL_FULL
+            val counters = if (full) NuvioCPlaybackStats.current else null
+            val isMpv = controller.currentInternalPlayerEngine == InternalPlayerEngine.MVP_PLAYER
+            val mpvStats = if (full && isMpv) runCatching { controller.mpvView?.nuvioCStats() }.getOrNull().orEmpty() else emptyMap()
+            val videoFormat = if (full && !isMpv) runCatching { player?.videoFormat }.getOrNull() else null
+            val positionText = if (full) runCatching {
+                val pos = if (isMpv) controller.currentPlaybackPositionMs() ?: -1L else player?.currentPosition ?: -1L
+                val dur = if (isMpv) controller.lastKnownDuration else player?.duration ?: -1L
+                if (pos >= 0 && dur > 0) "${clock(pos)} / ${clock(dur)}" else null
+            }.getOrNull() else null
+            val hdrMeta = if (!full) null else if (isMpv) {
+                listOfNotNull(mpvStats["primaries"], mpvStats["gamma"], mpvStats["maxcll"]?.let { "MaxCLL $it" }, mpvStats["maxfall"]?.let { "MaxFALL $it" })
+                    .joinToString(" · ").ifBlank { null }
+            } else {
+                val c = videoFormat?.colorInfo
+                listOfNotNull(
+                    when (c?.colorTransfer) { androidx.media3.common.C.COLOR_TRANSFER_ST2084 -> "PQ"; androidx.media3.common.C.COLOR_TRANSFER_HLG -> "HLG"; else -> null },
+                    if (c?.colorSpace == androidx.media3.common.C.COLOR_SPACE_BT2020) "BT.2020" else null,
+                    NuvioCPlaybackStats.hdrStatic(c?.hdrStaticInfo)
+                ).joinToString(" · ").ifBlank { null }
+            }
+            val container = if (!full) null else if (isMpv) mpvStats["container"] else videoFormat?.containerMimeType?.let(::containerName)
             sections = buildList {
+                if (full) add(NuvioCStatsSection("PLAYBACK", listOfNotNull(
+                    positionText?.let { NuvioCStatsRow("Position", it) },
+                    counters?.let { NuvioCStatsRow("Rebuffers", it.rebuffers.toString(), if (it.rebuffers > 2) DebugStatSeverity.WARNING else DebugStatSeverity.NORMAL) }
+                )))
                 add(NuvioCStatsSection("SOURCE", listOfNotNull(
                     NuvioCStatsRow("Engine", engineName),
                     info?.addonName?.takeIf { it.isNotBlank() }?.let { NuvioCStatsRow("Add-on", it) },
                     server?.let { NuvioCStatsRow("Server", it) },
-                    info?.filename?.takeIf { it.isNotBlank() }?.let { NuvioCStatsRow("File", it) },
+                    info?.filename?.takeIf { it.isNotBlank() }?.let { NuvioCStatsRow("File", it, marquee = full) },
+                    container?.let { NuvioCStatsRow("Container", it) },
                     NuvioCOsdBadges.sizeLabel(info?.fileSize)?.let { NuvioCStatsRow("Size", it) },
                     info?.fileBitrate?.takeIf { it > 0 }?.let { NuvioCStatsRow("File bitrate", mbps(it)) }
                 )))
@@ -122,8 +151,13 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
                         info?.videoFrameRate?.let { String.format(Locale.US, "%.3f", it).trimEnd('0').trimEnd('.') }
                     ).takeIf { it.isNotEmpty() }?.let { NuvioCStatsRow("Video", it.joinToString(" · ")) },
                     visual?.let { NuvioCStatsRow("Picture", if (it == "DV") "Dolby Vision" else it) },
+                    hdrMeta?.let { NuvioCStatsRow("HDR", it) },
+                    (if (isMpv) mpvStats["decoder"] else counters?.videoDecoder)?.takeIf { full }?.let { NuvioCStatsRow("Decoder", it) },
+                    if (full) NuvioCPlaybackStats.displayMode(context)?.let { NuvioCStatsRow("Display", it) } else null,
+                    counters?.frameLeadMs?.let { NuvioCStatsRow("Frame lead", String.format(Locale.US, "%.1f ms", it)) },
                     info?.videoBitrate?.takeIf { it > 0 }?.let { NuvioCStatsRow("Bitrate", mbps(it)) },
-                    live["dropped"]?.let { NuvioCStatsRow("Dropped", it.value, it.severity) }
+                    (live["dropped"]?.let { NuvioCStatsRow("Dropped", it.value, it.severity) }
+                        ?: mpvStats["drops"]?.takeIf { full }?.let { NuvioCStatsRow("Dropped", it) })
                 )))
                 add(NuvioCStatsSection("AUDIO", listOfNotNull(
                     listOfNotNull(info?.audioCodec, info?.audioChannels, info?.audioLanguage?.uppercase(Locale.US))
@@ -132,11 +166,17 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
                         append(if (passthrough) "Passthrough" else "Decoded in app")
                         val night = NuvioCNight.level.value
                         if (night != NightModeLevel.OFF) append(" · Night ${night.name.lowercase(Locale.US).replaceFirstChar { it.uppercase() }}")
-                    })
+                    }),
+                    counters?.audioDecoder?.takeIf { !passthrough }?.let { NuvioCStatsRow("Decoder", it) },
+                    counters?.let { NuvioCStatsRow("Underruns", it.underruns.toString(), if (it.underruns > 0) DebugStatSeverity.WARNING else DebugStatSeverity.NORMAL) }
                 )))
                 add(NuvioCStatsSection("NETWORK", listOfNotNull(
                     live["buffer"]?.let { NuvioCStatsRow("Buffer", it.value, it.severity) },
-                    live["network"]?.let { NuvioCStatsRow("Speed", it.value, it.severity) }
+                    live["network"]?.let { NuvioCStatsRow("Speed", it.value, it.severity) },
+                    mpvStats["cache"]?.toDoubleOrNull()?.let { NuvioCStatsRow("Cache", String.format(Locale.US, "%.0f s", it)) },
+                    counters?.takeIf { it.loadedBytes > 0 }?.let { NuvioCStatsRow("Loaded", NuvioCOsdBadges.sizeLabel(it.loadedBytes) ?: "") },
+                    counters?.takeIf { it.lastRequestMs >= 0 }?.let { NuvioCStatsRow("Last request", "${it.lastRequestMs} ms") },
+                    counters?.let { NuvioCStatsRow("Load errors", it.loadErrors.toString(), if (it.loadErrors > 0) DebugStatSeverity.WARNING else DebugStatSeverity.NORMAL) }
                 )))
                 add(NuvioCStatsSection("SYSTEM", listOfNotNull(
                     live["cpu"]?.let { NuvioCStatsRow("CPU", it.value, it.severity) },
@@ -144,7 +184,8 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
                     // Paging and heat only when they need attention, so the panel stays clear of the OSD.
                     live["paging"]?.takeIf { it.warn }?.let { NuvioCStatsRow("Paging", it.value, it.severity) },
                     live["thermal"]?.takeIf { it.warn }?.let { NuvioCStatsRow("Thermal", it.value, it.severity) },
-                    live["throttle"]?.let { NuvioCStatsRow("Throttle", it.value, it.severity) }
+                    live["throttle"]?.let { NuvioCStatsRow("Throttle", it.value, it.severity) },
+                    if (full) NuvioCPlaybackStats.cpuClock()?.let { NuvioCStatsRow("CPU clock", it) } else null
                 )))
             }.filter { it.rows.isNotEmpty() }
             } catch (e: kotlinx.coroutines.CancellationException) {
@@ -195,7 +236,10 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
                         },
                         fontWeight = if (row.severity == DebugStatSeverity.NORMAL) FontWeight.Normal else FontWeight.Bold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        softWrap = !row.marquee,
+                        overflow = if (row.marquee) TextOverflow.Clip else TextOverflow.Ellipsis,
+                        // [fork] round 34: the filename scrolls like ysosrs123's (3 rounds, 2 s wait, 20 dp/s)
+                        modifier = if (row.marquee) Modifier.weight(1f).basicMarquee(iterations = 3, velocity = 20.dp, initialDelayMillis = 2000) else Modifier
                     )
                 }
             }
@@ -204,3 +248,18 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
 }
 
 private fun mbps(bps: Int): String = String.format(Locale.US, "%.1f Mbps", bps / 1_000_000.0)
+
+private fun clock(ms: Long): String {
+    val t = ms / 1000
+    return if (t >= 3600) String.format(Locale.US, "%d:%02d:%02d", t / 3600, (t / 60) % 60, t % 60)
+    else String.format(Locale.US, "%d:%02d", t / 60, t % 60)
+}
+
+private fun containerName(mime: String): String = when (mime) {
+    "video/x-matroska", "video/webm" -> "Matroska"
+    "video/mp4" -> "MP4"
+    "video/mp2t" -> "MPEG-TS"
+    "application/x-mpegURL", "application/vnd.apple.mpegurl" -> "HLS"
+    "application/dash+xml" -> "DASH"
+    else -> mime.substringAfter('/')
+}

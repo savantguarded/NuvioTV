@@ -253,6 +253,18 @@ fun PlayerScreen(
     val nuvioCFocus = remember { NuvioCFocusMemory() } // [fork] focus returns to the button that opened a panel
     SideEffect { nuvioCFocus.moreRowOpen = uiState.showMoreDialog } // [fork]
     val nuvioCHdr = rememberNuvioCHdrDim(viewModel, uiState) // [fork] 60% subtitles + controls in HDR
+    if (com.nuvio.tv.NuvioCFeatures.STATS_PANEL_FULL) { // [fork] round 34: counters for the stream info panel
+        val nuvioCStatsPlayer = viewModel.exoPlayer
+        DisposableEffect(nuvioCStatsPlayer) {
+            val stats = NuvioCPlaybackStats()
+            NuvioCPlaybackStats.current = stats
+            runCatching { nuvioCStatsPlayer?.addAnalyticsListener(stats) }
+            onDispose {
+                runCatching { nuvioCStatsPlayer?.removeAnalyticsListener(stats) }
+                if (NuvioCPlaybackStats.current === stats) NuvioCPlaybackStats.current = null
+            }
+        }
+    }
     val nuvioCOsdAnchor = remember { NuvioCOsdAnchor() } // [fork] where the seek bar is, for Skip Intro
     val nuvioCCast = remember { NuvioCOsdCastState() } // [fork] round 28 osd_cast
     LaunchedEffect(nuvioCCast.open) { viewModel.onCastPanelChanged(nuvioCCast.open) } // [fork] round 29: Cast acts like the other OSD panels

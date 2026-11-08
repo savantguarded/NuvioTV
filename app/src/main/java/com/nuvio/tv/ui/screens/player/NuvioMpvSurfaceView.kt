@@ -512,6 +512,25 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
         return gamma == "pq" || gamma == "hlg"
     }
 
+    /** [fork] round 34 stats_panel_full: a few read-only mpv properties for the stream info panel. */
+    fun nuvioCStats(): Map<String, String> {
+        if (!initialized) return emptyMap()
+        fun str(name: String) = runCatching { mpv.getPropertyString(name) }.getOrNull()?.takeIf { it.isNotBlank() }
+        return buildMap {
+            str("hwdec-current")?.let { put("decoder", if (it == "no") "software" else it) }
+            str("video-params/primaries")?.let { put("primaries", it) }
+            str("video-params/gamma")?.let { put("gamma", it) }
+            str("video-params/max-cll")?.let { put("maxcll", it) }
+            str("video-params/max-fall")?.let { put("maxfall", it) }
+            str("frame-drop-count")?.let { put("drops", it) }
+            str("decoder-frame-drop-count")?.let { put("decoderDrops", it) }
+            str("audio-params/format")?.let { put("audioFormat", it) }
+            str("display-fps")?.let { put("displayFps", it) }
+            str("file-format")?.let { put("container", it) }
+            str("demuxer-cache-duration")?.let { put("cache", it) }
+        }
+    }
+
     /** [fork] mpv's decoded transfer ("pq", "hlg", "bt.1886"…), null when mpv can't say yet. */
     fun nuvioCVideoGamma(): String? {
         if (!initialized) return null
