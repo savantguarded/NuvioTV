@@ -496,6 +496,27 @@ internal fun NuvioCProfileHeading(subtitle: String) {
             top = if (NuvioCFeatures.PROFILE_HEADING_DROP && !NuvioCFeatures.PROFILE_BLOCK_CENTRED) 40.dp else 0.dp
         ) // [fork] round 32, round 33 profile_heading_tight
     ) {
+        if (NuvioCFeatures.PROFILE_GREETING) {
+            // [fork] round 36 profile_greeting: a time-of-day greeting with "Choose a profile" under it
+            val greeting = androidx.compose.ui.res.stringResource(androidx.compose.runtime.remember { nuvioCGreetingRes() })
+            androidx.tv.material3.Text(
+                text = greeting,
+                color = com.nuvio.tv.ui.theme.NuvioTheme.colors.TextPrimary,
+                fontSize = 30.sp,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                letterSpacing = (-0.4).sp,
+                maxLines = 1
+            )
+            androidx.compose.foundation.layout.Spacer(Modifier.height(2.dp))
+            androidx.tv.material3.Text(
+                text = androidx.compose.ui.res.stringResource(com.nuvio.tv.R.string.nuvio_c_profile_choose),
+                color = com.nuvio.tv.ui.theme.NuvioTheme.colors.TextSecondary,
+                fontSize = 15.sp,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                maxLines = 1
+            )
+            return@Column
+        }
         androidx.tv.material3.Text(
             text = androidx.compose.ui.res.stringResource(com.nuvio.tv.R.string.nuvio_c_profile_choose),
             color = com.nuvio.tv.ui.theme.NuvioTheme.colors.TextPrimary,
@@ -513,4 +534,34 @@ internal fun NuvioCProfileHeading(subtitle: String) {
             maxLines = 1
         )
     }
+}
+
+/** [fork] round 36 profile_greeting: greeting by the hour (morning 5-11, afternoon 12-16, evening 17-23, late 0-4). */
+internal fun nuvioCGreetingRes(hour: Int = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)): Int = when (hour) {
+    in 5..11 -> com.nuvio.tv.R.string.nuvio_c_greeting_morning
+    in 12..16 -> com.nuvio.tv.R.string.nuvio_c_greeting_afternoon
+    in 17..23 -> com.nuvio.tv.R.string.nuvio_c_greeting_evening
+    else -> com.nuvio.tv.R.string.nuvio_c_greeting_late
+}
+
+/**
+ * [fork] round 36 profile_greeting: a soft glow in the profile's own colour around the focused ring. Drawn behind,
+ * at most 12 dp past the ring so it stays inside the list's 12 dp zoom room (nothing clips, no layout change).
+ */
+internal fun Modifier.nuvioCProfileGlow(color: Color, ring: androidx.compose.ui.unit.Dp, progress: () -> Float): Modifier = drawBehind {
+    val p = progress()
+    if (p <= 0.01f) return@drawBehind
+    val ringR = ring.toPx() / 2f
+    val outer = ringR + 12.dp.toPx()
+    drawCircle(
+        brush = Brush.radialGradient(
+            0f to color.copy(alpha = 0f),
+            (ringR / outer) * 0.92f to color.copy(alpha = 0.55f * p),
+            1f to color.copy(alpha = 0f),
+            center = center,
+            radius = outer
+        ),
+        radius = outer,
+        center = center
+    )
 }

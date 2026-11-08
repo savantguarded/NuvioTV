@@ -42,6 +42,7 @@ internal fun NuvioCLoadingLane(
     modifier: Modifier = Modifier
 ) {
     if (!NuvioCFeatures.LOADING_FILENAME) return
+    if (NuvioCFeatures.LOADING_BAND && NuvioCFeatures.LOADING_SYNOPSIS) return // [fork] round 36: the filename is in the bottom band
     val controller = viewModel.controller
     // Round 6 (2026-10-12): filename only (no add-on / debrid line), shown in full, never shortened.
     val filename = remember(uiState.currentStreamName, uiState.currentStreamUrl, controller.currentFilename) {

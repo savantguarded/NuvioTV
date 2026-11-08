@@ -3,10 +3,12 @@ package com.nuvio.tv.ui.util
 // [fork] Nuvio C round 35 `sources_nav`: Up / Down in the sources lists (player panel and the details sources screen)
 // step one card at a time by index instead of relying on Compose's focus search, which gives up when the next card
 // isn't laid out yet (fast held keys, tall provider headers) and left focus stuck short of the top or bottom.
-// The next card is scrolled in first when needed, then focused; held keys queue on the pending target so nothing
-// is skipped or lost. Up on the first card is left to the card / list (chips or close button), as before.
+// Round 36: every scroll here is animated (round 35 snapped, so reaching the first card jumped). The next card is
+// nudged into view with a smooth scroll only when it isn't laid out; otherwise focusing it lets Compose glide it in.
+// On the first card the list glides the rest of the way to the very top. Held keys queue on the pending target.
+// Up on the first card is left to the card / list (chips or close button), as before.
 
-import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.focus.FocusRequester
@@ -52,28 +54,24 @@ internal class NuvioCListNav {
         job = scope.launch {
             try {
                 val lazyIndex = target + lazyOffset
-                if (target == 0 && lazyOffset == 0) {
-                    // Back at the top: the list sits fully at the top, padding and first header included.
-                    state.scrollToItem(0)
-                } else if (!fullyVisible(state, lazyIndex)) {
-                    val composed = state.layoutInfo.visibleItemsInfo.any { it.index == lazyIndex }
-                    if (!composed) {
-                        if (dir < 0) {
-                            state.scrollToItem(lazyIndex)
-                        } else {
-                            // Coming from above: bring it in at the bottom edge, like a normal scroll.
-                            state.scrollToItem(lazyIndex)
-                            val info = state.layoutInfo
-                            val size = info.visibleItemsInfo.firstOrNull { it.index == lazyIndex }?.size ?: 0
-                            val room = info.viewportEndOffset - info.afterContentPadding - size - info.viewportStartOffset
-                            if (room > 0) state.scrollBy(-room.toFloat())
-                        }
-                    }
+                if (!composed(state, lazyIndex)) {
+                    // Not laid out yet: nudge it in smoothly, about one card's height, from the side it comes from.
+                    val step = cardStep(state)
+                    state.animateScrollBy(if (dir < 0) -step else step)
                 }
+                var focusedOk = false
                 repeat(4) {
+                    if (focusedOk) return@repeat
                     withFrameNanos { }
                     val r = requester(target) ?: return@repeat
-                    if (runCatching { r.requestFocus() }.getOrNull() == true) return@launch
+                    focusedOk = runCatching { r.requestFocus() }.getOrNull() == true
+                }
+                if (target == 0 && lazyOffset == 0) {
+                    // First card: glide the remaining few dp so the top padding and first header show too.
+                    withFrameNanos { }
+                    if (state.firstVisibleItemIndex != 0 || state.firstVisibleItemScrollOffset > 0) {
+                        state.animateScrollToItem(0)
+                    }
                 }
             } finally {
                 if (pending == target) pending = null
@@ -82,9 +80,14 @@ internal class NuvioCListNav {
         return true
     }
 
-    private fun fullyVisible(state: LazyListState, lazyIndex: Int): Boolean {
+    private fun composed(state: LazyListState, lazyIndex: Int): Boolean =
+        state.layoutInfo.visibleItemsInfo.any { it.index == lazyIndex }
+
+    /** Average laid-out card height plus the gap between cards, in px. */
+    private fun cardStep(state: LazyListState): Float {
         val info = state.layoutInfo
-        val item = info.visibleItemsInfo.firstOrNull { it.index == lazyIndex } ?: return false
-        return item.offset >= info.viewportStartOffset && item.offset + item.size <= info.viewportEndOffset
+        val items = info.visibleItemsInfo
+        if (items.isEmpty()) return 200f
+        return items.map { it.size }.average().toFloat() + info.mainAxisItemSpacing
     }
 }

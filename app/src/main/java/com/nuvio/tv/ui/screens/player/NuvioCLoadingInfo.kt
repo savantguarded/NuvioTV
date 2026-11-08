@@ -8,6 +8,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.text.withStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -60,13 +65,17 @@ internal fun NuvioCLoadingInfo(viewModel: PlayerViewModel, uiState: PlayerUiStat
         while (!info.state.value.let { it.ratings != null || it.allEpisodeRatings.isNotEmpty() } && waited < 12) {
             delay(100); waited++
         }
-        alpha.animateTo(1f, tween(400))
+        alpha.animateTo(1f, if (NuvioCFeatures.LOADING_BAND) tween(480, easing = androidx.compose.animation.core.FastOutSlowInEasing) else tween(400))
     }
     val line = if (isEpisode) {
         listOfNotNull("S${about.season} · E${about.episode}", about.title.takeIf { it.isNotBlank() }).joinToString(" · ")
     } else {
         listOfNotNull(uiState.releaseYear?.takeIf { it.isNotBlank() }, about.genres.take(2).joinToString(", ").takeIf { it.isNotBlank() })
             .joinToString(" · ")
+    }
+    if (NuvioCFeatures.LOADING_BAND) {
+        NuvioCLoadingBand(viewModel, line, episodeRating, filmRatings, ratings.order, about.synopsis, alpha)
+        return
     }
     Box(
         modifier = Modifier.width(BLOCK_WIDTH).height(BLOCK_HEIGHT).graphicsLayer { this.alpha = alpha.value },
@@ -105,6 +114,91 @@ internal fun NuvioCLoadingInfo(viewModel: PlayerViewModel, uiState: PlayerUiStat
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+/**
+ * [fork] round 36 `loading_band` (Charles picked mockup B, 2026-11-08): the logo stays alone in official's centred
+ * column so nothing can push it; the episode line, rating and synopsis (left) and the filename (right) sit in a band
+ * along the bottom that slides up 14 dp as it fades in. Small type throughout; no buffering text.
+ */
+@Composable
+private fun NuvioCLoadingBand(
+    viewModel: PlayerViewModel,
+    line: String,
+    episodeRating: String?,
+    filmRatings: com.nuvio.tv.domain.model.MDBListRatings?,
+    order: List<String>,
+    synopsis: String?,
+    alpha: Animatable<Float, *>
+) {
+    val controller = viewModel.controller
+    val filename = remember(controller.currentFilename, controller.currentStreamDescription) {
+        if (NuvioCFeatures.LOADING_FILENAME) NuvioCLoadingLaneText.filename(controller.currentFilename, controller.currentStreamDescription) else null
+    }
+    val shift = with(androidx.compose.ui.platform.LocalDensity.current) { 14.dp.toPx() }
+    Box(Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(start = 48.dp, end = 48.dp, bottom = 32.dp)
+                .graphicsLayer {
+                    this.alpha = alpha.value
+                    translationY = (1f - alpha.value) * shift
+                },
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Column(Modifier.widthIn(max = 470.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (line.isNotBlank()) {
+                        Text(
+                            text = line,
+                            style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp, lineHeight = 16.sp),
+                            color = Color.White.copy(alpha = 0.8f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                    }
+                    if (episodeRating != null && NuvioCFeatures.IMDB_LOGO_EVERYWHERE) {
+                        com.nuvio.tv.ui.components.NuvioCImdbRating(episodeRating)
+                    } else if (episodeRating != null) {
+                        Text("IMDb $episodeRating", style = MaterialTheme.typography.labelMedium.copy(fontSize = 12.sp), color = Color.White.copy(alpha = 0.8f))
+                    } else if (filmRatings != null) {
+                        MDBListRatingsRow(ratings = filmRatings, order = order, maxItems = 3)
+                    }
+                }
+                synopsis?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 17.sp),
+                        color = Color.White.copy(alpha = 0.62f),
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            if (filename != null) {
+                val (base, ext) = remember(filename) { NuvioCLoadingLaneText.splitExtension(filename) }
+                val text = remember(base, ext) {
+                    androidx.compose.ui.text.buildAnnotatedString {
+                        append(NuvioCLoadingLaneText.wrapFriendly(base))
+                        if (ext != null) withStyle(androidx.compose.ui.text.SpanStyle(color = Color.White.copy(alpha = 0.32f))) { append(ext) }
+                    }
+                }
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp, lineHeight = 15.sp, letterSpacing = 0.2.sp, fontFeatureSettings = "tnum"),
+                    color = Color.White.copy(alpha = 0.55f),
+                    textAlign = TextAlign.End,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = 40.dp).widthIn(max = 330.dp)
                 )
             }
         }

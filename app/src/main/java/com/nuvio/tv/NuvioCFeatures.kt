@@ -549,4 +549,10 @@ object NuvioCFeatures {
     const val TRACK_LABEL_LANGUAGE = true
     /** Sources lists (player panel and details sources screen): Up / Down step card by card, scrolling the next card in before focusing it, so held keys reach the very top and bottom. Off = Compose focus search (+ round 34 top jump). */
     const val SOURCES_NAV = true
+
+    // ---- Round 36 (2026-11-08) ----
+    /** Loading screen: the logo stays alone in official's centred column (never moves); episode line, rating and synopsis (left) and the filename (right) sit in a small-type band along the bottom that slides up as it fades in. No buffering text or bar; official's logo pulse / fill stays. Off = round 33 layout under the logo. */
+    const val LOADING_BAND = true
+    /** Choose a profile: a time-of-day greeting above "Choose a profile", a soft glow in the focused profile's colour, "Signed in" under the profile in use, and the clock top-right. Spacing unchanged. Off = round 34 heading. */
+    const val PROFILE_GREETING = true
 }

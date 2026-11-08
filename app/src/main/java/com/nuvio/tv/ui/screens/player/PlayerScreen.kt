@@ -1374,12 +1374,13 @@ fun PlayerScreen(
             backdropUrl = uiState.backdrop,
             logoUrl = uiState.logo,
             title = uiState.title,
-            message = uiState.loadingMessage.takeIf { uiState.showPlayerLoadingStatus || uiState.isTorrentStream },
+            message = uiState.loadingMessage.takeIf { (uiState.showPlayerLoadingStatus || uiState.isTorrentStream) && !com.nuvio.tv.NuvioCFeatures.LOADING_BAND }, // [fork] round 36: no buffering text with the band
             progress = uiState.loadingProgress,
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(2f),
-            nuvioCBelowLogo = if (com.nuvio.tv.NuvioCFeatures.LOADING_SYNOPSIS) ({ NuvioCLoadingInfo(viewModel, uiState) }) else null // [fork] round 31
+            nuvioCBelowLogo = if (com.nuvio.tv.NuvioCFeatures.LOADING_SYNOPSIS && !com.nuvio.tv.NuvioCFeatures.LOADING_BAND) ({ NuvioCLoadingInfo(viewModel, uiState) }) else null, // [fork] round 31
+            nuvioCBand = if (com.nuvio.tv.NuvioCFeatures.LOADING_SYNOPSIS && com.nuvio.tv.NuvioCFeatures.LOADING_BAND) ({ NuvioCLoadingInfo(viewModel, uiState) }) else null // [fork] round 36 loading_band
         )
         NuvioCLoadingLane( // [fork] add-on / provider + filename at the bottom of the loading screen
             visible = uiState.showLoadingOverlay && uiState.error == null && !postPlayRecommendationState.isVisible,

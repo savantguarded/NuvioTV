@@ -47,6 +47,14 @@ fun NuvioCBrowseClock(route: String?) {
             enter = fadeIn(tween(200)),
             exit = fadeOut(tween(150))
         ) {
+            NuvioCClockPill()
+        }
+    }
+}
+
+/** The clock pill itself (also used on the profile screen, round 36 `profile_greeting`). */
+@Composable
+fun NuvioCClockPill(modifier: Modifier = Modifier) {
             val context = LocalContext.current
             val now by produceState(System.currentTimeMillis()) {
                 while (true) {
@@ -65,7 +73,7 @@ fun NuvioCBrowseClock(route: String?) {
                 ),
                 color = Color.White.copy(alpha = 0.95f),
                 maxLines = 1,
-                modifier = Modifier
+                modifier = modifier
                     .padding(top = 20.dp, end = 28.dp)
                     .background(
                         Color.Black.copy(alpha = 0.45f),
@@ -74,6 +82,4 @@ fun NuvioCBrowseClock(route: String?) {
                     )
                     .padding(horizontal = 14.dp, vertical = 6.dp)
             )
-        }
-    }
 }

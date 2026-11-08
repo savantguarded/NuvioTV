@@ -148,6 +148,11 @@
     <string name="nuvio_c_shuffle_mood_family">Family night</string>
     <string name="nuvio_c_shuffle_mood_music">Music</string>
     <string name="nuvio_c_profile_choose">Choose a profile</string>
+    <string name="nuvio_c_profile_signed_in">Signed in</string>
+    <string name="nuvio_c_greeting_morning">Good morning</string>
+    <string name="nuvio_c_greeting_afternoon">Good afternoon</string>
+    <string name="nuvio_c_greeting_evening">Good evening</string>
+    <string name="nuvio_c_greeting_late">Up late?</string>
     <string name="nuvio_c_night_auto">Automatic night mode</string>
     <string name="nuvio_c_night_auto_sub">Turns night mode on for titles started inside this window</string>
     <string name="nuvio_c_night_from">From</string>

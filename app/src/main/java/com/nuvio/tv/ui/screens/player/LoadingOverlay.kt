@@ -61,7 +61,8 @@ fun LoadingOverlay(
     message: String? = null,
     progress: Float? = null,
     modifier: Modifier = Modifier,
-    nuvioCBelowLogo: (@Composable () -> Unit)? = null // [fork] round 31 loading_synopsis: ratings + synopsis under the logo
+    nuvioCBelowLogo: (@Composable () -> Unit)? = null, // [fork] round 31 loading_synopsis: ratings + synopsis under the logo
+    nuvioCBand: (@Composable () -> Unit)? = null // [fork] round 36 loading_band: full-screen layer for the bottom band
 ) {
     var logoLoadFailed by remember(logoUrl) { mutableStateOf(false) }
     val showLogo = !logoUrl.isNullOrBlank() && !logoLoadFailed
@@ -245,7 +246,7 @@ fun LoadingOverlay(
 
                 // The horizontal progress bar is suppressed when the show logo
                 // is acting as the fill indicator. The text message stays visible.
-                val showHorizontalBar = progress != null && !showLogo
+                val showHorizontalBar = progress != null && !showLogo && nuvioCBand == null // [fork] round 36: no bar with the band
                 if (nuvioCBelowLogo == null && (!message.isNullOrBlank() || showHorizontalBar)) { // [fork] loading_synopsis: message moves into the column
                     val messageOffset = if (showLogo || !title.isNullOrBlank()) 120.dp else 86.dp
                     Column(
@@ -309,6 +310,7 @@ fun LoadingOverlay(
                     }
                 }
             }
+            nuvioCBand?.invoke() // [fork] round 36 loading_band: bottom band over everything, logo column untouched
         }
     }
 }

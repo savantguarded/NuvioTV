@@ -375,6 +375,9 @@ fun ProfileSelectionScreen(
         )
         } // [fork]
         } // [fork]
+        if (com.nuvio.tv.NuvioCFeatures.PROFILE_GREETING && com.nuvio.tv.NuvioCFeatures.BROWSE_CLOCK && !isManagementMode) { // [fork] round 36: clock top-right, as on Home
+            Box(Modifier.fillMaxSize().zIndex(1f), contentAlignment = Alignment.TopEnd) { com.nuvio.tv.ui.components.NuvioCClockPill() }
+        }
 
         CompositionLocalProvider(LocalNuvioCProfileIntro provides nuvioCIntro) { // [fork] profile_intro
 
@@ -1247,11 +1250,13 @@ private fun ProfileCard(
                 vertical = if (nuvioCSide) 0.dp else ProfileSelectionSpacing.CardPaddingVertical // [fork]
             )
     ) {
+        val nuvioCGlow = com.nuvio.tv.NuvioCFeatures.PROFILE_GREETING && LocalNuvioCProfileClean.current && nuvioCSide // [fork] round 36
+        val nuvioCGlowColor = remember(profile.avatarColorHex) { parseProfileColor(profile.avatarColorHex) }
         Box(
             modifier = Modifier.size(
                 (if (compact) ProfileSelectionSpacing.CompactAvatarContainer
                 else ProfileSelectionSpacing.AvatarContainer).nuvioCAvatar() // [fork] profile_avatar_small
-            ),
+            ).then(if (nuvioCGlow) Modifier.nuvioCProfileGlow(nuvioCGlowColor, outerAvatarSize) { focusProgress } else Modifier), // [fork] round 36: glow in the profile's colour
             contentAlignment = Alignment.Center
         ) {
             Box(
@@ -1317,6 +1322,27 @@ private fun ProfileCard(
             ).then(if (nuvioCSide) Modifier.width(NUVIO_C_SIDE_NAME_GAP) else Modifier) // [fork]
         )
 
+        if (nuvioCGlow && nuvioCInUse) {
+            // [fork] round 36 profile_greeting: "Signed in" under the name of the profile in use
+            androidx.compose.foundation.layout.Column {
+                Text(
+                    text = profile.name,
+                    style = MaterialTheme.typography.labelLarge.copy(textDirection = profile.name.contentTextDirection()),
+                    color = nameColor,
+                    fontSize = if (compact) 15.sp else 17.sp,
+                    fontWeight = nameWeight,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = stringResource(R.string.nuvio_c_profile_signed_in),
+                    color = NuvioTheme.colors.TextTertiary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1
+                )
+            }
+        } else
         Text(
             text = profile.name,
             style = MaterialTheme.typography.labelLarge.copy(
@@ -1424,11 +1450,13 @@ private fun AddProfileCard(
                 vertical = if (nuvioCSide) 0.dp else ProfileSelectionSpacing.CardPaddingVertical // [fork]
             )
     ) {
+        val nuvioCGlow = com.nuvio.tv.NuvioCFeatures.PROFILE_GREETING && LocalNuvioCProfileClean.current && nuvioCSide // [fork] round 36
+        val nuvioCGlowColor = remember(profile.avatarColorHex) { parseProfileColor(profile.avatarColorHex) }
         Box(
             modifier = Modifier.size(
                 (if (compact) ProfileSelectionSpacing.CompactAvatarContainer
                 else ProfileSelectionSpacing.AvatarContainer).nuvioCAvatar() // [fork] profile_avatar_small
-            ),
+            ).then(if (nuvioCGlow) Modifier.nuvioCProfileGlow(nuvioCGlowColor, outerAvatarSize) { focusProgress } else Modifier), // [fork] round 36: glow in the profile's colour
             contentAlignment = Alignment.Center
         ) {
             Box(
