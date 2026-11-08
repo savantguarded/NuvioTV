@@ -71,7 +71,9 @@ data class CalendarState(
     val remaining: Int = 0,
     val seenReminders: Set<String> = emptySet(),
     /** Watched episodes as last read by a refresh; null until one has run for this profile. */
-    val watched: CalendarWatchedIndex? = null
+    val watched: CalendarWatchedIndex? = null,
+    /** [fork] round 34 calendar_cold_refresh: a refresh has finished since the app started (or 8 s of one passed). */
+    val nuvioCFresh: Boolean = true
 )
 
 /** Whether the app is on screen; the activity sets it. */
@@ -662,10 +664,22 @@ class CalendarRefresher internal constructor(
         return if (hidden.isEmpty()) this else filterNot { title -> hidden.any(title::matchesKey) }
     }
 
+    // [fork] round 34 calendar_cold_refresh
+    @Volatile private var nuvioCFreshSinceStart = !com.nuvio.tv.NuvioCFeatures.CALENDAR_COLD_REFRESH
+    private var nuvioCFreshTimer: Job? = null
+
     private fun publishLocked(
         refreshing: Boolean = _state.value.refreshing,
         remaining: Int = _state.value.remaining
     ) {
+        if (_state.value.refreshing && !refreshing) nuvioCFreshSinceStart = true
+        if (refreshing && !nuvioCFreshSinceStart && nuvioCFreshTimer == null) {
+            // the Calendar holds its "building" state for at most 8 s while the first refresh runs
+            nuvioCFreshTimer = scope.launch {
+                delay(8_000)
+                dataMutex.withLock { nuvioCFreshSinceStart = true; publishLocked() }
+            }
+        }
         val profileId = owner?.profileId
         val settings = inputs.settings.value?.takeIf { profileId != null && it.profileId == profileId }
         _state.value = CalendarState(
@@ -675,7 +689,8 @@ class CalendarRefresher internal constructor(
             refreshing = refreshing,
             remaining = remaining,
             seenReminders = data.seenReminders.keys,
-            watched = watched
+            watched = watched,
+            nuvioCFresh = nuvioCFreshSinceStart
         )
     }
 

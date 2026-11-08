@@ -70,6 +70,8 @@ private data class CalendarInputs(
 
 internal fun calendarPhase(state: CalendarState, settingsLoaded: Boolean, list: CalendarListModel): CalendarPhase = when {
     !state.loaded || !settingsLoaded -> CalendarPhase.LOADING
+    // [fork] round 34 calendar_cold_refresh: no cached (possibly stale) list while the first refresh since start runs
+    com.nuvio.tv.NuvioCFeatures.CALENDAR_COLD_REFRESH && !state.nuvioCFresh && state.refreshing -> CalendarPhase.BUILDING
     !list.isEmpty -> CalendarPhase.READY
     state.refreshing || state.watched == null -> CalendarPhase.BUILDING
     state.titles.isEmpty() -> CalendarPhase.NOTHING_FOLLOWED

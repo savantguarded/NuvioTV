@@ -246,7 +246,8 @@ class CalendarReminderCenter internal constructor(
             while (true) {
                 appVisible.first { it }
                 data.playbackActive.first { !it }
-                delay(CALENDAR_SETTLE_DELAY.toMillis())
+                // [fork] round 34 calendar_cold_refresh: the first refresh after a cold start comes sooner (6 s, was 20 s)
+                delay(if (com.nuvio.tv.NuvioCFeatures.CALENDAR_COLD_REFRESH && lastSettledAtMs == null) 6_000L else CALENDAR_SETTLE_DELAY.toMillis())
                 if (!data.playbackActive.value && appVisible.value) break
             }
             lastSettledAtMs = elapsedMs()

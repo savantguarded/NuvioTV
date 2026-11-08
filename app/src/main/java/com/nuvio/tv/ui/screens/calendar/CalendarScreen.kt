@@ -975,6 +975,27 @@ private fun CalendarSidePanel(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+                val nuvioCPanelTitle = calendarRowLine(row).ifEmpty { row.name ?: stringResource(R.string.calendar_unknown_title) }
+                val meta = listOfNotNull(
+                    calendarLabelText(row.label),
+                    row.network,
+                    details?.let { calendarRuntimeText(it) },
+                    calendarRatingGenre((row.rating ?: details?.rating).takeIf { !com.nuvio.tv.NuvioCFeatures.CALENDAR_WEEK_NO_RATING }, row.genre ?: details?.genre) // [fork] calendar_week_no_rating: List view too
+                )
+                if (com.nuvio.tv.NuvioCFeatures.CALENDAR_PANEL_MARQUEE) {
+                    // [fork] round 34 calendar_panel_marquee: the episode title, then the meta line, scroll in turns when cut
+                    com.nuvio.tv.ui.components.NuvioCTurnMarquee(
+                        first = com.nuvio.tv.ui.components.NuvioCMarqueeSpec(
+                            nuvioCPanelTitle,
+                            MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                            NuvioTheme.colors.TextPrimary
+                        ),
+                        second = meta.takeIf { it.isNotEmpty() }?.let {
+                            com.nuvio.tv.ui.components.NuvioCMarqueeSpec(it.joinToString(" · "), MaterialTheme.typography.bodySmall, NuvioTheme.colors.TextSecondary)
+                        },
+                        focused = true
+                    )
+                } else {
                 Text(
                     text = calendarRowLine(row).ifEmpty { row.name ?: stringResource(R.string.calendar_unknown_title) },
                     style = MaterialTheme.typography.titleLarge,
@@ -982,12 +1003,6 @@ private fun CalendarSidePanel(
                     color = NuvioTheme.colors.TextPrimary,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
-                )
-                val meta = listOfNotNull(
-                    calendarLabelText(row.label),
-                    row.network,
-                    details?.let { calendarRuntimeText(it) },
-                    calendarRatingGenre((row.rating ?: details?.rating).takeIf { !com.nuvio.tv.NuvioCFeatures.CALENDAR_WEEK_NO_RATING }, row.genre ?: details?.genre) // [fork] calendar_week_no_rating: List view too
                 )
                 if (meta.isNotEmpty()) {
                     Text(
@@ -997,6 +1012,7 @@ private fun CalendarSidePanel(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                }
                 }
                 details?.synopsis?.let {
                     Text(
@@ -1121,6 +1137,15 @@ private fun CalendarNextRow(
         )
         Spacer(Modifier.width(NuvioTheme.spacing.sm))
         Column(Modifier.weight(1f)) {
+            val line = listOfNotNull(calendarWhenLine(row, formats, today), calendarLabelText(row.label)).joinToString(" · ")
+            if (com.nuvio.tv.NuvioCFeatures.CALENDAR_PANEL_MARQUEE) { // [fork] round 34: title then date line scroll on focus
+                com.nuvio.tv.ui.components.NuvioCTurnMarquee(
+                    first = com.nuvio.tv.ui.components.NuvioCMarqueeSpec(calendarRowLine(row), MaterialTheme.typography.bodyMedium, NuvioTheme.colors.TextPrimary),
+                    second = line.takeIf { it.isNotEmpty() }?.let { com.nuvio.tv.ui.components.NuvioCMarqueeSpec(it, MaterialTheme.typography.bodySmall, NuvioTheme.colors.TextSecondary) },
+                    focused = focused
+                )
+                return@Column
+            }
             Text(
                 text = calendarRowLine(row),
                 style = MaterialTheme.typography.bodyMedium,
@@ -1128,7 +1153,6 @@ private fun CalendarNextRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            val line = listOfNotNull(calendarWhenLine(row, formats, today), calendarLabelText(row.label)).joinToString(" · ")
             if (line.isNotEmpty()) {
                 Text(
                     text = line,

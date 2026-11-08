@@ -437,7 +437,9 @@ internal fun NuvioCProfileCardLayout(side: Boolean, modifier: Modifier, content:
 
 @Composable
 internal fun NuvioCProfileLeftColumn(itemCount: Int, content: @Composable () -> Unit) {
-    Box(modifier = Modifier.fillMaxHeight(), contentAlignment = Alignment.CenterStart) {
+    // [fork] round 34 profile_block_centred: the list no longer fills (and centres itself in) the height left under
+    // the heading; heading and list are centred together by the screen's column, with the list still scrolling.
+    Box(modifier = if (NuvioCFeatures.PROFILE_BLOCK_CENTRED) Modifier else Modifier.fillMaxHeight(), contentAlignment = Alignment.CenterStart) {
         Column(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())
@@ -487,7 +489,12 @@ internal fun nuvioCProfileBadgeOffset(ringSize: androidx.compose.ui.unit.Dp): an
 @Composable
 internal fun NuvioCProfileHeading(subtitle: String) {
     androidx.compose.foundation.layout.Column(
-        modifier = Modifier.padding(start = 12.dp, bottom = if (NuvioCFeatures.PROFILE_HEADING_TIGHT) 10.dp else 22.dp, top = if (NuvioCFeatures.PROFILE_HEADING_DROP) 40.dp else 0.dp) // [fork] round 32, round 33 profile_heading_tight
+        modifier = Modifier.padding(
+            start = 12.dp,
+            // round 34 profile_block_centred: 2 dp + the list's 12 dp zoom room = 14 dp to the first ring
+            bottom = if (NuvioCFeatures.PROFILE_BLOCK_CENTRED) 2.dp else if (NuvioCFeatures.PROFILE_HEADING_TIGHT) 10.dp else 22.dp,
+            top = if (NuvioCFeatures.PROFILE_HEADING_DROP && !NuvioCFeatures.PROFILE_BLOCK_CENTRED) 40.dp else 0.dp
+        ) // [fork] round 32, round 33 profile_heading_tight
     ) {
         androidx.tv.material3.Text(
             text = androidx.compose.ui.res.stringResource(com.nuvio.tv.R.string.nuvio_c_profile_choose),

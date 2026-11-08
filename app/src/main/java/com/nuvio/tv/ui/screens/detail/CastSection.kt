@@ -571,6 +571,18 @@ private fun CastMemberItem(
                     else -> character
                 }
                 Spacer(modifier = Modifier.height(NuvioTheme.spacing.xs))
+                if (com.nuvio.tv.NuvioCFeatures.CAST_ROW_MARQUEE) {
+                    // [fork] round 34 cast_row_marquee: a cut-off character name scrolls while the card is focused
+                    com.nuvio.tv.ui.components.NuvioCTurnMarquee(
+                        first = com.nuvio.tv.ui.components.NuvioCMarqueeSpec(
+                            displayCharacter,
+                            characterStyle.copy(textDirection = displayCharacter.contentTextDirection()),
+                            NuvioTheme.colors.TextTertiary
+                        ),
+                        second = null,
+                        focused = isFocused
+                    )
+                } else
                 Text(
                     text = displayCharacter,
                     style = characterStyle.copy(

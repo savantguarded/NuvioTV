@@ -210,6 +210,7 @@ private fun CalendarCornerCard(message: CalendarCornerMessage) {
                     overflow = TextOverflow.Ellipsis
                 )
             }
+            if (!com.nuvio.tv.NuvioCFeatures.CALENDAR_CORNER_PLAIN) // [fork] round 34: the remote never sends Menu
             Text(
                 text = stringResource(R.string.calendar_corner_press_menu),
                 style = MaterialTheme.typography.bodySmall,

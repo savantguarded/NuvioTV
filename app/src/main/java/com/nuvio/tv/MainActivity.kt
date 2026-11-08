@@ -1529,6 +1529,7 @@ open class MainActivity : ComponentActivity() {
         if (ambientIdleController.consumeKeyEvent(event)) return true
         // [fork] calendar_bells: Menu while the corner message shows opens the reminder card.
         if (com.nuvio.tv.NuvioCFeatures.LIBRARY_CALENDAR && com.nuvio.tv.NuvioCFeatures.CALENDAR_BELLS &&
+            !com.nuvio.tv.NuvioCFeatures.CALENDAR_CORNER_PLAIN && // [fork] round 34: listener gone with the hint
             event.keyCode == KeyEvent.KEYCODE_MENU
         ) {
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 && calendarReminders.get().onMenuKey()) {
