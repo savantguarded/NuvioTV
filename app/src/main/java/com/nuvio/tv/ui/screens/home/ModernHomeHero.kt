@@ -361,7 +361,9 @@ internal fun HeroTitleBlock(
                 mdbListShowOnHero = mdbListShowOnHero,
                 mdbListRatingOrder = mdbListRatingOrder,
                 trailerPlaying = trailerPlaying,
-                nuvioCTextWidths = nuvioCTextWidths
+                nuvioCTextWidths = nuvioCTextWidths,
+                // [fork] round 36: the Featured layout's Home hero never got official's toggle, so it always ellipsized
+                descriptionAutoScrollEnabled = descriptionAutoScrollEnabled
             )
         }
         return
