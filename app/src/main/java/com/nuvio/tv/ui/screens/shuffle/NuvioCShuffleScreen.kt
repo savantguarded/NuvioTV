@@ -151,8 +151,10 @@ private fun ShuffleMood(
             Spacer(Modifier.weight(1f))
             // [fork] roulette_page: Unwatched and Blend sit top right
             ShuffleChip(label = stringResource(R.string.nuvio_c_shuffle_unwatched), selected = ui.unwatched, dot = ui.unwatched, onClick = onUnwatched)
+            if (!com.nuvio.tv.NuvioCFeatures.ROULETTE_RAW) { // [fork] round 34: no Blend with the raw TMDB shuffle
             Spacer(Modifier.width(8.dp))
             ShuffleChip(label = stringResource(R.string.nuvio_c_shuffle_blend), selected = false, onClick = onSources)
+            }
         }
         Text(
             text = if (ui.nothingLeft) stringResource(R.string.nuvio_c_shuffle_nothing_left) else stringResource(R.string.nuvio_c_shuffle_title_sub),

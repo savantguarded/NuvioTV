@@ -144,6 +144,9 @@ class NuvioCShufflePool @Inject constructor(
 ) {
     private val traktApi = traktRetrofit.create(NuvioCShuffleTraktApi::class.java)
     private val tmdbApi = tmdbRetrofit.create(NuvioCShuffleTmdbApi::class.java)
+    // [fork] round 34 roulette_raw: one big TMDB shuffle (see NuvioCRouletteRaw)
+    private val raw = NuvioCRouletteRaw(context, tmdbRetrofit.create(NuvioCRouletteTmdbApi::class.java), tmdbService) { TMDB_GENRES[it] }
+    private val rawOn get() = com.nuvio.tv.NuvioCFeatures.ROULETTE_RAW
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val buildMutex = Mutex()
@@ -160,7 +163,7 @@ class NuvioCShufflePool @Inject constructor(
     private fun file(profile: Int) = File(context.filesDir, "nuvio_c_shuffle_pool_p$profile.json")
 
     /** True when a usable pool is in memory (or on disk) for the current profile and settings. */
-    suspend fun hasPool(): Boolean = currentPool() != null
+    suspend fun hasPool(): Boolean = rawOn || currentPool() != null
 
     private suspend fun currentPool(): NuvioCShufflePoolFile? {
         val profile = profiles.activeProfileId.value
@@ -175,6 +178,7 @@ class NuvioCShufflePool @Inject constructor(
 
     /** Background warm-up (after start-up settles): builds the pool only when there's none or it's over 12 h old. */
     fun warmUp() {
+        if (rawOn) { scope.launch { raw.warmUp() }; return }
         scope.launch { ensure(rebuildIfOlderThanMs = MAX_AGE_MS) }
     }
 
@@ -198,11 +202,13 @@ class NuvioCShufflePool @Inject constructor(
         _refreshStatus.value = RefreshStatus.Busy
         scope.launch {
             val started = System.currentTimeMillis()
-            val job = buildMutex.withLock {
-                building?.takeIf { it.isActive } ?: scope.async { build() }.also { building = it }
+            val titles = if (rawOn) runCatching { raw.clearAndCount() }.getOrDefault(0) else {
+                val job = buildMutex.withLock {
+                    building?.takeIf { it.isActive } ?: scope.async { build() }.also { building = it }
+                }
+                val built = runCatching { job.await() }.getOrNull()
+                built?.items?.values?.sumOf { it.size } ?: 0
             }
-            val built = runCatching { job.await() }.getOrNull()
-            val titles = built?.items?.values?.sumOf { it.size } ?: 0
             // keep "Refreshing…" up for at least 700 ms, so a fast rebuild still reads as something happening
             val elapsed = System.currentTimeMillis() - started
             if (elapsed < 700) kotlinx.coroutines.delay(700 - elapsed)
@@ -554,6 +560,11 @@ class NuvioCShufflePool @Inject constructor(
 
     /** Posters for the mood tiles and the reel strip, from the pool (no requests). */
     suspend fun posters(kind: NuvioCShuffleKind, count: Int): List<String> {
+        if (rawOn) {
+            raw.posters(kind, count).takeIf { it.isNotEmpty() }?.let { return it }
+            runCatching { raw.candidate(kind, NuvioCShuffleMood.ANY) } // fills the poster memory with one page
+            return raw.posters(kind, count)
+        }
         val all = (currentPool() ?: return emptyList()).items
             .filterKeys { kind == NuvioCShuffleKind.ANIME || it != ANIME_KEY } // [fork] roulette_anime
             .values.flatten()
@@ -581,6 +592,7 @@ class NuvioCShufflePool @Inject constructor(
     }
 
     private suspend fun pick(filters: Filters): NuvioCShuffleOutcome {
+        if (rawOn) return pickRaw(filters)
         val pool = ensure() ?: return NuvioCShuffleOutcome.NothingLeft
         val config = prefs.config.value
         val recent = prefs.recent().toHashSet()
@@ -599,6 +611,30 @@ class NuvioCShufflePool @Inject constructor(
             } ?: return NuvioCShuffleOutcome.NothingLeft
             val checked = runCatching { check(item, watched) }.getOrNull()
             if (checked != null) return NuvioCShuffleOutcome.Picked(checked)
+            synchronized(rejected) { rejected += item.identity }
+        }
+        return NuvioCShuffleOutcome.NothingLeft
+    }
+
+    /** [fork] round 34 roulette_raw: a random TMDB title for these choices, checked like a pool pick. */
+    private suspend fun pickRaw(filters: Filters): NuvioCShuffleOutcome {
+        val recent = prefs.recent().toHashSet()
+        val watched = if (filters.unwatched) watchedIds() else emptySet()
+        var misses = 0
+        repeat(RAW_TRIES) {
+            val item = limited { raw.candidate(filters.kind, filters.mood) }
+            if (item == null) {
+                if (++misses >= 3) return NuvioCShuffleOutcome.NothingLeft
+                return@repeat
+            }
+            val skip = synchronized(rejected) { item.identity in rejected } || item.identity in recent || raw.seenRecently(item.identity)
+            if (skip || item.ids().any { it in watched }) return@repeat
+            val checked = runCatching { check(item, watched) }.getOrNull()
+            if (checked != null) {
+                raw.markSeen(item.identity) // the raw (TMDB) identity is what the next roll checks
+                if (checked.item.identity != item.identity) raw.markSeen(checked.item.identity)
+                return NuvioCShuffleOutcome.Picked(checked)
+            }
             synchronized(rejected) { rejected += item.identity }
         }
         return NuvioCShuffleOutcome.NothingLeft
@@ -677,6 +713,7 @@ class NuvioCShufflePool @Inject constructor(
         const val FROM_ANIME = "Anime" // [fork] round 31 roulette_anime
         private const val MAX_CATALOGS = 24
         private const val MAX_TRIES = 8
+        private const val RAW_TRIES = 12 // [fork] round 34
         private const val OUT_AFTER_DAYS = 270L
         const val FROM_FOR_YOU = "For you"
         const val FROM_TRAKT = "Trakt"
