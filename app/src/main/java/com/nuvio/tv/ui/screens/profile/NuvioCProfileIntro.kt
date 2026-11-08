@@ -69,4 +69,7 @@ internal fun Modifier.nuvioCProfileIntroItem(intro: State<Float>?, index: Int): 
         val p = progress(intro.value, ITEM_START_MS + ITEM_STEP_MS * index, ITEM_MS)
         alpha = p
         translationY = -DROP.toPx() * (1f - p)
+        // [fork] round 36c: alpha applied per draw, no offscreen layer. The default layer was clipped to the item
+        // while fading, which cut the focused profile's glow off until the drop-in ended (and cost a buffer each).
+        if (com.nuvio.tv.NuvioCFeatures.PROFILE_GREETING) compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
     }

@@ -546,13 +546,13 @@ internal fun nuvioCGreetingRes(hour: Int = java.util.Calendar.getInstance().get(
 
 /**
  * [fork] round 36 profile_greeting: a soft glow in the profile's own colour around the focused ring. Drawn behind,
- * at most 12 dp past the ring so it stays inside the list's 12 dp zoom room (nothing clips, no layout change).
+ * at most 10 dp past the ring so it stays inside the list's 12 dp zoom room (nothing clips, no layout change).
  */
 internal fun Modifier.nuvioCProfileGlow(color: Color, ring: androidx.compose.ui.unit.Dp, progress: () -> Float): Modifier = drawBehind {
     val p = progress()
     if (p <= 0.01f) return@drawBehind
     val ringR = ring.toPx() / 2f
-    val outer = ringR + 12.dp.toPx()
+    val outer = ringR + 10.dp.toPx() // round 36c: 10 dp so the 1.04 focus zoom still stays inside the list's 12 dp room
     drawCircle(
         brush = Brush.radialGradient(
             0f to color.copy(alpha = 0f),
