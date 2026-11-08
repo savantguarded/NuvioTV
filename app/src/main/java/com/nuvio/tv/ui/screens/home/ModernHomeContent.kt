@@ -1165,16 +1165,20 @@ fun ModernHomeContent(
             // [fork] home synopsis fit: official width, then ours, then ours + 80 dp, only as wide as the text needs
             val nuvioCScreenWidth = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
             val nuvioCTextWidths = if (com.nuvio.tv.NuvioCFeatures.HOME_SYNOPSIS_FIT && com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) remember(nuvioCScreenWidth, rowHorizontalPadding, nuvioCHeroTextWidth) {
-                com.nuvio.tv.ui.components.NuvioCSynopsisFit.widths(nuvioCScreenWidth - rowHorizontalPadding - NuvioTheme.spacing.xxxl, nuvioCHeroTextWidth)
+                // [fork] round 35 home_desc_narrow: the text steps are 20% narrower; the block keeps the full width below
+                com.nuvio.tv.ui.components.NuvioCSynopsisFit.homeWidths(nuvioCScreenWidth - rowHorizontalPadding - NuvioTheme.spacing.xxxl, nuvioCHeroTextWidth)
             } else null
-            val heroMetadataModifier = remember(rowHorizontalPadding, rowsViewportHeight, nuvioCHeroTextWidth, nuvioCTextWidths) {
+            val nuvioCBlockMax = if (nuvioCTextWidths != null) remember(nuvioCScreenWidth, rowHorizontalPadding, nuvioCHeroTextWidth) {
+                com.nuvio.tv.ui.components.NuvioCSynopsisFit.widths(nuvioCScreenWidth - rowHorizontalPadding - NuvioTheme.spacing.xxxl, nuvioCHeroTextWidth).last()
+            } else null
+            val heroMetadataModifier = remember(rowHorizontalPadding, rowsViewportHeight, nuvioCHeroTextWidth, nuvioCTextWidths, nuvioCBlockMax) {
                 Modifier
                     .align(Alignment.BottomStart)
                     .padding(start = rowHorizontalPadding, end = NuvioTheme.spacing.xxxl, bottom = NuvioTheme.spacing.none + rowsViewportHeight + NuvioTheme.spacing.lg)
                     .then(
                         if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) Modifier // [fork] hero spec: room above for the logo, never past the top clearance
                             .padding(top = com.nuvio.tv.ui.components.NUVIO_C_HOME_HERO_TOP)
-                            .widthIn(max = nuvioCTextWidths?.last() ?: nuvioCHeroTextWidth)
+                            .widthIn(max = nuvioCBlockMax ?: nuvioCHeroTextWidth)
                             .fillMaxWidth()
                         else Modifier.fillMaxWidth(MODERN_HERO_TEXT_WIDTH_FRACTION)
                     )

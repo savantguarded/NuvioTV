@@ -35,6 +35,20 @@ object NuvioCSynopsisFit {
     val MIN_LOGO_HEIGHT: Dp = 48.dp
     const val MAX_LINES = 5 // round 7 (Charles 2026-10-13): was 6
 
+    // [fork] round 35 `home_desc_narrow` (Charles 2026-11-08): Home hero text about 20% narrower and never more
+    // than 4 lines. With official's auto-scroll on, longer text scrolls (no ellipsis); off, it ends in an ellipsis.
+    const val HOME_NARROW_FACTOR = 0.8f
+    const val HOME_MAX_LINES = 4
+
+    /** Line cap for the Home hero: 4 with `home_desc_narrow`, else 5. */
+    fun homeLineCap(): Int = if (NuvioCFeatures.HOME_DESC_NARROW) HOME_MAX_LINES else MAX_LINES
+
+    /** [widths] scaled down for the Home hero text (the block around it keeps the unscaled width for the logo). */
+    fun homeWidths(available: Dp, ours: Dp): List<Dp> {
+        val base = widths(available, ours)
+        return if (NuvioCFeatures.HOME_DESC_NARROW) base.map { it * HOME_NARROW_FACTOR } else base
+    }
+
     /** Widths to try, narrowest first, never past [available]. */
     fun widths(available: Dp, ours: Dp): List<Dp> {
         val official = available * OFFICIAL_FRACTION
@@ -45,9 +59,9 @@ object NuvioCSynopsisFit {
     }
 
     /** Lines the text may use: 6, or fewer when only that many fit in [maxHeightPx] (unit-tested). */
-    fun linesFor(maxHeightPx: Int, lineHeightPx: Float, hasBoundedHeight: Boolean): Int {
-        if (!hasBoundedHeight || lineHeightPx <= 0f) return MAX_LINES
-        return (maxHeightPx / lineHeightPx + 0.01f).toInt().coerceIn(1, MAX_LINES)
+    fun linesFor(maxHeightPx: Int, lineHeightPx: Float, hasBoundedHeight: Boolean, cap: Int = MAX_LINES): Int {
+        if (!hasBoundedHeight || lineHeightPx <= 0f) return cap
+        return (maxHeightPx / lineHeightPx + 0.01f).toInt().coerceIn(1, cap)
     }
 
     /** Text that fits in this many lines at the narrowest width stays narrow (round 7). */
@@ -110,7 +124,7 @@ fun NuvioCFitSynopsis(
         }
     ) { _, constraints ->
         val lineHeightPx = if (style.lineHeight.isSp) style.lineHeight.toPx() else style.fontSize.toPx() * 1.4f
-        val lines = NuvioCSynopsisFit.linesFor(constraints.maxHeight, lineHeightPx, constraints.hasBoundedHeight)
+        val lines = NuvioCSynopsisFit.linesFor(constraints.maxHeight, lineHeightPx, constraints.hasBoundedHeight, NuvioCSynopsisFit.homeLineCap())
         val maxW = if (constraints.hasBoundedWidth) constraints.maxWidth else Int.MAX_VALUE
         // Round 7: measure every step (cached TextMeasurer, at most 3 widths) and take the one with
         // the fewest lines (NuvioCSynopsisFit.pickIndex), so the logo above keeps its height.
@@ -148,7 +162,7 @@ fun NuvioCFitSynopsisScrolling(
     androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
         val density = LocalDensity.current
         val lineHeightPx = with(density) { if (style.lineHeight.isSp) style.lineHeight.toPx() else style.fontSize.toPx() * 1.4f }
-        val lines = NuvioCSynopsisFit.linesFor(constraints.maxHeight, lineHeightPx, constraints.hasBoundedHeight)
+        val lines = NuvioCSynopsisFit.linesFor(constraints.maxHeight, lineHeightPx, constraints.hasBoundedHeight, NuvioCSynopsisFit.homeLineCap())
         val maxW = if (constraints.hasBoundedWidth) constraints.maxWidth else Int.MAX_VALUE
         val pick = remember(text, style, widths, lines, maxW) {
             val measured = widths.map { w ->

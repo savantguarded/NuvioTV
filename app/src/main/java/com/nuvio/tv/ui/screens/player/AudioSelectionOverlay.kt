@@ -215,9 +215,10 @@ internal fun AudioSelectionOverlay(
                         onTrackSelected = onTrackSelected
                     )
                 }
+                // [fork] round 35: the fork's round 32 outer scroll is gone. Official (beta.13) now scrolls the
+                // controls itself, and two nested vertical scrolls crash on first measure (infinite height).
                 Column(
                     modifier = Modifier.width(268.dp)
-                        .then(if (com.nuvio.tv.NuvioCFeatures.NIGHT_MODE_V2) Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState()) else Modifier) // [fork] round 32: the column scrolls to what's focused
                 ) {
                     AudioControlsContent(
                         audioDelayMs = audioDelayMs,

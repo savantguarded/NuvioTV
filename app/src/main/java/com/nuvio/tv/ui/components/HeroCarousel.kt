@@ -454,7 +454,9 @@ private fun HeroCarouselSlide(
                     color = NuvioTheme.colors.TextPrimary,
                     maxLines = 4,
                     autoScrollEnabled = descriptionAutoScrollEnabled,
-                    onScrollHoldChanged = onDescriptionScrollHoldChanged
+                    onScrollHoldChanged = onDescriptionScrollHoldChanged,
+                    // [fork] round 35 home_desc_narrow: the description 20% narrower than the hero text column
+                    modifier = if (com.nuvio.tv.NuvioCFeatures.HOME_DESC_NARROW) Modifier.fillMaxWidth(NuvioCSynopsisFit.HOME_NARROW_FACTOR) else Modifier
                 )
             }
         }

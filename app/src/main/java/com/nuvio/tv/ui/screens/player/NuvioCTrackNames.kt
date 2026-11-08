@@ -22,6 +22,7 @@ internal object NuvioCTrackNames {
     fun subtitleTitle(name: String, language: String?, forced: Boolean): String? {
         if (!NuvioCFeatures.TRACK_NAMES) return null
         val lang = languageName(language) ?: return null
+        if (NuvioCFeatures.TRACK_LABEL_LANGUAGE) return lang // [fork] round 35: the language alone; tags go on the line under
         val tags = tags(name).toMutableList()
         if (forced && "Forced" !in tags) tags += "Forced"
         return (listOf(lang) + tags).joinToString(" · ")
@@ -40,6 +41,18 @@ internal object NuvioCTrackNames {
         val n = name.trim()
         if (n.isEmpty() || n.equals(title, ignoreCase = true) || n.equals(title.substringBefore(" ·"), ignoreCase = true)) return null
         return n
+    }
+
+    /**
+     * [fork] round 35 track_label_language: the line under a subtitle titled just "English": the file's own name when
+     * it says more than the language, else the tags it carries (SDH / Forced / CC / Signs), else nothing.
+     */
+    fun subtitleDescription(name: String, title: String?, forced: Boolean): String? {
+        if (title == null) return null
+        original(name, title)?.let { return it }
+        val tags = tags(name).toMutableList()
+        if (forced && "Forced" !in tags) tags += "Forced"
+        return tags.joinToString(" · ").ifBlank { null }
     }
 
     private fun tags(name: String): List<String> = tagRules.filter { (re, _) -> re.containsMatchIn(name) }.map { it.second }.distinct()

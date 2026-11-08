@@ -386,6 +386,8 @@ internal fun StreamSourcesSidePanel(
                     }
 
                     val lastKeyRepeatDispatchRef = remember { java.util.concurrent.atomic.AtomicLong(0L) }
+                    val nuvioCNav = remember { com.nuvio.tv.ui.util.NuvioCListNav() } // [fork] round 35 sources_nav
+                    LaunchedEffect(streamKeys) { nuvioCNav.reset() }
 
                     val lastVisibleIndex = remember(streamListState) {
                         androidx.compose.runtime.derivedStateOf {
@@ -424,11 +426,23 @@ internal fun StreamSourcesSidePanel(
                                     userMovedFromFirstResult = true
                                 }
 
+                                // [fork] round 35 sources_nav: Up / Down step card by card, scrolling the next one in first
+                                if (com.nuvio.tv.NuvioCFeatures.SOURCES_NAV && (event.key == Key.DirectionUp || event.key == Key.DirectionDown)) {
+                                    val at = focusedStreamKey?.let { streamKeys.indexOf(it) } ?: -1
+                                    if (at >= 0 && nuvioCNav.step(
+                                            scope = scope,
+                                            state = streamListState,
+                                            focused = at,
+                                            dir = if (event.key == Key.DirectionUp) -1 else 1,
+                                            count = streamKeys.size
+                                        ) { i -> if (i == 0) streamsFocusRequester else streamKeys.getOrNull(i)?.let { streamFocusRequesters[it] } }
+                                    ) return@onKeyEvent true
+                                }
                                 // [fork] round 34 sources_top_jump: Up on the second result goes straight to the first
                                 // (held Up used to stop there while the first card sat outside the laid-out area).
-                                if (com.nuvio.tv.NuvioCFeatures.SOURCES_TOP_JUMP && event.key == Key.DirectionUp) {
+                                if (!com.nuvio.tv.NuvioCFeatures.SOURCES_NAV && com.nuvio.tv.NuvioCFeatures.SOURCES_TOP_JUMP && event.key == Key.DirectionUp) {
                                     val at = focusedStreamKey?.let { streamKeys.indexOf(it) } ?: -1
-                                    val firstRequester = streamKeys.firstOrNull()?.let { streamFocusRequesters[it] }
+                                    val firstRequester = streamsFocusRequester // [fork] round 35: the first card uses this one
                                     if (at == 1 && firstRequester != null) {
                                         scope.coroutineLaunch {
                                             streamListState.scrollToItem(0)

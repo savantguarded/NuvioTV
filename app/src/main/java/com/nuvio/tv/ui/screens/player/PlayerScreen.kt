@@ -1464,13 +1464,14 @@ fun PlayerScreen(
 
         if (com.nuvio.tv.NuvioCFeatures.STATS_PANEL_RIGHT && uiState.playerStatsHudEnabled && uiState.playerStatsHudButtonAvailable && uiState.error == null &&
             !(com.nuvio.tv.NuvioCFeatures.STATS_PANEL_SAFE && uiState.showLoadingOverlay)) { // [fork] round 32: not over the loading screen
+            if (!(com.nuvio.tv.NuvioCFeatures.HUD_FIT && uiState.showPauseOverlay)) // [fork] round 35: hidden behind the pause screen
             NuvioCStatsPanel( // [fork] stats_panel_right: ysosrs123's layout, on the right
                 viewModel = viewModel,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(end = NuvioTheme.spacing.xl, top = 76.dp) // under the OSD clock
+                    .padding(end = NuvioTheme.spacing.xl, top = 76.dp, bottom = if (com.nuvio.tv.NuvioCFeatures.HUD_FIT) 20.dp else 0.dp) // under the OSD clock
                     .zIndex(2.75f)
-                    .nuvioCHdrDim(nuvioCHdr)
+                    .nuvioCHdrDim(nuvioCHdr, isolated = com.nuvio.tv.NuvioCFeatures.HUD_FIT) // [fork] round 35: dims only its own pixels
             )
         } else if (uiState.playerStatsHudEnabled && uiState.playerStatsHudButtonAvailable && uiState.error == null) {
             PlayerDebugStatsOverlay(
@@ -1814,7 +1815,7 @@ fun PlayerScreen(
         NuvioCNightToast( // [fork] round 34 night_schedule
             ready = !uiState.showLoadingOverlay,
             hdrDim = nuvioCHdr,
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 80.dp)
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = if (com.nuvio.tv.NuvioCFeatures.NIGHT_TOAST_COMPACT) 28.dp else 80.dp) // [fork] round 35
         )
 
         AnimatedVisibility(

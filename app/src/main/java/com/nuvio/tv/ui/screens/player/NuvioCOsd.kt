@@ -869,6 +869,17 @@ internal fun nuvioCSubtitleLabel(uiState: PlayerUiState, title: String, off: Str
     val addon = uiState.selectedAddonSubtitle
     val name = when {
         addon != null -> addon.getDisplayLanguage()
+        com.nuvio.tv.NuvioCFeatures.TRACK_LABEL_LANGUAGE -> {
+            // [fork] round 35 track_label_language: just the language ("English"), like the Audio button
+            val track = uiState.subtitleTracks.getOrNull(uiState.selectedSubtitleTrackIndex)
+                ?: uiState.subtitleTracks.firstOrNull { it.isSelected }
+            track?.let { t ->
+                t.language?.trim()?.takeIf { it.isNotEmpty() && !it.equals("und", true) }
+                    ?.let { runCatching { com.nuvio.tv.ui.util.languageCodeToName(it) }.getOrNull() }
+                    ?.takeIf { it.isNotBlank() && it != "Unknown" }
+                    ?: t.name
+            }
+        }
         else -> uiState.subtitleTracks.getOrNull(uiState.selectedSubtitleTrackIndex)?.name
     }
     return "$title · ${name?.takeIf { it.isNotBlank() } ?: off}"

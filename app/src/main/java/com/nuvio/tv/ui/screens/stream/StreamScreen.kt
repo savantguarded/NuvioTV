@@ -1150,6 +1150,9 @@ private fun StreamsList(
 
     var focusedStreamKey by remember { mutableStateOf<String?>(null) }
     val prevStreamKeysRef = remember { mutableStateOf(streamKeys) }
+    val nuvioCNav = remember { com.nuvio.tv.ui.util.NuvioCListNav() } // [fork] round 35 sources_nav
+    val nuvioCNavScope = androidx.compose.runtime.rememberCoroutineScope()
+    LaunchedEffect(streamKeys, selectedAddonFilter) { nuvioCNav.reset() }
 
     LaunchedEffect(streamKeys) {
         val prevKeys = prevStreamKeysRef.value
@@ -1246,6 +1249,22 @@ private fun StreamsList(
                 }
                 if (event.key == Key.DirectionDown) {
                     onUserNavigatedFromFirstResult()
+                }
+                // [fork] round 35 sources_nav: Up / Down step card by card, scrolling the next one in first
+                if (com.nuvio.tv.NuvioCFeatures.SOURCES_NAV && (event.key == Key.DirectionUp || event.key == Key.DirectionDown)) {
+                    val at = focusedStreamKey?.let { streamKeys.indexOf(it) } ?: -1
+                    if (at >= 0 && !sharedCardHasFocus && nuvioCNav.step(
+                            scope = nuvioCNavScope,
+                            state = streamListState,
+                            focused = at,
+                            dir = if (event.key == Key.DirectionUp) -1 else 1,
+                            count = streamKeys.size,
+                            lazyOffset = if (sharedStream != null) 1 else 0
+                        ) { i ->
+                            if (shouldRestoreFocusedStream && i == focusedStreamIndex.coerceIn(0, (streams.lastIndex).coerceAtLeast(0))) restoreFocusRequester
+                            else streamKeys.getOrNull(i)?.let { streamFocusRequesters.getOrPut(it) { FocusRequester() } }
+                        }
+                    ) return@onKeyEvent true
                 }
                 if (orderedAddonNames.isEmpty()) return@onKeyEvent false
                 val allOptions = listOf<String?>(null) + orderedAddonNames

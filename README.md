@@ -7,28 +7,33 @@ Nuvio C is a personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV)
 ## Highlights
 
 ### Playback
-- **Information-rich controls.** Title logo plus resolution, HDR / Dolby Vision, audio (Dolby Atmos spelled out), source and file-size badges.
+- **Information-rich controls.** Title logo plus resolution, HDR / Dolby Vision, audio (Dolby Atmos spelled out), source and file-size badges, a slimmer high-contrast seek bar and a label under the focused button.
 - **Subtitles that stay readable.** Bottom subtitles lift clear of the controls and pause screen; subtitles and controls are dimmed during HDR and Dolby Vision playback.
+- **Subtitle styling.** Choice of subtitle font, background box, outline width and an option to hide SDH tracks.
 - **Night mode for passthrough setups.** Lifts dialogue and quiet passages, switching a title from bitstream to decoded audio without interrupting playback, with an optional evening schedule.
-- **Stream information panel.** Source server, decoder, display mode, HDR metadata, buffering and network health in one panel.
-- **Cleaner track lists.** Audio and subtitle tracks are named by language with clear SDH, Forced and Commentary tags.
-- **Thoughtful details.** Start over or jump to the previous episode, a pause screen with title and synopsis, cast and about panel, configurable button order.
+- **Stream information panel.** Source server, decoder, display mode, HDR metadata, buffering and network health in one panel that fits the screen.
+- **Cleaner track lists.** Audio and subtitle tracks are named by language, with the track's own description underneath.
+- **Faster sources.** Sources panel scrolls card by card to the very top and bottom, and drops filter tabs when only one source is installed.
+- **Thoughtful details.** Start over or jump to the previous episode, a pause screen with title and synopsis, cast and about panel, filename on the loading screen, no forced next-episode countdown, and Watch Party tucked into the extra controls.
 
 ### Home
-- **Featured layout.** A full-screen carousel of hero catalogs above Modern home, with ranks, ratings and a timed page indicator.
+- **Featured layout.** A full-screen carousel of hero catalogs above Modern home, with ranks, top ratings and a timed page indicator.
 - **Extra large cards** for Classic, Modern and Featured, with spacing tuned so the hero is never crowded.
+- **Readable hero text.** A compact four-line description that scrolls like the official app when it runs long.
 - **Upcoming from your library.** One Upcoming row fed by the Calendar, with release-day tags, watched episodes removed and accurate show names.
+- **Profiles and personalisation.** A cleaner profile screen, a choice of app fonts and an on-screen clock while browsing.
 - **Smooth start-up.** Opens straight onto the profile screen and hands over to a fully settled Home.
 
 ### Calendar
-- **List and Month views** of everything you follow, in your time zone, with reminders.
-- **Multiple sources.** Your library, MDBList calendar and TMDB "coming soon" titles, de-duplicated.
+- **Week, List and Month views** of everything you follow, in your time zone, with reminders.
+- **Multiple sources.** Your library, MDBList calendar and TMDB "coming soon" digital releases, de-duplicated.
 - **Fresh on open.** Refreshed in the background after a cold start, so stale entries are never shown.
 
 ### Details and discovery
-- **Ratings in one place.** Rate with half-star precision to Trakt, Simkl and MDBList at once, with a prompt after finishing a film.
+- **Ratings in one place.** Rate with half-star precision to Trakt, Simkl and MDBList at once, with a prompt once a film counts as watched.
 - **Richer pages.** Tagline, an Information ledger (release dates, budget, box office, status), next-episode countdown and acting-only filmographies with roles.
-- **Roulette.** A genuine shuffle across tens of thousands of well-rated TMDB films and shows, filtered by type and mood, with no repeats within 30 days.
+- **Trailers.** Background trailers with a mute setting and one-press exit, a full seek bar and logo on the trailer screen, and IMDb trailers as a fallback when YouTube limits quality.
+- **Roulette and Shuffle.** A genuine shuffle across tens of thousands of well-rated TMDB films and shows, filtered by type and mood with top ratings shown and no repeats within 30 days, plus a Shuffle button on series pages and a random pick in the Library.
 
 ### Performance and reliability
 - Tuned for 2 GB TVs: lighter player memory use, compiled-on-install updates, smoother scrolling and sidebar transitions.

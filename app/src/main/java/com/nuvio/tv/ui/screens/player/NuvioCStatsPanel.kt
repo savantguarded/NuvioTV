@@ -21,6 +21,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -199,22 +200,27 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
     }
 
     if (sections.isEmpty()) return
-    val labelStyle = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp, lineHeight = 13.sp, fontWeight = FontWeight.Medium)
-    val valueStyle = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp, lineHeight = 13.sp)
+    // [fork] round 35 hud_fit: tighter rows, and the whole panel shrinks to fit when it's still taller than the
+    // screen space left, so it always ends with SYSTEM on screen (it used to run off the bottom).
+    val fit = com.nuvio.tv.NuvioCFeatures.HUD_FIT
+    val lineH = if (fit) 12.sp else 13.sp
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp, lineHeight = lineH, fontWeight = FontWeight.Medium)
+    val valueStyle = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp, lineHeight = lineH)
     Column(
         modifier = modifier
+            .then(if (fit) Modifier.nuvioCScaleToFitHeight() else Modifier)
             .width(380.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(Color(0xB8000000))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+            .padding(horizontal = 16.dp, vertical = if (fit) 10.dp else 12.dp),
+        verticalArrangement = Arrangement.spacedBy(if (fit) 1.dp else 2.dp)
     ) {
         sections.forEachIndexed { i, section ->
             Text(
                 text = section.header,
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold),
                 color = Color.White.copy(alpha = 0.5f),
-                modifier = Modifier.padding(top = if (i == 0) 0.dp else 5.dp)
+                modifier = Modifier.padding(top = if (i == 0) 0.dp else if (fit) 4.dp else 5.dp)
             )
             Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.12f)))
             section.rows.forEach { row ->
@@ -243,6 +249,25 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
                     )
                 }
             }
+        }
+    }
+}
+
+/**
+ * [fork] round 35 hud_fit: measures the content at its natural height and, when that is taller than the space it was
+ * given, scales it down from the top-right corner so all of it shows. No change when it already fits.
+ */
+private fun Modifier.nuvioCScaleToFitHeight(): Modifier = this.layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = androidx.compose.ui.unit.Constraints.Infinity))
+    val maxH = constraints.maxHeight
+    val scale = if (constraints.hasBoundedHeight && placeable.height > maxH && placeable.height > 0) maxH.toFloat() / placeable.height else 1f
+    val w = placeable.width
+    val h = if (scale < 1f) maxH else placeable.height
+    layout(w, h) {
+        placeable.placeWithLayer(0, 0) {
+            scaleX = scale
+            scaleY = scale
+            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 0f)
         }
     }
 }

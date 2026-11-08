@@ -396,7 +396,8 @@ private fun HeroTitleContent(
 ) {
     val preview = previewProvider() ?: return
     val highlighterEnabled = LocalRecompositionHighlighterEnabled.current
-    val descriptionMaxLines = if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.HOME_SYNOPSIS_LINES else 4 // [fork] hero spec
+    val descriptionMaxLines = (if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.HOME_SYNOPSIS_LINES else 4) // [fork] hero spec
+        .coerceAtMost(com.nuvio.tv.ui.components.NuvioCSynopsisFit.homeLineCap()) // [fork] round 35 home_desc_narrow
     val descriptionScale = if (portraitMode) 0.90f else 1f
     val titleScale = if (portraitMode) 0.92f else 1f
     val metaScale = 1f

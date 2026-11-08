@@ -56,6 +56,25 @@ internal fun NuvioCNightToast(ready: Boolean, hdrDim: Boolean, modifier: Modifie
         NuvioCNight.consumeAutoStarted()
     }
     AnimatedVisibility(visible = shown && current != null, enter = fadeIn(), exit = fadeOut(), modifier = modifier.nuvioCHdrDim(hdrDim)) {
+        if (NuvioCFeatures.NIGHT_TOAST_COMPACT) {
+            // [fork] round 35 night_toast_compact: a small pill near the top that just says "Night mode audio".
+            Row(
+                modifier = Modifier
+                    .background(Color.Black.copy(alpha = 0.80f), RoundedCornerShape(50))
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(imageVector = Icons.Filled.Bedtime, contentDescription = null, tint = Color.White.copy(alpha = 0.85f), modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.nuvio_c_night_toast_audio),
+                    style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
+                    color = Color.White
+                )
+            }
+            return@AnimatedVisibility
+        }
         Row(
             modifier = Modifier
                 .background(Color.Black.copy(alpha = 0.85f), RoundedCornerShape(NuvioTheme.spacing.xl))

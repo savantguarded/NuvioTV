@@ -45,7 +45,11 @@ data class NuvioCShuffleUi(
     val landed: Boolean = false,
     /** Shown on the mood screen when nothing fits the choices. */
     val nothingLeft: Boolean = false,
-    val sourcesOn: Int = 0
+    val sourcesOn: Int = 0,
+    /** [fork] round 35 roulette_ratings: MDBList ratings for the current pick only (null until loaded / none). */
+    val ratings: com.nuvio.tv.domain.model.MDBListRatings? = null,
+    val ratingsFor: String? = null,
+    val ratingOrder: List<String> = com.nuvio.tv.domain.model.MDBListSettings.DEFAULT_RATING_ORDER
 )
 
 /** The backdrop request used both to fetch it early (during the reel) and to draw it, so it's a memory hit. */
@@ -64,7 +68,8 @@ internal fun shuffleBackdropRequest(context: Context, url: String): ImageRequest
 class NuvioCShuffleViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val pool: NuvioCShufflePool,
-    private val prefs: NuvioCShufflePrefs
+    private val prefs: NuvioCShufflePrefs,
+    private val mdbList: com.nuvio.tv.data.repository.MDBListRepository
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(fromPrefs(NuvioCShuffleUi()))
@@ -73,6 +78,26 @@ class NuvioCShuffleViewModel @Inject constructor(
     private var rollJob: Job? = null
     private var token = 0
     private var titleOpened = false
+    private var ratingsJob: Job? = null
+
+    // [fork] round 35 roulette_ratings: one MDBList lookup for the title the reel lands on, never for the pool or
+    // the posters flying past. Same call and 12 h disk cache as the details page, so opening it afterwards is free.
+    private fun loadRatings(pick: NuvioCShufflePick) {
+        ratingsJob?.cancel()
+        if (!com.nuvio.tv.NuvioCFeatures.ROULETTE_RATINGS) return
+        val item = pick.item
+        val key = item.imdbId?.takeIf { it.isNotBlank() } ?: item.tmdbId?.let { "tmdb:$it" } ?: item.id
+        if (_ui.value.ratingsFor == key && _ui.value.ratings != null) return
+        _ui.update { it.copy(ratings = null, ratingsFor = key) }
+        ratingsJob = viewModelScope.launch {
+            val ratings = runCatching { mdbList.nuvioCRatingsForItem(key, item.type) }.getOrNull()?.takeUnless { it.isEmpty() }
+            val order = runCatching { mdbList.nuvioCRatingOrder() }.getOrNull()?.takeIf { it.isNotEmpty() }
+            _ui.update {
+                if (it.ratingsFor != key) it
+                else it.copy(ratings = ratings, ratingOrder = order ?: it.ratingOrder)
+            }
+        }
+    }
 
     private fun fromPrefs(ui: NuvioCShuffleUi): NuvioCShuffleUi {
         val c = prefs.config.value
@@ -163,6 +188,7 @@ class NuvioCShuffleViewModel @Inject constructor(
                     _ui.update {
                         it.copy(pick = pick, spin = nuvioCReelSpin(myToken, pick.item.poster, strip, from))
                     }
+                    loadRatings(pick) // [fork] round 35
                 }
                 NuvioCShuffleOutcome.NothingLeft -> _ui.update {
                     it.copy(phase = NuvioCShufflePhase.MOOD, nothingLeft = true, spin = null, pick = null)

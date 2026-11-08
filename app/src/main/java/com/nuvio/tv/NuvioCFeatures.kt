@@ -533,4 +533,20 @@ object NuvioCFeatures {
     const val CAST_ROW_MARQUEE = true
     /** Roulette: one big TMDB shuffle for every profile (random year weighted by size, random page, random title; at least 300 votes and 6.5 average), chips filter each roll, titles shown in the last 30 days skipped. Replaces the source blend. Off = round 31 blend pool. */
     const val ROULETTE_RAW = true
+
+    // ---- Round 35 (2026-11-08, on official 1.1.0-beta.13) ----
+    /** Home hero description (Modern / Classic, not Featured): about 20% narrower and at most 4 lines. With official's "Auto-scroll Descriptions" on, longer text scrolls like official (no ellipsis); off, it ends in an ellipsis. Off = round 34 widths and 5 lines. */
+    const val HOME_DESC_NARROW = true
+    /** Roulette result: the top 3 ratings in your MDBList order instead of "From TMDB", looked up only for the title the reel lands on (one request at most, shared 12 h cache with the details page). Off = "From …" line. */
+    const val ROULETTE_RATINGS = true
+    /** Automatic night mode pill: small, near the top, reading just "Night mode audio". Off = round 34 pill. */
+    const val NIGHT_TOAST_COMPACT = true
+    /** Stream info panel: tighter rows and scaled to fit so it always ends with System on screen; hidden while the pause screen is up; HDR dim applied to its own pixels only. Off = round 34 panel. */
+    const val HUD_FIT = true
+    /** Stream info panel starts off on every title instead of staying on from the last one. Off = official (remembers). */
+    const val HUD_RESET = true
+    /** Subtitle list rows read just the language ("English") with the track's description underneath (no tags or codec beside it), and the CC button label shows only the language like Audio. Off = round 34 names. */
+    const val TRACK_LABEL_LANGUAGE = true
+    /** Sources lists (player panel and details sources screen): Up / Down step card by card, scrolling the next card in before focusing it, so held keys reach the very top and bottom. Off = Compose focus search (+ round 34 top jump). */
+    const val SOURCES_NAV = true
 }

@@ -213,6 +213,13 @@ class PlayerRuntimeController(
     init {
         PlayerMediaSourceFactory.vodCachePlayheadBytesProvider = vodCachePlayheadBytesProvider
         NuvioCNight.beginSession(context) // [fork] round 32 night_mode_v2
+        // [fork] round 35 hud_reset: the stats panel starts off on every title (it stayed on after a restart). Done at
+        // the start rather than on exit so a crash or a killed app can't leave it on; the loading screen hides it anyway.
+        if (com.nuvio.tv.NuvioCFeatures.HUD_RESET) {
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                runCatching { deviceLocalPlayerPreferences.setPlayerStatsHudActive(false) }
+            }
+        }
     }
 
     // Closed on exit (stopAndRelease) or when the ViewModel is cleared, whichever comes first.

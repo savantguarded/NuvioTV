@@ -2037,11 +2037,14 @@ private fun buildSubtitleOptionRailItems(
                 kind = SubtitleOptionKind.INTERNAL,
                 title = nuvioCTitle ?: track.name,
                 sourceLabel = builtInLabel,
-                meta = listOfNotNull(
+                meta = (if (com.nuvio.tv.NuvioCFeatures.TRACK_LABEL_LANGUAGE && nuvioCTitle != null)
+                    // [fork] round 35: "English" with only its description underneath (no codec)
+                    NuvioCTrackNames.subtitleDescription(track.name, nuvioCTitle, track.isForced)
+                else listOfNotNull(
                     NuvioCTrackNames.original(track.name, nuvioCTitle),
                     track.codec,
                     if (track.isForced && nuvioCTitle == null) forcedLabel else null
-                ).joinToString(" • ").ifBlank { null },
+                ).joinToString(" • ").ifBlank { null }),
                 isSelected = "internal:${track.index}" == selectedOptionId,
                 internalTrackIndex = track.index
             )
