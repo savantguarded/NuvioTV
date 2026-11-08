@@ -1,83 +1,54 @@
 # Nuvio C
 
-A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Android TV: the official app with small changes on top. It installs alongside the official app.
+Nuvio C is a personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Android TV. It tracks every official release, including betas, and adds a focused set of refinements to playback, the home screen and day-to-day browsing. Sync, integrations and login work exactly as in the official app, and Nuvio C installs alongside it.
 
-**Download:** [latest release](https://github.com/savantguarded/NuvioTV/releases/latest)
+**Download:** [latest release](https://github.com/savantguarded/NuvioTV/releases/latest) · built for armeabi-v7a Android TV devices
 
-## What's different
+## Highlights
 
-**Home**
-- **Featured layout** (Settings > Layout): a full-screen carousel of your hero catalogs on top of Modern home, with Play, Details and a next-title arrow, a "#3 in Top 20" line for ranked catalogs, a NEW / NEW SEASON tag and up to six lines of synopsis. The carousel only moves forward: Right from the arrow goes to the next title and loops from the last to the first, and Left from Play opens the sidebar on any title; Down goes to the rows, Up or the sidebar's Home comes back.
-- The hero carousel actually rotates (every 10 s without a key press) and draws a fresh mix of 18 titles each launch.
-- **Extra large** card size (Settings > Layout > Card width), sized per layout for Home and for collection folders that follow the Home layout. Rows sit tighter, so the hero, logo and synopsis stay exactly as at Large and the next row still peeks. Library and Discover stay at Large. The Grid layout is hidden.
-- Rows further down fill in by themselves: the first 8 catalogs load in the order they appear, the rest quietly in the background, never ahead of a row you're looking at (idea from ysosrs123's fork).
-- Continue Watching films show their three MDBList ratings like other Home items. Offline, Home stays usable (focus goes to Continue Watching and the rows), says you're offline and reloads by itself once you're back.
-- Featured carousel: the rank number in the accent colour, up to three ratings, a small five-dot page indicator, and the sidebar's Home always lands back on Continue Watching. On a cold start it fades in once its first picture is ready, with the rows already in place underneath.
-- **Smooth start-up**: the app opens straight onto the profile screen (no start-up screen flashing first). After the pick, the screen dissolves into the still Nuvio logo (drawn with clean edges, nothing moving, so nothing can stutter while the app works), and Home fades in while settling into place. On a cold start the screen stays until the account sync has finished and Home has settled (at most 15 s after Home is ready), then fades out once, so Home appears complete with Continue Watching current. Launcher channels and crash reporting to the Nuvio team are off, so Nuvio C no longer wakes every 15 minutes or at boot.
-- **Calendar** (from [ysosrs123's fork](https://github.com/ysosrs123/NuvioTV-Fork)): a Calendar page in the menu (List and Month) with the next episodes and film dates of everything in your library, in your time zone. Bell a title for a reminder card on Home when something new is out. Optional **Calendar in Upcoming** (Settings > Layout > Home Content): the Calendar fills the one Upcoming row, with official-style tags (Tonight 9:00 pm, Tomorrow, In 3 Days). Calendar options, including your own lists and which view it opens in (**Start in**: last used, List or Month), under Settings > Layout > Calendar. Up from the top reaches the List / Month buttons and Back leaves the page; no star rating in List view; only dated releases (no "No date yet" group, films from their digital release). The reminder popup's buttons always show their full labels. Shows with a new episode waiting in Continue Watching stay followed, and Upcoming leaves out what Continue Watching can already play. Signed in to MDBList, the Calendar also follows **your MDBList calendar** (what mdblist.com > Preferences > Calendar includes) and uses its release dates; Settings > Layout > Calendar > Use my MDBList calendar. **Show coming soon titles** (same settings page, on by default, no account needed) adds films and shows due in the next 30 days from TMDB to the Calendar only, never the Upcoming row, with the Top 20 add-on's Coming Soon rules: first US digital releases of real releases (no cinema-only dates), English-language new shows, new seasons and shows back from a break on major networks and streamers, no kids, news, reality, soap or talk shows. A title MDBList's calendar also lists appears once. Titles saved in a library stay followed even if removed from Continue Watching or last watched long ago, and Library adds / removes show up within seconds. The Upcoming row lists only what is still to come. A **refresh button** beside List / Month asks every source again. Month shows only the month on screen, wider, with a slimmer day list; OK on a day moves into its list, and the arrows change month. Just aired runs oldest first, so the whole List reads in date order. Held Up / Down never sticks. Episode times from TVmaze. New calendar code from ysosrs123 is watched daily and merged with `scripts/nuvio-c-calendar-sync.sh`, keeping these tweaks.
+### Playback
+- **Information-rich controls.** Title logo plus resolution, HDR / Dolby Vision, audio (Dolby Atmos spelled out), source and file-size badges.
+- **Subtitles that stay readable.** Bottom subtitles lift clear of the controls and pause screen; subtitles and controls are dimmed during HDR and Dolby Vision playback.
+- **Night mode for passthrough setups.** Lifts dialogue and quiet passages, switching a title from bitstream to decoded audio without interrupting playback, with an optional evening schedule.
+- **Stream information panel.** Source server, decoder, display mode, HDR metadata, buffering and network health in one panel.
+- **Cleaner track lists.** Audio and subtitle tracks are named by language with clear SDH, Forced and Commentary tags.
+- **Thoughtful details.** Start over or jump to the previous episode, a pause screen with title and synopsis, cast and about panel, configurable button order.
 
-**Player**
-- Title logo and stream badges (resolution, HDR / DOLBY VISION, audio with DOLBY ATMOS spelled out, IMAX, source, size) on the controls.
-- Subtitles move up out of the way while the controls or pause screen are showing (text and picture subtitles; ASS stays where the file puts it, as official's libass now draws it on its own surface).
-- Netflix-style pause screen; Next skips the countdown. **Start over**: press once to start over; press again within 8 s for the previous episode.
-- **Player buttons** (Settings > Playback): reorder the buttons and choose main row or More.
-- **Night mode** (Audio panel and Settings > Playback > Audio): lifts quiet moments, loud ones stay as mixed (ysosrs123's). With passthrough it switches that title to the app's own sound at the same spot (no Atmos while on), and Off goes back.
-- Stats panel on the right, grouped like ysosrs123's, with the server the file streams from.
-- Loading screen: ratings and a three-line synopsis under the logo. Episodes panel: IMDb rating on each date line. Dolby Digital (Plus) spelled out on the badges.
-- Subtitles and controls dimmed during HDR and Dolby Vision, drawn as cheaply as official's own subtitle colours, without darkening what's behind an open panel. Official's separate HDR subtitle style setting is removed, so subtitles are only dimmed once.
-- Watch Party tucked into the More row (back in the main row while a party runs).
-- Full release filename on the loading screen; fake short placeholder streams are caught.
-- Prefer SDH subtitles, subtitle font picker, correct episode names on Next and auto-play.
-- **About & cast** button beside Audio: a side panel with an About tab (synopsis, date, runtime, ratings) and a Cast tab (guest stars, then regulars; OK on a person shows a short bio). It remembers where you were. Playback carries on.
+### Home
+- **Featured layout.** A full-screen carousel of hero catalogs above Modern home, with ranks, ratings and a timed page indicator.
+- **Extra large cards** for Classic, Modern and Featured, with spacing tuned so the hero is never crowded.
+- **Upcoming from your library.** One Upcoming row fed by the Calendar, with release-day tags, watched episodes removed and accurate show names.
+- **Smooth start-up.** Opens straight onto the profile screen and hands over to a fully settled Home.
 
-**Details page**
-- The focused round button's name shows above it, as in the player.
-- Rate titles with five stars (half steps, 1 to 10) to Trakt, Simkl and MDBList, in a dialog that fits all three. After a film you actually watched to the end credits, its details page asks once ("You just finished…", Not now).
-- The plus button opens your library lists (ticks lined up in one column); hold it for the one-step add.
-- TMDB tagline under the logo; collections on their own row.
-- Background trailers: muted by default, pause behind popups and other pages, pick up where they were after the sources screen, and Back on the full trailer returns to the page with it still playing; skipped for titles you've started.
-- **Information** block at the end of the page (theatrical and digital dates, budget, box office; for shows first aired, airing time, status, seasons). A show's status badge counts down to its next episode ("S5 E4 IN 3 DAYS").
-- IMDb trailers only when YouTube rate-limits or only offers low quality (one small request, no hidden browser, never during playback).
+### Calendar
+- **List and Month views** of everything you follow, in your time zone, with reminders.
+- **Multiple sources.** Your library, MDBList calendar and TMDB "coming soon" titles, de-duplicated.
+- **Fresh on open.** Refreshed in the background after a cold start, so stale entries are never shown.
 
-**Roulette**
-- **Roulette** in the sidebar (idea from [TitansparkDev's fork](https://github.com/TitansparkDev/NuvioTV)): pick Movies, Shows or Anime (Japanese animation only), a mood (thirteen of them) and Unwatched, and a poster reel glides to a random pick with Open and Shuffle again. Unwatched and Blend sit top right, and the mood starts fresh on every visit. Picks come from a Blend you set on the Roulette screen (Blend chip): For you (recommendations from your recent watches and top ratings), Trakt recommendations, add-on catalogs, Home rows and Library, each Off or ×1 to ×3. Settings > Layout > Roulette only has the sidebar switch and Refresh picks. The Movies tile wording follows the time of day. The player's subtitle style tab also has Font under Font size and a Background opacity step (in %) under Text opacity. In the player's Cast panel one Back closes the panel (an opened See more closes first). Random but leaning to well-rated titles, with a "Because you rated…" line, skipping your last 40 picks, films not yet out to stream, and (with Unwatched) anything you've watched or started.
+### Details and discovery
+- **Ratings in one place.** Rate with half-star precision to Trakt, Simkl and MDBList at once, with a prompt after finishing a film.
+- **Richer pages.** Tagline, an Information ledger (release dates, budget, box office, status), next-episode countdown and acting-only filmographies with roles.
+- **Roulette.** A genuine shuffle across tens of thousands of well-rated TMDB films and shows, filtered by type and mood, with no repeats within 30 days.
 
-**Library and cast**
-- Watched tab for Trakt, MDBList and Simkl.
-- **Random pick** button: a title from the list on screen (filters included), with a smooth poster reel, Pick again and Open. Down from the pickers always lands on the first poster.
-- Cast pages show the real filmography with the role or job under each title.
+### Performance and reliability
+- Tuned for 2 GB TVs: lighter player memory use, compiled-on-install updates, smoother scrolling and sidebar transitions.
+- Simkl device login with automatic token renewal; Trakt sessions survive server hiccups.
+- In-app updates from this repository, and Nuvio C settings that follow your Nuvio profile to a new TV.
 
-**Look and feel**
-- Clearlogos at a consistent size, dark logos made readable.
-- 20 app fonts (12 of them for subtitles too), clock on Home, cleaner profile screen with smaller avatars that opens Netflix-style (background fades up, profiles drop in), a tick on the profile in use, and a background picture that shows at once and is new on every cold open. A dark layer sits behind the open Modern sidebar.
-- Smoother scrolling on Home, collections and the details page, including moving between its sections.
-- Even spacing next to a focused button; the app font everywhere, ambient screen included.
-- Source picker without an "All" tab when there's only one source (Refresh still reachable).
-- Stream badges are fetched once after start-up (and when the pack changes), so the sources list shows them all at once, during playback too; a badge that fails to load is tried again.
-- Modern sidebar closes smoothly, blur included; a page picked from it is built once the sidebar has closed, then fades in.
+## Feature switches
 
-**Stability on 2 GB TVs**
-- Lighter player: less memory held during 4K playback, no second video decoder or web browser running behind a film.
+Every change is isolated behind a switch in [`NuvioCFeatures.kt`](app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt). Switched off, that part behaves exactly like the official app.
 
-**Accounts and updates**
-- Simkl device login with automatic renewal.
-- Trakt stays signed in through server hiccups; the reason for a disconnect is shown under Trakt in Settings.
-- The in-app updater offers every new Nuvio C build, rebuilds of the same official release included, and each one installs already compiled for the TV (official's updater). With "Install updates automatically" on (Android 12+) they download and install while the TV is idle; after an update you confirmed, Nuvio C opens again by itself.
-- Nuvio C's own settings follow your Nuvio profile to a new TV (carried inside official's settings sync).
-- English only, for a smaller download.
+To turn changes off without editing code, set the repository variable `NUVIO_C_OFF` (Settings › Secrets and variables › Actions › Variables) to a comma-separated list of lower-case switch names, for example `osd_badges,subtitle_lift`, then run **Actions › Nuvio C build** with *force* ticked.
 
-## Switching a tweak off
+## How builds work
 
-Every tweak has its own switch; switched off, that part behaves exactly like official Nuvio.
+A workflow checks for new official releases every hour. Each release is rebuilt with the Nuvio C changes applied and published to Releases. If an official change conflicts with an optional part (detail-page trailers, IMDb trailer fallback, cast filmography), the build still ships without that part and opens a single tracking issue.
 
-1. GitHub **Settings > Secrets and variables > Actions > Variables**: set `NUVIO_C_OFF` to a comma list of switch names, e.g. `osd_badges,subtitle_lift`.
-2. **Actions > Nuvio C build > Run workflow** with "Build even if this official release was already built" ticked.
-3. Clear the variable to turn everything back on.
+## Credits
 
-Switch names and what each does are in [`NuvioCFeatures.kt`](app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt) (lower-case line name, e.g. `OSD_BADGES` → `osd_badges`).
+Built on [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) by the Nuvio team, with ideas and code adapted from [ysosrs123/NuvioTV-Fork](https://github.com/ysosrs123/NuvioTV-Fork) (Calendar, stats panel layout, night mode) and [TitansparkDev/NuvioTV](https://github.com/TitansparkDev/NuvioTV) (Roulette concept).
 
-## Updates
+## Licence
 
-A build runs every hour. When Nuvio publishes a release, these changes are applied on top and a new APK is posted to Releases. If an official update clashes with an optional part (details and trailers, IMDb backup, cast filmography), the APK is still built without it and an issue says so.
-
-Licence: [GNU GPL v3.0](./LICENSE), like the official app.
+[GNU GPL v3.0](./LICENSE), as the official app.
