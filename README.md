@@ -13,7 +13,7 @@ Nuvio C is a personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV)
 - **Night mode for passthrough setups.** Lifts dialogue and quiet passages, switching a title from bitstream to decoded audio without interrupting playback, with an optional evening schedule.
 - **Stream information panel.** Source server, decoder, display mode, HDR metadata, buffering and network health in one panel that fits the screen.
 - **Cleaner track lists.** Audio and subtitle tracks are named by language, with the track's own description underneath.
-- **Faster sources.** Sources panel scrolls card by card to the very top and bottom, and drops filter tabs when only one source is installed.
+- **Faster sources.** Up always reaches the first source, and the filter tabs disappear when only one source is installed.
 - **Thoughtful details.** Start over or jump to the previous episode, a pause screen with title and synopsis, cast and about panel, filename on the loading screen, no forced next-episode countdown, and Watch Party tucked into the extra controls.
 
 ### Home

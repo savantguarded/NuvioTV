@@ -445,9 +445,16 @@ internal fun StreamSourcesSidePanel(
                                     val firstRequester = streamsFocusRequester // [fork] round 35: the first card uses this one
                                     if (at == 1 && firstRequester != null) {
                                         scope.coroutineLaunch {
-                                            streamListState.scrollToItem(0)
+                                            // [fork] round 36c: glide, never snap. Focus first (Compose scrolls it in
+                                            // smoothly), then ease the last few dp so the list sits at the very top.
+                                            val shown = streamListState.layoutInfo.visibleItemsInfo.any { it.index == 0 }
+                                            if (!shown) streamListState.animateScrollToItem(0)
                                             withFrameNanos { }
                                             runCatching { firstRequester.requestFocus() }
+                                            withFrameNanos { }
+                                            if (streamListState.firstVisibleItemIndex != 0 || streamListState.firstVisibleItemScrollOffset > 0) {
+                                                streamListState.animateScrollToItem(0)
+                                            }
                                         }
                                         return@onKeyEvent true
                                     }

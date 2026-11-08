@@ -548,7 +548,7 @@ object NuvioCFeatures {
     /** Subtitle list rows read just the language ("English") with the track's description underneath (no tags or codec beside it), and the CC button label shows only the language like Audio. Off = round 34 names. */
     const val TRACK_LABEL_LANGUAGE = true
     /** Sources lists (player panel and details sources screen): Up / Down step card by card, scrolling the next card in before focusing it, so held keys reach the very top and bottom. Off = Compose focus search (+ round 34 top jump). */
-    const val SOURCES_NAV = true
+    const val SOURCES_NAV = false // round 36c (Charles): held keys felt janky; back to official scrolling, top jump kept
 
     // ---- Round 36 (2026-11-08) ----
     /** Loading screen: the logo stays alone in official's centred column (never moves); episode line, rating and synopsis (left) and the filename (right) sit in a small-type band along the bottom that slides up as it fades in. No buffering text or bar; official's logo pulse / fill stays. Off = round 33 layout under the logo. */
