@@ -94,6 +94,7 @@ internal fun PlaybackAudioSection(
             onToggle = { com.nuvio.tv.ui.screens.player.NuvioCNight.setEnabled(nightContext, !nightOn) },
             enabled = enabled
         )
+        if (nightOn && com.nuvio.tv.NuvioCFeatures.NIGHT_SCHEDULE) NuvioCNightScheduleRows(enabled) // [fork] round 34
     }
 
     if (!isExoEngine) return

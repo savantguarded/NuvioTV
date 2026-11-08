@@ -1811,6 +1811,12 @@ fun PlayerScreen(
             AspectRatioIndicator(text = uiState.aspectRatioIndicatorText)
         }
 
+        NuvioCNightToast( // [fork] round 34 night_schedule
+            ready = !uiState.showLoadingOverlay,
+            hdrDim = nuvioCHdr,
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = 80.dp)
+        )
+
         AnimatedVisibility(
             visible = uiState.showStreamSourceIndicator,
             enter = fadeIn(animationSpec = tween(NuvioMotion.tokens.durations.fast)),

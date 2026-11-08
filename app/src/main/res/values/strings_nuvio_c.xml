@@ -148,6 +148,12 @@
     <string name="nuvio_c_shuffle_mood_family">Family night</string>
     <string name="nuvio_c_shuffle_mood_music">Music</string>
     <string name="nuvio_c_profile_choose">Choose a profile</string>
+    <string name="nuvio_c_night_auto">Automatic night mode</string>
+    <string name="nuvio_c_night_auto_sub">Turns night mode on for titles started inside this window</string>
+    <string name="nuvio_c_night_from">From</string>
+    <string name="nuvio_c_night_until">Until</string>
+    <string name="nuvio_c_night_auto_level">Level</string>
+    <string name="nuvio_c_night_toast">Night mode · %1$s</string>
     <string name="nuvio_c_season_premiere">Season %1$d premiere</string>
     <string name="nuvio_c_player_via">via %1$s</string> <!-- official removed player_via in beta.9; used only when hide_via is off -->
     <string name="nuvio_c_shuffle_because_rated">Because you rated %1$s %2$s</string>

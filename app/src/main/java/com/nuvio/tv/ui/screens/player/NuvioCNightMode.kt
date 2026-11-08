@@ -72,11 +72,68 @@ object NuvioCNight {
     fun beginSession(context: Context) {
         if (!NuvioCFeatures.NIGHT_MODE || !NuvioCFeatures.NIGHT_MODE_V2) return
         ensureLoaded(context)
-        _level.value = when {
+        val manual = when {
             !_enabled.value -> NightModeLevel.OFF
             persist -> NightModeLevel.fromKey(prefs(context).getString(KEY, null))
             else -> NightModeLevel.OFF
         }
+        // [fork] round 34 night_schedule: inside the window the session starts at the scheduled level (before the
+        // player is built, so audio starts decoded: no switch-over mid-title) and the player shows a short pill.
+        val scheduled = if (_enabled.value) scheduledLevel(context) else null
+        _level.value = scheduled ?: manual
+        _autoStarted.value = scheduled?.takeIf { it != NightModeLevel.OFF && it != manual }
+    }
+
+    // ---- [fork] round 34 night_schedule ----------------------------------------------------------------------
+    private const val KEY_AUTO = "night_auto"
+    private const val KEY_FROM = "night_from_min"
+    private const val KEY_UNTIL = "night_until_min"
+    private const val KEY_AUTO_LEVEL = "night_auto_level"
+    const val DEFAULT_FROM_MIN = 18 * 60
+    const val DEFAULT_UNTIL_MIN = 8 * 60
+    private val _autoStarted = MutableStateFlow<NightModeLevel?>(null)
+    /** Set when this session began with the schedule's level; the player shows its pill once and clears it. */
+    val autoStarted: StateFlow<NightModeLevel?> = _autoStarted.asStateFlow()
+    fun consumeAutoStarted() { _autoStarted.value = null }
+
+    data class Schedule(val on: Boolean, val fromMin: Int, val untilMin: Int, val level: NightModeLevel)
+    private val _schedule = MutableStateFlow(Schedule(false, DEFAULT_FROM_MIN, DEFAULT_UNTIL_MIN, NightModeLevel.MEDIUM))
+    val schedule: StateFlow<Schedule> = _schedule.asStateFlow()
+
+    fun loadSchedule(context: Context): Schedule {
+        val p = prefs(context)
+        val level = NightModeLevel.fromKey(p.getString(KEY_AUTO_LEVEL, NightModeLevel.MEDIUM.key)).takeIf { it != NightModeLevel.OFF } ?: NightModeLevel.MEDIUM
+        return Schedule(
+            on = p.getBoolean(KEY_AUTO, false),
+            fromMin = p.getInt(KEY_FROM, DEFAULT_FROM_MIN),
+            untilMin = p.getInt(KEY_UNTIL, DEFAULT_UNTIL_MIN),
+            level = level
+        ).also { _schedule.value = it }
+    }
+
+    fun saveSchedule(context: Context, schedule: Schedule) {
+        _schedule.value = schedule
+        prefs(context).edit()
+            .putBoolean(KEY_AUTO, schedule.on)
+            .putInt(KEY_FROM, schedule.fromMin)
+            .putInt(KEY_UNTIL, schedule.untilMin)
+            .putString(KEY_AUTO_LEVEL, schedule.level.key)
+            .apply()
+    }
+
+    /** True when [minute] (minutes after midnight) is inside from..until, which may cross midnight. */
+    fun inWindow(minute: Int, fromMin: Int, untilMin: Int): Boolean = when {
+        fromMin == untilMin -> false
+        fromMin < untilMin -> minute in fromMin until untilMin
+        else -> minute >= fromMin || minute < untilMin
+    }
+
+    private fun scheduledLevel(context: Context): NightModeLevel? {
+        if (!NuvioCFeatures.NIGHT_SCHEDULE) return null
+        val s = loadSchedule(context)
+        if (!s.on) return null
+        val now = java.time.LocalTime.now()
+        return s.level.takeIf { inWindow(now.hour * 60 + now.minute, s.fromMin, s.untilMin) }
     }
 
     fun save(context: Context, level: NightModeLevel) {
