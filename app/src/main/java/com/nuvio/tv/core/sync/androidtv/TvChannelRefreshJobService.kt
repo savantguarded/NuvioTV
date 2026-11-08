@@ -7,6 +7,8 @@ import android.app.job.JobService
 import android.content.ComponentName
 import android.content.Context
 import android.util.Log
+import com.nuvio.tv.core.util.hasPendingJob
+import com.nuvio.tv.core.util.scheduleSafely
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
@@ -82,7 +84,7 @@ class TvChannelRefreshJobService : JobService() {
     companion object {
         fun schedulePeriodic(context: Context) {
             val scheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
-            if (scheduler.allPendingJobs.any { it.id == JOB_ID_PERIODIC }) return
+            if (scheduler.hasPendingJob(JOB_ID_PERIODIC)) return
             val job = JobInfo.Builder(
                 JOB_ID_PERIODIC,
                 ComponentName(context, TvChannelRefreshJobService::class.java)
@@ -91,7 +93,7 @@ class TvChannelRefreshJobService : JobService() {
                 .setPeriodic(PERIODIC_INTERVAL_MS)
                 .setPersisted(true)
                 .build()
-            scheduler.schedule(job)
+            if (!scheduler.scheduleSafely(job)) return
             Log.d(TAG, "Scheduled periodic TV channel refresh every ${PERIODIC_INTERVAL_MS / 60_000}min")
         }
 
@@ -104,7 +106,7 @@ class TvChannelRefreshJobService : JobService() {
                 .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
                 .setOverrideDeadline(5_000)
                 .build()
-            scheduler.schedule(job)
+            if (!scheduler.scheduleSafely(job)) return
             Log.d(TAG, "Scheduled immediate TV channel refresh")
         }
     }

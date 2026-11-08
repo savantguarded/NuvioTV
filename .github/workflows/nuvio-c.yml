@@ -175,6 +175,7 @@ jobs:
         run: |
           git config user.name "nuvio-c-bot"
           git config user.email "nuvio-c-bot@users.noreply.github.com"
+          cp .github/nuvio-c-issue.sh "$RUNNER_TEMP/nuvio-c-issue.sh" # kept outside the tree: the release checkout below replaces it
           read -ra trailer_paths <<< "$TRAILER_PATHS"
           read -ra imdb_paths <<< "$IMDB_PATHS"
           read -ra film_paths <<< "$FILMOGRAPHY_PATHS"
@@ -196,8 +197,8 @@ jobs:
           git checkout -q --detach refs/nuvio/release
           if ! git apply --3way --index "$RUNNER_TEMP/nuvio-c.patch"; then
             git reset -q --hard
-            gh issue create --title "Nuvio C: official ${{ steps.plan.outputs.release }} conflicts with the OSD changes" \
-              --body "Official release ${{ steps.plan.outputs.release }} edited the same lines as the Nuvio C commits, so this build stopped. The last good APK is still in Releases. The patch needs refreshing." || true
+            echo "Official release ${{ steps.plan.outputs.release }} edited the same lines as the Nuvio C commits, so this build stopped. The last good APK is still in Releases. The patch needs refreshing." > "$RUNNER_TEMP/osd-conflict.md"
+            bash "$RUNNER_TEMP/nuvio-c-issue.sh" "Nuvio C: official ${{ steps.plan.outputs.release }} conflicts with the OSD changes" "$RUNNER_TEMP/osd-conflict.md" || true
             echo "::error::Upstream changed the same code as the Nuvio C commits. The patch needs a manual refresh."
             exit 1
           fi
@@ -495,7 +496,7 @@ jobs:
       - name: Send OSD heads-up
         if: steps.osd.outputs.notice == 'true'
         run: |
-          if ! gh issue create --title "Nuvio C: official ${{ steps.plan.outputs.release }} changed player code" --body-file osd-notice.md; then
+          if ! bash "$RUNNER_TEMP/nuvio-c-issue.sh" "Nuvio C: official ${{ steps.plan.outputs.release }} changed player code" osd-notice.md; then
             cat osd-notice.md
             echo "::error::Could not open the heads-up issue (are Issues enabled on this repo?)."
             exit 1
@@ -509,7 +510,7 @@ jobs:
           else
             title="Nuvio C: ${{ steps.plan.outputs.release }} built without the Nuvio C trailer layer"
           fi
-          gh issue create --title "$title" --body-file trailer-notice.md || cat trailer-notice.md
+          bash "$RUNNER_TEMP/nuvio-c-issue.sh" "$title" trailer-notice.md || cat trailer-notice.md
 
       - name: Send IMDb backup notice
         if: success() && steps.plan.outputs.build == 'true' && hashFiles('imdb-notice.md') != ''
@@ -519,7 +520,7 @@ jobs:
           else
             title="Nuvio C: ${{ steps.plan.outputs.release }} built without the IMDb trailer backup"
           fi
-          gh issue create --title "$title" --body-file imdb-notice.md || cat imdb-notice.md
+          bash "$RUNNER_TEMP/nuvio-c-issue.sh" "$title" imdb-notice.md || cat imdb-notice.md
 
       - name: Send cast filmography notice
         if: success() && steps.plan.outputs.build == 'true' && hashFiles('film-notice.md') != ''
@@ -529,4 +530,4 @@ jobs:
           else
             title="Nuvio C: ${{ steps.plan.outputs.release }} built without the cast filmography"
           fi
-          gh issue create --title "$title" --body-file film-notice.md || cat film-notice.md
+          bash "$RUNNER_TEMP/nuvio-c-issue.sh" "$title" film-notice.md || cat film-notice.md

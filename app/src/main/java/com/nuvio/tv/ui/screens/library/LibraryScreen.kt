@@ -67,6 +67,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
@@ -270,6 +275,7 @@ fun LibraryScreen(
 
     if (uiState.isLoading) {
         val loadingFocusRequester = remember { FocusRequester() }
+        val loadingLabel = stringResource(R.string.library_syncing_library)
         LaunchedEffect(uiState.isLoading) {
             loadingFocusRequester.requestFocus()
         }
@@ -283,6 +289,7 @@ fun LibraryScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .focusRequester(loadingFocusRequester)
+                    .semantics { contentDescription = loadingLabel }
                     .focusable()
             )
             Column(
@@ -779,7 +786,11 @@ private fun LibraryViewModeRow(
                 Button(
                     onClick = { onSelected(mode) },
                     modifier = Modifier
-                        .then(if (selected) Modifier.focusRequester(primaryFocusRequester) else Modifier),
+                        .then(if (selected) Modifier.focusRequester(primaryFocusRequester) else Modifier)
+                        .semantics {
+                            role = Role.Tab
+                            this.selected = selected
+                        },
                     colors = ButtonDefaults.colors(
                         containerColor = if (selected) NuvioTheme.colors.FocusBackground else NuvioTheme.colors.BackgroundCard,
                         contentColor = NuvioTheme.colors.TextPrimary
@@ -1501,6 +1512,12 @@ private fun LibraryDropdownPicker(
                             color = itemBackgroundColor,
                             shape = RoundedCornerShape(10.dp)
                         )
+                        .semantics {
+                            // The current option is only distinguished by a background tint,
+                            // so expose the selection state explicitly.
+                            role = Role.RadioButton
+                            this.selected = isSelected
+                        }
                         .onFocusChanged { state ->
                             val hasFocus = state.isFocused || state.hasFocus
                             focusedOptionValue = when {

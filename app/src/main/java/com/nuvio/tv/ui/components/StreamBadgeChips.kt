@@ -46,6 +46,7 @@ import coil3.size.Precision
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import com.nuvio.tv.core.network.imageNetworkFetcherFactory
 import com.nuvio.tv.domain.model.StreamBadge
 import okio.Path.Companion.toOkioPath
 import kotlin.math.round
@@ -68,10 +69,9 @@ private var badgeImageLoader: ImageLoader? = null
 internal fun getBadgeImageLoader(context: android.content.Context): ImageLoader {
     badgeImageLoader?.let { return it }
     val loader = ImageLoader.Builder(context.applicationContext)
-        .apply { // [fork] round 27c badge_prefetch: the app's TV-tuned network setup instead of Coil's default client
-            if (com.nuvio.tv.NuvioCFeatures.BADGE_PREFETCH) components {
-                add(coil3.network.okhttp.OkHttpNetworkFetcherFactory(callFactory = { nuvioCBadgeHttpClient }))
-            }
+        .components {
+            // [fork] round 27c badge_prefetch: the app's TV-tuned client, through official's connectivity-aware fetcher
+            add(if (com.nuvio.tv.NuvioCFeatures.BADGE_PREFETCH) imageNetworkFetcherFactory(callFactory = { nuvioCBadgeHttpClient }) else imageNetworkFetcherFactory())
         }
         .memoryCache {
             MemoryCache.Builder()

@@ -66,6 +66,7 @@ import com.nuvio.tv.R
 import kotlinx.coroutines.delay
 import com.nuvio.tv.ui.components.ImdbRatingSourceLabel
 import com.nuvio.tv.ui.components.TrailerPlayer
+import com.nuvio.tv.ui.components.AutoScrollingText
 import androidx.compose.ui.res.stringResource
 
 private data class ModernHeroSecondaryMeta(
@@ -317,6 +318,7 @@ internal fun HeroTitleBlock(
     mdbListRatingOrder: List<String> = com.nuvio.tv.domain.model.MDBListSettings.DEFAULT_RATING_ORDER,
     trailerPlaying: () -> Boolean = { false },
     nuvioCTextWidths: List<androidx.compose.ui.unit.Dp>? = null, // [fork] home synopsis fit: narrowest first
+    descriptionAutoScrollEnabled: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     // The providers read hero state that is rewritten on every focus move, often with an equal
@@ -375,7 +377,8 @@ internal fun HeroTitleBlock(
             mdbListShowOnHero = mdbListShowOnHero,
             mdbListRatingOrder = mdbListRatingOrder,
             trailerPlaying = trailerPlaying,
-            nuvioCTextWidths = nuvioCTextWidths
+            nuvioCTextWidths = nuvioCTextWidths,
+            descriptionAutoScrollEnabled = descriptionAutoScrollEnabled
         )
     }
 }
@@ -388,7 +391,8 @@ private fun HeroTitleContent(
     mdbListShowOnHero: Boolean = false,
     mdbListRatingOrder: List<String> = com.nuvio.tv.domain.model.MDBListSettings.DEFAULT_RATING_ORDER,
     trailerPlaying: () -> Boolean = { false },
-    nuvioCTextWidths: List<androidx.compose.ui.unit.Dp>? = null
+    nuvioCTextWidths: List<androidx.compose.ui.unit.Dp>? = null,
+    descriptionAutoScrollEnabled: Boolean = false
 ) {
     val preview = previewProvider() ?: return
     val highlighterEnabled = LocalRecompositionHighlighterEnabled.current
@@ -716,16 +720,15 @@ private fun HeroTitleContent(
                     modifier = Modifier.graphicsLayer { alpha = metaAlpha }
                 )
             } else {
-            val nuvioCFit: com.nuvio.tv.ui.components.NuvioCSynopsisFitResult? = null
-            Text(
+            // [fork] not fitted: official auto-scroll when the text still overflows (round 34 merge)
+            AutoScrollingText(
                 text = description,
                 style = nuvioCStyle,
                 color = NuvioTheme.colors.TextPrimary,
-                maxLines = nuvioCFit?.lines ?: descriptionMaxLines,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .then(if (nuvioCFit != null) Modifier.width(nuvioCFit.width) else Modifier)
-                    .graphicsLayer { alpha = metaAlpha }
+                maxLines = descriptionMaxLines,
+                autoScrollEnabled = descriptionAutoScrollEnabled,
+                paused = trailerPlaying,
+                modifier = Modifier.graphicsLayer { alpha = metaAlpha }
             )
             } // [fork]
         }

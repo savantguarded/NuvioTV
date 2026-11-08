@@ -496,7 +496,7 @@ class TmdbMetadataService(
                     trailers = trailers,
                     tagline = details?.tagline?.trim()?.takeIf { it.isNotBlank() }, // [fork] Nuvio C details tagline
                     nuvioCReleaseDate = (details?.releaseDate ?: details?.firstAirDate)?.takeIf { it.isNotBlank() }, // [fork] Featured chips
-                    nuvioCLatestSeason = details?.nuvioCSeasons.orEmpty() // [fork] Featured chips: latest season that has aired
+                    nuvioCLatestSeason = details?.seasons.orEmpty() // [fork] Featured chips: latest season that has aired
                         .filter { (it.seasonNumber ?: 0) > 0 && !it.airDate.isNullOrBlank() && it.airDate <= java.time.LocalDate.now().toString() }
                         .maxByOrNull { it.seasonNumber ?: 0 }
                         ?.let { (it.seasonNumber ?: 0) to it.airDate!! }

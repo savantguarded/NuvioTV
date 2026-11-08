@@ -1,7 +1,10 @@
 package com.nuvio.tv.updater
 
 import android.content.Context
+import android.content.Intent
 import android.os.Build
+import android.provider.Settings
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nuvio.tv.BuildConfig
@@ -20,6 +23,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+private const val TAG = "UpdateInstall"
 
 data class UpdateUiState(
     val isChecking: Boolean = false,
@@ -319,7 +324,11 @@ class UpdateViewModel @Inject constructor(
         viewModelScope.launch(Dispatchers.IO) {
             NuvioCUpdatedReceiver.mark(context) // [fork] update_reopen
             runCatching { ApkInstaller.install(context, apkFile, background = false) }
-                .onFailure { ApkInstaller.launchSystemInstaller(context, apkFile) }
+                .onFailure {
+                    Log.w(TAG, "Session install failed, falling back to the system installer", it)
+                    runCatching { ApkInstaller.launchSystemInstaller(context, apkFile) }
+                        .onFailure { error -> Log.w(TAG, "System installer failed", error) }
+                }
         }
     }
 
@@ -372,6 +381,9 @@ class UpdateViewModel @Inject constructor(
     }
 
     fun openUnknownSourcesSettings() {
-        ApkInstaller.buildUnknownSourcesSettingsIntent(context)?.let(context::startActivity)
+        listOfNotNull(
+            ApkInstaller.buildUnknownSourcesSettingsIntent(context),
+            Intent(Settings.ACTION_SECURITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        ).any { runCatching { context.startActivity(it) }.isSuccess }
     }
 }
