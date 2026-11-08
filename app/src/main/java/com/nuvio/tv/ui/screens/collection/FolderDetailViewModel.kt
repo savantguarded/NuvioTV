@@ -186,7 +186,16 @@ class FolderDetailViewModel @Inject constructor(
     private val _tabFocusStates = MutableStateFlow<Map<Int, FolderDetailGridFocusState>>(emptyMap())
     val tabFocusStates: StateFlow<Map<Int, FolderDetailGridFocusState>> = _tabFocusStates.asStateFlow()
 
+    // [fork] round 36c: official's "Auto-scroll Descriptions" for the collection hero (followed live)
+    @Volatile private var nuvioCDescAutoScroll = false
+
     init {
+        viewModelScope.launch {
+            layoutPreferenceDataStore.heroDescriptionAutoScrollEnabled.collect { on ->
+                nuvioCDescAutoScroll = on
+                _uiState.update { s -> s.followLayoutHomeState?.let { h -> s.copy(followLayoutHomeState = h.copy(heroDescriptionAutoScrollEnabled = on)) } ?: s }
+            }
+        }
         posterOptions.bind(viewModelScope)
         loadFolder()
         observeWatchedStatusCombined()
@@ -585,7 +594,8 @@ class FolderDetailViewModel @Inject constructor(
                         heroEnrichmentEnabled = computedHeroEnrichmentEnabled,
                         classicFocusGradientEnabled = s.classicFocusGradientEnabled,
                         mdbListShowOnHero = currentMdbListSettings?.showOnHero ?: false,
-                        mdbListRatingOrder = currentMdbListSettings?.enabledRatingOrder() ?: com.nuvio.tv.domain.model.MDBListSettings.DEFAULT_RATING_ORDER
+                        mdbListRatingOrder = currentMdbListSettings?.enabledRatingOrder() ?: com.nuvio.tv.domain.model.MDBListSettings.DEFAULT_RATING_ORDER,
+                        heroDescriptionAutoScrollEnabled = nuvioCDescAutoScroll // [fork] round 36c
                     )
                     s.copy(followLayoutHomeState = homeState.copy(modernHomePresentation = modernPresentation))
                 }
@@ -621,7 +631,8 @@ class FolderDetailViewModel @Inject constructor(
                     heroEnrichmentEnabled = false,
                     classicFocusGradientEnabled = s.classicFocusGradientEnabled,
                     mdbListShowOnHero = currentMdbListSettings?.showOnHero ?: false,
-                    mdbListRatingOrder = currentMdbListSettings?.enabledRatingOrder() ?: com.nuvio.tv.domain.model.MDBListSettings.DEFAULT_RATING_ORDER
+                    mdbListRatingOrder = currentMdbListSettings?.enabledRatingOrder() ?: com.nuvio.tv.domain.model.MDBListSettings.DEFAULT_RATING_ORDER,
+                    heroDescriptionAutoScrollEnabled = nuvioCDescAutoScroll // [fork] round 36c
                 )
                 s.copy(followLayoutHomeState = homeState)
             }
