@@ -1869,8 +1869,7 @@ private suspend fun HomeViewModel.buildNextUpItem(
     }
     val seedMeta = resolveMetaForProgress(progress, cwMetaCache, debug)
 
-    val name = progress.name.trim().takeIf { it.isNotEmpty() }
-        ?: seedMeta?.name
+    val name = NuvioCNameGuard.showName(progress.name, seedMeta?.name) // [fork] round 34 upcoming_name_guard (was saved name first)
         ?: progress.contentId
     val releaseState = resolveNextUpReleaseState(
         seedProgress = progress,
@@ -1891,7 +1890,9 @@ private suspend fun HomeViewModel.buildNextUpItem(
         videoId = nextUp.videoId,
         season = nextUp.season,
         episode = nextUp.episode,
-        episodeTitle = nextUp.episodeTitle ?: nextUpVideo?.title,
+        episodeTitle = NuvioCNameGuard.episodeTitle(nextUp.episodeTitle ?: nextUpVideo?.title, nextUp.episode) { // [fork] round 34
+            appContext.getString(com.nuvio.tv.R.string.nuvio_c_season_premiere, nextUp.season)
+        },
         episodeDescription = nextUpVideo?.overview,
         thumbnail = nextUpVideo?.thumbnail.normalizeImageUrl(),
         released = nextUp.released,

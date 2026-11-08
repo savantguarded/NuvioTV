@@ -125,6 +125,9 @@ fun buildCalendarComingUp(
                 val item = CalendarComingUpItem(title, entry, CalendarComingUpWhen.NEW, date, time)
                 if (newestOut == null || comingUpOrder.compare(item, newestOut) > 0) newestOut = item
             } else {
+                // [fork] round 34 upcoming_drop_watched: an episode already watched (early release, air date in
+                // another zone, watched elsewhere) leaves the row instead of waiting for its date to pass.
+                if (com.nuvio.tv.NuvioCFeatures.UPCOMING_DROP_WATCHED && watched?.isWatched(title, entry) == true) return@forEach
                 val shownDate = maxOf(date, today)
                 val item = CalendarComingUpItem(title, entry, comingUpWhen(shownDate, time, today), shownDate, time)
                 if (soonest == null || comingUpOrder.compare(item, soonest) < 0) soonest = item
