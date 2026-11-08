@@ -1450,13 +1450,11 @@ private fun AddProfileCard(
                 vertical = if (nuvioCSide) 0.dp else ProfileSelectionSpacing.CardPaddingVertical // [fork]
             )
     ) {
-        val nuvioCGlow = com.nuvio.tv.NuvioCFeatures.PROFILE_GREETING && LocalNuvioCProfileClean.current && nuvioCSide // [fork] round 36
-        val nuvioCGlowColor = remember(profile.avatarColorHex) { parseProfileColor(profile.avatarColorHex) }
         Box(
             modifier = Modifier.size(
                 (if (compact) ProfileSelectionSpacing.CompactAvatarContainer
                 else ProfileSelectionSpacing.AvatarContainer).nuvioCAvatar() // [fork] profile_avatar_small
-            ).then(if (nuvioCGlow) Modifier.nuvioCProfileGlow(nuvioCGlowColor, outerAvatarSize) { focusProgress } else Modifier), // [fork] round 36: glow in the profile's colour
+            ),
             contentAlignment = Alignment.Center
         ) {
             Box(
