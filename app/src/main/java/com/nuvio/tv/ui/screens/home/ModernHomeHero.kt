@@ -711,7 +711,18 @@ private fun HeroTitleContent(
                 .let { if (com.nuvio.tv.NuvioCFeatures.HOME_SYNOPSIS_FIT) it.copy(lineBreak = androidx.compose.ui.text.style.LineBreak.Paragraph) else it } // [fork] even line lengths
             // [fork] home synopsis fit: lines from the height left (up to 6), narrowest width that shows it all,
             // else the widest with an ellipsis; decided while laying out (NuvioCFitSynopsis).
-            if (com.nuvio.tv.NuvioCFeatures.HOME_SYNOPSIS_FIT && !nuvioCTextWidths.isNullOrEmpty()) {
+            if (com.nuvio.tv.NuvioCFeatures.HOME_SYNOPSIS_FIT && !nuvioCTextWidths.isNullOrEmpty() &&
+                com.nuvio.tv.NuvioCFeatures.DESC_AUTO_SCROLL && descriptionAutoScrollEnabled) {
+                // [fork] round 34 desc_auto_scroll: same fit; scrolls only if it still overflows at the widest step
+                com.nuvio.tv.ui.components.NuvioCFitSynopsisScrolling(
+                    text = description,
+                    style = nuvioCStyle,
+                    color = NuvioTheme.colors.TextPrimary,
+                    widths = nuvioCTextWidths,
+                    paused = trailerPlaying,
+                    modifier = Modifier.graphicsLayer { alpha = metaAlpha }
+                )
+            } else if (com.nuvio.tv.NuvioCFeatures.HOME_SYNOPSIS_FIT && !nuvioCTextWidths.isNullOrEmpty()) {
                 com.nuvio.tv.ui.components.NuvioCFitSynopsis(
                     text = description,
                     style = nuvioCStyle,

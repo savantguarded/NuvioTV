@@ -12,6 +12,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.text.drawText
 import com.nuvio.tv.NuvioCFeatures
 import kotlin.math.max
+import androidx.compose.foundation.layout.width
 
 // [fork] Nuvio C home synopsis fit (switch `home_synopsis_fit`). Up to 6 lines and only as wide as
 // it needs to be:
@@ -126,5 +127,58 @@ fun NuvioCFitSynopsis(
         val width = r?.size?.width ?: 0
         val height = (r?.size?.height ?: 0).coerceAtMost(if (constraints.hasBoundedHeight) constraints.maxHeight else Int.MAX_VALUE)
         layout(width, height) {}
+    }
+}
+
+/**
+ * [fork] round 34 desc_auto_scroll: the same fit (lines from the height left, width with the fewest lines), decided
+ * in composition so that text that still doesn't fit at the widest step can scroll with official's
+ * AutoScrollingText instead of ending in an ellipsis. Used only while official's toggle is on.
+ */
+@Composable
+fun NuvioCFitSynopsisScrolling(
+    text: String,
+    style: TextStyle,
+    color: androidx.compose.ui.graphics.Color,
+    widths: List<Dp>,
+    paused: () -> Boolean = { false },
+    modifier: androidx.compose.ui.Modifier = androidx.compose.ui.Modifier
+) {
+    val measurer = rememberTextMeasurer(cacheSize = 8)
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier) {
+        val density = LocalDensity.current
+        val lineHeightPx = with(density) { if (style.lineHeight.isSp) style.lineHeight.toPx() else style.fontSize.toPx() * 1.4f }
+        val lines = NuvioCSynopsisFit.linesFor(constraints.maxHeight, lineHeightPx, constraints.hasBoundedHeight)
+        val maxW = if (constraints.hasBoundedWidth) constraints.maxWidth else Int.MAX_VALUE
+        val pick = remember(text, style, widths, lines, maxW) {
+            val measured = widths.map { w ->
+                val px = with(density) { w.roundToPx() }.coerceIn(1, maxW)
+                px to measurer.measure(text, style, maxLines = lines, constraints = Constraints(maxWidth = px))
+            }
+            val idx = NuvioCSynopsisFit.pickIndex(measured.map { (_, r) -> if (r.hasVisualOverflow) null else r.lineCount })
+            val (px, r) = measured[idx]
+            Triple(px, r.hasVisualOverflow, idx)
+        }
+        val widthDp = with(density) { pick.first.toDp() }
+        if (pick.second) {
+            AutoScrollingText(
+                text = text,
+                style = style,
+                color = color,
+                maxLines = lines,
+                autoScrollEnabled = true,
+                paused = paused,
+                modifier = androidx.compose.ui.Modifier.width(widthDp)
+            )
+        } else {
+            androidx.compose.material3.Text(
+                text = text,
+                style = style,
+                color = color,
+                maxLines = lines,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = androidx.compose.ui.Modifier.width(widthDp)
+            )
+        }
     }
 }

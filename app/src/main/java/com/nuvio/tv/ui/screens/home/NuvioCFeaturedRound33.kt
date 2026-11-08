@@ -199,7 +199,15 @@ internal fun NuvioCFeaturedTextYield(
             },
             // 2: synopsis (ellipsizes at whatever height it's given)
             {
-                if (synopsis != null) {
+                if (synopsis != null && nuvioCDescScrollOn(LocalNuvioCDescScroll.current)) { // [fork] round 34 desc_auto_scroll
+                    NuvioCScrollingSynopsis(
+                        text = synopsis,
+                        style = synopsisStyle,
+                        color = NuvioTheme.colors.TextPrimary.copy(alpha = NuvioCHeroSpec.DETAIL_SYNOPSIS_ALPHA),
+                        maxLines = synopsisLinesMax,
+                        modifier = Modifier.staggered(2)
+                    )
+                } else if (synopsis != null) {
                     Text(
                         text = synopsis,
                         style = synopsisStyle,

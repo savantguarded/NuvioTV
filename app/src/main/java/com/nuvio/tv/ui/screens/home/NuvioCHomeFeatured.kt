@@ -306,7 +306,12 @@ internal fun NuvioCFeaturedGate(
     when (featured) {
         null -> Box(Modifier.fillMaxSize())
         false -> content()
-        true -> NuvioCFeaturedHome(uiState, scrollToTopTrigger, viewModel, actions, content)
+        true -> {
+            val nuvioCHold = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) } // [fork] round 34
+            androidx.compose.runtime.CompositionLocalProvider(
+                LocalNuvioCDescScroll provides NuvioCDescScroll(uiState.heroDescriptionAutoScrollEnabled, nuvioCHold)
+            ) { NuvioCFeaturedHome(uiState, scrollToTopTrigger, viewModel, actions, content) }
+        }
     }
 }
 
@@ -494,6 +499,7 @@ private fun NuvioCFeaturedHome(
 
     // [fork] round 33 featured_polish P1: when the current slide's timer started, for the filling page pill
     val featuredTimer = remember(idleClock) { NuvioCFeaturedTimer(idleClock) }
+    NuvioCDescScrollHoldEffect { idleClock.touch() } // [fork] round 34 desc_auto_scroll: no slide change mid-scroll
     val featuredTimerRunning = carouselOn && atRest && !showPlayOptions && items.size > 1
     LaunchedEffect(featuredTimerRunning, index) {
         featuredTimer.startMs = android.os.SystemClock.uptimeMillis()
@@ -1031,6 +1037,15 @@ private fun NuvioCFeaturedText(
                 androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth(0.92f)) {
                     val lineDp = with(LocalDensity.current) { synopsisStyle.lineHeight.toDp() }
                     val fit = if (constraints.hasBoundedHeight && lineDp > 0.dp) (maxHeight / lineDp).toInt() else FEATURED_SYNOPSIS_LINES
+                    if (nuvioCDescScrollOn(LocalNuvioCDescScroll.current)) { // [fork] round 34 desc_auto_scroll
+                        NuvioCScrollingSynopsis(
+                            text = synopsis,
+                            style = synopsisStyle,
+                            color = NuvioTheme.colors.TextPrimary.copy(alpha = NuvioCHeroSpec.DETAIL_SYNOPSIS_ALPHA),
+                            maxLines = fit.coerceIn(3, FEATURED_SYNOPSIS_LINES),
+                            minLines = 3
+                        )
+                    } else
                     Text(
                         text = synopsis,
                         style = synopsisStyle,

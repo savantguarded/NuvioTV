@@ -499,4 +499,38 @@ object NuvioCFeatures {
     const val FEATURED_POLISH = true
     /** With STARTUP_SETTLE: the start-up screen also waits until no picture is loading (Home's first rows have their posters) and the app has answered every frame for 1.4 s (was 0.9 s); meanwhile the first five rows' posters are fetched to disk. Caps 14 s, 20 s with the sync wait (were 10 / 15). Continue Watching and sync untouched. Off = round 26 settle. */
     const val STARTUP_SETTLE_IMAGES = true
+
+    // ---- Round 34 (2026-11-08, on official 1.1.0-beta.13) ----
+    /** Featured and Modern hero synopsis: when official's "Auto-scroll Descriptions" (Settings > Layout) is on and the text still doesn't fit the fork's lines, it scrolls like official (3 s wait, 3 passes); the Featured timer waits for the first pass. Toggle off or text fits = unchanged. Off = fork text always ellipsized. */
+    const val DESC_AUTO_SCROLL = true
+    /** Continue Watching / Upcoming show name: the meta add-on's name is used when the saved name looks like a release name ("Sweetpea S01E03", resolution or codec tokens); an add-on placeholder "Episode N" title becomes "Season N premiere" for a first episode, else nothing. Off = official (saved name first). */
+    const val UPCOMING_NAME_GUARD = true
+    /** Upcoming row: a card whose exact episode is already watched (watched history / progress) is dropped. Off = cards leave only when the air date passes. */
+    const val UPCOMING_DROP_WATCHED = true
+    /** Player Cast panel: TMDB's full show cast (aggregate credits, id resolved like the episode ratings) is the base list, the add-on fills gaps by name, and a name search only counts when the person's credits include this title. Off = round 29 (add-on list, plain name search). */
+    const val OSD_CAST_TMDB = true
+    /** Player audio and subtitle lists: each track reads as its language ("English") with SDH / Forced / CC / PGS tags, the original track name as a dim second line. Off = raw track names. */
+    const val TRACK_NAMES = true
+    /** Stream info panel: more rows from the player's own data (position, rebuffers, container, HDR metadata, decoder, display mode, frame lead, underruns, load errors, back buffer, CPU clock) and the filename scrolls when cut off. Off = round 31 rows. */
+    const val STATS_PANEL_FULL = true
+    /** Post-play rating appears when the movie reaches the same point Nuvio sync marks it watched (90%, 80% for Simkl, or your override) instead of the end-credits marker. Off = round 28 trigger. */
+    const val RATING_AT_WATCHED = true
+    /** Player Sources panel: Up on the second result jumps straight to the first and scrolls to the top (fast scrolling no longer stops one short). Off = official focus search. */
+    const val SOURCES_TOP_JUMP = true
+    /** HDR dim reads HDR from official's decoder-input detection (beta.10, read only) before the fork's own colour reading. Off = fork detection only. */
+    const val HDR_OFFICIAL_DETECT = true
+    /** Automatic night mode: Settings > Playback > Audio gets a schedule (default 6:00 PM to 8:00 AM, Medium); titles started inside it begin with night mode on and a short "Night mode" pill. Off = manual only. */
+    const val NIGHT_SCHEDULE = true
+    /** Profile screen: heading and profiles centred together as one block (14 dp from heading to the first ring) instead of the list centring itself below a pinned heading. Off = round 33 layout. */
+    const val PROFILE_BLOCK_CENTRED = true
+    /** Calendar List view side panel: episode title and meta line scroll in turns when cut off, and the focused "Next from" row scrolls its title then its date. Off = ellipsized. */
+    const val CALENDAR_PANEL_MARQUEE = true
+    /** Calendar corner card: no "Press Menu to open" hint, and the Menu key listener is gone (the TCL remote never sends it). Off = round 17 card. */
+    const val CALENDAR_CORNER_PLAIN = true
+    /** Calendar refreshes in the background once Home has settled after a cold start; opening it before that shows cached titles with watched and past ones already removed. Off = refresh on open / button only. */
+    const val CALENDAR_COLD_REFRESH = true
+    /** Details page cast row: the focused card's name, then character, scroll in turns when cut off. Off = ellipsized. */
+    const val CAST_ROW_MARQUEE = true
+    /** Roulette: one big TMDB shuffle for every profile (random year weighted by size, random page, random title; at least 300 votes and 6.5 average), chips filter each roll, titles shown in the last 30 days skipped. Replaces the source blend. Off = round 31 blend pool. */
+    const val ROULETTE_RAW = true
 }
