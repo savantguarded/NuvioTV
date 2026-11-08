@@ -49,7 +49,11 @@ data class NuvioCShuffleUi(
     /** [fork] round 35 roulette_ratings: MDBList ratings for the current pick only (null until loaded / none). */
     val ratings: com.nuvio.tv.domain.model.MDBListRatings? = null,
     val ratingsFor: String? = null,
-    val ratingOrder: List<String> = com.nuvio.tv.domain.model.MDBListSettings.DEFAULT_RATING_ORDER
+    val ratingOrder: List<String> = com.nuvio.tv.domain.model.MDBListSettings.DEFAULT_RATING_ORDER,
+    /** [fork] round 36 roulette_copy: visit number (picks the rotating lines), spins this visit, pool size. */
+    val visit: Int = 0,
+    val spins: Int = 0,
+    val poolSize: Int? = null
 )
 
 /** The backdrop request used both to fetch it early (during the reel) and to draw it, so it's a memory hit. */
@@ -79,6 +83,7 @@ class NuvioCShuffleViewModel @Inject constructor(
     private var token = 0
     private var titleOpened = false
     private var ratingsJob: Job? = null
+    private var visit = kotlin.random.Random.nextInt(1000) // [fork] round 36: consecutive visits never repeat a line
 
     // [fork] round 35 roulette_ratings: one MDBList lookup for the title the reel lands on, never for the pool or
     // the posters flying past. Same call and 12 h disk cache as the details page, so opening it afterwards is free.
@@ -113,7 +118,8 @@ class NuvioCShuffleViewModel @Inject constructor(
         rollJob?.cancel()
         pool.beginVisit()
         prefs.setMood(NuvioCShuffleMood.ANY) // [fork] roulette_page: the mood starts fresh on every visit
-        _ui.update { fromPrefs(it).copy(phase = NuvioCShufflePhase.MOOD, pick = null, spin = null, landed = false, nothingLeft = false) }
+        visit++ // [fork] round 36 roulette_copy
+        _ui.update { fromPrefs(it).copy(phase = NuvioCShufflePhase.MOOD, pick = null, spin = null, landed = false, nothingLeft = false, visit = visit, spins = 0, poolSize = null) }
         loadFans()
     }
 
@@ -176,8 +182,14 @@ class NuvioCShuffleViewModel @Inject constructor(
                 phase = NuvioCShufflePhase.ROLLING,
                 landed = false,
                 nothingLeft = false,
-                spin = NuvioCReelSpin(-myToken, listOf(from), 0) // still frame while the pick is found
+                spin = NuvioCReelSpin(-myToken, listOf(from), 0), // still frame while the pick is found
+                spins = it.spins + 1, // [fork] round 36 roulette_copy
+                poolSize = null
             )
+        }
+        if (com.nuvio.tv.NuvioCFeatures.ROULETTE_COPY) viewModelScope.launch {
+            val n = pool.poolSize(state.kind, state.mood)
+            _ui.update { if (token == myToken) it.copy(poolSize = n) else it }
         }
         rollJob = viewModelScope.launch {
             when (val outcome = pool.roll(state.kind, state.mood, state.unwatched)) {

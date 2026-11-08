@@ -555,4 +555,6 @@ object NuvioCFeatures {
     const val LOADING_BAND = true
     /** Choose a profile: a time-of-day greeting above "Choose a profile", a soft glow in the focused profile's colour, "Signed in" under the profile in use, and the clock top-right. Spacing unchanged. Off = round 34 heading. */
     const val PROFILE_GREETING = true
+    /** Roulette copy: rotating mood-screen line and tile hints per visit, spin captions with the real TMDB pool size or the mood, a kicker above the result logo, a quiet line after a few spins, and two "nothing left" messages. Off = round 29 wording. */
+    const val ROULETTE_COPY = true
 }

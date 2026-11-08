@@ -59,6 +59,22 @@ internal class NuvioCRouletteRaw(
         return null
     }
 
+    /** [fork] round 36 roulette_copy: how many titles these choices draw from (TMDB totals, cached 24 h). */
+    suspend fun poolSize(kind: NuvioCShuffleKind, mood: NuvioCShuffleMood): Int? {
+        val types = when (kind) {
+            NuvioCShuffleKind.MOVIES -> listOf("movie")
+            NuvioCShuffleKind.SHOWS -> listOf("tv")
+            else -> listOf("movie", "tv")
+        }
+        var sum = 0
+        var any = false
+        for (type in types) {
+            val q = query(type, mood, anime = kind == NuvioCShuffleKind.ANIME) ?: continue
+            total(type, q)?.let { sum += it; any = true }
+        }
+        return sum.takeIf { any && it > 0 }
+    }
+
     /** Posters seen recently (no requests); empty until a roll or a warm-up has fetched a page. */
     fun posters(kind: NuvioCShuffleKind, count: Int): List<String> = synchronized(recentItems) {
         recentItems.filter { nuvioCKindMatches(it, kind) && !it.poster.isNullOrBlank() }

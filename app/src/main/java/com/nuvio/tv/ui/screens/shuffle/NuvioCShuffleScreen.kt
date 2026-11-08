@@ -56,6 +56,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -157,7 +158,8 @@ private fun ShuffleMood(
             }
         }
         Text(
-            text = if (ui.nothingLeft) stringResource(R.string.nuvio_c_shuffle_nothing_left) else stringResource(R.string.nuvio_c_shuffle_title_sub),
+            text = if (com.nuvio.tv.NuvioCFeatures.ROULETTE_COPY) NuvioCRouletteCopy.subLine(ui) // [fork] round 36 roulette_copy
+                else if (ui.nothingLeft) stringResource(R.string.nuvio_c_shuffle_nothing_left) else stringResource(R.string.nuvio_c_shuffle_title_sub),
             style = MaterialTheme.typography.bodyMedium,
             color = NuvioTheme.colors.TextSecondary,
             maxLines = 1,
@@ -175,6 +177,7 @@ private fun ShuffleMood(
                     kind = kind,
                     posters = ui.fans[kind].orEmpty(),
                     requester = tileRequesters.getValue(kind),
+                    visit = ui.visit, // [fork] round 36 roulette_copy
                     onClick = { onKind(kind) },
                     modifier = Modifier.weight(1f).fillMaxHeight()
                 )
@@ -212,6 +215,7 @@ private fun ShuffleTile(
     kind: NuvioCShuffleKind,
     posters: List<String>,
     requester: FocusRequester,
+    visit: Int = 0,
     onClick: () -> Unit,
     modifier: Modifier
 ) {
@@ -254,7 +258,7 @@ private fun ShuffleTile(
                 maxLines = 1
             )
             Text(
-                text = kindHint(kind),
+                text = if (com.nuvio.tv.NuvioCFeatures.ROULETTE_COPY) NuvioCRouletteCopy.tileHint(kind, visit) else kindHint(kind), // [fork] round 36
                 style = MaterialTheme.typography.bodySmall,
                 color = NuvioTheme.colors.TextSecondary,
                 maxLines = 1,
@@ -412,10 +416,12 @@ private fun ShuffleStage(
                 showWaiting = true
             }
         }
-        val waitingAlpha by animateFloatAsState(if (showWaiting && waiting) 1f else 0f, tween(250), label = "waiting")
+        // [fork] round 36 roulette_copy: the caption also stays up while the reel spins (pool size or mood wording)
+        val nuvioCSpinning = com.nuvio.tv.NuvioCFeatures.ROULETTE_COPY && !landed && (ui.spin?.token ?: 0) > 0
+        val waitingAlpha by animateFloatAsState(if ((showWaiting && waiting) || nuvioCSpinning) 1f else 0f, tween(250), label = "waiting")
         if (waitingAlpha > 0f) {
             Text(
-                text = stringResource(R.string.nuvio_c_shuffle_finding),
+                text = if (com.nuvio.tv.NuvioCFeatures.ROULETTE_COPY) NuvioCRouletteCopy.spinLine(ui) else stringResource(R.string.nuvio_c_shuffle_finding),
                 style = MaterialTheme.typography.bodyMedium,
                 color = NuvioTheme.colors.TextSecondary,
                 modifier = Modifier.align(Alignment.Center).padding(top = 290.dp).graphicsLayer { alpha = waitingAlpha }
@@ -457,6 +463,14 @@ private fun ShuffleStage(
                     },
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                if (com.nuvio.tv.NuvioCFeatures.ROULETTE_COPY) { // [fork] round 36: small kicker above the logo
+                    Text(
+                        text = NuvioCRouletteCopy.kicker(ui),
+                        style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp, letterSpacing = 1.6.sp, fontWeight = FontWeight.SemiBold),
+                        color = Color.White.copy(alpha = 0.72f),
+                        maxLines = 1
+                    )
+                }
                 if (!item.logo.isNullOrBlank()) {
                     AsyncImage(
                         model = item.logo,
@@ -536,6 +550,9 @@ private fun ShuffleStage(
                         Spacer(Modifier.width(8.dp))
                         Text(stringResource(R.string.nuvio_c_shuffle_again))
                     }
+                }
+                if (com.nuvio.tv.NuvioCFeatures.ROULETTE_COPY) NuvioCRouletteCopy.spinsLine(ui)?.let { // [fork] round 36: quiet line after a few spins
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = NuvioTheme.colors.TextTertiary, maxLines = 1)
                 }
             }
         }

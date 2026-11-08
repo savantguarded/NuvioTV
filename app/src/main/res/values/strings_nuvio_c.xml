@@ -92,6 +92,53 @@
     <string name="nuvio_c_shuffle_blend">Blend</string>
     <string name="nuvio_c_shuffle_again">Shuffle again</string>
     <string name="nuvio_c_shuffle_finding">Finding something…</string>
+    <!-- [fork] round 36 roulette_copy -->
+    <string-array name="nuvio_c_roulette_sub">
+        <item>Pick a type, set the mood, and let Roulette choose.</item>
+        <item>Feeling lucky?</item>
+        <item>Let the wheel decide.</item>
+        <item>One spin, no scrolling.</item>
+        <item>Can\'t decide? Don\'t.</item>
+        <item>Tonight\'s plan, sorted in a spin.</item>
+    </string-array>
+    <string-array name="nuvio_c_roulette_movies_morning"><item>Coffee and a classic</item><item>A slow-start film</item></string-array>
+    <string-array name="nuvio_c_roulette_movies_afternoon"><item>A matinee pick</item><item>Your afternoon feature</item></string-array>
+    <string-array name="nuvio_c_roulette_movies_evening"><item>Prime-time pick</item><item>Your evening, sorted</item></string-array>
+    <string-array name="nuvio_c_roulette_movies_night"><item>Something for tonight</item><item>The main event</item></string-array>
+    <string-array name="nuvio_c_roulette_movies_late"><item>Past-midnight picks</item><item>One for the night owls</item></string-array>
+    <string-array name="nuvio_c_roulette_shows"><item>Your next binge</item><item>Pilot night</item><item>A series worth starting</item></string-array>
+    <string-array name="nuvio_c_roulette_either"><item>Wildcard</item><item>Leave it to chance</item><item>Film or series, fate decides</item></string-array>
+    <string-array name="nuvio_c_roulette_anime"><item>Straight from Japan\'s studios</item><item>Japanese animation, films and series</item></string-array>
+    <string name="nuvio_c_roulette_spin_movies">Spinning through %1$s films…</string>
+    <string name="nuvio_c_roulette_spin_shows">Shuffling %1$s series…</string>
+    <string name="nuvio_c_roulette_spin_titles">Spinning through %1$s titles…</string>
+    <string name="nuvio_c_roulette_spin_feel_good">Finding a feel-good one…</string>
+    <string name="nuvio_c_roulette_spin_gripping">Looking for something gripping…</string>
+    <string name="nuvio_c_roulette_spin_funny">Hunting for a laugh…</string>
+    <string name="nuvio_c_roulette_spin_dark">Digging up something dark…</string>
+    <string name="nuvio_c_roulette_spin_mind_bending">Bending some minds…</string>
+    <string name="nuvio_c_roulette_spin_romantic">Looking for a date-night winner…</string>
+    <string name="nuvio_c_roulette_spin_animated">Flipping through animation…</string>
+    <string name="nuvio_c_roulette_spin_true_story">Searching true stories…</string>
+    <string name="nuvio_c_roulette_spin_western">Riding out west…</string>
+    <string name="nuvio_c_roulette_spin_documentary">Picking a documentary…</string>
+    <string name="nuvio_c_roulette_spin_adventure">Packing for a big adventure…</string>
+    <string name="nuvio_c_roulette_spin_family">Finding one for the whole family…</string>
+    <string name="nuvio_c_roulette_spin_music">Turning up something musical…</string>
+    <string name="nuvio_c_roulette_kick_morning">THIS MORNING\'S PICK</string>
+    <string name="nuvio_c_roulette_kick_afternoon">THIS AFTERNOON\'S PICK</string>
+    <string name="nuvio_c_roulette_kick_tonight">TONIGHT\'S PICK</string>
+    <string name="nuvio_c_roulette_kick_late">LATE-NIGHT PICK</string>
+    <string name="nuvio_c_roulette_kick_feel_good">YOUR FEEL-GOOD PICK</string>
+    <string name="nuvio_c_roulette_kick_romantic">YOUR DATE-NIGHT PICK</string>
+    <string name="nuvio_c_roulette_kick_family">YOUR FAMILY-NIGHT PICK</string>
+    <string name="nuvio_c_roulette_kick_anime">YOUR ANIME PICK</string>
+    <string name="nuvio_c_roulette_spins_3">Third time\'s the charm?</string>
+    <string name="nuvio_c_roulette_spins_5_tonight">Picky tonight. We like it.</string>
+    <string name="nuvio_c_roulette_spins_5">Picky today. We like it.</string>
+    <string name="nuvio_c_roulette_spins_8">Still spinning? Try a different mood.</string>
+    <string name="nuvio_c_roulette_nothing_watched">You\'ve watched everything that fits this mix. Try another mood, or turn off Unwatched.</string>
+    <string name="nuvio_c_roulette_nothing_dry">That combination ran dry. Pick a new mood to keep spinning.</string>
     <string name="nuvio_c_shuffle_from">from %1$s</string>
     <string name="nuvio_c_shuffle_blend_title">Shuffle picks from</string>
     <string name="nuvio_c_shuffle_blend_sub">OK on a source steps through Off, ×1, ×2 and ×3. A higher number gets the turn more often.</string>

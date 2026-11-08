@@ -552,6 +552,10 @@ class NuvioCShufflePool @Inject constructor(
     // ---- picking ------------------------------------------------------------------------------------
 
     /** A new visit to Shuffle: forget titles set aside last time and any prepared pick. */
+    /** [fork] round 36 roulette_copy: size of the pool these choices draw from, null when unknown. */
+    suspend fun poolSize(kind: NuvioCShuffleKind, mood: NuvioCShuffleMood): Int? =
+        if (rawOn) runCatching { raw.poolSize(kind, mood) }.getOrNull() else null
+
     fun beginVisit() {
         rejected.clear()
         prepared?.second?.cancel()
