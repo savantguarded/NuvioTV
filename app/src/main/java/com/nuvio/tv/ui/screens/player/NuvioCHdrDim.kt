@@ -115,6 +115,9 @@ internal fun rememberNuvioCHdrDim(viewModel: PlayerViewModel, uiState: PlayerUiS
  */
 private fun nuvioCIsHdrNow(controller: PlayerRuntimeController, uiState: PlayerUiState): Boolean {
     if (!controller.hasRenderedFirstFrame) return false
+    // [fork] round 34 hdr_official_detect: official's decoder-input reading (beta.10, read only: track formats,
+    // HEVC transfer SEI, mpv video params) comes first; the badge tag stays as the fallback.
+    if (NuvioCFeatures.HDR_OFFICIAL_DETECT && uiState.isHdrVideo) return true
     if (controller.currentInternalPlayerEngine == InternalPlayerEngine.MVP_PLAYER &&
         controller.mpvView?.nuvioCIsHdrVideo() == true
     ) return true

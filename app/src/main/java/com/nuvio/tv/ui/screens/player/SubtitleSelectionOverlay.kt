@@ -2030,14 +2030,17 @@ private fun buildSubtitleOptionRailItems(
     val internalItems = internalTracks
         .filter { normalizeOverlayLanguageKeyForTrack(it) == selectedLanguageKey }
         .map { track ->
+            // [fork] round 34 track_names: "English · SDH" with the file's own name on the meta line
+            val nuvioCTitle = NuvioCTrackNames.subtitleTitle(track.name, normalizeOverlayLanguageKeyForTrack(track), track.isForced)
             SubtitleOptionRailItem(
                 id = "internal:${track.index}",
                 kind = SubtitleOptionKind.INTERNAL,
-                title = track.name,
+                title = nuvioCTitle ?: track.name,
                 sourceLabel = builtInLabel,
                 meta = listOfNotNull(
+                    NuvioCTrackNames.original(track.name, nuvioCTitle),
                     track.codec,
-                    if (track.isForced) forcedLabel else null
+                    if (track.isForced && nuvioCTitle == null) forcedLabel else null
                 ).joinToString(" • ").ifBlank { null },
                 isSelected = "internal:${track.index}" == selectedOptionId,
                 internalTrackIndex = track.index

@@ -137,6 +137,14 @@ internal interface NuvioCOsdCastTmdbApi {
         @Query("language") language: String = "en-US"
     ): Response<ResponseBody>
 
+    /** [fork] round 34 osd_cast_tmdb: the show's whole cast across seasons. */
+    @GET("tv/{tv_id}/aggregate_credits")
+    suspend fun tvAggregateCredits(@Path("tv_id") tvId: Int, @Query("api_key") apiKey: String): Response<ResponseBody>
+
+    /** [fork] round 34 osd_cast_tmdb: a film's cast. */
+    @GET("movie/{movie_id}/credits")
+    suspend fun movieCredits(@Path("movie_id") movieId: Int, @Query("api_key") apiKey: String): Response<ResponseBody>
+
     /** For cast the meta add-on gave no TMDB id for (round 29): found by name. */
     @GET("search/person")
     suspend fun searchPerson(
@@ -166,7 +174,8 @@ data class NuvioCOsdCastUi(
 @HiltViewModel
 class NuvioCOsdCastViewModel @Inject constructor(
     @Named("tmdb") retrofit: Retrofit,
-    private val tmdbService: TmdbService
+    private val tmdbService: TmdbService,
+    private val metaRepository: com.nuvio.tv.domain.repository.MetaRepository // [fork] round 34 osd_cast_tmdb
 ) : ViewModel() {
     private val api = retrofit.create(NuvioCOsdCastTmdbApi::class.java)
     private val json = Json { ignoreUnknownKeys = true }
@@ -192,6 +201,7 @@ class NuvioCOsdCastViewModel @Inject constructor(
             lastKey = if (same) previous.lastKey else null,
             tab = if (same) previous.tab else NuvioCOsdCastUi().tab
         )
+        if (NuvioCFeatures.OSD_CAST_TMDB && contentId != null) loadTmdbCast(regulars, contentId, isShow = season != null, titleKey)
         if (contentId == null || season == null || episode == null) return
         val key = "$contentId:$season:$episode"
         episodeCache[key]?.let { cached -> _ui.value = _ui.value.copy(guests = cached.notIn(regulars)); return }
@@ -208,6 +218,59 @@ class NuvioCOsdCastViewModel @Inject constructor(
             episodeCache[key] = guests
             _ui.value = _ui.value.copy(guests = guests.notIn(regulars))
         }
+    }
+
+    // ---- [fork] round 34 osd_cast_tmdb ------------------------------------------------------------------
+    // The add-on's cast (AIOMetadata with TVDB meta) often lacks character names, photos and TMDB ids, and people
+    // without an id were then found by name, which could pick a namesake. TMDB's own cast for the title is now
+    // the base list; the add-on only fills in people TMDB doesn't list. Cached per title.
+    private val tmdbCastCache = HashMap<String, List<NuvioCCastPerson>>()
+    @Volatile private var titleTmdbId: Int? = null
+
+    private fun loadTmdbCast(addon: List<NuvioCCastPerson>, contentId: String, isShow: Boolean, titleKey: String) {
+        val baseKey = "${if (isShow) "tv" else "movie"}:${contentId.substringBefore(':')}"
+        tmdbCastCache[baseKey]?.let { cached -> applyBase(cached, addon, titleKey); return }
+        viewModelScope.launch {
+            val people = runCatching {
+                val id = resolveTmdbId(contentId, isShow) ?: return@runCatching null
+                titleTmdbId = id
+                val response = if (isShow) api.tvAggregateCredits(id, tmdbService.apiKey()) else api.movieCredits(id, tmdbService.apiKey())
+                val body = response.takeIf { it.isSuccessful }?.body()?.use { it.string() } ?: return@runCatching null
+                val cast = (json.parseToJsonElement(body).jsonObject["cast"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
+                cast.take(MAX_TMDB_CAST).mapNotNull { o ->
+                    val name = o.str("name") ?: return@mapNotNull null
+                    val character = o.str("character")
+                        ?: ((o["roles"] as? JsonArray)?.firstOrNull() as? JsonObject)?.str("character")
+                    NuvioCCastPerson(name, character, o.str("profile_path")?.let { "https://image.tmdb.org/t/p/w185$it" }, o.int("id"))
+                }
+            }.getOrNull() ?: return@launch
+            tmdbCastCache[baseKey] = people
+            applyBase(people, addon, titleKey)
+        }
+    }
+
+    private fun applyBase(tmdb: List<NuvioCCastPerson>, addon: List<NuvioCCastPerson>, titleKey: String) {
+        if (tmdb.isEmpty() || loadedKey != titleKey) return
+        val byName = addon.associateBy { it.name.lowercase() }
+        val merged = tmdb.map { p ->
+            val a = byName[p.name.lowercase()]
+            p.copy(character = p.character ?: a?.character, photo = p.photo ?: a?.photo)
+        }
+        val tmdbNames = merged.map { it.name.lowercase() }.toHashSet()
+        val regulars = merged + addon.filter { it.name.lowercase() !in tmdbNames }
+        _ui.value = _ui.value.copy(regulars = regulars, guests = _ui.value.guests.notIn(regulars))
+    }
+
+    private suspend fun resolveTmdbId(contentId: String, isShow: Boolean): Int? {
+        contentId.takeIf { it.startsWith("tmdb:") }?.removePrefix("tmdb:")?.substringBefore(':')?.toIntOrNull()?.let { return it }
+        val type = if (isShow) "series" else "movie"
+        val base = contentId.split(':').let { p -> if (p.size >= 2 && !p[0].startsWith("tt")) p.take(2).joinToString(":") else p[0] }
+        val imdb = contentId.substringBefore(':').takeIf { it.startsWith("tt") }
+            ?: listOf(base, contentId).firstNotNullOfOrNull { k -> runCatching { metaRepository.getCachedMeta(type, k)?.imdbId }.getOrNull() }
+                ?.substringBefore(':')?.takeIf { it.startsWith("tt") }
+        return kotlinx.coroutines.withTimeoutOrNull(6_000) {
+            runCatching { tmdbService.ensureTmdbId(contentId, type, fallbackImdbId = imdb) }.getOrNull()
+        }?.toIntOrNull()
     }
 
     private fun List<NuvioCCastPerson>.notIn(regulars: List<NuvioCCastPerson>): List<NuvioCCastPerson> {
@@ -255,7 +318,13 @@ class NuvioCOsdCastViewModel @Inject constructor(
         val found = runCatching {
             val body = api.searchPerson(tmdbService.apiKey(), name).takeIf { it.isSuccessful }?.body()?.use { it.string() } ?: return@runCatching null
             val results = (json.parseToJsonElement(body).jsonObject["results"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
-            results.filter { it.str("name")?.equals(name, ignoreCase = true) == true }
+            val exact = results.filter { it.str("name")?.equals(name, ignoreCase = true) == true }
+            val title = titleTmdbId
+            if (NuvioCFeatures.OSD_CAST_TMDB && title != null) {
+                // [fork] round 34: only someone whose known-for titles include this one, or the only person of that name
+                exact.firstOrNull { p -> (p["known_for"] as? JsonArray).orEmpty().any { (it as? JsonObject)?.int("id") == title } }?.int("id")
+                    ?: exact.singleOrNull()?.int("id")
+            } else exact
                 .maxByOrNull { (it["popularity"] as? JsonPrimitive)?.contentOrNull?.toDoubleOrNull() ?: 0.0 }
                 ?.int("id")
         }.getOrNull()
@@ -302,6 +371,8 @@ class NuvioCOsdCastViewModel @Inject constructor(
     private fun JsonObject.str(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
     private fun JsonObject.int(key: String): Int? = (this[key] as? JsonPrimitive)?.intOrNull
 }
+
+private const val MAX_TMDB_CAST = 40
 
 /** True when the Cast button should show for this title. */
 internal fun nuvioCOsdCastAvailable(cast: List<MetaCastMember>): Boolean = NuvioCFeatures.OSD_CAST && cast.isNotEmpty()

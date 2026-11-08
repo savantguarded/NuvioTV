@@ -164,6 +164,9 @@ internal class PostPlayRecommendationController(
                         ended = snapshot.playbackEnded
                     ) {
                         val duration = snapshot.durationMs.takeIf { it > 0L } ?: playbackController.lastKnownDuration
+                        // [fork] round 34 rating_at_watched: the point where the saved progress flips to watched
+                        // (WatchProgress.isCompleted, what Nuvio sync uploads), not the end-credits marker.
+                        if (com.nuvio.tv.NuvioCFeatures.RATING_AT_WATCHED) (duration * com.nuvio.tv.domain.model.WatchProgress.COMPLETED_THRESHOLD).toLong() else
                         movieRecommendationTriggerPositionMs(
                             duration, snapshot.postPlayMovieThresholdPercent.coerceIn(
                                 com.nuvio.tv.data.local.PlayerSettings.MIN_POST_PLAY_MOVIE_THRESHOLD_PERCENT,

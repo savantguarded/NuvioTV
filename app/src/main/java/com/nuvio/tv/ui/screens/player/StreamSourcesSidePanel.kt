@@ -424,6 +424,21 @@ internal fun StreamSourcesSidePanel(
                                     userMovedFromFirstResult = true
                                 }
 
+                                // [fork] round 34 sources_top_jump: Up on the second result goes straight to the first
+                                // (held Up used to stop there while the first card sat outside the laid-out area).
+                                if (com.nuvio.tv.NuvioCFeatures.SOURCES_TOP_JUMP && event.key == Key.DirectionUp) {
+                                    val at = focusedStreamKey?.let { streamKeys.indexOf(it) } ?: -1
+                                    val firstRequester = streamKeys.firstOrNull()?.let { streamFocusRequesters[it] }
+                                    if (at == 1 && firstRequester != null) {
+                                        scope.coroutineLaunch {
+                                            streamListState.scrollToItem(0)
+                                            withFrameNanos { }
+                                            runCatching { firstRequester.requestFocus() }
+                                        }
+                                        return@onKeyEvent true
+                                    }
+                                }
+
                                 if (orderedAddonNames.isEmpty()) return@onKeyEvent false
                                 val allOptions = listOf<String?>(null) + orderedAddonNames
                                 val currentIdx = allOptions.indexOf(uiState.sourceSelectedAddonFilter)

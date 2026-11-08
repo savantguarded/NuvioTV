@@ -366,12 +366,17 @@ private fun AudioTrackCard(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
             ) {
+                val nuvioCTitle = NuvioCTrackNames.audioTitle(track.name, track.language) // [fork] round 34 track_names
                 Text(
-                    text = track.name,
+                    text = nuvioCTitle ?: track.name,
                     style = MaterialTheme.typography.titleMedium,
                     color = primaryTextColor
                 )
-                if (!track.language.isNullOrBlank() && track.language != "und") {
+                if (nuvioCTitle != null) {
+                    NuvioCTrackNames.original(track.name, nuvioCTitle)?.let {
+                        Text(text = it, style = MaterialTheme.typography.bodySmall, color = secondaryTextColor)
+                    }
+                } else if (!track.language.isNullOrBlank() && track.language != "und") {
                     Text(
                         text = languageCodeToName(track.language),
                         style = MaterialTheme.typography.bodySmall,
