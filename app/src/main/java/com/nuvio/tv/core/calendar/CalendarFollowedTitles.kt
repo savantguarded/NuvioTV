@@ -101,7 +101,8 @@ fun followCalendarTitles(
         val ids = group.fold(CalendarIds()) { acc, candidate -> acc.merged(candidate.ids) }
         val key = calendarTitleKey(type, ids) ?: return@mapNotNull null
         val named = group.sortedBy { it.origin.ordinal }
-        val name = named.firstNotNullOfOrNull { it.name?.takeIf(String::isNotBlank) }
+        val name = named.firstNotNullOfOrNull { it.name?.takeIf { n -> n.isNotBlank() && !nuvioCCalendarReleaseName(n) } } // [fork] round 37 calendar_name_guard
+            ?: named.firstNotNullOfOrNull { it.name?.takeIf(String::isNotBlank) }
         val bell = rules.bellOn.any { calendarKeyMatches(it, type, ids) }
         val origins = group.mapTo(linkedSetOf()) { it.origin }.apply { if (bell) add(CalendarOrigin.BELL) }
         val lastActivity = group.mapNotNull { it.lastActivity }.maxOrNull()
@@ -235,7 +236,7 @@ fun reconcileCalendarRecords(
         val previous = index?.let { used[it] = true; stored[it] }
         previous?.copy(
             ids = title.ids.merged(previous.ids),
-            name = title.name ?: previous.name,
+            name = nuvioCCalendarBetterName(title.name, previous.name), // [fork] round 37 calendar_name_guard (was title.name ?: previous.name)
             // [fork] calendar_mdblist_art: an IMDb id found for a TMDB-only title is kept over "tmdb:N".
             contentId = if (title.contentId?.startsWith("tmdb:") == true && previous.contentId?.startsWith("tt") == true) previous.contentId
             else title.contentId ?: previous.contentId,

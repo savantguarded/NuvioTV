@@ -502,7 +502,10 @@ class CalendarRefresher internal constructor(
                     }
                 )
                 publishLocked()
-                records.filter { it.isDue(now) || (reason == CalendarRefreshReason.MANUAL && it.nuvioCManualDue(now)) } // [fork] calendar_refresh_button
+                records.filter {
+                    it.isDue(now) || (reason == CalendarRefreshReason.MANUAL && it.nuvioCManualDue(now)) || // [fork] calendar_refresh_button
+                        nuvioCCalendarReleaseName(it.name) // [fork] round 37 calendar_name_guard: a file-name title is looked up again at once
+                }
                     .sortedWith(compareByDescending<CalendarTitleRecord> { CalendarOrigin.BELL in it.origins }.thenBy { it.nextRefreshAtMs })
             } ?: return true
             save(current, force = true)

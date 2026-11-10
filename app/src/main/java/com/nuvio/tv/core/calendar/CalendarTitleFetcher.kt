@@ -100,7 +100,7 @@ class CalendarTitleFetcher(
             val updated = record.copy(
                 tvmazeId = tvMazeId,
                 ids = record.ids.merged(dates.ids),
-                name = record.name ?: dates.name,
+                name = nuvioCCalendarBetterName(record.name, dates.name), // [fork] round 37 calendar_name_guard
                 poster = record.poster ?: dates.poster,
                 network = dates.network ?: record.network,
                 status = dates.status
@@ -113,7 +113,7 @@ class CalendarTitleFetcher(
         val tmdbId = withTmdb.ids.tmdb ?: return withTmdb
         val dates = remote.tmdbShow(tmdbId)
         val updated = withTmdb.copy(
-            name = withTmdb.name ?: dates.name,
+            name = nuvioCCalendarBetterName(withTmdb.name, dates.name), // [fork] round 37 calendar_name_guard
             poster = withTmdb.poster ?: dates.poster,
             network = dates.network ?: withTmdb.network,
             status = dates.status
