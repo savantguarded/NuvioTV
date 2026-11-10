@@ -121,7 +121,7 @@ object NuvioCFeatures {
     /** Player: Next / auto-play shows the episode name the details page had (your meta add-on), never a blank or the previous episode's. Round 7: when no details page left names (Continue Watching, app restarted) the player looks them up itself: your meta add-on by IMDb id, then TMDB, names only. */
     const val NEXT_EP_TITLE = true
     /** Player: the automatic subtitle pick (Prefer SDH included) carries to the next episode in the same session instead of the series' older saved pick; a manual pick still wins and is saved. */
-    const val SDH_SESSION_PICK = true
+    const val SDH_SESSION_PICK = false // round 37 (Charles): your saved subtitle wins on Next; Prefer SDH only when the saved one can't be matched (official order)
     /** Add to library dialog (details, Home, poster menu): your Library source's lists first, no focus zoom so nothing clips at the top or bottom, a check at the end for selected lists. */
     const val LIBRARY_PICKER = true
     /** Player OSD: badges in a row under the title block (movies: "Title (2008)" with the year in the title), file size on a solid light tile. Off = badges bottom-right as before. */
@@ -557,4 +557,34 @@ object NuvioCFeatures {
     const val PROFILE_GREETING = true
     /** Roulette copy: rotating mood-screen line and tile hints per visit, spin captions with the real TMDB pool size or the mood, a kicker above the result logo, a quiet line after a few spins, and two "nothing left" messages. Off = round 29 wording. */
     const val ROULETTE_COPY = true
+
+    // ---- Round 37 (2026-11-10) ----
+    /** Player: one safety re-check about 4.5 s after a title starts: if no subtitle is on, you didn't pick one or switch them off, your saved choice for the title isn't "off" and you have a preferred language, the official automatic pick runs once more. Off = official. */
+    const val SUBTITLE_RECHECK = true
+    /** Roulette: Unwatched is a clear toggle (tick + accent when on), the chosen mood is highlighted with a tick, and on the result screen the type and mood chips open a list instead of cycling. Off = round 36 chips. */
+    const val ROULETTE_CHIPS = true
+    /** Roulette: a Refine chip opens a dialog to narrow spins by decade, region, length and acclaim (plain TMDB filters on the same raw shuffle). Off = no filters. */
+    const val ROULETTE_REFINE = true
+    /** Roulette: Pool size in Refine (Curated = the round 34 floor, Wide = default, older and world titles need fewer votes, Deep). Off = always Curated. */
+    const val ROULETTE_POOL_SIZE = true
+    /** Roulette: an Episodes tile, a random episode from a show you've watched or saved, leaning toward shows that work in any order; Play follows the app's playback rule, hold Play to pick the source. Off = no Episodes. */
+    const val ROULETTE_EPISODES = true
+    /** Roulette: the True story mood uses TMDB's "based on true story" tag instead of the History genre. Off = History genre. */
+    const val ROULETTE_TRUE_STORY_TAG = true
+    /** Roulette: the Any mood's spin caption rotates (the count about one spin in three, plain lines, the decade it landed in) instead of always the count. Off = round 36 count line. */
+    const val ROULETTE_ANY_COPY = true
+    /** Calendar: a show name that looks like release text (e.g. "Sweetpea S01E03") loses to a clean name, and titles stored with one are looked up again, so List, Month, the day panel and reminders show the real name. Off = round 36. */
+    const val CALENDAR_NAME_GUARD = true
+    /** Profile screen: the focused profile's glow is drawn from one cached gradient, and the clock joins 0.7 s after the screen opens, fading in. Off = round 36 drawing. */
+    const val PROFILE_GLOW_LIGHT = true
+    /** Modern sidebar: a 200 dp panel (official 230), smaller items and gaps, Settings pinned at the bottom; opening and closing animations unchanged. Off = official sizes. */
+    const val SIDEBAR_SLIM = true
+    /** Cold start to the profile screen: the still Nuvio logo on black from the first frame, held over the profile screen until it's ready, then it fades as the profile intro begins. Off = black wait. */
+    const val STARTUP_OPENING = true
+    /** After a profile pick: the start-up screen shows that profile's avatar, still, in the centre; once Home has settled a circle opens from the centre onto Home. Off = logo and plain fade. */
+    const val PROFILE_TO_HOME = true
+    /** Settings > Integrations: TheTVDB and OMDb rows with your own keys (kept on this TV only, never in your Nuvio account). Off = rows hidden, the built-in TVDB key only. */
+    const val API_KEYS = true
+    /** Details Information block: an Awards line, from your meta add-on or OMDb with your key. Off = no Awards line. */
+    const val OMDB_AWARDS = true
 }

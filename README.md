@@ -9,7 +9,7 @@ Nuvio C is a personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV)
 ### Playback
 - **Information-rich controls.** Title logo plus resolution, HDR / Dolby Vision, audio (Dolby Atmos spelled out), source and file-size badges, a slimmer high-contrast seek bar and a label under the focused button.
 - **Subtitles that stay readable.** Bottom subtitles lift clear of the controls and pause screen; subtitles and controls are dimmed during HDR and Dolby Vision playback.
-- **Subtitle styling.** Choice of subtitle font, background box, outline width and an option to hide SDH tracks.
+- **Subtitle styling.** Choice of subtitle font, background box, outline width and an option to hide SDH tracks. Your saved subtitle carries to the next episode, with SDH only as a fallback.
 - **Night mode for passthrough setups.** Lifts dialogue and quiet passages, switching a title from bitstream to decoded audio without interrupting playback, with an optional evening schedule.
 - **Stream information panel.** Source server, decoder, display mode, HDR metadata, buffering and network health in one panel that fits the screen.
 - **Cleaner track lists.** Audio and subtitle tracks are named by language, with the track's own description underneath.
@@ -22,18 +22,20 @@ Nuvio C is a personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV)
 - **Readable hero text.** A compact four-line description that scrolls like the official app when it runs long.
 - **Upcoming from your library.** One Upcoming row fed by the Calendar, with release-day tags, watched episodes removed and accurate show names.
 - **Profiles and personalisation.** A cleaner profile screen, a choice of app fonts and an on-screen clock while browsing.
-- **Smooth start-up.** Opens straight onto the profile screen and hands over to a fully settled Home.
+- **Smooth start-up.** A still logo from the first frame, the profile screen fading in once it is ready, the picked profile held while Home settles, then a circle reveal onto Home.
+- **Slim sidebar.** A narrower Modern sidebar with Settings pinned at the bottom.
 
 ### Calendar
 - **Week, List and Month views** of everything you follow, in your time zone, with reminders.
 - **Multiple sources.** Your library, MDBList calendar and TMDB "coming soon" digital releases, de-duplicated.
 - **Fresh on open.** Refreshed in the background after a cold start, so stale entries are never shown.
+- **Exact air times.** Add your own TheTVDB key in Settings > Integrations to fill in times TVmaze lacks.
 
 ### Details and discovery
 - **Ratings in one place.** Rate with half-star precision to Trakt, Simkl and MDBList at once, with a prompt once a film counts as watched.
-- **Richer pages.** Tagline, an Information ledger (release dates, budget, box office, status), next-episode countdown and acting-only filmographies with roles.
+- **Richer pages.** Tagline, an Information ledger (release dates, budget, box office, status, awards with your own OMDb key), next-episode countdown and acting-only filmographies with roles.
 - **Trailers.** Background trailers with a mute setting and one-press exit, a full seek bar and logo on the trailer screen, and IMDb trailers as a fallback when YouTube limits quality.
-- **Roulette and Shuffle.** A genuine shuffle across tens of thousands of well-rated TMDB films and shows, filtered by type and mood with top ratings shown and no repeats within 30 days, plus a Shuffle button on series pages and a random pick in the Library.
+- **Roulette and Shuffle.** A genuine shuffle across tens of thousands of TMDB films and shows (Curated, Wide or Deep pool), filtered by type and mood and refined by decade, region, length and acclaim, an Episodes mode for a random episode of your shows, top ratings shown and no repeats within 30 days, plus a Shuffle button on series pages and a random pick in the Library.
 
 ### Performance and reliability
 - Tuned for 2 GB TVs: lighter player memory use, compiled-on-install updates, smoother scrolling and sidebar transitions.

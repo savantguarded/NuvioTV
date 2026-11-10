@@ -120,6 +120,7 @@ import com.nuvio.tv.core.runtime.PluginRuntimeHooks
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.nuvio.tv.ui.components.nuvioCCircleReveal
 import androidx.compose.ui.unit.sp
 import androidx.core.os.ConfigurationCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -441,6 +442,7 @@ open class MainActivity : ComponentActivity() {
                 com.nuvio.tv.NuvioCFeatures.STARTUP_TO_PROFILES && nuvioCPickerPrefs.getBoolean("nuvioc_expect_picker", false)
             }
             var nuvioCPickerWaitOver by remember { mutableStateOf(!nuvioCExpectPicker) }
+            remember { if (nuvioCExpectPicker) com.nuvio.tv.ui.components.NuvioCOpening.begin(); 0 } // [fork] round 37 startup_opening
             var nuvioCPickerShown by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) { if (!nuvioCPickerWaitOver) { kotlinx.coroutines.delay(2_000); nuvioCPickerWaitOver = true } }
             // Overrides splash background with the currently focused profile
@@ -871,6 +873,9 @@ open class MainActivity : ComponentActivity() {
                     val layoutChosen = mainUiPrefs.hasChosenLayout
                     val prefsLoading = layoutChosen == null || !mainUiPrefs.experienceModeLoaded || installedAddons == null ||
                         (!nuvioCPickerWaitOver && !splashTriggered && !hasSelectedProfileThisSession) // [fork] startup_to_profiles: wait (black) for the saved profiles
+                    if (prefsLoading && com.nuvio.tv.NuvioCFeatures.STARTUP_OPENING && nuvioCExpectPicker && !splashTriggered && !hasSelectedProfileThisSession) {
+                        com.nuvio.tv.ui.components.NuvioCOpeningLogo() // [fork] round 37 startup_opening: the still logo instead of black while profiles load
+                    }
                     if (!prefsLoading) {
                     val effectiveExperienceMode = mainUiPrefs.experienceMode
                         ?: if (layoutChosen) ExperienceMode.ADVANCED else null
@@ -1417,7 +1422,8 @@ open class MainActivity : ComponentActivity() {
                             }
                             nuvioCDissolving = false
                         } else if (nuvioCSplashAlpha.value > 0f) {
-                            nuvioCSplashAlpha.animateTo(0f, tween(500, easing = FastOutSlowInEasing))
+                            nuvioCSplashAlpha.animateTo(0f, tween(if (com.nuvio.tv.NuvioCFeatures.PROFILE_TO_HOME) 520 else 500, easing = FastOutSlowInEasing))
+                            com.nuvio.tv.ui.components.NuvioCOpening.picked.value = null // [fork] round 37 profile_to_home: used once
                         }
                     }
                     LaunchedEffect(nuvioCDissolving) { // safety: never leave the profile screen held
@@ -1442,8 +1448,13 @@ open class MainActivity : ComponentActivity() {
                             skipGradient = splashBackground.skipGradient,
                             brandWordmarkRes = splashBackground.brandWordmarkRes,
                             modifier = if (nuvioCSmooth) Modifier.graphicsLayer { // [fork] full at once on a cold start; animated around a profile pick and on the way out
-                                alpha = if (showSplash && !nuvioCDissolving) 1f else nuvioCSplashAlpha.value
-                            }
+                                alpha = when {
+                                    showSplash && !nuvioCDissolving -> 1f
+                                    // [fork] round 37 profile_to_home: on the way out a circle opens onto Home; the screen fades only at the end
+                                    !showSplash && com.nuvio.tv.NuvioCFeatures.PROFILE_TO_HOME -> (nuvioCSplashAlpha.value / 0.35f).coerceAtMost(1f)
+                                    else -> nuvioCSplashAlpha.value
+                                }
+                            }.nuvioCCircleReveal(exiting = { !showSplash }, exit = { nuvioCSplashAlpha.value })
                                 else Modifier.graphicsLayer { alpha = splashAlpha }
                         )
                     }
@@ -2044,7 +2055,7 @@ private fun ModernSidebarScaffold(
     val showSidebar = currentRoute in rootRoutes
     val sidebarTokens = NuvioComponents.tokens.sidebar
     val collapsedSidebarWidth = if (sidebarCollapsed) NuvioTheme.spacing.none else sidebarTokens.collapsedWidth
-    val openSidebarWidth = sidebarTokens.expandedWidth
+    val openSidebarWidth = if (com.nuvio.tv.NuvioCFeatures.SIDEBAR_SLIM) NUVIO_C_SLIM_SIDEBAR_WIDTH else sidebarTokens.expandedWidth // [fork] round 37 sidebar_slim
 
     val focusManager = LocalFocusManager.current
     val isRtl = androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
@@ -2352,6 +2363,12 @@ private fun ModernSidebarScaffold(
                             Key.DirectionUp -> {
                                 if (focusedDrawerIndex == sidebarTopBoundaryIndex) {
                                     true
+                                } else if (com.nuvio.tv.NuvioCFeatures.SIDEBAR_SLIM && drawerItems.size > 1 &&
+                                    focusedDrawerIndex == drawerItems.lastIndex && drawerItems.last().route == Screen.Settings.route
+                                ) {
+                                    // [fork] round 37 sidebar_slim: from bottom Settings straight back to the list
+                                    drawerItemFocusRequesters[drawerItems[drawerItems.lastIndex - 1].route]?.requestFocus()
+                                    true
                                 } else {
                                     // Move focus within the sidebar; consume unconditionally
                                     // so focus never escapes into the content behind.
@@ -2361,7 +2378,13 @@ private fun ModernSidebarScaffold(
                             }
 
                             Key.DirectionDown -> {
-                                if (focusedDrawerIndex == drawerItems.lastIndex) {
+                                if (com.nuvio.tv.NuvioCFeatures.SIDEBAR_SLIM && drawerItems.size > 1 &&
+                                    focusedDrawerIndex == drawerItems.lastIndex - 1 && drawerItems.last().route == Screen.Settings.route
+                                ) {
+                                    // [fork] round 37 sidebar_slim: Settings sits at the bottom; jump the gap directly
+                                    drawerItemFocusRequesters[drawerItems.last().route]?.requestFocus()
+                                    true
+                                } else if (focusedDrawerIndex == drawerItems.lastIndex) {
                                     // Already at the bottom drawer item — stay put.
                                     true
                                 } else if (focusedDrawerIndex == drawerItems.size && hasSidebarProfileItem) {
@@ -2675,3 +2698,6 @@ object LocaleCache {
     @Volatile
     var localeTag: String = UNSET
 }
+
+/** [fork] round 37 sidebar_slim: the Modern sidebar panel width (official 230 dp). */
+internal val NUVIO_C_SLIM_SIDEBAR_WIDTH = 200.dp
