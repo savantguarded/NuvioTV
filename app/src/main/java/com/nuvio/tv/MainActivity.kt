@@ -1335,6 +1335,16 @@ open class MainActivity : ComponentActivity() {
                                     !isTrailerPlaying,
                                 onShown = { trailerPlayerPool.stop() }
                             )
+                            if (com.nuvio.tv.NuvioCFeatures.AMBIENT_OPEN_DETAILS) {
+                                // [fork] round 38 ambient_open_details: OK on a slide opens that title
+                                LaunchedEffect(navController) {
+                                    ambientIdleController.openRequests.collect { slide ->
+                                        runCatching {
+                                            navController.navigate(Screen.Detail.createRoute(slide.itemId, slide.itemType, slide.addonBaseUrl))
+                                        }
+                                    }
+                                }
+                            }
 
                             // [fork] calendar_bells: ysosrs123's reminder card and corner message.
                             if (com.nuvio.tv.NuvioCFeatures.LIBRARY_CALENDAR && com.nuvio.tv.NuvioCFeatures.CALENDAR_BELLS) {

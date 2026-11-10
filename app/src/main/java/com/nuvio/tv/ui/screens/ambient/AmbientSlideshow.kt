@@ -76,8 +76,10 @@ private class LoadedSlide(
 @Composable
 fun AmbientSlideshow(
     slides: List<AmbientSlide>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onCurrent: (AmbientSlide?) -> Unit = {}
 ) {
+    val latestOnCurrent by rememberUpdatedState(onCurrent)
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
@@ -127,6 +129,7 @@ fun AmbientSlideshow(
                 }
                 misses = 0
                 current = loaded
+                latestOnCurrent(loaded.slide) // [fork] round 38 ambient_open_details
                 motion = nextAmbientMotion(motion)
                 motionProgress.snapTo(0f)
                 val motionJob = launch {
@@ -144,6 +147,7 @@ fun AmbientSlideshow(
                 genresAlpha.animateTo(0f, tween(GENRES_FADE_OUT_MS, easing = FastOutSlowInEasing))
                 titleAlpha.animateTo(0f, tween(TITLE_FADE_OUT_MS, easing = FastOutSlowInEasing))
                 backdropAlpha.animateTo(0f, tween(BACKDROP_FADE_OUT_MS, easing = FastOutSlowInEasing))
+                latestOnCurrent(null) // [fork] round 38: nothing to open on the black gap
                 motionJob.cancel()
                 delay(BLACK_HOLD_MS)
             }
@@ -234,6 +238,19 @@ fun AmbientSlideshow(
                     }
                 )
             }
+        }
+        if (com.nuvio.tv.NuvioCFeatures.AMBIENT_OPEN_DETAILS && loaded.slide.itemId.isNotBlank()) {
+            // [fork] round 38: a faint hint tucked in the corner, fading with the title
+            Text(
+                text = androidx.compose.ui.res.stringResource(com.nuvio.tv.R.string.nuvio_c_ambient_ok_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White,
+                maxLines = 1,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 40.dp, bottom = 32.dp)
+                    .graphicsLayer { alpha = 0.32f * titleAlpha.value }
+            )
         }
     }
 }

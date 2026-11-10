@@ -69,6 +69,7 @@ fun AmbientModeHost(
     ) {
         AmbientSlideshow(
             slides = slides,
+            onCurrent = { controller.currentSlide = it }, // [fork] round 38 ambient_open_details
             modifier = Modifier
                 .fillMaxSize()
                 .pointerInput(Unit) { detectTapGestures { controller.dismiss() } }

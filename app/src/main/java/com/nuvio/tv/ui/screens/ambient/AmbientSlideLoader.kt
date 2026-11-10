@@ -52,13 +52,16 @@ class AmbientSlideLoader @Inject constructor(
 
         val rows = chosen.map { entry -> async { fetchItems(entry, hideUnreleased) } }.awaitAll()
         val items = rows.interleave().distinctBy { "${it.apiType}:${it.id}" }.take(MAX_SLIDES)
+        // [fork] round 38 ambient_open_details: the add-on each title came from, for its details page
+        val addonOf = HashMap<String, String>()
+        chosen.forEachIndexed { i, entry -> rows[i].forEach { addonOf.putIfAbsent("${it.apiType}:${it.id}", entry.addon.baseUrl) } }
 
         val tmdbSettings = tmdbSettingsDataStore.settings.value
         val useTmdb = tmdbSettings.enabled &&
             (tmdbSettings.useArtwork || tmdbSettings.useBasicInfo || tmdbSettings.useDetails)
         val enriched = if (useTmdb) metaPreviewEnricher.enrich(items, tmdbSettings) else items
 
-        enriched.mapNotNull { it.toSlide() }.shuffled()
+        enriched.mapNotNull { it.toSlide(addonOf["${it.apiType}:${it.id}"]) }.shuffled()
     }
 
     private suspend fun fetchItems(entry: AmbientCatalog, hideUnreleased: Boolean): List<MetaPreview> {
@@ -83,7 +86,7 @@ class AmbientSlideLoader @Inject constructor(
         return (0 until longest).flatMap { index -> mapNotNull { it.getOrNull(index) } }
     }
 
-    private fun MetaPreview.toSlide(): AmbientSlide? {
+    private fun MetaPreview.toSlide(addonBaseUrl: String? = null): AmbientSlide? {
         val backdrop = background?.takeIf { it.isNotBlank() }
             ?: landscapePoster?.takeIf { it.isNotBlank() }
             ?: return null
@@ -92,7 +95,10 @@ class AmbientSlideLoader @Inject constructor(
             title = name,
             backdropUrl = backdrop,
             logoUrl = logo?.takeIf { it.isNotBlank() },
-            genres = genres.take(MAX_GENRES).map { localizedGenreLabel(context, it) }
+            genres = genres.take(MAX_GENRES).map { localizedGenreLabel(context, it) },
+            itemId = id,
+            itemType = apiType,
+            addonBaseUrl = addonBaseUrl
         )
     }
 }
