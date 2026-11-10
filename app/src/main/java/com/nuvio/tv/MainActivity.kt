@@ -1851,6 +1851,7 @@ private fun LegacySidebarScaffold(
                                 )
                         }
                     }
+                    } // items Column
                     if (nuvioCLegacyPinned != null) {
                         val item = nuvioCLegacyPinned
                         Column(
