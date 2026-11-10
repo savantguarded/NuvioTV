@@ -200,20 +200,33 @@ private fun ShuffleMood(
             modifier = Modifier.padding(top = 4.dp)
         )
         Spacer(Modifier.height(if (com.nuvio.tv.NuvioCFeatures.ROULETTE_TILES_SLIM) 18.dp else 10.dp)) // [fork] round 32 roulette_tiles_slim
-        Row(
+        // [fork] round 37b roulette_cards_fit: cards keep a fixed shape (width x 1.15) and sit centred in the space,
+        // instead of stretching to the full height while the posters are sized from the (narrower) width.
+        BoxWithConstraints(
             Modifier.fillMaxWidth().weight(1f)
                 .then(if (com.nuvio.tv.NuvioCFeatures.ROULETTE_TILES_SLIM) Modifier.padding(vertical = 12.dp) else Modifier),
-            horizontalArrangement = Arrangement.spacedBy(if (com.nuvio.tv.data.nuvioc.nuvioCShuffleKinds.size > 3) 18.dp else 24.dp) // [fork] round 37: four tiles with Episodes
+            contentAlignment = Alignment.Center
         ) {
-            com.nuvio.tv.data.nuvioc.nuvioCShuffleKinds.forEach { kind -> // [fork] roulette_anime
-                ShuffleTile(
-                    kind = kind,
-                    posters = ui.fans[kind].orEmpty(),
-                    requester = tileRequesters.getValue(kind),
-                    visit = ui.visit, // [fork] round 36 roulette_copy
-                    onClick = { onKind(kind) },
-                    modifier = Modifier.weight(1f).fillMaxHeight()
-                )
+            val nuvioCKinds = com.nuvio.tv.data.nuvioc.nuvioCShuffleKinds
+            val nuvioCGap = if (nuvioCKinds.size > 3) 18.dp else 24.dp // [fork] round 37: four tiles with Episodes
+            val nuvioCCardH = if (com.nuvio.tv.NuvioCFeatures.ROULETTE_CARDS_FIT) {
+                val w = (maxWidth - nuvioCGap * (nuvioCKinds.size - 1)) / nuvioCKinds.size
+                minOf(maxHeight, w * 1.15f)
+            } else maxHeight
+            Row(
+                Modifier.fillMaxWidth().height(nuvioCCardH),
+                horizontalArrangement = Arrangement.spacedBy(nuvioCGap)
+            ) {
+                nuvioCKinds.forEach { kind -> // [fork] roulette_anime
+                    ShuffleTile(
+                        kind = kind,
+                        posters = ui.fans[kind].orEmpty(),
+                        requester = tileRequesters.getValue(kind),
+                        visit = ui.visit, // [fork] round 36 roulette_copy
+                        onClick = { onKind(kind) },
+                        modifier = Modifier.weight(1f).fillMaxHeight()
+                    )
+                }
             }
         }
         Spacer(Modifier.height(20.dp))

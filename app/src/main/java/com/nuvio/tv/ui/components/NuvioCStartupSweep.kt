@@ -93,7 +93,8 @@ fun NuvioCStartupStatic(logoRes: Int, contentDescription: String?, modifier: Mod
             val heightDp = with(density) { logo.height.toDp() }
             AndroidView(
                 factory = { ctx ->
-                    ImageView(ctx).apply {
+                    if (NuvioCFeatures.STARTUP_LOGO_SHIMMER) nuvioCShimmerLogo(ctx, logo, contentDescription) // [fork] round 37b
+                    else ImageView(ctx).apply {
                         setImageBitmap(logo)
                         scaleType = ImageView.ScaleType.FIT_CENTER
                         this.contentDescription = contentDescription
@@ -106,7 +107,7 @@ fun NuvioCStartupStatic(logoRes: Int, contentDescription: String?, modifier: Mod
 }
 
 private val LOGO_HEIGHT = 48.dp
-private val MARK_HEIGHT = 84.dp // [fork] roulette_page round 29: icon-only start-up screen
+private val MARK_HEIGHT get() = if (NuvioCFeatures.STARTUP_LOGO_SMALLER) 76.dp else 84.dp // [fork] round 29 icon-only start-up screen; round 37b: 10% smaller
 
 /**
  * The wordmark image is the triangle icon followed by the "Nuvio" lettering. Keeps only the icon: everything up to
@@ -203,4 +204,65 @@ fun rememberNuvioCStartupSettled(key: Any, ready: Boolean): Boolean {
         settled = true
     }
     return settled
+}
+
+/**
+ * [fork] Nuvio C round 37b `startup_logo_shimmer`: a soft band of light passes across the still logo every 2.4 s
+ * while the start-up screens are up. Built from plain views so Android's render thread plays the movement: the band
+ * slides with a ViewPropertyAnimator translation (no update listener), which keeps going while the app's main thread
+ * is busy loading; a busy moment can at most lengthen the pause between sweeps. The light is the logo's own shape in
+ * white, shown only under the band (the band masks it, DST_IN, inside one hardware layer), so nothing draws outside
+ * the logo. It stops when the screen goes.
+ */
+private fun nuvioCShimmerLogo(ctx: android.content.Context, logo: android.graphics.Bitmap, description: String?): android.view.View {
+    val w = logo.width
+    val h = logo.height
+    val root = android.widget.FrameLayout(ctx)
+    root.contentDescription = description
+    root.addView(ImageView(ctx).apply {
+        setImageBitmap(logo)
+        scaleType = ImageView.ScaleType.FIT_CENTER
+    }, android.widget.FrameLayout.LayoutParams(w, h))
+    val light = android.widget.FrameLayout(ctx).apply {
+        setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
+        alpha = 0.5f
+        clipChildren = true
+    }
+    light.addView(ImageView(ctx).apply {
+        setImageBitmap(logo)
+        scaleType = ImageView.ScaleType.FIT_CENTER
+        colorFilter = android.graphics.PorterDuffColorFilter(android.graphics.Color.WHITE, android.graphics.PorterDuff.Mode.SRC_IN)
+    }, android.widget.FrameLayout.LayoutParams(w, h))
+    val bandW = (w * 0.55f).toInt().coerceAtLeast(1)
+    val band = android.view.View(ctx).apply {
+        background = android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
+            intArrayOf(0x00FFFFFF, 0xFFFFFFFF.toInt(), 0x00FFFFFF)
+        )
+        setLayerType(android.view.View.LAYER_TYPE_HARDWARE, android.graphics.Paint().apply {
+            xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_IN)
+        })
+        translationX = -bandW.toFloat()
+    }
+    light.addView(band, android.widget.FrameLayout.LayoutParams(bandW, h))
+    root.addView(light, android.widget.FrameLayout.LayoutParams(w, h))
+
+    val easing = android.view.animation.PathInterpolator(0.4f, 0f, 0.2f, 1f)
+    var running = false
+    fun sweep() {
+        if (!running) return
+        band.translationX = -bandW.toFloat()
+        band.animate()
+            .translationX(w.toFloat())
+            .setDuration(1_300L)
+            .setStartDelay(1_100L)
+            .setInterpolator(easing)
+            .withEndAction { sweep() }
+            .start()
+    }
+    root.addOnAttachStateChangeListener(object : android.view.View.OnAttachStateChangeListener {
+        override fun onViewAttachedToWindow(v: android.view.View) { running = true; sweep() }
+        override fun onViewDetachedFromWindow(v: android.view.View) { running = false; band.animate().cancel() }
+    })
+    return root
 }

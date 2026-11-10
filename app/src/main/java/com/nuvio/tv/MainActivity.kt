@@ -1810,17 +1810,59 @@ private fun LegacySidebarScaffold(
                         }
                     }
 
+                    // [fork] round 37 sidebar_slim: the default sidebar gets the same slimming as Modern (smaller items and
+                    // gaps, Settings pinned at the bottom); its icon rail and open / close animations stay official.
+                    val nuvioCLegacySlim = com.nuvio.tv.NuvioCFeatures.SIDEBAR_SLIM
+                    val nuvioCLegacyPinned = if (nuvioCLegacySlim && drawerItems.size > 1 && drawerItems.last().route == Screen.Settings.route) drawerItems.last() else null
                     Column(
                         modifier = Modifier
                             .align(Alignment.CenterStart)
                             .offset(y = 28.dp)
                             .fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(if (nuvioCLegacySlim) 4.dp else 10.dp),
                         horizontalAlignment = Alignment.Start
                     ) {
                         drawerItems.forEach { item ->
+                            if (item === nuvioCLegacyPinned) return@forEach
                             key(item.route) {
                                 LegacySidebarButton(
+                                    slim = nuvioCLegacySlim,
+                                    label = item.label,
+                                    iconRes = item.iconRes,
+                                    icon = item.icon,
+                                    selected = selectedDrawerRoute == item.route,
+                                    expanded = isExpanded,
+                                    onClick = {
+                                        keyboardController?.hide()
+                                        onNavigate(item.route)
+                                        navigateToDrawerRoute(
+                                            navController = navController,
+                                            currentRoute = currentRoute,
+                                            targetRoute = item.route
+                                        )
+                                        drawerState.setValue(DrawerValue.Closed)
+                                        pendingContentFocusTransfer = currentRoute == item.route
+                                    },
+                                    modifier = Modifier.focusRequester(
+                                        drawerItemFocusRequesters.getValue(item.route)
+                                    )
+                                        .width(itemWidth)
+                                        .offset(x = NuvioTheme.spacing.md)
+                                )
+                        }
+                    }
+                    if (nuvioCLegacyPinned != null) {
+                        val item = nuvioCLegacyPinned
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(bottom = NuvioTheme.spacing.lg)
+                                .fillMaxWidth(),
+                            horizontalAlignment = Alignment.Start
+                        ) {
+                            key(item.route) {
+                                LegacySidebarButton(
+                                    slim = true,
                                     label = item.label,
                                     iconRes = item.iconRes,
                                     icon = item.icon,
@@ -1932,6 +1974,7 @@ private fun LegacySidebarButton(
     selected: Boolean,
     expanded: Boolean,
     modifier: Modifier = Modifier,
+    slim: Boolean = false, // [fork] round 37 sidebar_slim
     onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -1976,7 +2019,7 @@ private fun LegacySidebarButton(
     Card(
         onClick = onClick,
         modifier = modifier
-            .height(NuvioComponents.tokens.sidebar.itemHeight)
+            .height(if (slim) 42.dp else NuvioComponents.tokens.sidebar.itemHeight) // [fork] round 37 sidebar_slim
             .graphicsLayer {
                 scaleX = itemScale
                 scaleY = itemScale

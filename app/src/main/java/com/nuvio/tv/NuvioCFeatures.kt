@@ -582,9 +582,17 @@ object NuvioCFeatures {
     /** Cold start to the profile screen: the still Nuvio logo on black from the first frame, held over the profile screen until it's ready, then it fades as the profile intro begins. Off = black wait. */
     const val STARTUP_OPENING = true
     /** After a profile pick: the start-up screen shows that profile's avatar, still, in the centre; once Home has settled a circle opens from the centre onto Home. Off = logo and plain fade. */
-    const val PROFILE_TO_HOME = true
+    const val PROFILE_TO_HOME = false // round 37b (Charles): back to the logo and plain fade
     /** Settings > Integrations: TheTVDB and OMDb rows with your own keys (kept on this TV only, never in your Nuvio account). Off = rows hidden, the built-in TVDB key only. */
     const val API_KEYS = true
     /** Details Information block: an Awards line, from your meta add-on or OMDb with your key. Off = no Awards line. */
     const val OMDB_AWARDS = true
+
+    // ---- Round 37b (2026-11-10) ----
+    /** Start-up and opening logo 10% smaller (76 dp, was 84). Off = 84 dp. */
+    const val STARTUP_LOGO_SMALLER = true
+    /** Start-up and opening logo: a soft band of light passes across it every 2.4 s while loading, drawn by the render thread. No text. Off = still logo. */
+    const val STARTUP_LOGO_SHIMMER = true
+    /** Roulette mood screen: cards keep a fixed shape (width x 1.15) centred between the header and the mood chips, so the posters fill them with no empty space on top. Off = cards stretch to the screen height. */
+    const val ROULETTE_CARDS_FIT = true
 }

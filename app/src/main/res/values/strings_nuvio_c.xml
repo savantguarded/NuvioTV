@@ -108,7 +108,7 @@
     <string-array name="nuvio_c_roulette_movies_late"><item>Past-midnight picks</item><item>One for the night owls</item></string-array>
     <string-array name="nuvio_c_roulette_shows"><item>Your next binge</item><item>Pilot night</item><item>A series worth starting</item></string-array>
     <string-array name="nuvio_c_roulette_either"><item>Wildcard</item><item>Leave it to chance</item><item>Film or series, fate decides</item></string-array>
-    <string-array name="nuvio_c_roulette_anime"><item>Straight from Japan\'s studios</item><item>Japanese animation, films and series</item></string-array>
+    <string-array name="nuvio_c_roulette_anime"><item>Straight from Japan</item><item>Films and series from Japan</item></string-array>
     <string name="nuvio_c_roulette_spin_movies">Spinning through %1$s films…</string>
     <string name="nuvio_c_roulette_spin_shows">Shuffling %1$s series…</string>
     <string name="nuvio_c_roulette_spin_titles">Spinning through %1$s titles…</string>
@@ -190,7 +190,7 @@
     <string name="nuvio_c_osd_details">Details</string>
     <string name="tvdb_metadata_credit">Metadata provided by %1$s</string>
     <string name="nuvio_c_shuffle_anime">Anime</string>
-    <string name="nuvio_c_shuffle_anime_hint">Japanese animation, films and series</string>
+    <string name="nuvio_c_shuffle_anime_hint">Films and series from Japan</string>
     <string name="nuvio_c_shuffle_mood_adventure">Big adventure</string>
     <string name="nuvio_c_shuffle_mood_family">Family night</string>
     <string name="nuvio_c_shuffle_mood_music">Music</string>
@@ -275,8 +275,8 @@
     <string name="nuvio_c_pool_wide">Wide</string>
     <string name="nuvio_c_pool_deep">Deep</string>
     <string name="nuvio_c_shuffle_episodes">Episodes</string>
-    <string name="nuvio_c_shuffle_episodes_hint">A random episode from your shows</string>
-    <string-array name="nuvio_c_roulette_episodes"><item>A random episode from your shows</item><item>Drop into any episode</item><item>One episode, no commitment</item></string-array>
+    <string name="nuvio_c_shuffle_episodes_hint">From your shows</string>
+    <string-array name="nuvio_c_roulette_episodes"><item>From your shows</item><item>Drop into any episode</item><item>One episode, no commitment</item></string-array>
     <string-array name="nuvio_c_roulette_spin_episodes"><item>Flipping through your shows…</item><item>Picking an episode…</item><item>Dropping in somewhere good…</item></string-array>
     <string name="nuvio_c_roulette_kick_episode">A RANDOM EPISODE</string>
     <string name="nuvio_c_episode_code">S%1$d E%2$d</string>
