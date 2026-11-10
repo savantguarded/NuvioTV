@@ -107,6 +107,7 @@ fun NuvioCStartupStatic(logoRes: Int, contentDescription: String?, modifier: Mod
 }
 
 private val LOGO_HEIGHT = 48.dp
+private const val SHIMMER_TILT_DEG = 20f // [fork] round 38 startup_shimmer_slant
 private val MARK_HEIGHT get() = if (NuvioCFeatures.STARTUP_LOGO_SMALLER) 76.dp else 84.dp // [fork] round 29 icon-only start-up screen; round 37b: 10% smaller
 
 /**
@@ -234,26 +235,36 @@ private fun nuvioCShimmerLogo(ctx: android.content.Context, logo: android.graphi
         colorFilter = android.graphics.PorterDuffColorFilter(android.graphics.Color.WHITE, android.graphics.PorterDuff.Mode.SRC_IN)
     }, android.widget.FrameLayout.LayoutParams(w, h))
     val bandW = (w * 0.55f).toInt().coerceAtLeast(1)
+    // [fork] round 38 startup_shimmer_slant: the band leans like light catching glass instead of standing upright.
+    // Taller than the logo so the tilted ends never show inside it; a feathered five-stop gradient softens the edges.
+    // Rotation and translation are plain view properties, so the render thread still plays it.
+    val slant = NuvioCFeatures.STARTUP_SHIMMER_SLANT
+    val bandH = if (slant) (h * 1.8f).toInt() else h
+    val reach = if (slant) (bandH * kotlin.math.sin(Math.toRadians(SHIMMER_TILT_DEG.toDouble())) / 2.0).toFloat() else 0f
     val band = android.view.View(ctx).apply {
         background = android.graphics.drawable.GradientDrawable(
             android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
-            intArrayOf(0x00FFFFFF, 0xFFFFFFFF.toInt(), 0x00FFFFFF)
+            if (slant) intArrayOf(0x00FFFFFF, 0x59FFFFFF, 0xFFFFFFFF.toInt(), 0x59FFFFFF, 0x00FFFFFF)
+            else intArrayOf(0x00FFFFFF, 0xFFFFFFFF.toInt(), 0x00FFFFFF)
         )
         setLayerType(android.view.View.LAYER_TYPE_HARDWARE, android.graphics.Paint().apply {
             xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_IN)
         })
-        translationX = -bandW.toFloat()
+        if (slant) rotation = SHIMMER_TILT_DEG
+        translationX = -bandW - reach
     }
-    light.addView(band, android.widget.FrameLayout.LayoutParams(bandW, h))
+    light.addView(band, android.widget.FrameLayout.LayoutParams(bandW, bandH).apply {
+        if (slant) topMargin = (h - bandH) / 2
+    })
     root.addView(light, android.widget.FrameLayout.LayoutParams(w, h))
 
     val easing = android.view.animation.PathInterpolator(0.4f, 0f, 0.2f, 1f)
     var running = false
     fun sweep() {
         if (!running) return
-        band.translationX = -bandW.toFloat()
+        band.translationX = -bandW - reach
         band.animate()
-            .translationX(w.toFloat())
+            .translationX(w + reach)
             .setDuration(1_300L)
             .setStartDelay(1_100L)
             .setInterpolator(easing)
