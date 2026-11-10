@@ -265,6 +265,9 @@ fun ProfileSelectionScreen(
     }
     val selectProfile: (Int) -> Unit = { profileId ->
         if (!viewModel.isSelectingProfile) {
+            profiles.firstOrNull { it.id == profileId }?.let { p -> // [fork] round 37 profile_to_home: the start-up screen shows who was picked
+                com.nuvio.tv.ui.components.NuvioCOpening.pick(p.name, p.avatarColorHex, p.avatarId?.let { avatarImageUrlsById[it] })
+            }
             onProfileClicked()
             viewModel.selectProfile(
                 id = profileId,
@@ -376,7 +379,13 @@ fun ProfileSelectionScreen(
         } // [fork]
         } // [fork]
         if (com.nuvio.tv.NuvioCFeatures.PROFILE_GREETING && com.nuvio.tv.NuvioCFeatures.BROWSE_CLOCK && !isManagementMode) { // [fork] round 36: clock top-right, as on Home
-            Box(Modifier.fillMaxSize().zIndex(1f), contentAlignment = Alignment.TopEnd) { com.nuvio.tv.ui.components.NuvioCClockPill() }
+            // [fork] round 37 profile_glow_light: the clock joins a moment after the screen's first frames, fading in
+            var nuvioCClockReady by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(!com.nuvio.tv.NuvioCFeatures.PROFILE_GLOW_LIGHT) }
+            androidx.compose.runtime.LaunchedEffect(Unit) { kotlinx.coroutines.delay(700); nuvioCClockReady = true }
+            val nuvioCClockAlpha by androidx.compose.animation.core.animateFloatAsState(if (nuvioCClockReady) 1f else 0f, androidx.compose.animation.core.tween(300), label = "clock")
+            if (nuvioCClockReady) {
+                Box(Modifier.fillMaxSize().zIndex(1f).graphicsLayer { alpha = nuvioCClockAlpha }, contentAlignment = Alignment.TopEnd) { com.nuvio.tv.ui.components.NuvioCClockPill() }
+            }
         }
 
         CompositionLocalProvider(LocalNuvioCProfileIntro provides nuvioCIntro) { // [fork] profile_intro
@@ -553,6 +562,9 @@ fun ProfileSelectionScreen(
             }
         }
         } // [fork] LocalNuvioCProfileIntro
+        if (com.nuvio.tv.ui.components.NuvioCOpening.pending.value) { // [fork] round 37 startup_opening: the logo over the screen while it builds
+            Box(Modifier.fillMaxSize().zIndex(5f)) { com.nuvio.tv.ui.components.NuvioCOpeningCover() }
+        }
 
         // Create Profile Overlay
         AnimatedVisibility(

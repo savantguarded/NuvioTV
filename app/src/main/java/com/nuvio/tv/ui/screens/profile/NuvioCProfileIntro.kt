@@ -45,6 +45,7 @@ internal fun rememberNuvioCProfileIntro(enabled: Boolean, backgroundReady: Boole
     LaunchedEffect(Unit) {
         if (clock.value >= TOTAL_MS) return@LaunchedEffect
         withTimeoutOrNull(600) { snapshotFlow { ready.value }.first { it } }
+        com.nuvio.tv.ui.components.NuvioCOpening.release() // [fork] round 37 startup_opening: the logo fades as the intro begins
         clock.animateTo(TOTAL_MS, tween(TOTAL_MS.toInt(), easing = LinearEasing))
     }
     return clock.asState()
