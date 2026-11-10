@@ -1370,6 +1370,7 @@ internal fun PlayerRuntimeController.initializePlayer(
                                 _uiState.update { it.copy(pendingSeekPosition = null) }
                             }
                             tryAutoSelectPreferredSubtitleFromAvailableTracks()
+                            NuvioCSubtitleRecheck.schedule(this@initializePlayer) // [fork] round 37 subtitle_recheck
                             if (!NuvioExoPlayerPerformanceHelper.shouldGuardTrackRebuild() || !hasRenderedFirstFrame) {
                                 trackSelectionParameters = trackSelectionParameters.buildUpon().build()
                             }

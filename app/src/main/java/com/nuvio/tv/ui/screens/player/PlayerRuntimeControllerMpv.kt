@@ -348,6 +348,7 @@ internal fun PlayerRuntimeController.updateMpvTracksOnTick() {
         subtitleTracks = state.subtitleTracks
     )
     tryAutoSelectPreferredSubtitleFromAvailableTracks()
+    NuvioCSubtitleRecheck.schedule(this) // [fork] round 37 subtitle_recheck (once per stream)
 }
 
 /** mpv only reports the video transfer once it has decoded video params, so this is re-read each tick. */
