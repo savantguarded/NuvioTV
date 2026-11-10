@@ -51,6 +51,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -548,7 +549,26 @@ internal fun nuvioCGreetingRes(hour: Int = java.util.Calendar.getInstance().get(
  * [fork] round 36 profile_greeting: a soft glow in the profile's own colour around the focused ring. Drawn behind,
  * at most 10 dp past the ring so it stays inside the list's 12 dp zoom room (nothing clips, no layout change).
  */
-internal fun Modifier.nuvioCProfileGlow(color: Color, ring: androidx.compose.ui.unit.Dp, progress: () -> Float): Modifier = drawBehind {
+internal fun Modifier.nuvioCProfileGlow(color: Color, ring: androidx.compose.ui.unit.Dp, progress: () -> Float): Modifier =
+    if (com.nuvio.tv.NuvioCFeatures.PROFILE_GLOW_LIGHT) {
+        // [fork] round 37 profile_glow_light: the gradient is built once per size (drawWithCache) and only its
+        // alpha follows focus, instead of a new gradient on every frame of every profile while the screen opens.
+        drawWithCache {
+            val ringR = ring.toPx() / 2f
+            val outer = ringR + 10.dp.toPx()
+            val brush = Brush.radialGradient(
+                0f to color.copy(alpha = 0f),
+                (ringR / outer) * 0.92f to color.copy(alpha = 0.55f),
+                1f to color.copy(alpha = 0f),
+                center = center,
+                radius = outer
+            )
+            onDrawBehind {
+                val p = progress()
+                if (p > 0.01f) drawCircle(brush = brush, radius = outer, center = center, alpha = p.coerceIn(0f, 1f))
+            }
+        }
+    } else drawBehind {
     val p = progress()
     if (p <= 0.01f) return@drawBehind
     val ringR = ring.toPx() / 2f

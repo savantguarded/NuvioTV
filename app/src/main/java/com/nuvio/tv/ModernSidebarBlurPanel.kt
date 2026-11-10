@@ -198,11 +198,15 @@ internal fun ModernSidebarBlurPanel(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // [fork] round 37 sidebar_slim: smaller items and gaps; Settings pinned to the bottom of the panel
+            val nuvioCSlim = com.nuvio.tv.NuvioCFeatures.SIDEBAR_SLIM
+            val nuvioCPinned = if (nuvioCSlim && drawerItems.size > 1 && drawerItems.last().route == com.nuvio.tv.ui.navigation.Screen.Settings.route) drawerItems.last() else null
             Column(
                 modifier = Modifier.offset(y = (-12).dp),
-                verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm - NuvioTheme.spacing.xxs)
+                verticalArrangement = Arrangement.spacedBy(if (nuvioCSlim) 4.dp else NuvioTheme.spacing.sm - NuvioTheme.spacing.xxs)
             ) {
                 drawerItems.forEachIndexed { index, item ->
+                    if (item === nuvioCPinned) return@forEachIndexed
                     key(item.route) {
                         SidebarNavigationItem(
                             label = item.label,
@@ -218,11 +222,42 @@ internal fun ModernSidebarBlurPanel(
                                 }
                             },
                             onClick = { onDrawerItemClick(item.route) },
+                            slim = nuvioCSlim,
                             modifier = Modifier
                                 .fillMaxWidth(0.92f)
                                 .focusRequester(drawerItemFocusRequesters.getValue(item.route))
                         )
                     }
+                }
+            }
+        }
+        if (nuvioCPinned != null) {
+            val index = drawerItems.lastIndex
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = NuvioTheme.spacing.sm)
+                    .height(NuvioStrokes.tokens.hairline)
+                    .background(Color.White.copy(alpha = 0.08f))
+            )
+            Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                key(nuvioCPinned.route) {
+                    SidebarNavigationItem(
+                        label = nuvioCPinned.label,
+                        iconRes = nuvioCPinned.iconRes,
+                        icon = nuvioCPinned.icon,
+                        selected = selectedDrawerRoute == nuvioCPinned.route,
+                        focusEnabled = keepSidebarFocusDuringCollapse,
+                        labelAlpha = sidebarLabelAlpha,
+                        iconScale = sidebarIconScale,
+                        onFocusChanged = { if (it) onDrawerItemFocused(index) },
+                        onClick = { onDrawerItemClick(nuvioCPinned.route) },
+                        slim = true,
+                        modifier = Modifier
+                            .fillMaxWidth(0.92f)
+                            .focusRequester(drawerItemFocusRequesters.getValue(nuvioCPinned.route))
+                    )
                 }
             }
         }
@@ -240,6 +275,7 @@ private fun SidebarNavigationItem(
     iconScale: Float,
     onFocusChanged: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    slim: Boolean = false, // [fork] round 37 sidebar_slim
     onClick: () -> Unit
 ) {
     var isFocused by remember { mutableStateOf(false) }
@@ -325,12 +361,15 @@ private fun SidebarNavigationItem(
                     this.selected = selected
                 }
                 .fillMaxWidth()
-                .padding(horizontal = NuvioTheme.spacing.lg - NuvioTheme.spacing.xxs, vertical = NuvioTheme.spacing.sm + NuvioTheme.spacing.xxs),
+                .padding(
+                    horizontal = NuvioTheme.spacing.lg - NuvioTheme.spacing.xxs,
+                    vertical = if (slim) 6.dp else NuvioTheme.spacing.sm + NuvioTheme.spacing.xxs // [fork] round 37 sidebar_slim
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
         Box(
             modifier = Modifier
-                .size(SidebarLeadingVisualSize)
+                .size(if (slim) 28.dp else SidebarLeadingVisualSize)
                 .graphicsLayer {
                     scaleX = iconScale
                     scaleY = iconScale
@@ -365,7 +404,7 @@ private fun SidebarNavigationItem(
                 )
             }
         }
-        Spacer(modifier = Modifier.width(SidebarContentGap))
+        Spacer(modifier = Modifier.width(if (slim) 12.dp else SidebarContentGap))
 
         AutoResizeText(
             text = label,
