@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.nuvio.tv.NuvioCFeatures
 import com.nuvio.tv.R
 import com.nuvio.tv.ui.theme.NuvioTheme
+import com.nuvio.tv.ui.theme.brandWordmarkResource
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.hypot

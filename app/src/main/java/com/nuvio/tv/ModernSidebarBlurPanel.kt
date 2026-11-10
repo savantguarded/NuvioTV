@@ -191,6 +191,9 @@ internal fun ModernSidebarBlurPanel(
 
         Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
 
+        // [fork] round 37 sidebar_slim: smaller items and gaps; Settings pinned to the bottom of the panel
+        val nuvioCSlim = com.nuvio.tv.NuvioCFeatures.SIDEBAR_SLIM
+        val nuvioCPinned = if (nuvioCSlim && drawerItems.size > 1 && drawerItems.last().route == com.nuvio.tv.ui.navigation.Screen.Settings.route) drawerItems.last() else null
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -198,9 +201,6 @@ internal fun ModernSidebarBlurPanel(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // [fork] round 37 sidebar_slim: smaller items and gaps; Settings pinned to the bottom of the panel
-            val nuvioCSlim = com.nuvio.tv.NuvioCFeatures.SIDEBAR_SLIM
-            val nuvioCPinned = if (nuvioCSlim && drawerItems.size > 1 && drawerItems.last().route == com.nuvio.tv.ui.navigation.Screen.Settings.route) drawerItems.last() else null
             Column(
                 modifier = Modifier.offset(y = (-12).dp),
                 verticalArrangement = Arrangement.spacedBy(if (nuvioCSlim) 4.dp else NuvioTheme.spacing.sm - NuvioTheme.spacing.xxs)

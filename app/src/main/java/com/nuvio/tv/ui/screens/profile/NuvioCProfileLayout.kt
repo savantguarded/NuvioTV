@@ -560,7 +560,7 @@ internal fun Modifier.nuvioCProfileGlow(color: Color, ring: androidx.compose.ui.
                 0f to color.copy(alpha = 0f),
                 (ringR / outer) * 0.92f to color.copy(alpha = 0.55f),
                 1f to color.copy(alpha = 0f),
-                center = center,
+                center = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height / 2f),
                 radius = outer
             )
             onDrawBehind {
