@@ -51,6 +51,8 @@ data class TvdbCachedShow(
 data class TvdbCache(
     val token: String? = null,
     val tokenExpiresAtMs: Long = 0L,
+    /** [fork] round 37 api_keys: fingerprint of the key the token belongs to (null = older cache, trusted). */
+    val tokenKeyHash: String? = null,
     val ids: Map<String, TvdbCachedId> = emptyMap(),
     val shows: Map<String, TvdbCachedShow> = emptyMap()
 )
@@ -99,19 +101,29 @@ class TvdbCacheFile(private val file: () -> File) {
 @Singleton
 class TvdbCalendarClient internal constructor(
     private val api: TvdbApi,
-    private val apiKey: String,
+    private val apiKeyProvider: () -> String, // [fork] round 37 api_keys: your key from Integrations, else the built-in one
     private val cacheFile: TvdbCacheFile,
     private val limiter: CalendarRateLimiter,
     private val nowMs: () -> Long
 ) {
+    internal constructor(
+        api: TvdbApi,
+        apiKey: String,
+        cacheFile: TvdbCacheFile,
+        limiter: CalendarRateLimiter,
+        nowMs: () -> Long
+    ) : this(api, { apiKey }, cacheFile, limiter, nowMs)
+
     @Inject
     constructor(api: TvdbApi, @ApplicationContext context: Context) : this(
         api,
-        BuildConfig.TVDB_API_KEY,
+        { com.nuvio.tv.core.nuvioc.NuvioCApiKeys.tvdb(context) },
         TvdbCacheFile { File(context.filesDir, "tvdb/cache.json") },
         CalendarRateLimiter(limit = 10, burst = 3, nowMs = SystemClock::elapsedRealtime),
         System::currentTimeMillis
     )
+
+    private val apiKey: String get() = apiKeyProvider().trim()
 
     private val mutex = Mutex()
     private var cache: TvdbCache? = null
@@ -198,11 +210,14 @@ class TvdbCalendarClient internal constructor(
         val now = nowMs()
         val current = cache ?: TvdbCache()
         val kept = current.token
-        if (!forceNew && kept != null && current.tokenExpiresAtMs - now > TOKEN_RENEW_BEFORE.toMillis()) return kept
-        val response = call { api.login(TvdbLoginRequestDto(apiKey)) }
+        val key = apiKey
+        val keyHash = key.hashCode().toString(16)
+        val sameKey = current.tokenKeyHash == null || current.tokenKeyHash == keyHash // [fork] round 37: a changed key drops the old login
+        if (!forceNew && kept != null && sameKey && current.tokenExpiresAtMs - now > TOKEN_RENEW_BEFORE.toMillis()) return kept
+        val response = call { api.login(TvdbLoginRequestDto(key)) }
         val fresh = response.body()?.data?.token?.takeIf { response.isSuccessful && it.isNotBlank() }
             ?: throw CalendarFetchException("TheTVDB login ${response.code()}")
-        update { it.copy(token = fresh, tokenExpiresAtMs = now + TOKEN_LIFETIME.toMillis()) }
+        update { it.copy(token = fresh, tokenExpiresAtMs = now + TOKEN_LIFETIME.toMillis(), tokenKeyHash = keyHash) }
         return fresh
     }
 
@@ -364,3 +379,20 @@ fun calendarTvdbTimes(entries: List<CalendarEntry>, airs: TvdbAirs, now: Instant
 
 fun tvdbAirsOn(airs: TvdbAirs, date: LocalDate): Boolean =
     date.dayOfWeek in airs.days || airs.nextAired == date
+
+/**
+ * [fork] round 37 api_keys: checks a key before it is saved (one login call). True = TheTVDB accepted it,
+ * false = refused, null = couldn't reach TheTVDB.
+ */
+suspend fun tvdbKeyWorks(api: TvdbApi, key: String): Boolean? = try {
+    val r = api.login(TvdbLoginRequestDto(key.trim()))
+    when {
+        r.isSuccessful && !r.body()?.data?.token.isNullOrBlank() -> true
+        r.code() == 401 || r.code() == 400 || r.code() == 403 -> false
+        else -> null
+    }
+} catch (cancelled: CancellationException) {
+    throw cancelled
+} catch (error: Exception) {
+    null
+}

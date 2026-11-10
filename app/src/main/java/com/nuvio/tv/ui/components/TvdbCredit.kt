@@ -21,7 +21,7 @@ const val TVDB_NAME = "TheTVDB"
 const val TVDB_ADDRESS = "thetvdb.com"
 const val TVDB_URL = "https://thetvdb.com"
 
-val tvdbCreditShown: Boolean get() = BuildConfig.TVDB_API_KEY.isNotBlank()
+val tvdbCreditShown: Boolean get() = BuildConfig.TVDB_API_KEY.isNotBlank() || com.nuvio.tv.core.nuvioc.NuvioCApiKeys.keys.value?.tvdb?.isNotBlank() == true // [fork] round 37 api_keys
 
 /** TheTVDB's required credit: their logo, the line and their address. */
 @Composable

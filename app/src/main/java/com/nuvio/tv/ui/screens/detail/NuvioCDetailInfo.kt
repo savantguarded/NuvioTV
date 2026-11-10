@@ -124,6 +124,7 @@ object NuvioCDetailInfoStore {
 
 @HiltViewModel
 class NuvioCDetailInfoViewModel @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: android.content.Context, // [fork] round 37 omdb_awards
     @Named("tmdb") tmdbRetrofit: Retrofit,
     private val tmdbService: TmdbService,
     private val tvMaze: TvMazeApi
@@ -141,13 +142,27 @@ class NuvioCDetailInfoViewModel @Inject constructor(
         loadingFor = meta.id
         viewModelScope.launch {
             delay(SETTLE_MS) // after the page, trailer and ratings have started
-            val info = withContext(Dispatchers.IO) { runCatching { fetch(meta) }.getOrNull() } ?: NuvioCDetailInfo(meta.id, localRows(meta))
+            val fetched = withContext(Dispatchers.IO) { runCatching { fetch(meta) }.getOrNull() } ?: NuvioCDetailInfo(meta.id, localRows(meta))
+            val info = withAwards(fetched, meta) // [fork] round 37 omdb_awards
             NuvioCDetailInfoStore.put(info)
             NuvioCDetailInfoStore.publish(info)
         }
     }
 
     private val isShow: (Meta) -> Boolean = { it.type == ContentType.SERIES || it.type == ContentType.TV }
+
+    /**
+     * [fork] round 37 omdb_awards: an Awards line last in the block. Your meta add-on's awards text when it has one,
+     * else OMDb with your key (Settings > Integrations). Nothing when neither has awards.
+     */
+    private suspend fun withAwards(info: NuvioCDetailInfo, meta: Meta): NuvioCDetailInfo {
+        if (!NuvioCFeatures.OMDB_AWARDS || info.rows.any { it.label == R.string.nuvio_c_info_awards }) return info
+        val text = com.nuvio.tv.core.nuvioc.NuvioCOmdb.tidy(meta.awards) ?: run {
+            val imdb = meta.imdbId?.takeIf { it.startsWith("tt") } ?: meta.id.takeIf { it.startsWith("tt") } ?: return info
+            withTimeoutOrNull(8_000) { runCatching { com.nuvio.tv.core.nuvioc.NuvioCOmdb.awards(appContext, imdb) }.getOrNull() }
+        } ?: return info
+        return info.copy(rows = info.rows + NuvioCInfoRow(R.string.nuvio_c_info_awards, text))
+    }
 
     /** What the meta add-on already gives, so the block is never empty while TMDB answers (or if it can't). */
     private fun localRows(meta: Meta): List<NuvioCInfoRow> = buildList {
@@ -364,8 +379,11 @@ internal fun NuvioCDetailInfoBlock(metaId: String) {
 @Composable
 private fun NuvioCInfoLedger(rows: List<NuvioCInfoRow>, margin: androidx.compose.ui.unit.Dp) {
     val hairline = NuvioTheme.colors.TextPrimary.copy(alpha = 0.08f)
+    // [fork] round 37 omdb_awards: Awards runs the full width on its own line, so it's rarely cut short
+    val awards = rows.firstOrNull { it.label == R.string.nuvio_c_info_awards }
+    val paired = if (awards != null) rows - awards else rows
     Column(Modifier.fillMaxWidth().padding(horizontal = margin)) {
-        rows.chunked(2).forEach { line ->
+        paired.chunked(2).forEach { line ->
             Row(horizontalArrangement = Arrangement.spacedBy(56.dp), modifier = Modifier.fillMaxWidth()) {
                 line.forEach { row ->
                     val value = if (row.value.startsWith("\u0000")) {
@@ -399,6 +417,30 @@ private fun NuvioCInfoLedger(rows: List<NuvioCInfoRow>, margin: androidx.compose
                     }
                 }
                 if (line.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+        if (awards != null) {
+            androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().height(1.dp).then(Modifier.background(hairline)))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 11.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(awards.label),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = NuvioTheme.extendedColors.textTertiary,
+                    maxLines = 1
+                )
+                Spacer(Modifier.width(24.dp))
+                Text(
+                    text = awards.value,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = NuvioTheme.colors.TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
     }

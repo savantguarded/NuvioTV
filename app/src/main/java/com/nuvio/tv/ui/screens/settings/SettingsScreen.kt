@@ -110,7 +110,9 @@ private enum class IntegrationSettingsSection {
     Debrid,
     Tmdb,
     MdbList,
-    AnimeSkip
+    AnimeSkip,
+    Tvdb, // [fork] round 37 api_keys
+    Omdb  // [fork] round 37 api_keys
 }
 
 internal enum class SettingsSectionDestination {
@@ -1072,6 +1074,8 @@ private fun IntegrationSettingsContent(
     BackHandler(enabled = selectedSection != IntegrationSettingsSection.Hub) {
         onSelectSection(IntegrationSettingsSection.Hub)
     }
+    val nuvioCTvdbFocusRequester = remember { FocusRequester() } // [fork] round 37 api_keys
+    val nuvioCOmdbFocusRequester = remember { FocusRequester() } // [fork] round 37 api_keys
     val hubEntryFocusRequester = when (hubReturnSection) {
         IntegrationSettingsSection.Hub ->
             initialFocusRequester ?: hubFocusRequester
@@ -1079,6 +1083,8 @@ private fun IntegrationSettingsContent(
         IntegrationSettingsSection.Tmdb -> tmdbFocusRequester
         IntegrationSettingsSection.MdbList -> mdbListFocusRequester
         IntegrationSettingsSection.AnimeSkip -> animeSkipFocusRequester
+        IntegrationSettingsSection.Tvdb -> nuvioCTvdbFocusRequester
+        IntegrationSettingsSection.Omdb -> nuvioCOmdbFocusRequester
     }
     val hubEntryTargetSection = hubReturnSection.takeIf {
         it != IntegrationSettingsSection.Hub
@@ -1092,6 +1098,8 @@ private fun IntegrationSettingsContent(
             IntegrationSettingsSection.Tmdb -> tmdbFocusRequester
             IntegrationSettingsSection.MdbList -> mdbListFocusRequester
             IntegrationSettingsSection.AnimeSkip -> animeSkipFocusRequester
+            IntegrationSettingsSection.Tvdb -> nuvioCTvdbFocusRequester
+            IntegrationSettingsSection.Omdb -> nuvioCOmdbFocusRequester
         }
         runCatching { requester.requestFocus() }
     }
@@ -1171,6 +1179,34 @@ private fun IntegrationSettingsContent(
                                     }
                                 )
                             }
+                            if (com.nuvio.tv.NuvioCFeatures.API_KEYS) { // [fork] round 37 api_keys
+                                item(key = "integration_hub_nuvio_c_tvdb") {
+                                    SettingsActionRow(
+                                        title = stringResource(R.string.nuvio_c_tvdb_title),
+                                        subtitle = stringResource(R.string.nuvio_c_tvdb_hub_subtitle),
+                                        leadingRawIconRes = R.raw.nuvio_c_tvdb_logo,
+                                        onClick = { onSelectSection(IntegrationSettingsSection.Tvdb) },
+                                        modifier = if (hubEntryTargetSection == IntegrationSettingsSection.Tvdb) {
+                                            Modifier.focusRequester(hubEntryFocusRequester)
+                                        } else {
+                                            Modifier
+                                        }
+                                    )
+                                }
+                                item(key = "integration_hub_nuvio_c_omdb") {
+                                    SettingsActionRow(
+                                        title = stringResource(R.string.nuvio_c_omdb_title),
+                                        subtitle = stringResource(R.string.nuvio_c_omdb_hub_subtitle),
+                                        leadingRawIconRes = R.raw.nuvio_c_omdb_logo,
+                                        onClick = { onSelectSection(IntegrationSettingsSection.Omdb) },
+                                        modifier = if (hubEntryTargetSection == IntegrationSettingsSection.Omdb) {
+                                            Modifier.focusRequester(hubEntryFocusRequester)
+                                        } else {
+                                            Modifier
+                                        }
+                                    )
+                                }
+                            }
                         }
                         SettingsVerticalScrollIndicators(state = integrationHubState)
                     }
@@ -1201,6 +1237,9 @@ private fun IntegrationSettingsContent(
                 initialFocusRequester = animeSkipFocusRequester
             )
         }
+
+        IntegrationSettingsSection.Tvdb -> NuvioCApiKeyContent(NuvioCKeyService.TVDB, nuvioCTvdbFocusRequester) // [fork] round 37
+        IntegrationSettingsSection.Omdb -> NuvioCApiKeyContent(NuvioCKeyService.OMDB, nuvioCOmdbFocusRequester) // [fork] round 37
     }
 }
 

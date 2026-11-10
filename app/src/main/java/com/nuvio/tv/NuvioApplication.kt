@@ -94,6 +94,7 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
         serverUserStateProjection.start()
         nuvioCCloudSettings.start() // [fork] nuvio_c_cloud_settings
         com.nuvio.tv.ui.components.NuvioCProfileBg.onAppStart(this) // [fork] profile_bg_preload
+        runCatching { com.nuvio.tv.core.nuvioc.NuvioCApiKeys.ensureLoaded(this) } // [fork] round 37 api_keys: one small private file
         // Load locale synchronously so it's available before Activity.attachBaseContext.
         // SharedPreferences reads are fast (cached in memory after first access).
         val tag = getSharedPreferences("app_locale", Context.MODE_PRIVATE)

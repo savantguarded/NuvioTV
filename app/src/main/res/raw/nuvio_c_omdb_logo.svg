@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 48" width="96" height="48">
+  <!-- [fork] Nuvio C round 37: simple OMDb wordmark for the Integrations row (OMDb has no official logo file) -->
+  <rect x="1" y="1" width="94" height="46" rx="10" ry="10" fill="#1E1F24" stroke="#E8B04B" stroke-width="2"/>
+  <text x="48" y="32" text-anchor="middle" font-family="sans-serif" font-weight="bold" font-size="22" fill="#E8B04B">OMDb</text>
+</svg>
