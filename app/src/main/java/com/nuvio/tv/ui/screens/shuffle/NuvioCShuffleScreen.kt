@@ -594,7 +594,12 @@ private fun ShuffleStage(
                     // nothing shown when MDBList is off or has none for this title.
                     val r = ui.ratings
                     if (r != null) {
-                        com.nuvio.tv.ui.components.MDBListRatingsRow(ratings = r, maxItems = 3, order = ui.ratingOrder)
+                        if (com.nuvio.tv.NuvioCFeatures.ROULETTE_RATINGS_ALL) {
+                            // [fork] round 38: every rating you have on, one line, the column's full width
+                            com.nuvio.tv.ui.components.MDBListRatingsRow(ratings = r, order = ui.ratingOrder, fitOneLine = true, modifier = Modifier.fillMaxWidth())
+                        } else {
+                            com.nuvio.tv.ui.components.MDBListRatingsRow(ratings = r, maxItems = 3, order = ui.ratingOrder)
+                        }
                     }
                 } else {
                 Text(

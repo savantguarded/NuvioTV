@@ -29,11 +29,22 @@ fun MDBListRatingsRow(
     modifier: Modifier = Modifier,
     maxItems: Int = Int.MAX_VALUE,
     order: List<String> = MDBListSettings.DEFAULT_RATING_ORDER,
-    iconSize: Dp = NuvioTheme.spacing.xl
+    iconSize: Dp = NuvioTheme.spacing.xl,
+    fitOneLine: Boolean = false // [fork] round 38 roulette_ratings_all: one line, as many whole badges as fit
 ) {
     val orderedProviders = remember(ratings, maxItems, order) {
         order.filter { provider -> getRatingValue(ratings, provider) != null }
             .take(maxItems)
+    }
+
+    if (fitOneLine) {
+        NuvioCFitOneLine(modifier = modifier, gap = 14.dp) {
+            orderedProviders.forEach { provider ->
+                val rating = getRatingValue(ratings, provider) ?: return@forEach
+                RatingBadge(provider = provider, rating = rating, ratings = ratings, iconSize = iconSize)
+            }
+        }
+        return
     }
 
     Row(
@@ -44,6 +55,36 @@ fun MDBListRatingsRow(
         orderedProviders.forEach { provider ->
             val rating = getRatingValue(ratings, provider) ?: return@forEach
             RatingBadge(provider = provider, rating = rating, ratings = ratings, iconSize = iconSize)
+        }
+    }
+}
+
+/**
+ * [fork] round 38: a single line that never wraps. Children keep their natural width and are placed in order while
+ * they fit whole; the first one that would overflow, and everything after it, is left out (no half-cut badges).
+ */
+@Composable
+private fun NuvioCFitOneLine(modifier: Modifier, gap: Dp, content: @Composable () -> Unit) {
+    androidx.compose.ui.layout.Layout(content = content, modifier = modifier) { measurables, constraints ->
+        val gapPx = gap.roundToPx()
+        val loose = androidx.compose.ui.unit.Constraints(maxHeight = constraints.maxHeight)
+        val maxW = constraints.maxWidth
+        val placed = ArrayList<androidx.compose.ui.layout.Placeable>(measurables.size)
+        var used = 0
+        for (m in measurables) {
+            val p = m.measure(loose)
+            val next = if (placed.isEmpty()) p.width else used + gapPx + p.width
+            if (maxW != androidx.compose.ui.unit.Constraints.Infinity && next > maxW) break
+            placed += p
+            used = next
+        }
+        val height = placed.maxOfOrNull { it.height } ?: 0
+        layout(used.coerceAtLeast(constraints.minWidth), height.coerceAtLeast(constraints.minHeight)) {
+            var x = 0
+            placed.forEach { p ->
+                p.placeRelative(x, (height - p.height) / 2)
+                x += p.width + gapPx
+            }
         }
     }
 }
