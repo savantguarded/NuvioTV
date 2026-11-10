@@ -595,4 +595,14 @@ object NuvioCFeatures {
     const val STARTUP_LOGO_SHIMMER = true
     /** Roulette mood screen: cards keep a fixed shape (width x 1.15) centred between the header and the mood chips, so the posters fill them with no empty space on top. Off = cards stretch to the screen height. */
     const val ROULETTE_CARDS_FIT = true
+
+    // ---- Round 38 (2026-11-11) ----
+    /** Roulette: every MDBList rating you have switched on, on one line across the full width; ratings that don't fit whole are left off. Off = top 3. */
+    const val ROULETTE_RATINGS_ALL = true
+    /** Details page: a Calendar bell next to Play. On = the title is followed by the Calendar even outside your library: it shows in the Calendar and the Upcoming row and gives the usual reminder once out. Same bell as the Calendar's. Off = no button. */
+    const val DETAIL_BELL = true
+    /** Ambient mode: OK on a slide opens that title's details page (other keys still just close it), with a faint "OK · Details" hint in the corner. Off = any key closes it. */
+    const val AMBIENT_OPEN_DETAILS = true
+    /** Start-up logo shimmer: the band of light leans 20 degrees and has feathered edges. Same timing. Off = upright band. */
+    const val STARTUP_SHIMMER_SLANT = true
 }

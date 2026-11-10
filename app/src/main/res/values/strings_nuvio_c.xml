@@ -281,6 +281,9 @@
     <string name="nuvio_c_roulette_kick_episode">A RANDOM EPISODE</string>
     <string name="nuvio_c_episode_code">S%1$d E%2$d</string>
     <string name="nuvio_c_episode_play">Play episode</string>
+    <string name="nuvio_c_ambient_ok_hint">OK  ·  Details</string>
+    <string name="nuvio_c_bell_on">Reminder on</string>
+    <string name="nuvio_c_bell_off">Remind me</string>
     <string name="nuvio_c_episode_open_show">Open show</string>
     <string name="nuvio_c_roulette_noun_films">films</string>
     <string name="nuvio_c_roulette_noun_series">series</string>

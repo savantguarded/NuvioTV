@@ -22,12 +22,14 @@ Nuvio C is a personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV)
 - **Readable hero text.** A compact four-line description that scrolls like the official app when it runs long.
 - **Upcoming from your library.** One Upcoming row fed by the Calendar, with release-day tags, watched episodes removed and accurate show names.
 - **Profiles and personalisation.** A cleaner profile screen, a choice of app fonts and an on-screen clock while browsing.
-- **Smooth start-up.** A still logo from the first frame, the profile screen fading in once it is ready, the picked profile held while Home settles, then a circle reveal onto Home.
+- **Smooth start-up.** The Nuvio logo from the first frame with a soft, angled shimmer while loading, the profile screen fading in once it is ready, then a plain fade onto Home.
 - **Slim sidebar.** A narrower Modern sidebar with Settings pinned at the bottom.
+- **Ambient mode you can act on.** Press OK on a screensaver slide to open that title.
 
 ### Calendar
 - **Week, List and Month views** of everything you follow, in your time zone, with reminders.
 - **Multiple sources.** Your library, MDBList calendar and TMDB "coming soon" digital releases, de-duplicated.
+- **Bell any title.** A bell next to Play on any details page follows that title in the Calendar and the Upcoming row and reminds you once it is out, no library needed.
 - **Fresh on open.** Refreshed in the background after a cold start, so stale entries are never shown.
 - **Exact air times.** Add your own TheTVDB key in Settings > Integrations to fill in times TVmaze lacks.
 
@@ -35,7 +37,7 @@ Nuvio C is a personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV)
 - **Ratings in one place.** Rate with half-star precision to Trakt, Simkl and MDBList at once, with a prompt once a film counts as watched.
 - **Richer pages.** Tagline, an Information ledger (release dates, budget, box office, status, awards with your own OMDb key), next-episode countdown and acting-only filmographies with roles.
 - **Trailers.** Background trailers with a mute setting and one-press exit, a full seek bar and logo on the trailer screen, and IMDb trailers as a fallback when YouTube limits quality.
-- **Roulette and Shuffle.** A genuine shuffle across tens of thousands of TMDB films and shows (Curated, Wide or Deep pool), filtered by type and mood and refined by decade, region, length and acclaim, an Episodes mode for a random episode of your shows, top ratings shown and no repeats within 30 days, plus a Shuffle button on series pages and a random pick in the Library.
+- **Roulette and Shuffle.** A genuine shuffle across tens of thousands of TMDB films and shows (Curated, Wide or Deep pool), filtered by type and mood and refined by decade, region, length and acclaim, an Episodes mode for a random episode of your shows, every rating you use shown and no repeats within 30 days, plus a Shuffle button on series pages and a random pick in the Library.
 
 ### Performance and reliability
 - Tuned for 2 GB TVs: lighter player memory use, compiled-on-install updates, smoother scrolling and sidebar transitions.
