@@ -32,7 +32,9 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -84,15 +86,22 @@ import com.nuvio.tv.ui.theme.NuvioTheme
 
 private val EDGE = 48.dp
 
+/** [fork] round 37: the Refine chip shows when either Refine filters or the pool size setting is on. */
+private val nuvioCRefineOn: Boolean
+    get() = com.nuvio.tv.NuvioCFeatures.ROULETTE_REFINE || com.nuvio.tv.NuvioCFeatures.ROULETTE_POOL_SIZE
+
 @Composable
 fun NuvioCShuffleScreen(
     onOpenTitle: (id: String, type: String) -> Unit,
+    /** [fork] round 37 roulette_episodes: play the landed episode (manual = hold: pick the source yourself). */
+    onPlayEpisode: (pick: com.nuvio.tv.data.nuvioc.NuvioCShufflePick, manual: Boolean) -> Unit = { _, _ -> },
     viewModel: NuvioCShuffleViewModel = hiltViewModel()
 ) {
     val ui by viewModel.ui.collectAsState()
     LaunchedEffect(Unit) { viewModel.onScreenShown() }
     BackHandler(enabled = ui.phase != NuvioCShufflePhase.MOOD) { viewModel.backToMood() }
     var sourcesOpen by remember { mutableStateOf(false) }
+    var refineOpen by remember { mutableStateOf(false) } // [fork] round 37 roulette_refine
 
     Box(Modifier.fillMaxSize().background(NuvioTheme.colors.Background)) {
         if (ui.phase == NuvioCShufflePhase.MOOD) {
@@ -101,7 +110,8 @@ fun NuvioCShuffleScreen(
                 onKind = viewModel::chooseKind,
                 onMood = { viewModel.setMood(it) },
                 onUnwatched = { viewModel.toggleUnwatched() },
-                onSources = { sourcesOpen = true }
+                onSources = { sourcesOpen = true },
+                onRefine = { refineOpen = true }
             )
         } else {
             ShuffleStage(
@@ -115,8 +125,22 @@ fun NuvioCShuffleScreen(
                     val item = ui.pick?.item ?: return@ShuffleStage
                     viewModel.onOpenTitle()
                     onOpenTitle(item.id, item.type)
+                },
+                onKind = viewModel::chooseKind,
+                onMood = { viewModel.setMood(it, reroll = true) },
+                onRefine = { refineOpen = true },
+                onPlay = { manual ->
+                    val pick = ui.pick ?: return@ShuffleStage
+                    viewModel.onOpenTitle() // back from playback keeps the result, like Open
+                    onPlayEpisode(pick, manual)
                 }
             )
+        }
+    }
+    if (refineOpen) {
+        RouletteRefineDialog(kind = ui.kind, initial = ui.refine) { chosen ->
+            refineOpen = false
+            viewModel.setRefine(chosen, reroll = ui.phase != NuvioCShufflePhase.MOOD)
         }
     }
     if (sourcesOpen) {
@@ -135,7 +159,8 @@ private fun ShuffleMood(
     onKind: (NuvioCShuffleKind) -> Unit,
     onMood: (NuvioCShuffleMood) -> Unit,
     onUnwatched: () -> Unit,
-    onSources: () -> Unit
+    onSources: () -> Unit,
+    onRefine: () -> Unit = {}
 ) {
     val tileRequesters = remember { NuvioCShuffleKind.entries.associateWith { FocusRequester() } }
     LaunchedEffect(Unit) { tileRequesters.getValue(NuvioCShuffleKind.MOVIES).requestFocusAfterFrames() } // [fork] roulette_page: always lands on Movies
@@ -151,7 +176,15 @@ private fun ShuffleMood(
             )
             Spacer(Modifier.weight(1f))
             // [fork] roulette_page: Unwatched and Blend sit top right
+            if (com.nuvio.tv.NuvioCFeatures.ROULETTE_CHIPS) { // [fork] round 37: clear on / off toggle
+                RouletteToggleChip(label = stringResource(R.string.nuvio_c_shuffle_unwatched), on = ui.unwatched, onClick = onUnwatched)
+            } else {
             ShuffleChip(label = stringResource(R.string.nuvio_c_shuffle_unwatched), selected = ui.unwatched, dot = ui.unwatched, onClick = onUnwatched)
+            }
+            if (nuvioCRefineOn) { // [fork] round 37 roulette_refine
+                Spacer(Modifier.width(8.dp))
+                RouletteRefineChip(refine = ui.refine, onClick = onRefine)
+            }
             if (!com.nuvio.tv.NuvioCFeatures.ROULETTE_RAW) { // [fork] round 34: no Blend with the raw TMDB shuffle
             Spacer(Modifier.width(8.dp))
             ShuffleChip(label = stringResource(R.string.nuvio_c_shuffle_blend), selected = false, onClick = onSources)
@@ -170,7 +203,7 @@ private fun ShuffleMood(
         Row(
             Modifier.fillMaxWidth().weight(1f)
                 .then(if (com.nuvio.tv.NuvioCFeatures.ROULETTE_TILES_SLIM) Modifier.padding(vertical = 12.dp) else Modifier),
-            horizontalArrangement = Arrangement.spacedBy(24.dp)
+            horizontalArrangement = Arrangement.spacedBy(if (com.nuvio.tv.data.nuvioc.nuvioCShuffleKinds.size > 3) 18.dp else 24.dp) // [fork] round 37: four tiles with Episodes
         ) {
             com.nuvio.tv.data.nuvioc.nuvioCShuffleKinds.forEach { kind -> // [fork] roulette_anime
                 ShuffleTile(
@@ -318,14 +351,19 @@ private fun ShuffleChip(label: String, selected: Boolean, onClick: () -> Unit, d
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1.05f),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = Color.White.copy(alpha = if (selected) 0.18f else 0.07f),
-            contentColor = if (selected) Color.White else NuvioTheme.colors.TextSecondary,
+            containerColor = if (selected && com.nuvio.tv.NuvioCFeatures.ROULETTE_CHIPS) NuvioTheme.colors.Secondary // [fork] round 37: the chosen mood stands out
+                else Color.White.copy(alpha = if (selected) 0.18f else 0.07f),
+            contentColor = if (selected && com.nuvio.tv.NuvioCFeatures.ROULETTE_CHIPS) NuvioTheme.colors.OnSecondary
+                else if (selected) Color.White else NuvioTheme.colors.TextSecondary,
             focusedContainerColor = Color.White,
             focusedContentColor = Color.Black
         )
     ) {
         Row(Modifier.fillMaxHeight().padding(horizontal = if (com.nuvio.tv.NuvioCFeatures.ROULETTE_V2) 12.dp else 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (dot) {
+            if (selected && com.nuvio.tv.NuvioCFeatures.ROULETTE_CHIPS) { // [fork] round 37: tick stays visible while focused
+                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+            } else if (dot) {
                 Box(Modifier.size(8.dp).clip(CircleShape).background(Color(0xFF5FD39A)))
                 Spacer(Modifier.width(7.dp))
             }
@@ -345,7 +383,11 @@ private fun ShuffleStage(
     onCycleMood: () -> Unit,
     onUnwatched: () -> Unit,
     onAgain: () -> Unit,
-    onOpen: () -> Unit
+    onOpen: () -> Unit,
+    onKind: (NuvioCShuffleKind) -> Unit = {},
+    onMood: (NuvioCShuffleMood) -> Unit = {},
+    onRefine: () -> Unit = {},
+    onPlay: (manual: Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
     val reelFocus = remember { FocusRequester() }
@@ -442,9 +484,27 @@ private fun ShuffleStage(
                 color = NuvioTheme.colors.TextPrimary,
                 modifier = Modifier.padding(end = 8.dp)
             )
+            if (com.nuvio.tv.NuvioCFeatures.ROULETTE_CHIPS) {
+                // [fork] round 37 roulette_chips: type and mood open a list; Unwatched is a clear toggle
+                RouletteDropdownChip(
+                    value = kindLabel(ui.kind),
+                    options = com.nuvio.tv.data.nuvioc.nuvioCShuffleKinds.map { RouletteOption(kindLabel(it), it) },
+                    selected = ui.kind,
+                    onSelect = { if (it != ui.kind) onKind(it) }
+                )
+                RouletteDropdownChip(
+                    value = moodLabel(ui.mood),
+                    options = com.nuvio.tv.data.nuvioc.nuvioCShuffleMoods.map { RouletteOption(moodLabel(it), it) },
+                    selected = ui.mood,
+                    onSelect = { if (it != ui.mood) onMood(it) }
+                )
+                RouletteToggleChip(label = stringResource(R.string.nuvio_c_shuffle_unwatched), on = ui.unwatched, onClick = onUnwatched)
+                if (nuvioCRefineOn) RouletteRefineChip(refine = ui.refine, onClick = onRefine)
+            } else {
             ShuffleChip(label = kindLabel(ui.kind), selected = true, onClick = onCycleKind)
             ShuffleChip(label = moodLabel(ui.mood), selected = true, onClick = onCycleMood)
             ShuffleChip(label = stringResource(R.string.nuvio_c_shuffle_unwatched), selected = ui.unwatched, dot = ui.unwatched, onClick = onUnwatched)
+            }
         }
 
         val pick = ui.pick
@@ -489,10 +549,20 @@ private fun ShuffleStage(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+                pick.episode?.let { ep -> // [fork] round 37 roulette_episodes: which episode
+                    Text(
+                        text = listOfNotNull(stringResource(R.string.nuvio_c_episode_code, ep.season, ep.episode), ep.title).joinToString("  ·  "),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 val meta = listOfNotNull(
                     item.year,
                     com.nuvio.tv.ui.util.nuvioCRuntime(pick.runtime)?.takeIf { it.isNotBlank() }, // [fork] runtime_format
-                    item.genres.take(2).takeIf { it.isNotEmpty() }?.joinToString(" · ") { g -> g.split(' ').joinToString(" ") { it.replaceFirstChar(Char::uppercase) } }
+                    item.genres.takeIf { pick.episode == null }.orEmpty().take(2).takeIf { it.isNotEmpty() }?.joinToString(" · ") { g -> g.split(' ').joinToString(" ") { it.replaceFirstChar(Char::uppercase) } }
                 ).joinToString("  ·  ")
                 if (meta.isNotBlank()) {
                     Text(meta, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -523,9 +593,27 @@ private fun ShuffleStage(
                 )
                 }
                 Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (pick.episode != null) {
+                        // [fork] round 37 roulette_episodes: Play follows the app's playback rule; hold = pick the source
+                        Button(
+                            onClick = { if (landed) onPlay(false) },
+                            onLongClick = { if (landed) onPlay(true) },
+                            modifier = Modifier.focusRequester(openFocus),
+                            colors = ButtonDefaults.colors(
+                                containerColor = Color.White.copy(alpha = 0.16f),
+                                contentColor = Color.White,
+                                focusedContainerColor = Color.White,
+                                focusedContentColor = Color.Black
+                            )
+                        ) {
+                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.nuvio_c_episode_play))
+                        }
+                    }
                     Button(
                         onClick = { if (landed) onOpen() },
-                        modifier = Modifier.focusRequester(openFocus),
+                        modifier = if (pick.episode == null) Modifier.focusRequester(openFocus) else Modifier,
                         colors = ButtonDefaults.colors(
                             containerColor = Color.White.copy(alpha = 0.16f),
                             contentColor = Color.White,
@@ -535,7 +623,7 @@ private fun ShuffleStage(
                     ) {
                         Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.nuvio_c_random_open))
+                        Text(stringResource(if (pick.episode != null) R.string.nuvio_c_episode_open_show else R.string.nuvio_c_random_open))
                     }
                     Button(
                         onClick = { if (landed) onAgain() },
@@ -566,6 +654,7 @@ private fun kindLabel(kind: NuvioCShuffleKind): String = stringResource(
         NuvioCShuffleKind.SHOWS -> R.string.nuvio_c_shuffle_shows
         NuvioCShuffleKind.EITHER -> R.string.nuvio_c_shuffle_either
         NuvioCShuffleKind.ANIME -> R.string.nuvio_c_shuffle_anime // [fork] roulette_anime
+        NuvioCShuffleKind.EPISODES -> R.string.nuvio_c_shuffle_episodes // [fork] round 37
     }
 )
 
@@ -576,6 +665,7 @@ private fun kindHint(kind: NuvioCShuffleKind): String = stringResource(
         NuvioCShuffleKind.SHOWS -> R.string.nuvio_c_shuffle_shows_hint
         NuvioCShuffleKind.EITHER -> R.string.nuvio_c_shuffle_either_hint
         NuvioCShuffleKind.ANIME -> R.string.nuvio_c_shuffle_anime_hint // [fork] roulette_anime
+        NuvioCShuffleKind.EPISODES -> R.string.nuvio_c_shuffle_episodes_hint // [fork] round 37
     }
 )
 

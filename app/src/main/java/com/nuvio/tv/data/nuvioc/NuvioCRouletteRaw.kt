@@ -10,6 +10,8 @@ package com.nuvio.tv.data.nuvioc
 
 import android.content.Context
 import com.nuvio.tv.core.tmdb.TmdbService
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
@@ -46,31 +48,54 @@ internal class NuvioCRouletteRaw(
     private val recentItems = ArrayDeque<NuvioCShuffleItem>() // for the reel / mood tile posters
 
     /** One random eligible title for these choices, or null when nothing matches. */
-    suspend fun candidate(kind: NuvioCShuffleKind, mood: NuvioCShuffleMood): NuvioCShuffleItem? {
+    suspend fun candidate(
+        kind: NuvioCShuffleKind,
+        mood: NuvioCShuffleMood,
+        refine: NuvioCRouletteRefine = NuvioCRouletteRefine(pool = NuvioCRoulettePool.CURATED)
+    ): NuvioCShuffleItem? {
+        val r = refine.effective()
         val types = when (kind) {
             NuvioCShuffleKind.MOVIES -> listOf("movie")
             NuvioCShuffleKind.SHOWS -> listOf("tv")
             NuvioCShuffleKind.EITHER, NuvioCShuffleKind.ANIME -> listOf("movie", "tv").shuffled(random)
+            NuvioCShuffleKind.EPISODES -> return null // [fork] round 37: episodes come from your own shows (NuvioCRouletteEpisodes)
         }
         for (type in types) {
-            val query = query(type, mood, anime = kind == NuvioCShuffleKind.ANIME) ?: continue
-            draw(type, query)?.let { return it }
+            val anime = kind == NuvioCShuffleKind.ANIME
+            if (r.pool == NuvioCRoulettePool.CURATED && r.active == 0) {
+                val query = query(type, mood, anime, r, null) ?: continue
+                draw(type, query)?.let { return it }
+            } else {
+                drawSplit(type, mood, anime, r)?.let { return it }
+            }
         }
         return null
     }
 
     /** [fork] round 36 roulette_copy: how many titles these choices draw from (TMDB totals, cached 24 h). */
-    suspend fun poolSize(kind: NuvioCShuffleKind, mood: NuvioCShuffleMood): Int? {
+    suspend fun poolSize(
+        kind: NuvioCShuffleKind,
+        mood: NuvioCShuffleMood,
+        refine: NuvioCRouletteRefine = NuvioCRouletteRefine(pool = NuvioCRoulettePool.CURATED)
+    ): Int? {
+        val r = refine.effective()
         val types = when (kind) {
             NuvioCShuffleKind.MOVIES -> listOf("movie")
             NuvioCShuffleKind.SHOWS -> listOf("tv")
+            NuvioCShuffleKind.EPISODES -> return null
             else -> listOf("movie", "tv")
         }
         var sum = 0
         var any = false
         for (type in types) {
-            val q = query(type, mood, anime = kind == NuvioCShuffleKind.ANIME) ?: continue
-            total(type, q)?.let { sum += it; any = true }
+            val anime = kind == NuvioCShuffleKind.ANIME
+            if (r.pool == NuvioCRoulettePool.CURATED && r.active == 0) {
+                val q = query(type, mood, anime, r, null) ?: continue
+                total(type, q)?.let { sum += it; any = true }
+            } else {
+                val parts = sliceTotals(type, mood, anime, r) ?: continue
+                sum += parts.sumOf { it.second }; any = true
+            }
         }
         return sum.takeIf { any && it > 0 }
     }
@@ -81,9 +106,9 @@ internal class NuvioCRouletteRaw(
             .shuffled(random).mapNotNull { it.poster }.distinct().take(count)
     }
 
-    suspend fun warmUp() {
-        runCatching { candidate(NuvioCShuffleKind.MOVIES, NuvioCShuffleMood.ANY) }
-        runCatching { candidate(NuvioCShuffleKind.SHOWS, NuvioCShuffleMood.ANY) }
+    suspend fun warmUp(refine: NuvioCRouletteRefine = NuvioCRouletteRefine(pool = NuvioCRoulettePool.CURATED)) {
+        runCatching { candidate(NuvioCShuffleKind.MOVIES, NuvioCShuffleMood.ANY, refine) }
+        runCatching { candidate(NuvioCShuffleKind.SHOWS, NuvioCShuffleMood.ANY, refine) }
     }
 
     /** Total titles for the plain film and show queries (for the settings "Refreshed" line). */
@@ -91,7 +116,7 @@ internal class NuvioCRouletteRaw(
         totalsMutex.withLock { totals.clear() }
         var sum = 0
         for (type in listOf("movie", "tv")) {
-            val q = query(type, NuvioCShuffleMood.ANY, anime = false) ?: continue
+            val q = query(type, NuvioCShuffleMood.ANY, false, NuvioCRouletteRefine(pool = NuvioCRoulettePool.CURATED), null) ?: continue
             sum += total(type, q) ?: 0
         }
         return sum
@@ -116,21 +141,46 @@ internal class NuvioCRouletteRaw(
     }
 
     // ---- TMDB ----------------------------------------------------------------------------------------
-    private fun query(type: String, mood: NuvioCShuffleMood, anime: Boolean): Map<String, String>? {
+    /**
+     * One discover query. [decadeStart] picks the vote floor for that decade (older titles need fewer votes); null =
+     * the recent floor. Refine filters (decade range, region, length, acclaim) are added on top; null = no match possible.
+     */
+    private fun query(type: String, mood: NuvioCShuffleMood, anime: Boolean, refine: NuvioCRouletteRefine, decadeStart: Int?): Map<String, String>? {
         val today = LocalDate.now().toString()
+        val movie = type == "movie"
+        var (minVotes, minScore) = refine.pool.floor(type, anime, decadeStart)
+        var maxVotes: Int? = null
+        var acclaimTo: String? = null
+        when (refine.acclaim) {
+            NuvioCRouletteAcclaim.ANY -> Unit
+            NuvioCRouletteAcclaim.CROWD -> { minVotes = maxOf(minVotes, if (movie) 10_000 else 3_000); minScore = maxOf(minScore, if (movie) 7.0f else 7.5f) }
+            NuvioCRouletteAcclaim.TOP -> { minVotes = maxOf(minVotes, if (movie) 5_000 else 1_000); minScore = maxOf(minScore, if (movie) 8.0f else 8.3f) }
+            NuvioCRouletteAcclaim.GEMS -> { maxVotes = if (movie) 2_000 else 800; minScore = maxOf(minScore, if (movie) 7.5f else 8.0f) }
+            NuvioCRouletteAcclaim.CULT -> { minVotes = maxOf(minVotes, if (movie) 1_000 else 200); minScore = maxOf(minScore, if (movie) 7.2f else 7.8f); acclaimTo = if (movie) "1999-12-31" else "2005-12-31" }
+        }
+        if (maxVotes != null && maxVotes < minVotes) return null
         val q = linkedMapOf(
             "api_key" to tmdbService.apiKey(),
             "include_adult" to "false",
             "sort_by" to "vote_count.desc",
-            "vote_count.gte" to (if (anime) ANIME_MIN_VOTES else MIN_VOTES).toString(),
-            "vote_average.gte" to MIN_SCORE.toString()
+            "vote_count.gte" to minVotes.toString(),
+            "vote_average.gte" to minScore.toString()
         )
-        if (type == "movie") {
-            q["include_video"] = "false"
-            q["primary_release_date.lte"] = today
-        } else {
-            q["first_air_date.lte"] = today
-            q["without_genres"] = TV_EXCLUDED
+        maxVotes?.let { q["vote_count.lte"] = it.toString() }
+        val dateKey = if (movie) "primary_release_date" else "first_air_date"
+        if (movie) q["include_video"] = "false" else q["without_genres"] = TV_EXCLUDED
+        // date range: today, the Decade choice and Cult classics' cut-off, whichever is tightest
+        val lte = listOfNotNull(today, refine.decade.to?.let { "$it-12-31" }, acclaimTo).min()
+        q["$dateKey.lte"] = lte
+        refine.decade.from?.let { q["$dateKey.gte"] = "$it-01-01" }
+        if ((q["$dateKey.gte"] ?: "") > lte) return null
+        refine.region.countries?.let { q["with_origin_country"] = it }
+        val (rMin, rMax) = if (movie) refine.length.movieMin to refine.length.movieMax else refine.length.tvMin to refine.length.tvMax
+        rMin?.let { q["with_runtime.gte"] = it.toString() }
+        rMax?.let { q["with_runtime.lte"] = it.toString() }
+        if (mood == NuvioCShuffleMood.TRUE_STORY && com.nuvio.tv.NuvioCFeatures.ROULETTE_TRUE_STORY_TAG && !anime) {
+            q["with_keywords"] = TRUE_STORY_KEYWORD // [fork] round 37: TMDB "based on true story" (was the History genre)
+            return q
         }
         val genres = if (anime) "16" else moodGenres(type, mood)
         if (genres == null) return null
@@ -176,6 +226,60 @@ internal class NuvioCRouletteRaw(
             while (recentItems.size > RECENT_CAP) recentItems.removeFirst()
         }
         return items.getOrNull(index % PAGE_SIZE) ?: items[random.nextInt(items.size)]
+    }
+
+    /**
+     * [fork] round 37: Wide / Deep pools and refined spins. The range is cut into decades (each with its own vote floor,
+     * so classics aren't squeezed out by today's vote counts), a decade is chosen in proportion to its size, and a
+     * decade too big to page through is cut into single years the same way. Every title stays equally likely.
+     */
+    private suspend fun drawSplit(type: String, mood: NuvioCShuffleMood, anime: Boolean, refine: NuvioCRouletteRefine): NuvioCShuffleItem? {
+        val parts = sliceTotals(type, mood, anime, refine) ?: return null
+        val (q, n) = weighted(parts) ?: return null
+        val pick = if (n <= MAX_REACHABLE) q else {
+            val dateKey = if (type == "movie") "primary_release_date" else "first_air_date"
+            val from = q["$dateKey.gte"]?.take(4)?.toIntOrNull() ?: return draw(type, q)
+            val to = q["$dateKey.lte"]?.take(4)?.toIntOrNull() ?: return draw(type, q)
+            val years = (from..to).map { y ->
+                q + ("$dateKey.gte" to maxOf("$y-01-01", q.getValue("$dateKey.gte"))) + ("$dateKey.lte" to minOf("$y-12-31", q.getValue("$dateKey.lte")))
+            }
+            weighted(totalsOf(type, years)) ?.first ?: q
+        }
+        return draw(type, pick)
+    }
+
+    /** (query, total) per decade for these choices; null when nothing matches. Totals cached 24 h. */
+    private suspend fun sliceTotals(type: String, mood: NuvioCShuffleMood, anime: Boolean, refine: NuvioCRouletteRefine): List<Pair<Map<String, String>, Int>>? {
+        val thisYear = LocalDate.now().year
+        val dateKey = if (type == "movie") "primary_release_date" else "first_air_date"
+        val first = maxOf(FIRST_DECADE, refine.decade.from?.let { it - it % 10 } ?: FIRST_DECADE)
+        val last = minOf(thisYear, refine.decade.to ?: thisYear)
+        val queries = (first..last step 10).mapNotNull { d ->
+            val base = query(type, mood, anime, refine, d) ?: return@mapNotNull null
+            val gte = maxOf("$d-01-01", base["$dateKey.gte"] ?: "$d-01-01")
+            val lte = minOf("${d + 9}-12-31", base.getValue("$dateKey.lte"))
+            if (gte > lte) null else base + ("$dateKey.gte" to gte) + ("$dateKey.lte" to lte)
+        }
+        if (queries.isEmpty()) return null
+        return totalsOf(type, queries).takeIf { it.isNotEmpty() }
+    }
+
+    private suspend fun totalsOf(type: String, queries: List<Map<String, String>>): List<Pair<Map<String, String>, Int>> =
+        kotlinx.coroutines.coroutineScope {
+            queries.chunked(4).flatMap { chunk ->
+                chunk.map { q -> async { total(type, q)?.takeIf { it > 0 }?.let { q to it } } }.awaitAll().filterNotNull()
+            }
+        }
+
+    private fun weighted(parts: List<Pair<Map<String, String>, Int>>): Pair<Map<String, String>, Int>? {
+        val sum = parts.sumOf { it.second }
+        if (sum <= 0) return null
+        var r = random.nextInt(sum)
+        for (p in parts) {
+            if (r < p.second) return p
+            r -= p.second
+        }
+        return parts.last()
     }
 
     /** A query over 10,000 results: pick a decade in proportion to its size. */
@@ -244,6 +348,7 @@ internal class NuvioCRouletteRaw(
         private const val MAX_REACHABLE = 500 * PAGE_SIZE // TMDB serves pages 1..500
         private const val FIRST_DECADE = 1920
         private const val TV_EXCLUDED = "10763|10764|10766|10767" // news, reality, soap, talk
+        private const val TRUE_STORY_KEYWORD = "9672" // [fork] round 37: TMDB keyword "based on true story"
         private const val TOTALS_MS = 24 * 60 * 60 * 1000L
         private const val SEEN_MS = 30L * 24 * 60 * 60 * 1000
         private const val SEEN_CAP = 3000

@@ -53,6 +53,7 @@ internal object NuvioCRouletteCopy {
             NuvioCShuffleKind.SHOWS -> R.array.nuvio_c_roulette_shows
             NuvioCShuffleKind.EITHER -> R.array.nuvio_c_roulette_either
             NuvioCShuffleKind.ANIME -> R.array.nuvio_c_roulette_anime
+            NuvioCShuffleKind.EPISODES -> R.array.nuvio_c_roulette_episodes // [fork] round 37
         }
         return stringArrayResource(arr).pick(visit)
     }
@@ -60,7 +61,11 @@ internal object NuvioCRouletteCopy {
     /** Caption while the pick is found and the reel spins: mood wording, else the pool size, else plain. */
     @Composable
     fun spinLine(ui: NuvioCShuffleUi): String {
+        if (ui.kind == NuvioCShuffleKind.EPISODES && com.nuvio.tv.NuvioCFeatures.ROULETTE_EPISODES) { // [fork] round 37
+            return stringArrayResource(R.array.nuvio_c_roulette_spin_episodes).pick(ui.visit + ui.spins)
+        }
         moodSpin(ui.mood)?.let { return stringResource(it) }
+        if (com.nuvio.tv.NuvioCFeatures.ROULETTE_ANY_COPY) anySpin(ui)?.let { return it } // [fork] round 37
         val n = ui.poolSize
         if (n != null && n > 0) {
             val count = remember(n) { NumberFormat.getIntegerInstance(Locale.getDefault()).format(n) }
@@ -74,6 +79,33 @@ internal object NuvioCRouletteCopy {
             )
         }
         return stringResource(R.string.nuvio_c_shuffle_finding)
+    }
+
+    /**
+     * [fork] round 37 roulette_any_copy: "Any" no longer always shows the bare count. Each spin takes one line from a
+     * rotation (never the same twice in a row): the count about one spin in three, worded a few ways; plain lines;
+     * and, once the reel is moving toward its pick, a line naming the decade it landed in.
+     */
+    @Composable
+    private fun anySpin(ui: NuvioCShuffleUi): String? {
+        val slot = Math.floorMod(ui.visit * 7 + ui.spins, 6)
+        val n = ui.poolSize?.takeIf { it > 0 }
+        val count = n?.let { remember(it) { NumberFormat.getIntegerInstance(Locale.getDefault()).format(it) } }
+        val noun = stringResource(
+            when (ui.kind) {
+                NuvioCShuffleKind.MOVIES -> R.string.nuvio_c_roulette_noun_films
+                NuvioCShuffleKind.SHOWS -> R.string.nuvio_c_roulette_noun_series
+                else -> R.string.nuvio_c_roulette_noun_titles
+            }
+        )
+        val year = ui.pick?.item?.year?.toIntOrNull()?.takeIf { (ui.spin?.token ?: 0) > 0 }
+        return when (slot) {
+            0 -> count?.let { stringResource(R.string.nuvio_c_roulette_any_count_1, it, noun) }
+            1 -> year?.let { stringResource(R.string.nuvio_c_roulette_any_decade, "${it - it % 10}s") }
+            3 -> count?.let { stringResource(R.string.nuvio_c_roulette_any_count_2, it) }
+            5 -> year?.let { stringResource(R.string.nuvio_c_roulette_any_decade, "${it - it % 10}s") }
+            else -> null
+        } ?: stringArrayResource(R.array.nuvio_c_roulette_any_lines).pick(ui.visit + ui.spins)
     }
 
     private fun moodSpin(mood: NuvioCShuffleMood): Int? = when (mood) {
@@ -98,6 +130,7 @@ internal object NuvioCRouletteCopy {
     fun kicker(ui: NuvioCShuffleUi): String {
         val res = when {
             ui.kind == NuvioCShuffleKind.ANIME -> R.string.nuvio_c_roulette_kick_anime
+            ui.kind == NuvioCShuffleKind.EPISODES -> R.string.nuvio_c_roulette_kick_episode // [fork] round 37
             ui.mood == NuvioCShuffleMood.FEEL_GOOD -> R.string.nuvio_c_roulette_kick_feel_good
             ui.mood == NuvioCShuffleMood.ROMANTIC -> R.string.nuvio_c_roulette_kick_romantic
             ui.mood == NuvioCShuffleMood.FAMILY -> R.string.nuvio_c_roulette_kick_family

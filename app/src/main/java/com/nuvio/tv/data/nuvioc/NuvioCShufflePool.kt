@@ -113,7 +113,9 @@ internal interface NuvioCShuffleTmdbApi {
 /** A finished pick, with what the result screen shows. */
 data class NuvioCShufflePick(
     val item: NuvioCShuffleItem,
-    val runtime: String? = null
+    val runtime: String? = null,
+    /** [fork] round 37 roulette_episodes: set when the pick is one episode. */
+    val episode: NuvioCRouletteEpisode? = null
 )
 
 sealed interface NuvioCShuffleOutcome {
@@ -122,7 +124,7 @@ sealed interface NuvioCShuffleOutcome {
     data object NothingLeft : NuvioCShuffleOutcome
 }
 
-private data class Filters(val kind: NuvioCShuffleKind, val mood: NuvioCShuffleMood, val unwatched: Boolean)
+private data class Filters(val kind: NuvioCShuffleKind, val mood: NuvioCShuffleMood, val unwatched: Boolean, val refine: NuvioCRouletteRefine = NuvioCRouletteRefine())
 
 @Singleton
 class NuvioCShufflePool @Inject constructor(
@@ -147,6 +149,8 @@ class NuvioCShufflePool @Inject constructor(
     // [fork] round 34 roulette_raw: one big TMDB shuffle (see NuvioCRouletteRaw)
     private val raw = NuvioCRouletteRaw(context, tmdbRetrofit.create(NuvioCRouletteTmdbApi::class.java), tmdbService) { TMDB_GENRES[it] }
     private val rawOn get() = com.nuvio.tv.NuvioCFeatures.ROULETTE_RAW
+    // [fork] round 37 roulette_episodes
+    private val episodes = NuvioCRouletteEpisodes(watchProgress, libraryRepository, metaRepository, shuffleRandom)
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val buildMutex = Mutex()
@@ -178,7 +182,7 @@ class NuvioCShufflePool @Inject constructor(
 
     /** Background warm-up (after start-up settles): builds the pool only when there's none or it's over 12 h old. */
     fun warmUp() {
-        if (rawOn) { scope.launch { raw.warmUp() }; return }
+        if (rawOn) { scope.launch { raw.warmUp(prefs.config.value.refine) }; return } // [fork] round 37: warms the chosen pool size
         scope.launch { ensure(rebuildIfOlderThanMs = MAX_AGE_MS) }
     }
 
@@ -553,8 +557,8 @@ class NuvioCShufflePool @Inject constructor(
 
     /** A new visit to Shuffle: forget titles set aside last time and any prepared pick. */
     /** [fork] round 36 roulette_copy: size of the pool these choices draw from, null when unknown. */
-    suspend fun poolSize(kind: NuvioCShuffleKind, mood: NuvioCShuffleMood): Int? =
-        if (rawOn) runCatching { raw.poolSize(kind, mood) }.getOrNull() else null
+    suspend fun poolSize(kind: NuvioCShuffleKind, mood: NuvioCShuffleMood, refine: NuvioCRouletteRefine = prefs.config.value.refine): Int? =
+        if (rawOn) runCatching { raw.poolSize(kind, mood, refine) }.getOrNull() else null
 
     fun beginVisit() {
         rejected.clear()
@@ -564,9 +568,10 @@ class NuvioCShufflePool @Inject constructor(
 
     /** Posters for the mood tiles and the reel strip, from the pool (no requests). */
     suspend fun posters(kind: NuvioCShuffleKind, count: Int): List<String> {
+        if (kind == NuvioCShuffleKind.EPISODES) return runCatching { episodes.posters(count) }.getOrDefault(emptyList()) // [fork] round 37
         if (rawOn) {
             raw.posters(kind, count).takeIf { it.isNotEmpty() }?.let { return it }
-            runCatching { raw.candidate(kind, NuvioCShuffleMood.ANY) } // fills the poster memory with one page
+            runCatching { raw.candidate(kind, NuvioCShuffleMood.ANY, prefs.config.value.refine) } // fills the poster memory with one page
             return raw.posters(kind, count)
         }
         val all = (currentPool() ?: return emptyList()).items
@@ -578,15 +583,15 @@ class NuvioCShufflePool @Inject constructor(
     }
 
     /** One pick for these choices. Uses the prepared pick when it was made for the same choices. */
-    suspend fun roll(kind: NuvioCShuffleKind, mood: NuvioCShuffleMood, unwatched: Boolean): NuvioCShuffleOutcome {
-        val filters = Filters(kind, mood, unwatched)
+    suspend fun roll(kind: NuvioCShuffleKind, mood: NuvioCShuffleMood, unwatched: Boolean, refine: NuvioCRouletteRefine = prefs.config.value.refine): NuvioCShuffleOutcome {
+        val filters = Filters(kind, mood, unwatched, refine)
         val ready = pickMutex.withLock {
             prepared?.takeIf { it.first == filters }?.second.also { prepared = null }
         }
         val outcome = ready?.let { runCatching { it.await() }.getOrNull() }?.takeIf { it is NuvioCShuffleOutcome.Picked }
             ?: pick(filters)
         if (outcome is NuvioCShuffleOutcome.Picked) {
-            prefs.addRecent(outcome.pick.item.identity)
+            prefs.addRecent(outcome.pick.episode?.let { NuvioCRouletteEpisodes.identity(outcome.pick.item.id, it.season, it.episode) } ?: outcome.pick.item.identity)
             pickMutex.withLock {
                 prepared?.second?.cancel()
                 prepared = filters to scope.async { pick(filters) }
@@ -596,6 +601,7 @@ class NuvioCShufflePool @Inject constructor(
     }
 
     private suspend fun pick(filters: Filters): NuvioCShuffleOutcome {
+        if (filters.kind == NuvioCShuffleKind.EPISODES) return pickEpisode(filters) // [fork] round 37
         if (rawOn) return pickRaw(filters)
         val pool = ensure() ?: return NuvioCShuffleOutcome.NothingLeft
         val config = prefs.config.value
@@ -626,7 +632,7 @@ class NuvioCShufflePool @Inject constructor(
         val watched = if (filters.unwatched) watchedIds() else emptySet()
         var misses = 0
         repeat(RAW_TRIES) {
-            val item = limited { raw.candidate(filters.kind, filters.mood) }
+            val item = limited { raw.candidate(filters.kind, filters.mood, filters.refine) }
             if (item == null) {
                 if (++misses >= 3) return NuvioCShuffleOutcome.NothingLeft
                 return@repeat
@@ -642,6 +648,16 @@ class NuvioCShufflePool @Inject constructor(
             synchronized(rejected) { rejected += item.identity }
         }
         return NuvioCShuffleOutcome.NothingLeft
+    }
+
+    /** [fork] round 37 roulette_episodes: one episode of one of your shows. */
+    private suspend fun pickEpisode(filters: Filters): NuvioCShuffleOutcome {
+        val recent = prefs.recent().toHashSet()
+        val found = runCatching {
+            episodes.pick(filters.mood, filters.unwatched, filters.refine) { id -> id in recent }
+        }.onFailure { Log.w(TAG, "episode pick failed: ${it.message}") }.getOrNull()
+            ?: return NuvioCShuffleOutcome.NothingLeft
+        return NuvioCShuffleOutcome.Picked(found.first.copy(episode = found.second))
     }
 
     /** Watched films and started shows (every id form), read fresh for each pick. */

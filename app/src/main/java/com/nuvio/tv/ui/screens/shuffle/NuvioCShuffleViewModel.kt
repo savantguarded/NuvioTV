@@ -53,7 +53,9 @@ data class NuvioCShuffleUi(
     /** [fork] round 36 roulette_copy: visit number (picks the rotating lines), spins this visit, pool size. */
     val visit: Int = 0,
     val spins: Int = 0,
-    val poolSize: Int? = null
+    val poolSize: Int? = null,
+    /** [fork] round 37 roulette_refine: Refine panel choices (pool size included). */
+    val refine: com.nuvio.tv.data.nuvioc.NuvioCRouletteRefine = com.nuvio.tv.data.nuvioc.NuvioCRouletteRefine()
 )
 
 /** The backdrop request used both to fetch it early (during the reel) and to draw it, so it's a memory hit. */
@@ -106,7 +108,7 @@ class NuvioCShuffleViewModel @Inject constructor(
 
     private fun fromPrefs(ui: NuvioCShuffleUi): NuvioCShuffleUi {
         val c = prefs.config.value
-        return ui.copy(kind = c.kind, mood = c.mood, unwatched = c.unwatched, sourcesOn = NuvioCShuffleSource.entries.count { c.weight(it) > 0 })
+        return ui.copy(kind = c.kind, mood = c.mood, unwatched = c.unwatched, sourcesOn = NuvioCShuffleSource.entries.count { c.weight(it) > 0 }, refine = c.refine)
     }
 
     /** Each time the page comes into view. Back from a title's details keeps the result; otherwise start at the mood screen. */
@@ -159,6 +161,14 @@ class NuvioCShuffleViewModel @Inject constructor(
         if (reroll) roll()
     }
 
+    /** [fork] round 37 roulette_refine: new Refine choices; on the result screen they roll again. */
+    fun setRefine(refine: com.nuvio.tv.data.nuvioc.NuvioCRouletteRefine, reroll: Boolean = false) {
+        if (refine == _ui.value.refine) return
+        prefs.setRefine(refine)
+        _ui.update { it.copy(refine = refine, nothingLeft = false) }
+        if (reroll) roll()
+    }
+
     fun cycleKind() {
         val kinds = com.nuvio.tv.data.nuvioc.nuvioCShuffleKinds // [fork] roulette_anime
         val next = kinds[(kinds.indexOf(_ui.value.kind) + 1).mod(kinds.size)]
@@ -188,11 +198,11 @@ class NuvioCShuffleViewModel @Inject constructor(
             )
         }
         if (com.nuvio.tv.NuvioCFeatures.ROULETTE_COPY) viewModelScope.launch {
-            val n = pool.poolSize(state.kind, state.mood)
+            val n = pool.poolSize(state.kind, state.mood, state.refine)
             _ui.update { if (token == myToken) it.copy(poolSize = n) else it }
         }
         rollJob = viewModelScope.launch {
-            when (val outcome = pool.roll(state.kind, state.mood, state.unwatched)) {
+            when (val outcome = pool.roll(state.kind, state.mood, state.unwatched, state.refine)) {
                 is NuvioCShuffleOutcome.Picked -> {
                     val pick = outcome.pick
                     pick.item.background?.let { context.imageLoader.enqueue(shuffleBackdropRequest(context, it)) }

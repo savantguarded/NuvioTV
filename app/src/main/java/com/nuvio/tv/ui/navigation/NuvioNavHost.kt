@@ -1294,7 +1294,29 @@ private fun PlaybackNavHost(
         composable(Screen.Shuffle.route) { // [fork] shuffle_page
             com.nuvio.tv.ui.components.NuvioCSidebarSettleGate {
             com.nuvio.tv.ui.screens.shuffle.NuvioCShuffleScreen(
-                onOpenTitle = { id, type -> navController.navigate(Screen.Detail.createRoute(id, type)) }
+                onOpenTitle = { id, type -> navController.navigate(Screen.Detail.createRoute(id, type)) },
+                onPlayEpisode = { pick, manual -> // [fork] round 37 roulette_episodes: same sources screen as everywhere else
+                    val ep = pick.episode
+                    if (ep != null) {
+                        navController.navigate(
+                            Screen.Stream.createRoute(
+                                videoId = ep.videoId,
+                                contentType = "series",
+                                title = pick.item.name,
+                                poster = pick.item.poster,
+                                backdrop = pick.item.background,
+                                logo = pick.item.logo,
+                                season = ep.season,
+                                episode = ep.episode,
+                                episodeName = ep.title,
+                                contentId = pick.item.id,
+                                contentName = pick.item.name,
+                                runtime = ep.runtime,
+                                manualSelection = manual
+                            )
+                        )
+                    }
+                }
             )
             }
         }

@@ -36,16 +36,18 @@ enum class NuvioCShuffleSource(val key: String, val defaultWeight: Int) {
 enum class NuvioCShuffleKind(val key: String) {
     MOVIES("movies"), SHOWS("shows"), EITHER("either"),
     /** [fork] round 31 roulette_anime: Japanese animation, films and series, in place of Either. */
-    ANIME("anime")
+    ANIME("anime"),
+    /** [fork] round 37 roulette_episodes: a random episode from a show you've watched or saved. */
+    EPISODES("episodes")
 }
 
 /** [fork] round 31 roulette_anime: the three types on screen, in order. */
 val nuvioCShuffleKinds: List<NuvioCShuffleKind>
-    get() = if (com.nuvio.tv.NuvioCFeatures.ROULETTE_ANIME) {
+    get() = (if (com.nuvio.tv.NuvioCFeatures.ROULETTE_ANIME) {
         listOf(NuvioCShuffleKind.MOVIES, NuvioCShuffleKind.SHOWS, NuvioCShuffleKind.ANIME)
     } else {
         listOf(NuvioCShuffleKind.MOVIES, NuvioCShuffleKind.SHOWS, NuvioCShuffleKind.EITHER)
-    }
+    }) + (if (com.nuvio.tv.NuvioCFeatures.ROULETTE_EPISODES) listOf(NuvioCShuffleKind.EPISODES) else emptyList()) // [fork] round 37
 
 /** Moods filter by genre (names lower-cased, "-" as space). ANY doesn't filter. */
 enum class NuvioCShuffleMood(val key: String, val genres: Set<String>) {
@@ -120,7 +122,9 @@ data class NuvioCShuffleConfig(
     val catalogKeys: Set<String>? = null,
     val kind: NuvioCShuffleKind = NuvioCShuffleKind.MOVIES,
     val mood: NuvioCShuffleMood = NuvioCShuffleMood.ANY,
-    val unwatched: Boolean = true
+    val unwatched: Boolean = true,
+    /** [fork] round 37 roulette_refine / roulette_pool_size: Refine panel choices. */
+    val refine: NuvioCRouletteRefine = NuvioCRouletteRefine()
 ) {
     fun weight(source: NuvioCShuffleSource): Int = (weights[source] ?: source.defaultWeight).coerceIn(0, 3)
 
@@ -142,6 +146,7 @@ fun nuvioCKindMatches(item: NuvioCShuffleItem, kind: NuvioCShuffleKind): Boolean
     NuvioCShuffleKind.SHOWS -> item.isShow
     NuvioCShuffleKind.EITHER -> true
     NuvioCShuffleKind.ANIME -> item.anime || "anime" in item.genres // [fork] roulette_anime
+    NuvioCShuffleKind.EPISODES -> item.isShow // [fork] round 37 roulette_episodes
 }
 
 /** [fork] round 31 roulette_v2: draw weight of a title, so well-rated ones come up more often (still random). */
@@ -204,7 +209,8 @@ class NuvioCShufflePrefs @Inject constructor(
             kind = NuvioCShuffleKind.entries.firstOrNull { it.key == prefs.getString(k(p, "kind"), null) }
                 ?.takeIf { it in nuvioCShuffleKinds } ?: NuvioCShuffleKind.MOVIES, // [fork] roulette_anime
             mood = NuvioCShuffleMood.entries.firstOrNull { it.key == prefs.getString(k(p, "mood"), null) } ?: NuvioCShuffleMood.ANY,
-            unwatched = prefs.getBoolean(k(p, "unwatched"), true)
+            unwatched = prefs.getBoolean(k(p, "unwatched"), true),
+            refine = NuvioCRouletteRefine.decode(prefs.getString(k(p, "refine"), null)) // [fork] round 37
         )
     }.getOrDefault(NuvioCShuffleConfig())
 
@@ -220,6 +226,7 @@ class NuvioCShufflePrefs @Inject constructor(
     fun setKind(kind: NuvioCShuffleKind) = update { putString(k(it, "kind"), kind.key) }
     fun setMood(mood: NuvioCShuffleMood) = update { putString(k(it, "mood"), mood.key) }
     fun setUnwatched(on: Boolean) = update { putBoolean(k(it, "unwatched"), on) }
+    fun setRefine(refine: NuvioCRouletteRefine) = update { putString(k(it, "refine"), refine.encode()) } // [fork] round 37
 
     /** The last [RECENT_MAX] picks (identities), newest last. */
     fun recent(): List<String> =
