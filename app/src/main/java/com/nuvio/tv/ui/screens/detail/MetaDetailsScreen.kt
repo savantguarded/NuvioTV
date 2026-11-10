@@ -2410,6 +2410,7 @@ private fun MetaDetailsContent(
         ) {
         val nuvioCRateFocus = remember { FocusRequester() } // [fork] Rate button + dialog
         val nuvioCRating = rememberNuvioCRating(meta, nuvioCRateFocus) // [fork]
+        val nuvioCBell = com.nuvio.tv.ui.screens.calendar.rememberNuvioCDetailBell(meta) // [fork] round 38 detail_bell
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -2631,7 +2632,10 @@ private fun MetaDetailsContent(
                         nuvioCRateAvailable = nuvioCRating.available, // [fork]
                         nuvioCRated = nuvioCRating.rated, // [fork]
                         onNuvioCRate = nuvioCRating.open, // [fork]
-                        nuvioCRateFocusRequester = nuvioCRateFocus // [fork]
+                        nuvioCRateFocusRequester = nuvioCRateFocus, // [fork]
+                        nuvioCBellAvailable = nuvioCBell.available, // [fork] round 38 detail_bell
+                        nuvioCBellOn = nuvioCBell.on, // [fork]
+                        onNuvioCBell = nuvioCBell.toggle // [fork]
                     )
                 }
             }

@@ -90,6 +90,8 @@ import com.nuvio.tv.ui.theme.NuvioTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -150,7 +152,10 @@ fun HeroContentSection(
     nuvioCRateAvailable: Boolean = false, // [fork] Rate button (Trakt / MDBList)
     nuvioCRated: Boolean = false, // [fork]
     onNuvioCRate: () -> Unit = {}, // [fork]
-    nuvioCRateFocusRequester: FocusRequester? = null // [fork]
+    nuvioCRateFocusRequester: FocusRequester? = null, // [fork]
+    nuvioCBellAvailable: Boolean = false, // [fork] round 38 detail_bell
+    nuvioCBellOn: Boolean = false, // [fork]
+    onNuvioCBell: () -> Unit = {} // [fork]
 ) {
     val context = LocalContext.current
     // [fork] Nuvio C dimming over a background trailer (Apple TV look), full brightness when the synopsis is focused
@@ -376,6 +381,18 @@ fun HeroContentSection(
                                 selectedContentColor = Color.Black,
                                 onFocused = onHeroActionFocused,
                                 focusRequester = randomEpisodeFocusRequester
+                            )
+                        }
+
+                        if (nuvioCBellAvailable) { // [fork] round 38 detail_bell: Calendar bell, white when on
+                            ActionIconButton(
+                                icon = if (nuvioCBellOn) Icons.Default.Notifications else Icons.Default.NotificationsNone,
+                                contentDescription = stringResource(if (nuvioCBellOn) R.string.nuvio_c_bell_on else R.string.nuvio_c_bell_off),
+                                onClick = onNuvioCBell,
+                                selected = nuvioCBellOn,
+                                selectedContainerColor = Color.White,
+                                selectedContentColor = Color.Black,
+                                onFocused = onHeroActionFocused
                             )
                         }
 
