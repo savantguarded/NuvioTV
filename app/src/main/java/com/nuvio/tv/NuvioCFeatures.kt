@@ -686,7 +686,7 @@ object NuvioCFeatures {
     /** Calendar Coming soon: every TMDB candidate is checked (not the 70 most popular), checks kept on disk for a day, air-date search in the TV's time zone. Off = round 32 behaviour. */
     const val TMDB_SOON_ALL = true
     /** Start-up: the profile gate opens only once the real profile list has reached the screen, and the "expect the profile screen" note is written only on a real cold start. Off = round 40 gate. */
-    const val STARTUP_PROFILE_ATOMIC = true
+    const val STARTUP_PROFILE_ATOMIC = false // round 43b: reverted to round 41
     /** Taste titles panel: the chips are reachable (Up from the list), and picking a sort keeps focus on the chip. Off = round 41 panel. */
     const val TASTE_PANEL_FOCUS = true
     /** Taste: scroll position and spotlight cards stay fixed for a visit, so closing a panel or month view lands back on what opened it. Off = round 41. */
@@ -711,10 +711,10 @@ object NuvioCFeatures {
     /** Taste month view: a row of the titles watched that month, most recent first. Off = no row. */
     const val TASTE_MONTH_TITLES = true
     /** Cold start onto the profile screen: no logo first (black, then the profile screen). Off = the still logo while profiles load. */
-    const val STARTUP_NO_LOGO = true
+    const val STARTUP_NO_LOGO = false // round 43b: reverted to round 41
     // [fork] round 43
     /** Start-up: every fresh cold start waits on black for the real profile list before choosing profile screen or Home, not only when the last launch showed the profile screen. Off = round 42b (remembered note). */
-    const val STARTUP_GATE_ALWAYS = true
+    const val STARTUP_GATE_ALWAYS = false // round 43b: reverted
     /** Playback log (read-only): adds whether the filename says Dolby Vision, Custom Network on/off, time to ready, and MISS when a DV-named file came out without Dolby Vision. Off = round 42 line. */
     const val DV_LOG_MORE = true
     /** Details hero: rating chip, year, genres, runtime (shows: seasons and the next-episode countdown) on one line under the buttons; Director line and the two lines under the synopsis gone, so the block sits lower. Off = official lines. */
@@ -729,4 +729,7 @@ object NuvioCFeatures {
     const val DETAIL_GUIDE = true
     /** Details episodes: a Find chip at the end of the season tabs; search by number (12, e12, s3e5, 3x05) or name across all seasons. Off = official tabs. */
     const val EPISODE_FIND = true
+    // [fork] round 43b
+    /** Details: the Information block is one focus stop after the logo rows; the logo rows then scroll like any other row (no scroll-to-end, no blocked scroll). Needs DETAIL_INFO_SLOTS. Off = round 9 scroll-to-end on the logo rows. */
+    const val DETAIL_INFO_STOP = true
 }

@@ -1545,6 +1545,7 @@ private fun MetaDetailsContent(
     }
 
     fun onCompanyRowFocused(revealOverflowPx: Float) {
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_INFO_STOP && com.nuvio.tv.NuvioCFeatures.DETAIL_INFO_SLOTS) return // [fork] round 43b: logo rows scroll like any row; the Information stop shows the end
         if (com.nuvio.tv.NuvioCFeatures.DETAIL_SCROLL_END) { // [fork] one normal scroll to the end, no stop-then-nudge
             nuvioCScrollDetailToEnd(listState, tapScroll.lastKey, pendingRestoreType == RestoreTarget.COMPANY_OR_NETWORK, detailFastScrolling, coroutineScope, nuvioCPageScrollSpec)
             return
@@ -1570,6 +1571,7 @@ private fun MetaDetailsContent(
         val key = tapScroll.lastKey
         val vertical = key == KeyEvent.KEYCODE_DPAD_UP || key == KeyEvent.KEYCODE_DPAD_DOWN
         if (!vertical) return false
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_INFO_STOP && com.nuvio.tv.NuvioCFeatures.DETAIL_INFO_SLOTS) return true // [fork] round 43b
         if (com.nuvio.tv.NuvioCFeatures.DETAIL_SCROLL_END) return detailFastScrolling || !listState.canScrollForward // [fork] onCompanyRowFocused does the one scroll
         if (key == KeyEvent.KEYCODE_DPAD_DOWN && tapScroll.rapidDown) return true
         return remainingDetailScrollPx() !in 1..200

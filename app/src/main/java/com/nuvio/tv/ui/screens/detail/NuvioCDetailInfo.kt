@@ -17,6 +17,7 @@ package com.nuvio.tv.ui.screens.detail
 // this only adds what it doesn't carry.
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -419,7 +420,14 @@ internal fun NuvioCDetailInfoBlock(metaId: String) {
     val info by NuvioCDetailInfoStore.current.collectAsState()
     if (NuvioCFeatures.DETAIL_INFO_SLOTS) { // [fork] round 43 detail_info_slots: fixed places, Awards, Parental guidance
         val current = info?.takeIf { it.metaId == metaId && it.loaded } ?: return
-        Column(Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 36.dp)) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                // [fork] round 43b detail_info_stop: one quiet stop after the last row. Down from the logos lands here and
+                // the page brings the whole block into view like any row; Up goes back to the logos the normal way.
+                .then(if (NuvioCFeatures.DETAIL_INFO_STOP) Modifier.focusable() else Modifier)
+                .padding(top = 20.dp, bottom = 36.dp)
+        ) {
             NuvioCInfoSlots(current, com.nuvio.tv.ui.components.nuvioCDetailMargin)
         }
         return

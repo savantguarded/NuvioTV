@@ -6,18 +6,13 @@ package com.nuvio.tv.ui.screens.detail
 // dash where a value is missing, so the eye always finds the same thing in the same spot. Anything the top of the
 // page already shows (rating, runtime, genres, seasons, director / creator) stays out.
 //
-// Awards: one line per major body, always the same lines (films: Academy Awards, Golden Globes, BAFTA, Festivals,
-// Overall; shows: Primetime Emmys, Golden Globes, BAFTA, Overall). Per-body counts and categories come from
-// Wikidata by IMDb id (free, no key; wins and nominations recorded on the title and on the people "for" it), kept
-// 7 days on disk. Overall is OMDb's / the meta add-on's total. Wikidata can miss nominations for smaller titles, so
-// a dash means "none found", not "none".
+// Round 43b layout, one full-width column: Information, then Parental guidance (rating chip and five fixed cells
+// with a 3-step bar and level, no notes), then Awards (fixed cells: films Academy Awards, Golden Globes, BAFTA,
+// Festivals, Overall; shows Primetime Emmys, Golden Globes, BAFTA, Overall; counts only). Per-body counts come from
+// Wikidata by IMDb id (title + people "for" it), 7 days on disk; Overall is OMDb's / the meta add-on's total. A dash
+// means "none found", not "none".
 //
-// Parental guidance: next to Information, the rating chip (NR when none) and the five IMDb categories in a fixed
-// order with a 3-step bar and the shortest non-spoiler note (2 lines, space kept even when shorter or missing).
-// Same IMDb source as the player's start-up popup.
-//
-// Nothing here is focusable and it all sits below the last row, so the page gets no new stops and late data
-// never moves anything above it.
+// The whole block is one quiet focus stop (detail_info_stop) below the last row; late data never moves anything above it.
 
 import android.content.Context
 import androidx.compose.foundation.background
@@ -226,111 +221,109 @@ internal val NUVIO_C_SHOW_SLOTS = listOf(
     R.string.nuvio_c_info_based_on, R.string.nuvio_c_info_original_title
 )
 
+/**
+ * [fork] round 43b: one column, full width. Information (two slots per line, so long values keep their room), then
+ * Parental guidance (five fixed cells: name, 3-step bar, level), then Awards (fixed cells: body, counts). Same
+ * heading style, hairline and spacing rules for all three.
+ */
 @Composable
 internal fun NuvioCInfoSlots(info: NuvioCDetailInfo, margin: Dp) {
     val hairline = NuvioTheme.colors.TextPrimary.copy(alpha = 0.08f)
-    val dim = NuvioTheme.extendedColors.textTertiary
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = margin),
-        horizontalArrangement = Arrangement.spacedBy(56.dp)
-    ) {
-        // Left: Information, then Awards
-        Column(Modifier.weight(1.3f)) {
-            Heading(stringResource(R.string.nuvio_c_info_title))
-            val slots = if (info.show) NUVIO_C_SHOW_SLOTS else NUVIO_C_FILM_SLOTS
-            val byLabel = info.rows.associateBy { it.label }
-            slots.chunked(2).forEach { pair ->
-                Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
-                Row(horizontalArrangement = Arrangement.spacedBy(40.dp), modifier = Modifier.fillMaxWidth()) {
-                    pair.forEach { label ->
-                        val row = byLabel[label]
-                        val value = row?.value?.let { v ->
-                            if (v.startsWith("\u0000")) v.drop(1).toIntOrNull()?.let { stringResource(it) } else v
-                        }?.takeIf { it.isNotBlank() }
-                        SlotLine(stringResource(label), value, Modifier.weight(1f))
-                    }
-                }
-            }
+    Column(Modifier.fillMaxWidth().padding(horizontal = margin)) {
+        Heading(stringResource(R.string.nuvio_c_info_title))
+        val slots = if (info.show) NUVIO_C_SHOW_SLOTS else NUVIO_C_FILM_SLOTS
+        val byLabel = info.rows.associateBy { it.label }
+        slots.chunked(2).forEach { pair ->
             Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
-            if (com.nuvio.tv.NuvioCFeatures.DETAIL_AWARDS_BODIES) {
-                Spacer(Modifier.height(22.dp))
-                SubHeading(stringResource(R.string.nuvio_c_info_awards))
-                val bodies = if (info.show) {
-                    listOf(NuvioCAwardBody.EMMYS to R.string.nuvio_c_award_emmys, NuvioCAwardBody.GLOBES to R.string.nuvio_c_award_globes, NuvioCAwardBody.BAFTA to R.string.nuvio_c_award_bafta)
-                } else {
-                    listOf(NuvioCAwardBody.OSCARS to R.string.nuvio_c_award_oscars, NuvioCAwardBody.GLOBES to R.string.nuvio_c_award_globes, NuvioCAwardBody.BAFTA to R.string.nuvio_c_award_bafta, NuvioCAwardBody.FESTIVALS to R.string.nuvio_c_award_festivals)
+            Row(horizontalArrangement = Arrangement.spacedBy(48.dp), modifier = Modifier.fillMaxWidth()) {
+                pair.forEach { label ->
+                    val value = byLabel[label]?.value?.let { v ->
+                        if (v.startsWith("\u0000")) v.drop(1).toIntOrNull()?.let { stringResource(it) } else v
+                    }?.takeIf { it.isNotBlank() }
+                    SlotLine(stringResource(label), value, Modifier.weight(1f))
                 }
-                bodies.forEach { (body, name) ->
-                    val line = info.awards?.bodies?.get(body)
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
-                    AwardLine(stringResource(name), line?.let { NuvioCAwardBodies.countText(it.wins, it.nominations) }, line?.categories?.joinToString(" · "))
-                }
-                Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
-                AwardLine(stringResource(R.string.nuvio_c_award_overall), NuvioCAwardBodies.overall(info.awardsText), null)
-                Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
             }
         }
-        // Right: Parental guidance
+        Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
+
         if (com.nuvio.tv.NuvioCFeatures.DETAIL_GUIDE) {
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Heading(stringResource(R.string.nuvio_c_guide_title))
-                    Spacer(Modifier.width(12.dp))
-                    Box(
-                        Modifier
-                            .padding(bottom = 12.dp)
-                            .border(1.dp, NuvioTheme.colors.TextPrimary.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 6.dp, vertical = 1.dp)
-                    ) {
-                        Text(info.rated ?: "NR", style = MaterialTheme.typography.labelMedium, color = NuvioTheme.colors.TextPrimary, maxLines = 1)
-                    }
+            Spacer(Modifier.height(BAND_GAP))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Heading(stringResource(R.string.nuvio_c_guide_title))
+                Spacer(Modifier.width(10.dp))
+                Box(
+                    Modifier
+                        .padding(bottom = HEADING_GAP)
+                        .border(1.dp, NuvioTheme.colors.TextPrimary.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 1.dp)
+                ) {
+                    Text(info.rated ?: "NR", style = MaterialTheme.typography.labelMedium, color = NuvioTheme.colors.TextPrimary, maxLines = 1)
                 }
-                val g = info.guide
+            }
+            val g = info.guide
+            Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
+            Row(horizontalArrangement = Arrangement.spacedBy(CELL_GAP), modifier = Modifier.fillMaxWidth()) {
                 listOf(
                     R.string.nuvio_c_guide_nudity to g?.nudity,
                     R.string.nuvio_c_guide_violence to g?.violence,
                     R.string.nuvio_c_guide_profanity to g?.profanity,
                     R.string.nuvio_c_guide_alcohol to g?.alcohol,
                     R.string.nuvio_c_guide_frightening to g?.frightening
-                ).forEach { (label, line) ->
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
-                    GuideLine(stringResource(label), line, dimmed = g == null)
-                }
-                Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
-                if (g == null && info.guideChecked) {
-                    Spacer(Modifier.height(8.dp))
-                    Text(stringResource(R.string.nuvio_c_guide_none), style = MaterialTheme.typography.labelMedium, color = dim, maxLines = 1)
-                }
+                ).forEach { (label, line) -> GuideCell(stringResource(label), line?.level, Modifier.weight(1f)) }
             }
+            Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
+        }
+
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_AWARDS_BODIES) {
+            Spacer(Modifier.height(BAND_GAP))
+            Heading(stringResource(R.string.nuvio_c_info_awards))
+            val bodies = if (info.show) {
+                listOf(NuvioCAwardBody.EMMYS to R.string.nuvio_c_award_emmys, NuvioCAwardBody.GLOBES to R.string.nuvio_c_award_globes, NuvioCAwardBody.BAFTA to R.string.nuvio_c_award_bafta)
+            } else {
+                listOf(NuvioCAwardBody.OSCARS to R.string.nuvio_c_award_oscars, NuvioCAwardBody.GLOBES to R.string.nuvio_c_award_globes, NuvioCAwardBody.BAFTA to R.string.nuvio_c_award_bafta, NuvioCAwardBody.FESTIVALS to R.string.nuvio_c_award_festivals)
+            }
+            Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
+            Row(horizontalArrangement = Arrangement.spacedBy(CELL_GAP), modifier = Modifier.fillMaxWidth()) {
+                bodies.forEach { (body, name) ->
+                    val line = info.awards?.bodies?.get(body)
+                    AwardCell(stringResource(name), line?.let { NuvioCAwardBodies.countText(it.wins, it.nominations) }, Modifier.weight(1f))
+                }
+                AwardCell(stringResource(R.string.nuvio_c_award_overall), NuvioCAwardBodies.overall(info.awardsText), Modifier.weight(1f))
+                // Shows have one body fewer: keep the cells the same width as a film's.
+                if (info.show) Spacer(Modifier.weight(1f))
+            }
+            Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
         }
     }
 }
 
+private val BAND_GAP = 28.dp
+private val HEADING_GAP = 10.dp
+private val CELL_GAP = 24.dp
+
 @Composable
 private fun Heading(text: String) {
-    Text(text, style = MaterialTheme.typography.titleLarge, color = NuvioTheme.colors.TextPrimary, maxLines = 1, modifier = Modifier.padding(bottom = 12.dp))
+    Text(text, style = MaterialTheme.typography.titleLarge, color = NuvioTheme.colors.TextPrimary, maxLines = 1, modifier = Modifier.padding(bottom = HEADING_GAP))
 }
 
 @Composable
-private fun SubHeading(text: String) {
-    Text(text, style = MaterialTheme.typography.titleMedium, color = NuvioTheme.colors.TextPrimary, maxLines = 1, modifier = Modifier.padding(bottom = 8.dp))
-}
+private fun dashColor() = NuvioTheme.extendedColors.textTertiary.copy(alpha = 0.6f)
 
 @Composable
 private fun SlotLine(label: String, value: String?, modifier: Modifier) {
-    Row(modifier.padding(vertical = 11.dp), verticalAlignment = Alignment.Top) {
+    Row(modifier.padding(vertical = 10.dp), verticalAlignment = Alignment.Top) {
         Text(
             label,
             style = MaterialTheme.typography.bodyMedium,
             color = NuvioTheme.extendedColors.textTertiary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.width(124.dp)
+            modifier = Modifier.width(136.dp)
         )
         Text(
             value ?: DASH,
             style = MaterialTheme.typography.bodyMedium,
-            color = if (value != null) NuvioTheme.colors.TextPrimary else NuvioTheme.extendedColors.textTertiary.copy(alpha = 0.6f),
+            color = if (value != null) NuvioTheme.colors.TextPrimary else dashColor(),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
@@ -339,63 +332,51 @@ private fun SlotLine(label: String, value: String?, modifier: Modifier) {
 }
 
 @Composable
-private fun AwardLine(body: String, counts: String?, categories: String?) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 9.dp), verticalAlignment = Alignment.Top) {
-        Text(body, style = MaterialTheme.typography.bodyMedium, color = NuvioTheme.extendedColors.textTertiary, maxLines = 1, modifier = Modifier.width(150.dp))
+private fun AwardCell(body: String, counts: String?, modifier: Modifier) {
+    Column(modifier.padding(vertical = 10.dp)) {
+        Text(body, style = MaterialTheme.typography.bodySmall, color = NuvioTheme.extendedColors.textTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(4.dp))
         Text(
             counts?.takeIf { it.isNotBlank() } ?: DASH,
             style = MaterialTheme.typography.bodyMedium,
-            color = if (!counts.isNullOrBlank()) NuvioTheme.colors.TextPrimary else NuvioTheme.extendedColors.textTertiary.copy(alpha = 0.6f),
+            color = if (!counts.isNullOrBlank()) NuvioTheme.colors.TextPrimary else dashColor(),
             maxLines = 1,
-            modifier = Modifier.width(190.dp)
-        )
-        Text(
-            categories.orEmpty(),
-            style = MaterialTheme.typography.bodySmall,
-            color = NuvioTheme.extendedColors.textTertiary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
 
 @Composable
-private fun GuideLine(label: String, line: NuvioCGuideLine?, dimmed: Boolean) {
-    val steps = when (line?.level) { "mild" -> 1; "moderate" -> 2; "severe" -> 3; else -> 0 }
-    val levelText = when (line?.level) {
+private fun GuideCell(label: String, level: String?, modifier: Modifier) {
+    val steps = when (level) { "mild" -> 1; "moderate" -> 2; "severe" -> 3; else -> 0 }
+    val levelText = when (level) {
         "none" -> stringResource(R.string.nuvio_c_guide_level_none)
         "mild" -> stringResource(R.string.nuvio_c_guide_level_mild)
         "moderate" -> stringResource(R.string.nuvio_c_guide_level_moderate)
         "severe" -> stringResource(R.string.nuvio_c_guide_level_severe)
-        else -> DASH
+        else -> null
     }
-    val alpha = if (dimmed) 0.45f else 1f
-    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+    Column(modifier.padding(vertical = 10.dp)) {
+        Text(label, style = MaterialTheme.typography.bodySmall, color = NuvioTheme.extendedColors.textTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, style = MaterialTheme.typography.bodyMedium, color = NuvioTheme.extendedColors.textTertiary.copy(alpha = alpha), maxLines = 1, modifier = Modifier.width(132.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.width(66.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                 repeat(3) { i ->
                     Box(
-                        Modifier.width(18.dp).height(5.dp)
-                            .background(
-                                if (i < steps) NuvioTheme.colors.TextPrimary.copy(alpha = 0.9f) else NuvioTheme.colors.TextPrimary.copy(alpha = 0.14f * alpha),
-                                RoundedCornerShape(3.dp)
-                            )
+                        Modifier.width(16.dp).height(5.dp).background(
+                            if (i < steps) NuvioTheme.colors.TextPrimary.copy(alpha = 0.9f) else NuvioTheme.colors.TextPrimary.copy(alpha = 0.14f),
+                            RoundedCornerShape(3.dp)
+                        )
                     )
                 }
             }
-            Text(levelText, style = MaterialTheme.typography.bodyMedium, color = (if (line?.level != null) NuvioTheme.colors.TextPrimary else NuvioTheme.extendedColors.textTertiary).copy(alpha = alpha), maxLines = 1)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                levelText ?: DASH,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (levelText != null) NuvioTheme.colors.TextPrimary else dashColor(),
+                maxLines = 1
+            )
         }
-        // Two lines of room always, so every row is the same height.
-        Text(
-            line?.note.orEmpty(),
-            style = MaterialTheme.typography.bodySmall,
-            color = NuvioTheme.extendedColors.textTertiary,
-            maxLines = 2,
-            minLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(start = 132.dp, top = 3.dp).heightIn(min = 0.dp)
-        )
     }
 }
