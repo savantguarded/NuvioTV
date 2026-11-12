@@ -137,7 +137,9 @@ class NuvioCDetailInfoViewModel @Inject constructor(
     fun load(meta: Meta) {
         if (!NuvioCFeatures.DETAIL_INFO_BLOCK && !NuvioCFeatures.DETAIL_NEXT_EP_BADGE) return
         NuvioCDetailInfoStore.cached(meta.id)?.let { NuvioCDetailInfoStore.publish(it); return }
-        NuvioCDetailInfoStore.publish(NuvioCDetailInfo(meta.id, rows = localRows(meta)))
+        // [fork] round 39 detail_info_polish: the block appears once, complete, instead of showing the add-on's two
+        // or three lines first and then changing shape when TMDB answers (the add-on lines stay the fallback).
+        NuvioCDetailInfoStore.publish(NuvioCDetailInfo(meta.id, rows = if (NuvioCFeatures.DETAIL_INFO_POLISH) emptyList() else localRows(meta)))
         if (loadingFor == meta.id) return
         loadingFor = meta.id
         viewModelScope.launch {
@@ -247,11 +249,17 @@ class NuvioCDetailInfoViewModel @Inject constructor(
             next?.at?.let { at ->
                 val local = at.atZone(ZoneId.systemDefault())
                 val day = local.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
-                add(NuvioCInfoRow(R.string.nuvio_c_info_airs, "${day}s, ${local.format(TIME)}"))
+                add(NuvioCInfoRow(R.string.nuvio_c_info_airs, if (NuvioCFeatures.DETAIL_INFO_POLISH) "${day}s at ${local.format(TIME)}" else "${day}s, ${local.format(TIME)}"))
             }
             status?.let { add(NuvioCInfoRow(R.string.nuvio_c_info_status, "\u0000$it")) } // resolved in the UI
             if (seasons != null) {
-                add(NuvioCInfoRow(R.string.nuvio_c_info_seasons, if (episodes != null) "$seasons · $episodes episodes" else "$seasons"))
+                add(NuvioCInfoRow(R.string.nuvio_c_info_seasons, when {
+                    // [fork] round 39 detail_info_polish: "3 seasons · 30 episodes", spelled out like the other values
+                    NuvioCFeatures.DETAIL_INFO_POLISH && episodes != null -> "$seasons ${if (seasons == 1) "season" else "seasons"} · $episodes ${if (episodes == 1) "episode" else "episodes"}"
+                    NuvioCFeatures.DETAIL_INFO_POLISH -> "$seasons ${if (seasons == 1) "season" else "seasons"}"
+                    episodes != null -> "$seasons · $episodes episodes"
+                    else -> "$seasons"
+                }))
             }
             (o.str("original_language") ?: meta.language)?.let(::languageName)?.let { add(NuvioCInfoRow(R.string.nuvio_c_info_language, it)) }
         }
@@ -335,6 +343,10 @@ internal fun NuvioCDetailInfoBlock(metaId: String) {
             modifier = Modifier.padding(horizontal = margin)
         )
         Spacer(Modifier.height(14.dp))
+        if (NuvioCFeatures.DETAIL_INFO_POLISH) {
+            NuvioCInfoPolished(rows, margin)
+            return@Column
+        }
         if (NuvioCFeatures.DETAIL_INFO_LEDGER) {
             NuvioCInfoLedger(rows, margin)
             return@Column
@@ -445,6 +457,63 @@ private fun NuvioCInfoLedger(rows: List<NuvioCInfoRow>, margin: androidx.compose
         }
     }
 }
+
+/**
+ * [fork] round 39 detail_info_polish: the ledger with one rule for every line. Two columns; in each, the label sits
+ * in a fixed-width column (muted) and the value starts at the same place on every line (left aligned), hairlines
+ * above every line and one closing the block, an odd last line keeps its half. Awards spans both columns and wraps
+ * to two lines instead of being cut.
+ */
+@Composable
+private fun NuvioCInfoPolished(rows: List<NuvioCInfoRow>, margin: androidx.compose.ui.unit.Dp) {
+    val hairline = NuvioTheme.colors.TextPrimary.copy(alpha = 0.08f)
+    val awards = rows.firstOrNull { it.label == R.string.nuvio_c_info_awards }
+    val paired = (if (awards != null) rows - awards else rows).sortedBy { NUVIO_C_INFO_ORDER.indexOf(it.label).let { i -> if (i < 0) 99 else i } }
+    val labelWidth = 132.dp
+    @Composable fun valueOf(row: NuvioCInfoRow): String =
+        if (row.value.startsWith("\u0000")) row.value.drop(1).toIntOrNull()?.let { stringResource(it) }.orEmpty() else row.value
+    @Composable fun Line(row: NuvioCInfoRow, modifier: Modifier, maxLines: Int = 1) {
+        Row(modifier.padding(vertical = 12.dp), verticalAlignment = androidx.compose.ui.Alignment.Top) {
+            Text(
+                text = stringResource(row.label),
+                style = MaterialTheme.typography.bodyMedium,
+                color = NuvioTheme.extendedColors.textTertiary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.width(labelWidth)
+            )
+            Text(
+                text = valueOf(row),
+                style = MaterialTheme.typography.bodyMedium,
+                color = NuvioTheme.colors.TextPrimary,
+                maxLines = maxLines,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+    Column(Modifier.fillMaxWidth().padding(horizontal = margin)) {
+        paired.chunked(2).forEach { line ->
+            androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
+            Row(horizontalArrangement = Arrangement.spacedBy(48.dp), modifier = Modifier.fillMaxWidth()) {
+                line.forEach { row -> Line(row, Modifier.weight(1f)) }
+                if (line.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+        if (awards != null) {
+            androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
+            Line(awards, Modifier.fillMaxWidth(), maxLines = 2)
+        }
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
+    }
+}
+
+/** [fork] round 39 detail_info_polish: one order for films and shows (dates, length, money, status, language). */
+private val NUVIO_C_INFO_ORDER = listOf(
+    R.string.nuvio_c_info_theatrical, R.string.nuvio_c_info_digital, R.string.nuvio_c_info_first_aired, R.string.nuvio_c_info_airs,
+    R.string.nuvio_c_info_runtime, R.string.nuvio_c_info_seasons, R.string.nuvio_c_info_status,
+    R.string.nuvio_c_info_budget, R.string.nuvio_c_info_box_office, R.string.nuvio_c_info_language
+)
 
 private fun JsonObject.str(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() && it != "null" }
 private fun JsonObject.int(key: String): Int? = (this[key] as? JsonPrimitive)?.intOrNull
