@@ -1291,6 +1291,16 @@ private fun PlaybackNavHost(
             } // [fork] sidebar_page_smooth
         }
 
+        composable(Screen.Taste.route) { // [fork] round 39 taste_page
+            com.nuvio.tv.ui.components.NuvioCSidebarSettleGate {
+            com.nuvio.tv.ui.screens.taste.NuvioCTasteScreen(
+                onOpenTitle = { id, type -> navController.navigate(Screen.Detail.createRoute(id, type)) },
+                onOpenPerson = { id, name, crew -> navController.navigate(Screen.CastDetail.createRoute(id, name, preferCrew = crew)) },
+                onOpenRoulette = { navController.navigate(Screen.Shuffle.route) { launchSingleTop = true } }
+            )
+            }
+        }
+
         composable(Screen.Shuffle.route) { // [fork] shuffle_page
             com.nuvio.tv.ui.components.NuvioCSidebarSettleGate {
             com.nuvio.tv.ui.screens.shuffle.NuvioCShuffleScreen(

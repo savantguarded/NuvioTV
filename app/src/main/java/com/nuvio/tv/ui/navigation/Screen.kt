@@ -143,6 +143,7 @@ sealed class Screen(val route: String) {
     data object Library : Screen("library")
     data object Calendar : Screen("calendar") // [fork] calendar_page
     data object Shuffle : Screen("shuffle") // [fork] shuffle_page
+    data object Taste : Screen("taste") // [fork] round 39 taste_page
     data object Settings : Screen("settings")
     data object Tracking : Screen("trakt")
     data object WatchParty : Screen("watch_party?code={code}") {

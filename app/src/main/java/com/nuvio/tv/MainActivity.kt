@@ -53,6 +53,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -280,6 +281,9 @@ open class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var nuvioCStreamBadgeSettings: com.nuvio.tv.data.local.StreamBadgeSettingsDataStore // [fork] badge_prefetch
+
+    @Inject
+    lateinit var nuvioCTaste: dagger.Lazy<com.nuvio.tv.data.nuvioc.NuvioCTasteRepository> // [fork] round 39 taste_page
 
     @Inject
     lateinit var nuvioCShufflePrefs: com.nuvio.tv.data.nuvioc.NuvioCShufflePrefs // [fork] shuffle_page
@@ -1112,12 +1116,14 @@ open class MainActivity : ComponentActivity() {
                             .map { com.nuvio.tv.NuvioCFeatures.SHUFFLE_PAGE && it.menuVisible }
                             .distinctUntilChanged()
                     }.collectAsState(initial = false)
+                    val tasteInMenu = com.nuvio.tv.NuvioCFeatures.TASTE_PAGE // [fork] round 39 taste_page
                     val rootRoutes = remember(discoverLocation, calendarInMenu, shuffleInMenu) {
                         buildSet {
                             add(Screen.Home.route)
                             add(Screen.Search.route)
                             add(Screen.Library.route)
                             if (calendarInMenu) add(Screen.Calendar.route)
+                            if (tasteInMenu) add(Screen.Taste.route) // [fork] round 39 taste_page
                             if (shuffleInMenu) add(Screen.Shuffle.route) // [fork] shuffle_page
                             add(Screen.Settings.route)
                             if (discoverLocation == DiscoverLocation.IN_SIDEBAR) {
@@ -1133,6 +1139,7 @@ open class MainActivity : ComponentActivity() {
                     val strNavSettings = stringResource(R.string.nav_settings)
                     val strNavCalendar = stringResource(R.string.nav_calendar)
                     val strNavShuffle = stringResource(R.string.nuvio_c_roulette) // [fork] shuffle_page (sidebar says Roulette, the action stays Shuffle)
+                    val strNavTaste = stringResource(R.string.nuvio_c_taste) // [fork] round 39 taste_page
                     val drawerItems = remember(
                         strNavHome,
                         strNavDiscover,
@@ -1182,6 +1189,15 @@ open class MainActivity : ComponentActivity() {
                                         route = Screen.Calendar.route,
                                         label = strNavCalendar,
                                         icon = Icons.Default.CalendarMonth
+                                    )
+                                )
+                            }
+                            if (tasteInMenu) { // [fork] round 39 taste_page: right under Calendar
+                                add(
+                                    DrawerItem(
+                                        route = Screen.Taste.route,
+                                        label = strNavTaste,
+                                        icon = Icons.Default.Insights
                                     )
                                 )
                             }
@@ -1392,6 +1408,14 @@ open class MainActivity : ComponentActivity() {
                         destination = startupDestination
                     ) && (nuvioCPickerWaitOver || splashTriggered || hasSelectedProfileThisSession) // [fork] startup_to_profiles
                     // [fork] round 27c badge_prefetch: once start-up has settled, get every badge logo ready (again when the pack changes)
+                    // [fork] round 39 taste_page: the Taste numbers are refreshed quietly once a day, a few minutes after
+                    // start-up and only while nothing is playing, so the page usually opens on fresh numbers.
+                    LaunchedEffect(showSplash, startupLoadingState.complete) {
+                        if (!com.nuvio.tv.NuvioCFeatures.TASTE_PAGE || showSplash || !startupLoadingState.complete) return@LaunchedEffect
+                        kotlinx.coroutines.delay(180_000)
+                        if (com.nuvio.tv.core.NuvioCPlayback.active) return@LaunchedEffect
+                        runCatching { nuvioCTaste.get().refreshIfStale() }
+                    }
                     LaunchedEffect(showSplash, startupLoadingState.complete) {
                         if (!com.nuvio.tv.NuvioCFeatures.BADGE_PREFETCH || showSplash || !startupLoadingState.complete) return@LaunchedEffect
                         kotlinx.coroutines.delay(2_500)
