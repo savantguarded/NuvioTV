@@ -147,6 +147,7 @@ internal fun NuvioCTastePage(
     val panel by viewModel.panel.collectAsState() // [fork] round 41 taste_card_titles
     val refreshing by viewModel.refreshing.collectAsState() // [fork] round 42 taste_refresh_feedback
     val updatedAt by viewModel.updatedAt.collectAsState()
+    val monthTitles by viewModel.monthTitles.collectAsState() // [fork] round 42b taste_month_titles
     var range by rememberSaveable { mutableStateOf(NuvioCTasteRange.ALL) }
     var monthKey by rememberSaveable { mutableStateOf<String?>(null) }
     val month = monthKey?.let { runCatching { YearMonth.parse(it) }.getOrNull() }
@@ -268,7 +269,9 @@ internal fun NuvioCTastePage(
             modifier = Modifier.fillMaxSize()
                 .then(if (smooth) Modifier.nuvioCListGate() else Modifier)
                 // [fork] round 41: while the titles panel is open, focus can't wander back into the page
-                .focusProperties { onEnter = { if (panelOpen) cancelFocusChange() } }
+                // [fork] round 42b taste_close_focus: read the panel's live state, not the value from the last
+                // recomposition, so focus can come back to the card the moment Back closes the panel
+                .focusProperties { onEnter = { if (if (com.nuvio.tv.NuvioCFeatures.TASTE_CLOSE_FOCUS) viewModel.panel.value != null else panelOpen) cancelFocusChange() } }
                 .focusGroup(),
             state = if (com.nuvio.tv.NuvioCFeatures.TASTE_FOCUS_KEEP) viewModel.pageListState else rememberLazyListState(),
             contentPadding = PaddingValues(top = 28.dp, bottom = 56.dp),
@@ -319,6 +322,11 @@ internal fun NuvioCTastePage(
             item(key = "tiles") {
                 if (month != null) TasteMonthTiles(s) else TasteLiveTiles(live, viewModel.countUp, onCounted = { if (smooth) viewModel.markCounted() })
             }
+            if (com.nuvio.tv.NuvioCFeatures.TASTE_MONTH_TITLES && month != null && monthTitles.isNotEmpty()) item(key = "monthTitles") {
+                TasteRowFrame("Watched in " + month.month.getDisplayName(TextStyle.FULL, Locale.US)) { hold ->
+                    TastePosterRow(monthTitles, viewModel.rowMemory("month:$month"), hold, section("monthTitles"), { viewModel.lastArea = "monthTitles" }, onOpenTitle)
+                }
+            }
             val r = review
             if (showReview && r != null) item(key = "review") {
                 TasteReviewBanner(
@@ -341,9 +349,11 @@ internal fun NuvioCTastePage(
                     TasteSpotlight(cards, viewModel.changedIds, accent, cardsFocus, ::section, { viewModel.lastArea = it }, onCard = { c, from -> pressCard(c, from) })
                 }
             }
-            if (month == null && !light && s.showPeople) item(key = "people") {
-                TasteRowFrame("Your people") { hold ->
-                    TastePeopleRow(s.people, viewModel.rowMemory("people"), hold, section("people"), { viewModel.lastArea = "people" }, onOpenPerson)
+            val peopleLens = if (month == null && !light) viewModel.peopleLens(state) else null
+            if (peopleLens != null) item(key = "people") {
+                // [fork] round 42b taste_people_lenses: a different lens each visit
+                TasteRowFrame(peopleLens.title) { hold ->
+                    TastePeopleRow(peopleLens.people, viewModel.rowMemory("people:" + peopleLens.id), hold, section("people"), { viewModel.lastArea = "people" }, onOpenPerson)
                 }
             }
             if (month == null && range == NuvioCTasteRange.ALL) {
@@ -377,7 +387,8 @@ internal fun NuvioCTastePage(
             onIndex = { viewModel.panelIndex = it },
             onAction = { act(it) },
             onSort = viewModel::sortPanel,
-            onOpenTitle = onOpenTitle
+            onOpenTitle = onOpenTitle,
+            isOpen = { viewModel.panel.value != null }
         )
     }
 }

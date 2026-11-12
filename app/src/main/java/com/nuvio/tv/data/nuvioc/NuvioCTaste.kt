@@ -180,6 +180,8 @@ data class NuvioCTasteStats(
     val genres: List<NuvioCTasteShare> = emptyList(),
     val decades: List<Pair<Int, Int>> = emptyList(),
     val people: List<NuvioCTastePersonStat> = emptyList(),
+    /** [fork] round 42b taste_people_lenses: a wider pool (two titles or more, up to 24) for the rotating people row. */
+    val morePeople: List<NuvioCTastePersonStat> = emptyList(),
     /** Ratings 1..10 (half stars), counts. */
     val ratingCounts: List<Int> = emptyList(),
     val vsCrowd: Double? = null,
@@ -896,12 +898,12 @@ internal fun computeTasteStats(
         t.cast.forEach { p -> castCount[p.id] = p to ((castCount[p.id]?.second ?: 0) + 1) }
         t.directors.forEach { p -> dirCount[p.id] = p to ((dirCount[p.id]?.second ?: 0) + 1) }
     }
-    val people = (castCount.values.map { NuvioCTastePersonStat(it.first, it.second, false) } +
+    val peoplePool = (castCount.values.map { NuvioCTastePersonStat(it.first, it.second, false) } +
         dirCount.values.map { NuvioCTastePersonStat(it.first, it.second, true) })
-        .filter { it.count >= 3 }
         .sortedWith(compareByDescending<NuvioCTastePersonStat> { it.count }.thenBy { it.director })
         .distinctBy { it.person.id }
-        .take(8)
+    val people = peoplePool.filter { it.count >= 3 }.take(8)
+    val morePeople = peoplePool.filter { it.count >= 2 }.take(24)
 
     // ratings: titles in range you've rated (any time)
     fun scoreFor(k: String): Int? {
@@ -985,6 +987,7 @@ internal fun computeTasteStats(
         genres = genres,
         decades = decades,
         people = people,
+        morePeople = morePeople,
         ratingCounts = ratingCounts,
         vsCrowd = vsCrowd,
         genreCritic = genreCritic,

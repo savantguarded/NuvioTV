@@ -302,7 +302,8 @@ internal fun TasteTitlesPanel(
     onIndex: (Int) -> Unit,
     onAction: (NuvioCTasteAction) -> Unit,
     onSort: (Int) -> Unit,
-    onOpenTitle: (String, String) -> Unit
+    onOpenTitle: (String, String) -> Unit,
+    isOpen: () -> Boolean = { panel != null }
 ) {
     // keep the last panel drawn while it slides out
     var last by remember { mutableStateOf(panel) }
@@ -318,7 +319,7 @@ internal fun TasteTitlesPanel(
             enter = slideInHorizontally(tween(220)) { it } + fadeIn(tween(220)),
             exit = slideOutHorizontally(tween(180)) { it } + fadeOut(tween(180))
         ) {
-            if (shown != null) TastePanelBody(shown, listFocus, startIndex, onIndex, onAction, onSort, onOpenTitle)
+            if (shown != null) TastePanelBody(shown, listFocus, startIndex, onIndex, onAction, onSort, onOpenTitle, isOpen)
         }
     }
 }
@@ -332,7 +333,8 @@ private fun TastePanelBody(
     onIndex: (Int) -> Unit,
     onAction: (NuvioCTasteAction) -> Unit,
     onSort: (Int) -> Unit,
-    onOpenTitle: (String, String) -> Unit
+    onOpenTitle: (String, String) -> Unit,
+    isOpen: () -> Boolean = { true }
 ) {
     val card = p.card
     val items = p.items
@@ -345,7 +347,11 @@ private fun TastePanelBody(
                     if (com.nuvio.tv.NuvioCFeatures.TASTE_PANEL_FOCUS) {
                         // [fork] round 42 taste_panel_focus: the exit guard sits on the panel itself. After focusGroup()
                         // it landed on the list's own group too, so Up from the list to the chips was cancelled.
-                        Modifier.focusProperties { onExit = { cancelFocusChange() } }.focusGroup()
+                        // [fork] round 42b taste_close_focus: only while the panel is open. During its slide-out the
+                        // guard kept focus from going back to the card, so it fell to the first item on screen.
+                        Modifier.focusProperties {
+                            onExit = { if (!com.nuvio.tv.NuvioCFeatures.TASTE_CLOSE_FOCUS || isOpen()) cancelFocusChange() }
+                        }.focusGroup()
                     } else {
                         Modifier.focusGroup().focusProperties { onExit = { cancelFocusChange() } }
                     }

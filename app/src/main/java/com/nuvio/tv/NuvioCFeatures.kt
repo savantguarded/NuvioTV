@@ -703,4 +703,13 @@ object NuvioCFeatures {
     const val TASTE_REFRESH_FEEDBACK = true
     /** Player: resuming an MKV mid-file on a Dolby Vision TV reads the file's header from the start, then jumps to the resume point, so the Dolby Vision track isn't lost. Decoder untouched. Off = official resume. */
     const val DV_RESUME_HEADER_FIRST = true
+    // [fork] round 42b
+    /** Taste: closing a titles or recap panel puts focus back on the card or recap that opened it (the panel's focus guard stops at Back). Off = round 42. */
+    const val TASTE_CLOSE_FOCUS = true
+    /** Taste: Your people picks a different lens each visit (all time, lately, this year, directors, actors) from a wider pool. Off = the same all-time top eight. */
+    const val TASTE_PEOPLE_LENSES = true
+    /** Taste month view: a row of the titles watched that month, most recent first. Off = no row. */
+    const val TASTE_MONTH_TITLES = true
+    /** Cold start onto the profile screen: no logo first (black, then the profile screen). Off = the still logo while profiles load. */
+    const val STARTUP_NO_LOGO = true
 }

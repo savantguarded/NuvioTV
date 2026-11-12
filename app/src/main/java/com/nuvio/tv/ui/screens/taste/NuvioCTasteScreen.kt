@@ -121,6 +121,7 @@ class NuvioCTasteViewModel @Inject constructor(
                 opened = false
                 _rows.value = emptyList(); _review.value = null; _panel.value = null; _monthData.value = null; _live.value = null
                 memories.clear(); spotlightCache.clear(); changedIds = emptySet(); lastArea = null; monthFrom = null; panelFrom = null
+                lensFor = null; lens = null; _monthTitles.value = emptyList()
                 countUp = true
                 pageListState = androidx.compose.foundation.lazy.LazyListState()
             }
@@ -295,8 +296,57 @@ class NuvioCTasteViewModel @Inject constructor(
     }
 
     fun selectMonth(month: java.time.YearMonth?) {
-        if (month == null) { _monthData.value = null; return }
+        if (month == null) { _monthData.value = null; _monthTitles.value = emptyList(); return }
         viewModelScope.launch { _monthData.value = repository.month(month) }
+        // [fork] round 42b taste_month_titles: the titles watched that month, most recent first
+        if (com.nuvio.tv.NuvioCFeatures.TASTE_MONTH_TITLES) viewModelScope.launch {
+            _monthTitles.value = emptyList()
+            val detail = runCatching { repository.recapDetail(month) }.getOrNull() ?: return@launch
+            val window = com.nuvio.tv.data.nuvioc.tasteMonthWindow(month, java.time.ZoneId.systemDefault())
+            val items = runCatching { repository.panel(detail.keys, window) }.getOrDefault(emptyList())
+            _monthTitles.value = items.sortedByDescending { it.lastWatched }.map {
+                com.nuvio.tv.data.nuvioc.NuvioCTasteShelfItem(
+                    id = it.id, type = it.type, name = it.name, poster = it.poster,
+                    note = it.episodes?.let { e -> "$e ${if (e == 1) "episode" else "episodes"}" } ?: it.year?.toString()
+                )
+            }
+        }
+    }
+    private val _monthTitles = MutableStateFlow<List<com.nuvio.tv.data.nuvioc.NuvioCTasteShelfItem>>(emptyList())
+    val monthTitles: StateFlow<List<com.nuvio.tv.data.nuvioc.NuvioCTasteShelfItem>> = _monthTitles.asStateFlow()
+
+    // ---- [fork] round 42b taste_people_lenses ------------------------------------------------------------
+    data class PeopleLens(val id: String, val title: String, val people: List<com.nuvio.tv.data.nuvioc.NuvioCTastePersonStat>)
+    private var lensFor: Long? = null
+    private var lens: PeopleLens? = null
+
+    /** This visit's people row: one lens chosen at random (never the same twice running), from a wider pool. */
+    fun peopleLens(state: NuvioCTasteState): PeopleLens? {
+        val all = state.all[NuvioCTasteRange.ALL] ?: return null
+        if (!com.nuvio.tv.NuvioCFeatures.TASTE_PEOPLE_LENSES) {
+            return all.people.takeIf { it.isNotEmpty() }?.let { PeopleLens("all", "Your people", it) }
+        }
+        if (lensFor == seed) lens?.let { return it }
+        val random = java.util.Random(seed xor 0x5EED)
+        val pool = all.morePeople.ifEmpty { all.people }
+        fun sample(list: List<com.nuvio.tv.data.nuvioc.NuvioCTastePersonStat>, n: Int) =
+            list.take(n + 6).shuffled(random).take(n).sortedByDescending { it.count }
+        val lenses = listOfNotNull(
+            pool.filter { it.count >= 3 }.takeIf { it.size >= 4 }?.let { PeopleLens("all", "Your people", sample(it, 10)) },
+            state.all[NuvioCTasteRange.DAYS_90]?.morePeople?.takeIf { it.size >= 4 }?.let { PeopleLens("lately", "Lately on your screen", it.take(10)) },
+            state.all[NuvioCTasteRange.YEAR]?.morePeople?.takeIf { it.size >= 4 }?.let { PeopleLens("year", "Your people this year", sample(it, 10)) },
+            pool.filter { it.director }.takeIf { it.size >= 4 }?.let { PeopleLens("directors", "Directors you return to", it.take(10)) },
+            pool.filter { !it.director }.drop(4).takeIf { it.size >= 4 }?.let { PeopleLens("faces", "Faces you keep seeing", sample(it, 10)) }
+        )
+        if (lenses.isEmpty()) return all.people.takeIf { it.isNotEmpty() }?.let { PeopleLens("all", "Your people", it) }
+        val profile = profiles.activeProfileId.value
+        val last = prefs.getString("p$profile:peopleLens", null)
+        val choices = lenses.filter { it.id != last }.ifEmpty { lenses }
+        val picked = choices[random.nextInt(choices.size)]
+        prefs.edit().putString("p$profile:peopleLens", picked.id).apply()
+        lensFor = seed
+        lens = picked
+        return picked
     }
 
     /** This visit's six cards for [key] (a range or a month); the same until the page is opened again. */

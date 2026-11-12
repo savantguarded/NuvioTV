@@ -450,7 +450,7 @@ open class MainActivity : ComponentActivity() {
                 com.nuvio.tv.NuvioCFeatures.STARTUP_TO_PROFILES && nuvioCPickerPrefs.getBoolean("nuvioc_expect_picker", false)
             }
             var nuvioCPickerWaitOver by remember { mutableStateOf(!nuvioCExpectPicker) }
-            remember { if (nuvioCExpectPicker) com.nuvio.tv.ui.components.NuvioCOpening.begin(); 0 } // [fork] round 37 startup_opening
+            remember { if (nuvioCExpectPicker && !com.nuvio.tv.NuvioCFeatures.STARTUP_NO_LOGO) com.nuvio.tv.ui.components.NuvioCOpening.begin(); 0 } // [fork] round 37 startup_opening (round 42b: no logo)
             var nuvioCPickerShown by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) {
                 if (nuvioCPickerWaitOver) return@LaunchedEffect
@@ -899,7 +899,7 @@ open class MainActivity : ComponentActivity() {
                     val layoutChosen = mainUiPrefs.hasChosenLayout
                     val prefsLoading = layoutChosen == null || !mainUiPrefs.experienceModeLoaded || installedAddons == null ||
                         (!nuvioCPickerWaitOver && !splashTriggered && !hasSelectedProfileThisSession) // [fork] startup_to_profiles: wait (black) for the saved profiles
-                    if (prefsLoading && com.nuvio.tv.NuvioCFeatures.STARTUP_OPENING && nuvioCExpectPicker && !splashTriggered && !hasSelectedProfileThisSession) {
+                    if (prefsLoading && com.nuvio.tv.NuvioCFeatures.STARTUP_OPENING && !com.nuvio.tv.NuvioCFeatures.STARTUP_NO_LOGO && nuvioCExpectPicker && !splashTriggered && !hasSelectedProfileThisSession) {
                         com.nuvio.tv.ui.components.NuvioCOpeningLogo() // [fork] round 37 startup_opening: the still logo instead of black while profiles load
                     }
                     if (!prefsLoading) {
