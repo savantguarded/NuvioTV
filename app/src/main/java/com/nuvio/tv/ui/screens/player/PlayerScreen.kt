@@ -3619,7 +3619,8 @@ private fun PlayerControlsOverlay(
                 }
 
                 // Right side - Time display only
-                if (!nuvioCSplit) PlayerControlsTimeTextHost(viewModel = viewModel) // [fork] split: time sits under the seek bar
+                // [fork] round 40 osd_more_time: the time steps aside while the More row is open, so the buttons get the width.
+                if (!nuvioCSplit && !(com.nuvio.tv.NuvioCFeatures.OSD_MORE_TIME && uiState.showMoreDialog)) PlayerControlsTimeTextHost(viewModel = viewModel) // [fork] split: time sits under the seek bar
             }
             }
         }

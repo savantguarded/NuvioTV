@@ -59,7 +59,8 @@ internal object NuvioCSubtitleRows {
             val n = (seen[addon] ?: 0) + 1
             seen[addon] = n
             val language = Subtitle.languageCodeToName(PlayerSubtitleUtils.normalizeLanguageCode(sub.lang))
-            val title = if ((counts[addon] ?: 0) > 1) "$language $n" else language
+            // [fork] round 40 subtitle_no_numbers: the plain language; the release line under it tells them apart.
+            val title = if (!com.nuvio.tv.NuvioCFeatures.SUBTITLE_NO_NUMBERS && (counts[addon] ?: 0) > 1) "$language $n" else language
             val source = listOfNotNull(addon.ifBlank { null }, format(sub.url)).joinToString(" · ")
             rebuild(item, title, source, readableMeta(sub))
         }

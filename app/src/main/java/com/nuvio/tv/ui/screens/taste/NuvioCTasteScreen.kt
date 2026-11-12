@@ -100,7 +100,8 @@ private val EDGE = 48.dp
 @HiltViewModel
 class NuvioCTasteViewModel @Inject constructor(
     private val repository: NuvioCTasteRepository,
-    private val profiles: ProfileManager
+    private val profiles: ProfileManager,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
 ) : ViewModel() {
     val state: StateFlow<NuvioCTasteState> = repository.state
     private val _gaps = MutableStateFlow<List<NuvioCTasteShelfItem>>(emptyList())
@@ -114,6 +115,95 @@ class NuvioCTasteViewModel @Inject constructor(
 
     fun open(force: Boolean = false) {
         viewModelScope.launch { repository.open(force) }
+        // [fork] round 40: a new visit gets new spotlight cards and rows; the live tiles are read again
+        if (!opened || force) {
+            opened = true
+            seed = System.nanoTime()
+            rowsFor = -1L
+            if (com.nuvio.tv.NuvioCFeatures.TASTE_LIVE) viewModelScope.launch { _live.value = runCatching { repository.live() }.getOrNull() }
+        }
+    }
+
+    // ---- [fork] round 40 taste_v2 ------------------------------------------------------------------------
+    private var opened = false
+    private var seed = System.nanoTime()
+    private val _live = MutableStateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteLive?>(null)
+    val live: StateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteLive?> = _live.asStateFlow()
+    private val _rows = MutableStateFlow<List<com.nuvio.tv.data.nuvioc.NuvioCTasteRow>>(emptyList())
+    val rows: StateFlow<List<com.nuvio.tv.data.nuvioc.NuvioCTasteRow>> = _rows.asStateFlow()
+    private var rowsFor = -1L
+    private val _monthData = MutableStateFlow<Pair<NuvioCTasteStats, List<com.nuvio.tv.data.nuvioc.NuvioCTasteInsight>>?>(null)
+    val monthData: StateFlow<Pair<NuvioCTasteStats, List<com.nuvio.tv.data.nuvioc.NuvioCTasteInsight>>?> = _monthData.asStateFlow()
+    private val memories = HashMap<String, NuvioCTasteRowMemory>()
+    /** The section focus was last in (Back lands there). */
+    var lastArea: String? = null
+    /** Tiles count up on the first open of the page only. */
+    var countUp = true
+        private set
+    private val prefs by lazy { context.getSharedPreferences("nuvio_c_taste_cards", android.content.Context.MODE_PRIVATE) }
+    /** Spotlight cards whose value changed since you last saw that card. */
+    var changedIds: Set<String> = emptySet()
+        private set
+    private val spotlightCache = HashMap<String, List<com.nuvio.tv.data.nuvioc.NuvioCTasteInsight>>()
+
+    fun rowMemory(id: String): NuvioCTasteRowMemory = memories.getOrPut(id) { NuvioCTasteRowMemory() }
+
+    fun loadRows(stats: NuvioCTasteStats, builtAt: Long) {
+        if (!com.nuvio.tv.NuvioCFeatures.TASTE_ROWS || builtAt == rowsFor || stats.titles == 0) return
+        rowsFor = builtAt
+        val mySeed = seed
+        viewModelScope.launch {
+            val list = runCatching { repository.rows(stats, mySeed) }.getOrDefault(emptyList())
+            if (mySeed == seed) {
+                _rows.value = list
+                countUp = false
+            }
+        }
+    }
+
+    fun selectMonth(month: java.time.YearMonth?) {
+        if (month == null) { _monthData.value = null; return }
+        viewModelScope.launch { _monthData.value = repository.month(month) }
+    }
+
+    /** This visit's six cards for [key] (a range or a month); the same until the page is opened again. */
+    fun spotlight(all: List<com.nuvio.tv.data.nuvioc.NuvioCTasteInsight>, key: String): List<com.nuvio.tv.data.nuvioc.NuvioCTasteInsight> {
+        if (all.isEmpty()) return emptyList()
+        val cacheKey = "$seed:$key:${all.size}"
+        spotlightCache[cacheKey]?.let { return it }
+        val now = java.time.ZonedDateTime.now()
+        val weekend = now.dayOfWeek == java.time.DayOfWeek.SATURDAY || now.dayOfWeek == java.time.DayOfWeek.SUNDAY
+        val picked = com.nuvio.tv.data.nuvioc.pickTasteSpotlight(all, seed xor key.hashCode().toLong(), now.hour, weekend)
+        // the dot: a card shown before whose value is different now
+        val profile = profiles.activeProfileId.value
+        val changed = picked.filter { c ->
+            val before = prefs.getString("p$profile:${c.id}", null)
+            before != null && before != c.value
+        }.map { it.id }.toSet()
+        changedIds = changedIds + changed
+        prefs.edit().apply { picked.forEach { putString("p$profile:${it.id}", it.value) } }.apply()
+        spotlightCache[cacheKey] = picked
+        return picked
+    }
+
+    /** "since March 2026" when the history is under two years old, else null. */
+    fun sinceLabel(state: NuvioCTasteState): String? {
+        val first = state.months.firstOrNull() ?: return null
+        if (java.time.YearMonth.now().minusMonths(24).isAfter(first)) return null
+        return "since " + first.month.getDisplayName(java.time.format.TextStyle.FULL, Locale.US) + " " + first.year
+    }
+
+    /** The range pills worth showing: "This year" and "90 days" only when they differ from All time. */
+    fun rangesFor(all: NuvioCTasteStats?): List<NuvioCTasteRange> {
+        val s = repository.state.value
+        if (all == null || !all.showNumbers) return emptyList()
+        val year = s.all[NuvioCTasteRange.YEAR]
+        val days = s.all[NuvioCTasteRange.DAYS_90]
+        return listOfNotNull(
+            NuvioCTasteRange.ALL,
+            NuvioCTasteRange.YEAR.takeIf { year != null && year.titles in 1 until all.titles },
+            NuvioCTasteRange.DAYS_90.takeIf { days != null && days.titles > 0 && (year == null || days.titles < year.titles) }
+        )
     }
 
     /** One discover call per build, only once the page has its numbers. */
@@ -133,6 +223,10 @@ fun NuvioCTasteScreen(
     onOpenRoulette: () -> Unit,
     viewModel: NuvioCTasteViewModel = hiltViewModel()
 ) {
+    if (com.nuvio.tv.NuvioCFeatures.TASTE_V2) { // [fork] round 40
+        NuvioCTastePage(viewModel, onOpenTitle, onOpenPerson, onOpenRoulette)
+        return
+    }
     val state by viewModel.state.collectAsState()
     val gaps by viewModel.gaps.collectAsState()
     var range by rememberSaveable { mutableStateOf(NuvioCTasteRange.ALL) }

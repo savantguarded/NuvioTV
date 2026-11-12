@@ -122,6 +122,8 @@ class NuvioCRatingService @Inject constructor(
     @Volatile private var lastCheckProfile = -1
 
     private fun traktFile(profile: Int) = File(context.filesDir, "nuvio_c_trakt_ratings_p$profile.txt")
+    /** [fork] round 40 taste_live: when each Trakt rating was made ("movie:tt…" -> epoch ms), one line per title. */
+    private fun traktDatesFile(profile: Int) = File(context.filesDir, "nuvio_c_trakt_rated_at_p$profile.txt")
 
     /**
      * Your Trakt score for this title, or null. Refreshes first when the last check is over
@@ -169,15 +171,47 @@ class NuvioCRatingService @Inject constructor(
         val moviesAt = root["movies"]?.jsonObject?.get("rated_at")?.jsonPrimitive?.contentOrNull
         val showsAt = root["shows"]?.jsonObject?.get("rated_at")?.jsonPrimitive?.contentOrNull
         val old = trakt
-        if (old != null && old.movies == moviesAt && old.shows == showsAt) return@withLock
-        val movies = fetchRatings { traktApi.movieRatings(it) } ?: return@withLock
-        val shows = fetchRatings { traktApi.showRatings(it) } ?: return@withLock
+        val datesMissing = com.nuvio.tv.NuvioCFeatures.TASTE_LIVE && !traktDatesFile(profile).exists() // [fork] round 40: fetch once for the dates
+        if (old != null && old.movies == moviesAt && old.shows == showsAt && !datesMissing) return@withLock
+        val moviesBody = fetchBody { traktApi.movieRatings(it) } ?: return@withLock
+        val showsBody = fetchBody { traktApi.showRatings(it) } ?: return@withLock
+        val movies = parseTraktRatings(moviesBody)
+        val shows = parseTraktRatings(showsBody)
         val scores = HashMap<String, Int>(movies.size + shows.size)
         scores.putAll(movies)
         scores.putAll(shows)
         trakt = TraktRatings(profile, moviesAt, showsAt, scores)
         saveTrakt(trakt!!)
+        if (com.nuvio.tv.NuvioCFeatures.TASTE_LIVE) runCatching {
+            val dates = parseTraktRatedAt(moviesBody) + parseTraktRatedAt(showsBody)
+            traktDatesFile(profile).writeText(dates.entries.joinToString("\n") { "${it.key}=${it.value}" })
+        }
     }
+
+    private suspend fun fetchBody(call: suspend (String) -> Response<ResponseBody>): String? {
+        val response = traktAuth.executeAuthorizedRequest(call) ?: return null
+        val body = response.body()?.use { it.string() }
+        return body.takeIf { response.isSuccessful }
+    }
+
+    /**
+     * [fork] round 40 taste_live: when each rating was made, one key per title ("movie:tt…" / "show:…"), from Trakt
+     * (last pull) and from this TV. Empty without ratings.
+     */
+    suspend fun ratedDates(): Map<String, Long> = runCatching {
+        val profile = profiles.activeProfileId.value
+        val out = HashMap<String, Long>()
+        if (NuvioCTracker.TRAKT in connected()) {
+            refreshTrakt()
+            traktDatesFile(profile).takeIf { it.exists() }?.readLines()?.forEach { line ->
+                val i = line.lastIndexOf('=')
+                if (i > 0) line.substring(i + 1).toLongOrNull()?.let { out[line.substring(0, i)] = it }
+            }
+        }
+        val prefix = profileKey("at:")
+        prefs.all.forEach { (k, v) -> if (k.startsWith(prefix)) (v as? Long)?.let { out[k.removePrefix(prefix)] = it } }
+        out
+    }.getOrDefault(emptyMap())
 
     private suspend fun fetchRatings(call: suspend (String) -> Response<ResponseBody>): Map<String, Int>? {
         val response = traktAuth.executeAuthorizedRequest(call) ?: return null
@@ -253,6 +287,8 @@ class NuvioCRatingService @Inject constructor(
         if (failed.size < to.size) {
             prefs.edit {
                 if (score == null) remove(profileKey(target.key)) else putInt(profileKey(target.key), score)
+                // [fork] round 40 taste_live: when it was rated (for "Rated this month")
+                if (score == null) remove(profileKey("at:" + target.key)) else putLong(profileKey("at:" + target.key), System.currentTimeMillis())
             }
         }
         return failed
@@ -325,6 +361,26 @@ class NuvioCRatingService @Inject constructor(
                     imdbId = ids["imdb"]?.jsonPrimitive?.contentOrNull?.takeIf { it.startsWith("tt") },
                     tmdbId = ids["tmdb"]?.jsonPrimitive?.intOrNull
                 ).keys().forEach { out[it] = rating }
+            }
+            return out
+        }
+
+        /** [fork] round 40: Trakt ratings answer -> first key per title -> rated_at (epoch ms). */
+        fun parseTraktRatedAt(body: String): Map<String, Long> {
+            val out = HashMap<String, Long>()
+            runCatching {
+                Json.parseToJsonElement(body).jsonArray.forEach { el ->
+                    val item = el as? JsonObject ?: return@forEach
+                    val at = item["rated_at"]?.jsonPrimitive?.contentOrNull?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() } ?: return@forEach
+                    val kind = item["type"]?.jsonPrimitive?.contentOrNull ?: return@forEach
+                    if (kind != "movie" && kind != "show") return@forEach
+                    val ids = item[kind]?.jsonObject?.get("ids")?.jsonObject ?: return@forEach
+                    NuvioCRatingTarget(
+                        isShow = kind == "show",
+                        imdbId = ids["imdb"]?.jsonPrimitive?.contentOrNull?.takeIf { it.startsWith("tt") },
+                        tmdbId = ids["tmdb"]?.jsonPrimitive?.intOrNull
+                    ).key.let { out[it] = at }
+                }
             }
             return out
         }

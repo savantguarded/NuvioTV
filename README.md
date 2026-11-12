@@ -37,8 +37,8 @@ Nuvio C is a personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV)
 - **Ratings in one place.** Rate with half-star precision to Trakt, Simkl and MDBList at once, with a prompt once a film counts as watched.
 - **Richer pages.** Tagline, an Information ledger (release dates, budget, box office, status, awards with your own OMDb key), next-episode countdown and acting-only filmographies with roles.
 - **Trailers.** Background trailers with a mute setting and one-press exit, a full seek bar and logo on the trailer screen, and IMDb trailers as a fallback when YouTube limits quality.
-- **Roulette and Shuffle.** A genuine shuffle across tens of thousands of TMDB films and shows (Curated, Wide or Deep pool), filtered by type, mood and Unwatched / Watched / All titles, and refined by era, origin, length, acclaim, theme, audience and status, every rating you use shown and no repeats within 30 days, plus a Shuffle button on series pages and a random pick in the Library.
-- **Your taste.** A page per profile with your top genres, decades, rating habits, viewing patterns and most-watched people, plus shelves for gaps in your favourite genres, unfinished shows and rewatches.
+- **Roulette and Shuffle.** A genuine shuffle across tens of thousands of TMDB films and shows (from well known to deep cuts, with title counts per level), filtered by type, mood and Unwatched / Watched / All titles, and refined by era, origin, length, acclaim, theme, audience and status, every rating you use shown, a clear message when nothing matches and no repeats within 30 days, plus a Shuffle button on series pages and a random pick in the Library.
+- **Your taste.** A page per profile: a Taste DNA ring, a one-press Spin my taste, live counts for what you are watching, saving and expecting, rotating spotlight cards (eras, binge depth, you against the crowd, franchise progress and more), month-by-month recaps and fresh rows each visit. Works with Nuvio sync alone.
 
 ### Performance and reliability
 - Tuned for 2 GB TVs: lighter player memory use, compiled-on-install updates, smoother scrolling and sidebar transitions.

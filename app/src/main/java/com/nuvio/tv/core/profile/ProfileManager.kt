@@ -51,6 +51,11 @@ class ProfileManager @Inject constructor(
     val startupSplashEnabled: StateFlow<Boolean> = profileDataStore.startupSplashEnabled
         .stateIn(scope, SharingStarted.Eagerly, true)
 
+    /** [fork] round 40 startup_profile_gate: true once the saved profiles have actually been read (not the stand-in default). */
+    val profilesLoaded: StateFlow<Boolean> = profileDataStore.profilesList
+        .map { true }
+        .stateIn(scope, SharingStarted.Eagerly, false)
+
     val profiles: StateFlow<List<UserProfile>> = profileDataStore.profilesList
         .stateIn(scope, SharingStarted.Eagerly, listOf(
             UserProfile(id = 1, name = context.getString(R.string.profile_default_name, 1), avatarColorHex = "#1E88E5")

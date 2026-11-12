@@ -6,7 +6,9 @@ package com.nuvio.tv.data.nuvioc
 
 /** How deep the shuffle reaches. Curated = the round 34 floor (300 votes, 6.5). */
 enum class NuvioCRoulettePool(val key: String) {
-    CURATED("curated"), WIDE("wide"), DEEP("deep");
+    CURATED("curated"), WIDE("wide"), DEEP("deep"),
+    /** [fork] round 40 roulette_popularity: Deep cuts, a handful of votes is enough (small film industries live here). */
+    CUTS("cuts");
 
     /** Minimum TMDB votes and score for one decade of one type. Older decades need fewer votes (TMDB votes skew recent). */
     fun floor(type: String, anime: Boolean, decadeStart: Int?): Pair<Int, Float> {
@@ -24,6 +26,11 @@ enum class NuvioCRoulettePool(val key: String) {
                 tv -> if (old) 15 else 30
                 else -> if (old) 25 else 40
             } to 6.0f
+            CUTS -> when {
+                anime -> 12
+                tv -> 8
+                else -> 10
+            } to 5.8f
         }
     }
 }
@@ -119,6 +126,7 @@ data class NuvioCRouletteRefine(
         !com.nuvio.tv.NuvioCFeatures.ROULETTE_REFINE && !com.nuvio.tv.NuvioCFeatures.ROULETTE_POOL_SIZE -> NuvioCRouletteRefine(pool = NuvioCRoulettePool.CURATED)
         !com.nuvio.tv.NuvioCFeatures.ROULETTE_REFINE -> NuvioCRouletteRefine(pool = pool)
         !com.nuvio.tv.NuvioCFeatures.ROULETTE_POOL_SIZE -> copy(pool = NuvioCRoulettePool.CURATED)
+        !com.nuvio.tv.NuvioCFeatures.ROULETTE_POPULARITY && pool == NuvioCRoulettePool.CUTS -> copy(pool = NuvioCRoulettePool.DEEP)
         else -> this
     }
 

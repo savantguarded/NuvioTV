@@ -137,11 +137,32 @@ fun NuvioCShuffleScreen(
             )
         }
     }
+    var refineFocusPopularity by remember { mutableStateOf(false) } // [fork] round 40
+    LaunchedEffect(refineOpen) { if (refineOpen) viewModel.loadPopularityCounts() } // [fork] round 40 roulette_popularity
     if (refineOpen) {
-        RouletteRefineDialog(kind = ui.kind, initial = ui.refine) { chosen ->
+        RouletteRefineDialog(
+            kind = ui.kind,
+            initial = ui.refine,
+            popularityCounts = ui.popularityCounts,
+            focusPopularity = refineFocusPopularity
+        ) { chosen ->
             refineOpen = false
+            refineFocusPopularity = false
             viewModel.setRefine(chosen, reroll = ui.phase != NuvioCShufflePhase.MOOD)
         }
+    }
+    val nuvioCEmpty = ui.empty // [fork] round 40 roulette_empty
+    if (nuvioCEmpty != null && !refineOpen && com.nuvio.tv.NuvioCFeatures.ROULETTE_EMPTY_NOTICE) {
+        RouletteEmptyDialog(
+            empty = nuvioCEmpty,
+            pool = ui.refine.pool,
+            onRefine = { toPopularity ->
+                viewModel.dismissEmpty()
+                refineFocusPopularity = toPopularity
+                refineOpen = true
+            },
+            onDismiss = viewModel::dismissEmpty
+        )
     }
     if (sourcesOpen) {
         com.nuvio.tv.ui.screens.settings.NuvioCShuffleSourcesDialog(onDismiss = {
@@ -698,7 +719,7 @@ private fun kindHint(kind: NuvioCShuffleKind): String = stringResource(
 )
 
 @Composable
-private fun moodLabel(mood: NuvioCShuffleMood): String = stringResource(
+internal fun moodLabel(mood: NuvioCShuffleMood): String = stringResource(
     when (mood) {
         NuvioCShuffleMood.ANY -> R.string.nuvio_c_shuffle_mood_any
         NuvioCShuffleMood.FEEL_GOOD -> R.string.nuvio_c_shuffle_mood_feel_good

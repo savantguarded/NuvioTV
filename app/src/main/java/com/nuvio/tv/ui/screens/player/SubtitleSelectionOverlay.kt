@@ -1250,6 +1250,7 @@ private fun SubtitleOptionCard(
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val moveLeftKey = if (isRtl) android.view.KeyEvent.KEYCODE_DPAD_RIGHT else android.view.KeyEvent.KEYCODE_DPAD_LEFT
     val moveRightKey = if (isRtl) android.view.KeyEvent.KEYCODE_DPAD_LEFT else android.view.KeyEvent.KEYCODE_DPAD_RIGHT
+    var nuvioCFocused by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) } // [fork] round 40 subtitle_meta_marquee
 
     Card(
         onClick = onClick,
@@ -1291,6 +1292,7 @@ private fun SubtitleOptionCard(
                 }
             }
             .onFocusChanged {
+                nuvioCFocused = it.isFocused // [fork] round 40 subtitle_meta_marquee
                 if (it.isFocused) {
                     Log.d(
                         SubtitleFocusTag,
@@ -1328,7 +1330,13 @@ private fun SubtitleOptionCard(
                         item.addonSubtitle?.let { AutoSyncedChip(it.url, item.isSelected) } // AutoSync hook
                     }
                     if (!item.meta.isNullOrBlank()) {
-                        Text(
+                        // [fork] round 40 subtitle_meta_marquee: one line with an ellipsis, scrolling only on the focused row.
+                        if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_META_MARQUEE) com.nuvio.tv.ui.components.FocusMarqueeText(
+                            text = item.meta.replace('\n', ' ').trim(),
+                            focused = nuvioCFocused,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = metaColor
+                        ) else Text(
                             text = item.meta,
                             style = MaterialTheme.typography.bodySmall,
                             color = metaColor,

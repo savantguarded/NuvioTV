@@ -86,6 +86,9 @@ fun NuvioCOpeningCover() {
     val fade = remember { Animatable(1f) }
     LaunchedEffect(Unit) {
         withTimeoutOrNull(2_500) { snapshotFlow { NuvioCOpening.released.value }.first { it } }
+        // [fork] round 40 startup_profile_gate: two frames after release, so the profile screen has been drawn under the
+        // logo before it fades (no glimpse of a half-built screen).
+        if (NuvioCFeatures.STARTUP_PROFILE_GATE) { androidx.compose.runtime.withFrameNanos { }; androidx.compose.runtime.withFrameNanos { } }
         // [fork] round 39 startup_still: a plain fade, no shrink, so the logo stays still and sharp to the end.
         if (NuvioCFeatures.STARTUP_STILL) fade.animateTo(0f, tween(240, easing = androidx.compose.animation.core.LinearOutSlowInEasing))
         else fade.animateTo(0f, tween(300, easing = FastOutSlowInEasing))

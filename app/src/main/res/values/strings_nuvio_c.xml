@@ -345,4 +345,18 @@
     <string name="nuvio_c_status_ended">Finished</string>
     <string name="nuvio_c_status_miniseries">Limited series</string>
     <string name="nuvio_c_taste">Taste</string>
+    <!-- [fork] round 40 Roulette: Popularity, empty spin -->
+    <string name="nuvio_c_refine_popularity">Popularity</string>
+    <string name="nuvio_c_pop_well_known">Well known</string>
+    <string name="nuvio_c_pop_standard">Standard</string>
+    <string name="nuvio_c_pop_lesser">Lesser known</string>
+    <string name="nuvio_c_pop_cuts">Deep cuts</string>
+    <string name="nuvio_c_refine_pool_cuts_hint">Includes titles with only a handful of ratings</string>
+    <string name="nuvio_c_empty_pop_title">Nothing at this popularity</string>
+    <string name="nuvio_c_empty_pop_body">No titles at %1$s popularity match this mix. %2$s has %3$d.</string>
+    <string name="nuvio_c_empty_none_title">Nothing matches these filters</string>
+    <string name="nuvio_c_empty_none_body">No titles match this mix at any popularity.</string>
+    <string name="nuvio_c_empty_seen_title">Nothing new in this mix</string>
+    <string name="nuvio_c_empty_seen_body">Everything here has been watched or shown recently.</string>
+    <string name="nuvio_c_empty_open_refine">Open Refine</string>
 </resources>

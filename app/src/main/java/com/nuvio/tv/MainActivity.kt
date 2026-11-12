@@ -221,6 +221,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.collectLatest
 import com.nuvio.tv.ui.screens.calendar.openCalendarWatchTarget
@@ -448,7 +449,19 @@ open class MainActivity : ComponentActivity() {
             var nuvioCPickerWaitOver by remember { mutableStateOf(!nuvioCExpectPicker) }
             remember { if (nuvioCExpectPicker) com.nuvio.tv.ui.components.NuvioCOpening.begin(); 0 } // [fork] round 37 startup_opening
             var nuvioCPickerShown by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) { if (!nuvioCPickerWaitOver) { kotlinx.coroutines.delay(2_000); nuvioCPickerWaitOver = true } }
+            LaunchedEffect(Unit) {
+                if (nuvioCPickerWaitOver) return@LaunchedEffect
+                if (com.nuvio.tv.NuvioCFeatures.STARTUP_PROFILE_GATE) {
+                    // [fork] round 40 startup_profile_gate: wait for the saved profiles themselves (safety 6 s), not a fixed
+                    // 2 s. On a slow cold start the fixed wait ran out first, the app went down the Home path and its
+                    // start-up logo showed before the profile screen popped in over it.
+                    kotlinx.coroutines.withTimeoutOrNull(6_000) { profileManager.profilesLoaded.first { it } }
+                    kotlinx.coroutines.delay(150) // the profile list settles in the same frame window
+                } else {
+                    kotlinx.coroutines.delay(2_000)
+                }
+                nuvioCPickerWaitOver = true
+            }
             // Overrides splash background with the currently focused profile
             // so the splash matches the profile selection background.
             var focusedSplashColor by remember { mutableStateOf<String?>(null) }
@@ -1192,21 +1205,21 @@ open class MainActivity : ComponentActivity() {
                                     )
                                 )
                             }
-                            if (tasteInMenu) { // [fork] round 39 taste_page: right under Calendar
-                                add(
-                                    DrawerItem(
-                                        route = Screen.Taste.route,
-                                        label = strNavTaste,
-                                        icon = Icons.Default.Insights
-                                    )
-                                )
-                            }
                             if (shuffleInMenu) { // [fork] shuffle_page
                                 add(
                                     DrawerItem(
                                         route = Screen.Shuffle.route,
                                         label = strNavShuffle,
                                         icon = com.nuvio.tv.ui.components.NuvioCIcons.Dice
+                                    )
+                                )
+                            }
+                            if (tasteInMenu) { // [fork] round 39 taste_page: under Roulette (round 40 sidebar order)
+                                add(
+                                    DrawerItem(
+                                        route = Screen.Taste.route,
+                                        label = strNavTaste,
+                                        icon = Icons.Default.Insights
                                     )
                                 )
                             }

@@ -1295,7 +1295,25 @@ private fun ProfileCard(
                 )
             }
 
-            if (nuvioCInUse && com.nuvio.tv.NuvioCFeatures.PROFILE_CHECK) {
+            if (com.nuvio.tv.NuvioCFeatures.PROFILE_CHECK_SMOOTH && com.nuvio.tv.NuvioCFeatures.PROFILE_CHECK) {
+                // [fork] round 40 profile_check_smooth: the badge stays composed on every profile and only its alpha and
+                // scale change (draw phase, 140 ms), so a pick moves the check across without a recomposition jump.
+                val nuvioCCheck by androidx.compose.animation.core.animateFloatAsState(
+                    targetValue = if (nuvioCInUse) 1f else 0f,
+                    animationSpec = androidx.compose.animation.core.tween(140),
+                    label = "nuvioCCheck"
+                )
+                val nuvioCCheckLayer = Modifier.graphicsLayer {
+                    alpha = nuvioCCheck
+                    val sc = 0.7f + 0.3f * nuvioCCheck
+                    scaleX = sc
+                    scaleY = sc
+                }
+                if (com.nuvio.tv.NuvioCFeatures.PROFILE_CHECK_EDGE) {
+                    val nuvioCBadgeAt = nuvioCProfileBadgeOffset(outerAvatarSize)
+                    NuvioCProfileInUseBadge(Modifier.align(Alignment.Center).offset(x = nuvioCBadgeAt, y = nuvioCBadgeAt).zIndex(1f).then(nuvioCCheckLayer))
+                } else NuvioCProfileInUseBadge(Modifier.align(Alignment.BottomEnd).then(nuvioCCheckLayer))
+            } else if (nuvioCInUse && com.nuvio.tv.NuvioCFeatures.PROFILE_CHECK) {
                 if (com.nuvio.tv.NuvioCFeatures.PROFILE_CHECK_EDGE) { // [fork] round 32: on the ring's edge, over the ring
                     val nuvioCBadgeAt = nuvioCProfileBadgeOffset(outerAvatarSize)
                     NuvioCProfileInUseBadge(Modifier.align(Alignment.Center).offset(x = nuvioCBadgeAt, y = nuvioCBadgeAt).zIndex(1f))

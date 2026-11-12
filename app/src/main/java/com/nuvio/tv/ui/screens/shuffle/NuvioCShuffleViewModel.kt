@@ -31,6 +31,17 @@ import javax.inject.Inject
 
 enum class NuvioCShufflePhase { MOOD, ROLLING, RESULT }
 
+/**
+ * [fork] round 40 roulette_empty: why a spin came back empty. [current] = titles at the chosen popularity before the
+ * watched / recently-seen filters; [deeper] = the first lower popularity level that has titles (null = none).
+ */
+@Immutable
+data class NuvioCRouletteEmpty(
+    val current: Int,
+    val deeper: com.nuvio.tv.data.nuvioc.NuvioCRoulettePool?,
+    val deeperCount: Int
+)
+
 @Immutable
 data class NuvioCShuffleUi(
     val phase: NuvioCShufflePhase = NuvioCShufflePhase.MOOD,
@@ -47,6 +58,10 @@ data class NuvioCShuffleUi(
     val landed: Boolean = false,
     /** Shown on the mood screen when nothing fits the choices. */
     val nothingLeft: Boolean = false,
+    /** [fork] round 40 roulette_empty: the message shown after an empty spin (null = none). */
+    val empty: NuvioCRouletteEmpty? = null,
+    /** [fork] round 40 roulette_popularity: titles per popularity level for the current filters (Refine shows them with an Origin set). */
+    val popularityCounts: Map<com.nuvio.tv.data.nuvioc.NuvioCRoulettePool, Int> = emptyMap(),
     val sourcesOn: Int = 0,
     /** [fork] round 35 roulette_ratings: MDBList ratings for the current pick only (null until loaded / none). */
     val ratings: com.nuvio.tv.domain.model.MDBListRatings? = null,
@@ -131,7 +146,7 @@ class NuvioCShuffleViewModel @Inject constructor(
             if (current.active > 0) prefs.setRefine(current.cleared())
         }
         visit++ // [fork] round 36 roulette_copy
-        _ui.update { fromPrefs(it).copy(phase = NuvioCShufflePhase.MOOD, pick = null, spin = null, landed = false, nothingLeft = false, visit = visit, spins = 0, poolSize = null) }
+        _ui.update { fromPrefs(it).copy(phase = NuvioCShufflePhase.MOOD, pick = null, spin = null, landed = false, nothingLeft = false, empty = null, visit = visit, spins = 0, poolSize = null) }
         loadFans()
         // [fork] round 39 taste_page: "Spin my taste" (or a genre / decade on the Taste page) lands here with a preset.
         NuvioCRoulettePreset.take()?.let { preset ->
@@ -200,7 +215,7 @@ class NuvioCShuffleViewModel @Inject constructor(
     fun setRefine(refine: com.nuvio.tv.data.nuvioc.NuvioCRouletteRefine, reroll: Boolean = false) {
         if (refine == _ui.value.refine) return
         prefs.setRefine(refine)
-        _ui.update { it.copy(refine = refine, nothingLeft = false) }
+        _ui.update { it.copy(refine = refine, nothingLeft = false, empty = null) }
         if (reroll) roll()
     }
 
@@ -227,6 +242,7 @@ class NuvioCShuffleViewModel @Inject constructor(
                 phase = NuvioCShufflePhase.ROLLING,
                 landed = false,
                 nothingLeft = false,
+                empty = null,
                 spin = NuvioCReelSpin(-myToken, listOf(from), 0), // still frame while the pick is found
                 spins = it.spins + 1, // [fork] round 36 roulette_copy
                 poolSize = null
@@ -248,10 +264,49 @@ class NuvioCShuffleViewModel @Inject constructor(
                     }
                     loadRatings(pick) // [fork] round 35
                 }
-                NuvioCShuffleOutcome.NothingLeft -> _ui.update {
-                    it.copy(phase = NuvioCShufflePhase.MOOD, nothingLeft = true, spin = null, pick = null)
+                NuvioCShuffleOutcome.NothingLeft -> {
+                    _ui.update { it.copy(phase = NuvioCShufflePhase.MOOD, nothingLeft = true, spin = null, pick = null) }
+                    if (com.nuvio.tv.NuvioCFeatures.ROULETTE_EMPTY_NOTICE && state.kind != NuvioCShuffleKind.EPISODES) {
+                        val notice = explainEmpty(state)
+                        _ui.update { if (token == myToken) it.copy(empty = notice) else it }
+                    }
                 }
             }
+        }
+    }
+
+    /** [fork] round 40 roulette_empty: counts at the chosen popularity and the first lower level with titles (TMDB totals, cached 24 h). */
+    private suspend fun explainEmpty(state: NuvioCShuffleUi): NuvioCRouletteEmpty {
+        val levels = com.nuvio.tv.data.nuvioc.NuvioCRoulettePool.entries
+            .filter { com.nuvio.tv.NuvioCFeatures.ROULETTE_POPULARITY || it != com.nuvio.tv.data.nuvioc.NuvioCRoulettePool.CUTS }
+        val current = pool.poolSize(state.kind, state.mood, state.refine) ?: 0
+        var deeper: com.nuvio.tv.data.nuvioc.NuvioCRoulettePool? = null
+        var deeperCount = 0
+        if (current == 0 && com.nuvio.tv.NuvioCFeatures.ROULETTE_POOL_SIZE) {
+            for (p in levels.dropWhile { it != state.refine.pool }.drop(1)) {
+                val n = pool.poolSize(state.kind, state.mood, state.refine.copy(pool = p)) ?: 0
+                if (n > 0) { deeper = p; deeperCount = n; break }
+            }
+        }
+        return NuvioCRouletteEmpty(current, deeper, deeperCount)
+    }
+
+    fun dismissEmpty() = _ui.update { it.copy(empty = null) }
+
+    /** [fork] round 40 roulette_popularity: load the per-level counts when Refine opens with an Origin set. */
+    fun loadPopularityCounts() {
+        val state = _ui.value
+        if (!com.nuvio.tv.NuvioCFeatures.ROULETTE_POPULARITY || state.refine.region == com.nuvio.tv.data.nuvioc.NuvioCRouletteRegion.ANY ||
+            state.kind == NuvioCShuffleKind.EPISODES) {
+            _ui.update { it.copy(popularityCounts = emptyMap()) }
+            return
+        }
+        _ui.update { it.copy(popularityCounts = emptyMap()) }
+        viewModelScope.launch {
+            val counts = com.nuvio.tv.data.nuvioc.NuvioCRoulettePool.entries.associateWith { p ->
+                pool.poolSize(state.kind, state.mood, state.refine.copy(pool = p)) ?: 0
+            }
+            _ui.update { if (it.refine == state.refine && it.kind == state.kind && it.mood == state.mood) it.copy(popularityCounts = counts) else it }
         }
     }
 

@@ -219,13 +219,21 @@ internal fun RouletteRefineChip(refine: NuvioCRouletteRefine, onClick: () -> Uni
 internal fun RouletteRefineDialog(
     kind: NuvioCShuffleKind,
     initial: NuvioCRouletteRefine,
+    /** [fork] round 40 roulette_popularity: titles per popularity level for the current filters (shown with an Origin set). */
+    popularityCounts: Map<NuvioCRoulettePool, Int> = emptyMap(),
+    /** [fork] round 40: open with focus on the Popularity row (from the empty-spin message). */
+    focusPopularity: Boolean = false,
     onClose: (NuvioCRouletteRefine) -> Unit
 ) {
     var refine by remember { mutableStateOf(initial) }
     val episodes = kind == NuvioCShuffleKind.EPISODES
     val filtersOn = com.nuvio.tv.NuvioCFeatures.ROULETTE_REFINE
     val firstRow = remember { FocusRequester() }
-    LaunchedEffect(Unit) { firstRow.requestFocusAfterFrames() }
+    val popularityRow = remember { FocusRequester() } // [fork] round 40
+    LaunchedEffect(Unit) {
+        if (focusPopularity && com.nuvio.tv.NuvioCFeatures.ROULETTE_POPULARITY && com.nuvio.tv.NuvioCFeatures.ROULETTE_POOL_SIZE && !episodes) popularityRow.requestFocusAfterFrames()
+        else firstRow.requestFocusAfterFrames()
+    }
     NuvioDialog(
         onDismiss = { onClose(refine) },
         title = stringResource(R.string.nuvio_c_refine_title),
@@ -287,19 +295,26 @@ internal fun RouletteRefineDialog(
         }
         if (com.nuvio.tv.NuvioCFeatures.ROULETTE_POOL_SIZE && !episodes) {
             if (filtersOn) Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(NuvioTheme.colors.Border))
+            val pop = com.nuvio.tv.NuvioCFeatures.ROULETTE_POPULARITY
+            // [fork] round 40 roulette_popularity: counts show only once the Origin is set and they've loaded
+            val showCounts = pop && refine.region != NuvioCRouletteRegion.ANY && popularityCounts.isNotEmpty() && refine.copy(pool = initial.pool) == initial
             RefineRow(
-                label = stringResource(R.string.nuvio_c_refine_pool),
+                label = stringResource(if (pop) R.string.nuvio_c_refine_popularity else R.string.nuvio_c_refine_pool),
                 hint = stringResource(
                     when (refine.pool) {
                         NuvioCRoulettePool.CURATED -> R.string.nuvio_c_refine_pool_curated_hint
                         NuvioCRoulettePool.WIDE -> R.string.nuvio_c_refine_pool_wide_hint
                         NuvioCRoulettePool.DEEP -> R.string.nuvio_c_refine_pool_deep_hint
+                        NuvioCRoulettePool.CUTS -> R.string.nuvio_c_refine_pool_cuts_hint
                     }
                 ),
-                options = NuvioCRoulettePool.entries.map { RouletteOption(poolLabel(it), it) },
+                options = NuvioCRoulettePool.entries.filter { pop || it != NuvioCRoulettePool.CUTS }.map {
+                    val label = poolLabel(it)
+                    RouletteOption(if (showCounts) "$label · ${popularityCounts[it] ?: 0}" else label, it)
+                },
                 selected = refine.pool,
                 onSelect = { refine = refine.copy(pool = it) },
-                modifier = if (!filtersOn) Modifier.focusRequester(firstRow) else Modifier
+                modifier = (if (!filtersOn) Modifier.focusRequester(firstRow) else Modifier).focusRequester(popularityRow)
             )
         }
         } // [fork] round 39 scroll column
@@ -388,6 +403,45 @@ private fun RefineButton(label: String, primary: Boolean = false, onClick: () ->
             focusedContentColor = Color.Black
         )
     ) { Text(label) }
+}
+
+/**
+ * [fork] round 40 roulette_empty: the message after an empty spin. It says what happened in plain terms and offers one
+ * way forward, Open Refine (focus on Popularity when a lower level has titles). Back closes it.
+ */
+@Composable
+internal fun RouletteEmptyDialog(
+    empty: NuvioCRouletteEmpty,
+    pool: NuvioCRoulettePool,
+    onRefine: (focusPopularity: Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val button = remember { FocusRequester() }
+    LaunchedEffect(Unit) { button.requestFocusAfterFrames() }
+    val deeper = empty.deeper
+    val title: String
+    val body: String
+    when {
+        empty.current > 0 -> {
+            title = stringResource(R.string.nuvio_c_empty_seen_title)
+            body = stringResource(R.string.nuvio_c_empty_seen_body)
+        }
+        deeper != null -> {
+            title = stringResource(R.string.nuvio_c_empty_pop_title)
+            body = stringResource(R.string.nuvio_c_empty_pop_body, poolLabel(pool), poolLabel(deeper), empty.deeperCount)
+        }
+        else -> {
+            title = stringResource(R.string.nuvio_c_empty_none_title)
+            body = stringResource(R.string.nuvio_c_empty_none_body)
+        }
+    }
+    NuvioDialog(onDismiss = onDismiss, title = title, subtitle = body, width = 480.dp, contentSpacing = 10.dp) {
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.End) {
+            Box(Modifier.focusRequester(button)) {
+                RefineButton(stringResource(R.string.nuvio_c_empty_open_refine), primary = true) { onRefine(deeper != null && empty.current == 0) }
+            }
+        }
+    }
 }
 
 // ---- labels ---------------------------------------------------------------------------------------------
@@ -485,8 +539,10 @@ internal fun acclaimLabel(a: NuvioCRouletteAcclaim): String = stringResource(
 @Composable
 internal fun poolLabel(p: NuvioCRoulettePool): String = stringResource(
     when (p) {
-        NuvioCRoulettePool.CURATED -> R.string.nuvio_c_pool_curated
-        NuvioCRoulettePool.WIDE -> R.string.nuvio_c_pool_wide
-        NuvioCRoulettePool.DEEP -> R.string.nuvio_c_pool_deep
+        // [fork] round 40 roulette_popularity: named by how well known the titles are
+        NuvioCRoulettePool.CURATED -> if (com.nuvio.tv.NuvioCFeatures.ROULETTE_POPULARITY) R.string.nuvio_c_pop_well_known else R.string.nuvio_c_pool_curated
+        NuvioCRoulettePool.WIDE -> if (com.nuvio.tv.NuvioCFeatures.ROULETTE_POPULARITY) R.string.nuvio_c_pop_standard else R.string.nuvio_c_pool_wide
+        NuvioCRoulettePool.DEEP -> if (com.nuvio.tv.NuvioCFeatures.ROULETTE_POPULARITY) R.string.nuvio_c_pop_lesser else R.string.nuvio_c_pool_deep
+        NuvioCRoulettePool.CUTS -> R.string.nuvio_c_pop_cuts
     }
 )

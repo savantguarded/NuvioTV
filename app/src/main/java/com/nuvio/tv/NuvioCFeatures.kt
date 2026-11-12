@@ -639,6 +639,36 @@ object NuvioCFeatures {
     const val SUBTITLE_PANEL_CLEAN = true
     /** Details Information block: fixed label column, same value alignment on every line, closing hairline, one order for films and shows; appears once, complete. Off = round 33 ledger. */
     const val DETAIL_INFO_POLISH = true
-    /** Sidebar: Taste page under Calendar (genres, ratings, habits, people, shelves for this profile). Off = no page. */
+    /** Sidebar: Taste page under Roulette since round 40 (genres, ratings, habits, people, shelves for this profile). Off = no page. */
     const val TASTE_PAGE = true
+
+    // ---- Round 40 (2026-11-12) ----
+    /** Cold start: the still logo waits for the saved profiles themselves (safety 6 s), not a fixed 2 s, and fades two frames after the profile screen is drawn, so the Home start-up logo never shows first. Off = 2 s wait. */
+    const val STARTUP_PROFILE_GATE = true
+    /** Profile screen: the in-use check fades and scales between profiles (140 ms, draw only) instead of jumping on a pick. Off = instant. */
+    const val PROFILE_CHECK_SMOOTH = true
+    /** Player subtitles panel: add-on subtitles show the plain language (no "English 1, 2, 3"); the line under each tells them apart. Off = numbered. */
+    const val SUBTITLE_NO_NUMBERS = true
+    /** Player subtitles panel: the line under each subtitle is one line with an ellipsis and scrolls only on the focused row. Off = ellipsis only. */
+    const val SUBTITLE_META_MARQUEE = true
+    /** Player OSD: the time beside the buttons steps aside while the More row is open. Off = always shown. */
+    const val OSD_MORE_TIME = true
+    /** Roulette Refine: Pool size becomes Popularity (Well known, Standard, Lesser known, Deep cuts) with title counts per level when an Origin is set. Off = Curated / Wide / Deep. */
+    const val ROULETTE_POPULARITY = true
+    /** Roulette: an empty spin shows a short message (what happened, and whether a lower popularity has titles) with Open Refine. Off = the line under the header only. */
+    const val ROULETTE_EMPTY_NOTICE = true
+    /** Taste page rows: a held Left on a row's first item stops there; a fresh press opens the sidebar. Off = held Left can open it. */
+    const val ROWS_NO_SIDEBAR_ON_HOLD = true
+    /** Taste page rework: profile name, Taste DNA ring, Spin my taste card, live tiles, spotlight cards, rotating rows, Recaps. Off = round 39 page. */
+    const val TASTE_V2 = true
+    /** Taste: the first build shows posters drifting into genre bars from real lookup progress. Off = a plain line. */
+    const val TASTE_BUILD_ANIM = true
+    /** Taste: live tiles (Watching, Up next, Upcoming, Saved, Rated this month; rating dates kept from Trakt and this TV). Off = no tiles. */
+    const val TASTE_LIVE = true
+    /** Taste: spotlight cards (about 20 kinds, six per visit), with studios, languages and collections kept per title. Off = no cards. */
+    const val TASTE_INSIGHTS = true
+    /** Taste: Month pill (Left / Right steps months) and the Recaps row. Off = ranges only. */
+    const val TASTE_MONTH = true
+    /** Taste: rotating poster rows (Because you loved, More from, decade and genre gaps, Unfinished, Rewatch), at most two TMDB calls a visit. Off = no rows. */
+    const val TASTE_ROWS = true
 }

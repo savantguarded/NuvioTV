@@ -42,6 +42,34 @@ internal object NuvioCTasteCopy {
         return line.replaceFirstChar { it.uppercase() } + "."
     }
 
+    // ---- [fork] round 40 taste_v2: statements only, no instructions ----
+
+    /** The hero line: the summary for a full profile, a plain count for a light one. */
+    fun pageSummary(s: NuvioCTasteStats): String {
+        if (s.empty) return "Nothing watched on this profile yet."
+        if (!s.showNumbers) {
+            val genre = s.genres.firstOrNull()?.name
+            val count = if (s.titles == 1) "One title in." else "${numberWord(s.titles)} titles in."
+            return if (genre != null) "$count $genre leads so far." else count
+        }
+        return summary(s)
+    }
+
+    /** "October was mostly crime." / "October leaned crime, with sci-fi close behind." */
+    fun monthSummary(s: NuvioCTasteStats, month: java.time.YearMonth): String {
+        val name = month.month.getDisplayName(TextStyle.FULL, Locale.US)
+        if (s.empty) return "Nothing watched in $name ${month.year}."
+        val first = s.genres.getOrNull(0) ?: return "$name: ${s.titles} titles."
+        val second = s.genres.getOrNull(1)
+        return when {
+            first.percent >= 35 || second == null -> "$name was mostly ${plural(first.name)}."
+            second.percent * 10 >= first.percent * 8 -> "$name leaned ${plural(first.name)}, with ${plural(second.name)} close behind."
+            else -> "$name leaned ${plural(first.name)}, then ${plural(second.name)}."
+        }
+    }
+
+    private fun numberWord(n: Int): String = listOf("Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine").getOrElse(n) { n.toString() }
+
     /** Under the ratings chart (or the "What you pick" figure without ratings). */
     fun ratingLine(s: NuvioCTasteStats): String? {
         val vs = s.vsCrowd ?: return null
