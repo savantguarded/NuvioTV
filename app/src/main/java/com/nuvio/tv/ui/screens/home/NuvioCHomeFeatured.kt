@@ -344,6 +344,11 @@ private fun NuvioCFeaturedHome(
     var activeId by rememberSaveable { mutableStateOf<String?>(null) }
     var lastButton by rememberSaveable { mutableIntStateOf(0) } // 0 Play, 1 Details, 2 next arrow
     var rowsFocused by remember { mutableStateOf(false) }
+    // [fork] round 39 home_open_carousel: only a key you pressed in the rows counts as "you moved into the rows".
+    // At start-up Modern can hand its first row focus by itself (Continue Watching loads first), which used to make
+    // the carousel stand aside when its titles arrived, so Home sometimes opened on Continue Watching.
+    var rowsByUser by rememberSaveable { mutableStateOf(false) }
+    val rowsTaken = if (com.nuvio.tv.NuvioCFeatures.HOME_OPEN_CAROUSEL) rowsFocused && rowsByUser else rowsFocused
     var sliding by remember { mutableStateOf(false) }
     var interaction by remember { mutableIntStateOf(0) }
     val idleClock = com.nuvio.tv.ui.components.rememberNuvioCIdleClock() // [fork] idle_timer_light
@@ -353,7 +358,7 @@ private fun NuvioCFeaturedHome(
     // carousel arrives. Gives up after 6 s if no titles come (rows then take the screen as before).
     val coldStart = com.nuvio.tv.NuvioCFeatures.FEATURED_COLD_START
     var awaitExpired by remember { mutableStateOf(false) }
-    val awaiting = coldStart && shown && !awaitExpired && uiState.heroSectionEnabled && items.isEmpty() && !rowsFocused
+    val awaiting = coldStart && shown && !awaitExpired && uiState.heroSectionEnabled && items.isEmpty() && !rowsTaken
     if (coldStart) LaunchedEffect(Unit) { kotlinx.coroutines.delay(6_000); awaitExpired = true }
     val progress = remember { Animatable(if (carouselOn || awaiting) 0f else 1f) } // 0 = carousel, 1 = rows
 
@@ -402,7 +407,7 @@ private fun NuvioCFeaturedHome(
 
     // Hero items arriving after you already moved into the rows never pop the carousel over you.
     LaunchedEffect(available) {
-        if (available && rowsFocused) {
+        if (available && rowsTaken) {
             shown = false
             progress.snapTo(1f)
         }
@@ -586,7 +591,11 @@ private fun NuvioCFeaturedHome(
                         clipRect(top = top) { this@drawWithContent.drawContent() }
                     }
                 }
-                .onFocusChanged { rowsFocused = it.hasFocus }
+                .onFocusChanged { rowsFocused = it.hasFocus; if (!it.hasFocus) rowsByUser = false }
+                .onPreviewKeyEvent { event ->
+                    if (rowsFocused && event.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) rowsByUser = true
+                    false
+                }
                 .focusProperties {
                     onEnter = {
                         // [fork] offline_home: with no carousel titles (offline, or none came) the rows must take

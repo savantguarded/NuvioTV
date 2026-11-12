@@ -3,7 +3,7 @@
 
     <style name="Theme.MyApplication.Launcher" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/splash_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/app_logo_mark</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/nuvio_c_splash_blank</item> <!-- [fork] round 39 startup_no_system_logo (official: @drawable/app_logo_mark) -->
         <item name="postSplashScreenTheme">@style/Theme.MyApplication</item>
     </style>
 </resources>

@@ -86,13 +86,15 @@ fun NuvioCOpeningCover() {
     val fade = remember { Animatable(1f) }
     LaunchedEffect(Unit) {
         withTimeoutOrNull(2_500) { snapshotFlow { NuvioCOpening.released.value }.first { it } }
-        fade.animateTo(0f, tween(300, easing = FastOutSlowInEasing))
+        // [fork] round 39 startup_still: a plain fade, no shrink, so the logo stays still and sharp to the end.
+        if (NuvioCFeatures.STARTUP_STILL) fade.animateTo(0f, tween(240, easing = androidx.compose.animation.core.LinearOutSlowInEasing))
+        else fade.animateTo(0f, tween(300, easing = FastOutSlowInEasing))
         NuvioCOpening.pending.value = false
     }
     NuvioCOpeningLogo(
         Modifier.graphicsLayer {
             alpha = fade.value
-            val s = 0.96f + 0.04f * fade.value
+            val s = if (NuvioCFeatures.STARTUP_STILL) 1f else 0.96f + 0.04f * fade.value
             scaleX = s
             scaleY = s
         }
