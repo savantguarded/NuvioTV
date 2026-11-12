@@ -56,10 +56,13 @@ class ProfileManager @Inject constructor(
         .map { true }
         .stateIn(scope, SharingStarted.Eagerly, false)
 
+    /** [fork] round 42 startup_profile_atomic: the stand-in list shown before the saved profiles are read. */
+    val standInProfiles: List<UserProfile> = listOf(
+        UserProfile(id = 1, name = context.getString(R.string.profile_default_name, 1), avatarColorHex = "#1E88E5")
+    )
+
     val profiles: StateFlow<List<UserProfile>> = profileDataStore.profilesList
-        .stateIn(scope, SharingStarted.Eagerly, listOf(
-            UserProfile(id = 1, name = context.getString(R.string.profile_default_name, 1), avatarColorHex = "#1E88E5")
-        ))
+        .stateIn(scope, SharingStarted.Eagerly, standInProfiles)
 
     val activeProfile: UserProfile?
         get() = profiles.value.find { it.id == activeProfileId.value }

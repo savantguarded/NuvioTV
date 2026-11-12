@@ -19,6 +19,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
@@ -340,8 +341,15 @@ private fun TastePanelBody(
         Column(
             Modifier.width(maxOf(360.dp, maxWidth * 0.4f).coerceAtMost(maxWidth)).fillMaxHeight()
                 .background(Brush.verticalGradient(listOf(Color(0xFF17181E), Color(0xFF111216))))
-                .focusGroup()
-                .focusProperties { onExit = { cancelFocusChange() } }
+                .then(
+                    if (com.nuvio.tv.NuvioCFeatures.TASTE_PANEL_FOCUS) {
+                        // [fork] round 42 taste_panel_focus: the exit guard sits on the panel itself. After focusGroup()
+                        // it landed on the list's own group too, so Up from the list to the chips was cancelled.
+                        Modifier.focusProperties { onExit = { cancelFocusChange() } }.focusGroup()
+                    } else {
+                        Modifier.focusGroup().focusProperties { onExit = { cancelFocusChange() } }
+                    }
+                )
                 .padding(start = 24.dp, end = 24.dp, top = 28.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
@@ -350,26 +358,37 @@ private fun TastePanelBody(
                     color = NuvioTheme.colors.TextTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(card.value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = NuvioTheme.colors.TextPrimary,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
-                val sub = listOfNotNull(items?.let { "${it.size} ${if (it.size == 1) "title" else "titles"}" }, card.line).joinToString(" · ")
+                val sub = if (p.recap != null) card.line.orEmpty()
+                    else listOfNotNull(items?.let { "${it.size} ${if (it.size == 1) "title" else "titles"}" }, card.line).joinToString(" · ")
                 if (sub.isNotBlank()) Text(sub, style = MaterialTheme.typography.bodySmall, color = NuvioTheme.colors.TextSecondary,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    maxLines = 1, softWrap = false,
+                    modifier = if (p.recap != null) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier,
+                    overflow = if (p.recap != null) TextOverflow.Clip else TextOverflow.Ellipsis)
             }
+            p.recap?.let { TasteRecapBreakdown(it) } // [fork] round 42 taste_recap_panel
+            val focusFix = com.nuvio.tv.NuvioCFeatures.TASTE_PANEL_FOCUS
+            val hasList = !items.isNullOrEmpty()
             card.action?.let { a ->
-                PanelPill(actionLabel(a), selected = true) { onAction(a) }
+                PanelPill(actionLabel(a), selected = true,
+                    modifier = if (focusFix) Modifier.focusProperties { down = sortFocus } else Modifier) { onAction(a) }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf("Recent", "Your rating", "A to Z").forEachIndexed { i, label ->
-                    PanelPill(label, selected = p.sort == i, modifier = if (i == 0) Modifier.focusRequester(sortFocus) else Modifier) { onSort(i) }
+                    val base = if (i == 0) Modifier.focusRequester(sortFocus) else Modifier
+                    PanelPill(label, selected = p.sort == i,
+                        modifier = if (focusFix && hasList) base.focusProperties { down = listFocus } else base) { onSort(i) }
                 }
             }
             when {
                 items == null -> Text("Loading titles", style = MaterialTheme.typography.bodyMedium, color = NuvioTheme.colors.TextSecondary)
                 items.isEmpty() -> Text("No titles to show yet", style = MaterialTheme.typography.bodyMedium, color = NuvioTheme.colors.TextSecondary)
-                else -> PanelList(items, p.sort, listFocus, startIndex, onIndex, onOpenTitle)
+                else -> PanelList(items, p.sort, listFocus, startIndex, onIndex, onOpenTitle,
+                    upTo = if (com.nuvio.tv.NuvioCFeatures.TASTE_PANEL_FOCUS) sortFocus else null, recap = p.recap != null)
             }
         }
     }
-    LaunchedEffect(items != null, p.sort) {
+    // [fork] round 42 taste_panel_focus: a new sort keeps focus on its chip; only the first load moves focus
+    LaunchedEffect(items != null, if (com.nuvio.tv.NuvioCFeatures.TASTE_PANEL_FOCUS) p.card.id else p.sort) {
         if (items == null) return@LaunchedEffect
         if (items.isEmpty()) sortFocus.requestFocusAfterFrames() else if (!listFocus.requestFocusAfterFrames()) sortFocus.requestFocusAfterFrames()
     }
@@ -379,6 +398,7 @@ private fun actionLabel(a: NuvioCTasteAction): String = when (a) {
     is NuvioCTasteAction.Spin -> "Spin this"
     is NuvioCTasteAction.Person -> "Open ${a.name}"
     is NuvioCTasteAction.Title -> "Open title"
+    is NuvioCTasteAction.Month -> "Month view"
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -410,7 +430,9 @@ private fun PanelList(
     listFocus: FocusRequester,
     startIndex: () -> Int,
     onIndex: (Int) -> Unit,
-    onOpenTitle: (String, String) -> Unit
+    onOpenTitle: (String, String) -> Unit,
+    upTo: FocusRequester? = null,
+    recap: Boolean = false
 ) {
     val context = LocalContext.current
     val start = startIndex().coerceIn(0, (items.size - 1).coerceAtLeast(0))
@@ -431,6 +453,7 @@ private fun PanelList(
             Surface(
                 onClick = { onOpenTitle(item.id, item.type) },
                 modifier = Modifier.fillMaxWidth().focusRequester(requesters[i])
+                    .then(if (i == 0 && upTo != null) Modifier.focusProperties { up = upTo } else Modifier)
                     .onFocusChanged { focused = it.isFocused; if (it.isFocused) { current = i; onIndex(i) } },
                 shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
                 scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
@@ -447,8 +470,14 @@ private fun PanelList(
                     Column(Modifier.weight(1f).padding(start = 12.dp)) {
                         FocusMarqueeText(text = item.name, focused = focused, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                             color = if (focused) Color.Black else NuvioTheme.colors.TextPrimary)
-                        Text(listOfNotNull(item.year?.toString(), if (item.type == "series") "Series" else "Film").joinToString(" · "),
-                            style = MaterialTheme.typography.labelSmall, color = if (focused) Color(0xFF555555) else NuvioTheme.colors.TextSecondary, maxLines = 1)
+                        val meta = if (recap) listOfNotNull(
+                            if (item.type == "series") "Series" else listOfNotNull(item.year?.toString(), "Film").joinToString(" · "),
+                            item.episodes?.let { "$it ${if (it == 1) "episode" else "episodes"}" },
+                            item.lastWatched.takeIf { it > 0 }?.let { RECAP_DAY.format(java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneId.systemDefault())) }
+                        ).joinToString(" · ")
+                        else listOfNotNull(item.year?.toString(), if (item.type == "series") "Series" else "Film").joinToString(" · ")
+                        FocusMarqueeText(text = meta, focused = focused, style = MaterialTheme.typography.labelSmall,
+                            color = if (focused) Color(0xFF555555) else NuvioTheme.colors.TextSecondary)
                     }
                     item.score?.let { s ->
                         Row(Modifier.padding(start = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -477,5 +506,61 @@ internal fun Modifier.nuvioCTasteVertical(up: FocusRequester?, down: FocusReques
         KeyEvent.KEYCODE_DPAD_UP -> up?.let { runCatching { it.requestFocus() }.getOrDefault(false) } ?: false
         KeyEvent.KEYCODE_DPAD_DOWN -> down?.let { runCatching { it.requestFocus() }.getOrDefault(false) } ?: false
         else -> false
+    }
+}
+
+// ---- [fork] round 42 taste_recap_panel -------------------------------------------------------------------
+
+private val RECAP_DAY = java.time.format.DateTimeFormatter.ofPattern("d MMM", Locale.US)
+private val RECAP_BIG_DAY = java.time.format.DateTimeFormatter.ofPattern("EEE d MMM", Locale.US)
+
+/** Biggest day and most watched as two small tiles, then the top three genres as bars. Long text scrolls. */
+@Composable
+private fun TasteRecapBreakdown(d: com.nuvio.tv.data.nuvioc.NuvioCTasteRecapDetail) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val day = d.biggestDay?.let { RECAP_BIG_DAY.format(it) + " · " + recapDuration(d.biggestDayMinutes) }
+            RecapTile("Biggest day", day ?: "None", Modifier.weight(1f))
+            RecapTile("Most watched", d.mostWatched ?: "None", Modifier.weight(1f))
+        }
+        if (d.genres.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            val top = d.genres.first().second.coerceAtLeast(1)
+            d.genres.forEachIndexed { i, (name, pct) ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(name, style = MaterialTheme.typography.labelMedium, color = NuvioTheme.colors.TextSecondary,
+                        maxLines = 1, softWrap = false, overflow = TextOverflow.Clip,
+                        modifier = Modifier.width(92.dp).basicMarquee(iterations = Int.MAX_VALUE))
+                    Box(Modifier.weight(1f).height(5.dp).clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.08f))) {
+                        Box(Modifier.fillMaxHeight().fillMaxWidth(pct.toFloat() / top * 0.92f + 0.08f)
+                            .clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.85f - i * 0.2f)))
+                    }
+                    Text("$pct%", style = MaterialTheme.typography.labelMedium, color = NuvioTheme.colors.TextTertiary,
+                        maxLines = 1, modifier = Modifier.width(40.dp).padding(start = 8.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecapTile(label: String, value: String, modifier: Modifier) {
+    Column(
+        modifier.clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.06f)).padding(horizontal = 10.dp, vertical = 7.dp),
+        verticalArrangement = Arrangement.spacedBy(1.dp)
+    ) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = NuvioTheme.colors.TextTertiary, maxLines = 1)
+        Text(value, style = MaterialTheme.typography.labelLarge, color = NuvioTheme.colors.TextPrimary,
+            maxLines = 1, softWrap = false, overflow = TextOverflow.Clip,
+            modifier = Modifier.basicMarquee(iterations = Int.MAX_VALUE))
+    }
+}
+
+private fun recapDuration(minutes: Int): String {
+    val h = minutes / 60
+    val m = minutes % 60
+    return when {
+        h == 0 -> "$m m"
+        m == 0 -> "$h h"
+        else -> "$h h $m m"
     }
 }

@@ -145,6 +145,8 @@ internal fun NuvioCTastePage(
     val monthData by viewModel.monthData.collectAsState()
     val review by viewModel.review.collectAsState() // [fork] round 41 taste_review
     val panel by viewModel.panel.collectAsState() // [fork] round 41 taste_card_titles
+    val refreshing by viewModel.refreshing.collectAsState() // [fork] round 42 taste_refresh_feedback
+    val updatedAt by viewModel.updatedAt.collectAsState()
     var range by rememberSaveable { mutableStateOf(NuvioCTasteRange.ALL) }
     var monthKey by rememberSaveable { mutableStateOf<String?>(null) }
     val month = monthKey?.let { runCatching { YearMonth.parse(it) }.getOrNull() }
@@ -191,6 +193,13 @@ internal fun NuvioCTastePage(
             is NuvioCTasteAction.Spin -> spin(a.genre, a.decade)
             is NuvioCTasteAction.Person -> onOpenPerson(a.id, a.name, a.director)
             is NuvioCTasteAction.Title -> onOpenTitle(a.id, a.type)
+            is NuvioCTasteAction.Month -> { // [fork] round 42 taste_recap_panel: Month view from the recap panel
+                viewModel.closePanel()
+                runCatching { YearMonth.parse(a.ym) }.getOrNull()?.let { m ->
+                    viewModel.monthFrom = "recaps"
+                    monthKey = m.toString()
+                }
+            }
             null -> Unit
         }
     }
@@ -261,7 +270,7 @@ internal fun NuvioCTastePage(
                 // [fork] round 41: while the titles panel is open, focus can't wander back into the page
                 .focusProperties { onEnter = { if (panelOpen) cancelFocusChange() } }
                 .focusGroup(),
-            state = rememberLazyListState(),
+            state = if (com.nuvio.tv.NuvioCFeatures.TASTE_FOCUS_KEEP) viewModel.pageListState else rememberLazyListState(),
             contentPadding = PaddingValues(top = 28.dp, bottom = 56.dp),
             verticalArrangement = Arrangement.spacedBy(26.dp)
         ) {
@@ -277,6 +286,9 @@ internal fun NuvioCTastePage(
                     onMonth = { openMonth(it, "monthPill") },
                     monthPillFocus = monthPillFocus,
                     onRefresh = { viewModel.open(force = true) },
+                    onRefreshLong = { viewModel.refreshFull() },
+                    refreshing = refreshing,
+                    updatedAt = updatedAt,
                     pillFocus = pillFocus,
                     downTo = spinFocus
                 )
@@ -346,8 +358,12 @@ internal fun NuvioCTastePage(
             if (com.nuvio.tv.NuvioCFeatures.TASTE_MONTH && state.recaps.isNotEmpty() && month == null) item(key = "recaps") {
                 TasteRowFrame("Recaps") { hold ->
                     TasteRecapRow(state.recaps, viewModel.rowMemory("recaps"), hold, section("recaps"), { viewModel.lastArea = "recaps" }, accent) {
-                        viewModel.lastArea = "spin"
-                        openMonth(it.month, "recaps")
+                        if (com.nuvio.tv.NuvioCFeatures.TASTE_RECAP_PANEL) {
+                            viewModel.openRecapPanel(it.month, "recaps")
+                        } else {
+                            viewModel.lastArea = "spin"
+                            openMonth(it.month, "recaps")
+                        }
                     }
                 }
             }
@@ -380,6 +396,9 @@ private fun TasteTopBar(
     onRange: (NuvioCTasteRange) -> Unit,
     onMonth: (YearMonth?) -> Unit,
     onRefresh: () -> Unit,
+    onRefreshLong: () -> Unit = {},
+    refreshing: Boolean = false,
+    updatedAt: Long = 0L,
     pillFocus: FocusRequester,
     downTo: FocusRequester,
     monthPillFocus: FocusRequester? = null
@@ -421,8 +440,29 @@ private fun TasteTopBar(
                     }
                 ) { onMonth(if (month == null) months.last() else null) }
             }
+            // [fork] round 42 taste_refresh_feedback: spins while rebuilding, then "Updated" for a moment
+            var showUpdated by remember { mutableStateOf(false) }
+            LaunchedEffect(updatedAt) {
+                if (updatedAt == 0L || !com.nuvio.tv.NuvioCFeatures.TASTE_REFRESH_FEEDBACK) return@LaunchedEffect
+                showUpdated = true
+                kotlinx.coroutines.delay(2_400)
+                showUpdated = false
+            }
+            if (showUpdated || refreshing) Text(
+                if (refreshing) "Updating" else "Updated",
+                style = MaterialTheme.typography.labelMedium,
+                color = NuvioTheme.colors.TextSecondary,
+                maxLines = 1
+            )
+            val spin = if (refreshing) {
+                val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "tasteRefresh")
+                t.animateFloat(0f, 360f, androidx.compose.animation.core.infiniteRepeatable(
+                    androidx.compose.animation.core.tween(900, easing = androidx.compose.animation.core.LinearEasing)
+                ), label = "tasteRefreshSpin").value
+            } else 0f
             Surface(
-                onClick = onRefresh,
+                onClick = { if (!refreshing) onRefresh() },
+                onLongClick = if (com.nuvio.tv.NuvioCFeatures.TASTE_REFRESH_FEEDBACK) ({ if (!refreshing) onRefreshLong() }) else null,
                 modifier = Modifier.size(32.dp),
                 shape = ClickableSurfaceDefaults.shape(CircleShape),
                 scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
@@ -434,7 +474,8 @@ private fun TasteTopBar(
                 )
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", modifier = Modifier.size(16.dp)
+                        .graphicsLayer { rotationZ = spin })
                 }
             }
         }

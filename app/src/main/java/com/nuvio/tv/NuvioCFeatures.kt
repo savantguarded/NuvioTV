@@ -682,4 +682,25 @@ object NuvioCFeatures {
     const val TASTE_CARD_TITLES = true
     /** Taste: Back from a month view returns to the default view, focus on what opened it. Off = Back leaves the page. */
     const val TASTE_BACK = true
+    // [fork] round 42
+    /** Calendar Coming soon: every TMDB candidate is checked (not the 70 most popular), checks kept on disk for a day, air-date search in the TV's time zone. Off = round 32 behaviour. */
+    const val TMDB_SOON_ALL = true
+    /** Start-up: the profile gate opens only once the real profile list has reached the screen, and the "expect the profile screen" note is written only on a real cold start. Off = round 40 gate. */
+    const val STARTUP_PROFILE_ATOMIC = true
+    /** Taste titles panel: the chips are reachable (Up from the list), and picking a sort keeps focus on the chip. Off = round 41 panel. */
+    const val TASTE_PANEL_FOCUS = true
+    /** Taste: scroll position and spotlight cards stay fixed for a visit, so closing a panel or month view lands back on what opened it. Off = round 41. */
+    const val TASTE_FOCUS_KEEP = true
+    /** Taste: Month in review from 5 titles; under that, the most recent month with 5 or more. Retries when the data wasn't ready. Off = 10 titles, current or last month only. */
+    const val TASTE_REVIEW_FALLBACK = true
+    /** Taste rows leave out anything you have rated (Trakt ratings and ratings made on this TV), not only your watch history; films and shows kept apart. Off = history only. */
+    const val TASTE_SEEN_RATED = true
+    /** Taste: rows, the titles panel, month views and live tiles read only the active profile's data; a build is dropped if the profile changes while it runs. Off = round 41. */
+    const val TASTE_PROFILE_STRICT = true
+    /** Taste: pressing a Recap opens the right-side panel for that month (numbers, biggest day, most watched, top genres, titles). Off = opens the month view. */
+    const val TASTE_RECAP_PANEL = true
+    /** Taste: the refresh button spins while rebuilding and says Updated; a long press re-reads every title's details. Off = silent refresh. */
+    const val TASTE_REFRESH_FEEDBACK = true
+    /** Player: resuming an MKV mid-file on a Dolby Vision TV reads the file's header from the start, then jumps to the resume point, so the Dolby Vision track isn't lost. Decoder untouched. Off = official resume. */
+    const val DV_RESUME_HEADER_FIRST = true
 }

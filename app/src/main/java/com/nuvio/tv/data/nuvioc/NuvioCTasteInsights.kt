@@ -34,6 +34,8 @@ sealed interface NuvioCTasteAction {
     data class Spin(val genre: String?, val decade: Int?) : NuvioCTasteAction
     data class Person(val id: Int, val name: String, val director: Boolean) : NuvioCTasteAction
     data class Title(val id: String, val type: String) : NuvioCTasteAction
+    /** [fork] round 42 taste_recap_panel: open that month's view ("2026-10"). */
+    data class Month(val ym: String) : NuvioCTasteAction
 }
 
 data class NuvioCTasteInsight(

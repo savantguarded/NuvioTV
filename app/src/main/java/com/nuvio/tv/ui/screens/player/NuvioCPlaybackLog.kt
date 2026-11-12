@@ -68,6 +68,9 @@ internal class NuvioCPlaybackLog(
             append(" | transfer=").append(transferName(f.colorInfo?.colorTransfer))
             append(" | dv=").append(if (looksDolbyVision(f)) "file" else "no")
             append(" decoderDv=").append(if (decoderIsDolby(decoder)) "yes" else "no")
+            // [fork] round 42: where playback started, and whether the header-first resume ran
+            append(" | at=").append(eventTime.currentPlaybackPositionMs / 1000).append("s")
+            if (NuvioCDvResume.lastHeaderFirst) append(" headerFirst")
         }
         Log.i(TAG, line)
         val target = file ?: return

@@ -55,7 +55,8 @@ interface NuvioCCalendarTmdbApi {
         @Query("without_genres") withoutGenres: String,
         @Query("sort_by") sortBy: String = "popularity.desc",
         @Query("include_adult") includeAdult: Boolean = false,
-        @Query("page") page: Int = 1
+        @Query("page") page: Int = 1,
+        @Query("timezone") timezone: String? = null // [fork] round 42 tmdb_soon_all
     ): Response<NuvioCCalendarDiscover>
 
     // [fork] round 31 tmdb_soon_top20_rules: the details the Top 20 add-on's Coming Soon checks for a film

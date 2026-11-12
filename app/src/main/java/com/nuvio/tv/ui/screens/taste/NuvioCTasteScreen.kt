@@ -114,7 +114,26 @@ class NuvioCTasteViewModel @Inject constructor(
     val profileName: String get() = profiles.activeProfile?.name.orEmpty()
 
     fun open(force: Boolean = false) {
-        viewModelScope.launch { repository.open(force) }
+        // [fork] round 42 taste_profile_strict: nothing from another profile's visit is reused on this page
+        val profileNow = profiles.activeProfileId.value
+        if (com.nuvio.tv.NuvioCFeatures.TASTE_PROFILE_STRICT && openedProfile != profileNow) {
+            if (openedProfile != null) {
+                opened = false
+                _rows.value = emptyList(); _review.value = null; _panel.value = null; _monthData.value = null; _live.value = null
+                memories.clear(); spotlightCache.clear(); changedIds = emptySet(); lastArea = null; monthFrom = null; panelFrom = null
+                countUp = true
+                pageListState = androidx.compose.foundation.lazy.LazyListState()
+            }
+            openedProfile = profileNow
+        }
+        if (com.nuvio.tv.NuvioCFeatures.TASTE_REFRESH_FEEDBACK && force) {
+            _refreshing.value = true
+            viewModelScope.launch {
+                runCatching { repository.open(true) }
+                _refreshing.value = false
+                _updatedAt.value = System.currentTimeMillis()
+            }
+        } else viewModelScope.launch { repository.open(force) }
         // [fork] round 40: a new visit gets new spotlight cards and rows; the live tiles are read again
         if (!opened || force) {
             opened = true
@@ -127,6 +146,21 @@ class NuvioCTasteViewModel @Inject constructor(
 
     // ---- [fork] round 40 taste_v2 ------------------------------------------------------------------------
     private var opened = false
+    private var openedProfile: Int? = null
+    /** [fork] round 42 taste_focus_keep: the page's scroll position, kept for the whole visit (Back from a title too). */
+    var pageListState = androidx.compose.foundation.lazy.LazyListState()
+        private set
+    private val _refreshing = MutableStateFlow(false)
+    val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
+    private val _updatedAt = MutableStateFlow(0L)
+    /** When the last refresh-button rebuild finished (the "Updated" note shows for a moment). */
+    val updatedAt: StateFlow<Long> = _updatedAt.asStateFlow()
+
+    /** [fork] round 42: long press on refresh: re-read every title's details, then rebuild. */
+    fun refreshFull() {
+        repository.requestRefetchAll()
+        open(force = true)
+    }
     private var seed = System.nanoTime()
     private val _live = MutableStateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteLive?>(null)
     val live: StateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteLive?> = _live.asStateFlow()
@@ -162,6 +196,19 @@ class NuvioCTasteViewModel @Inject constructor(
     fun loadReview(builtAt: Long) {
         if (!com.nuvio.tv.NuvioCFeatures.TASTE_REVIEW || builtAt == reviewFor) return
         reviewFor = builtAt
+        if (com.nuvio.tv.NuvioCFeatures.TASTE_REVIEW_FALLBACK) {
+            // [fork] round 42 taste_review_fallback: retried while the profile's data is still being read
+            viewModelScope.launch {
+                repeat(8) {
+                    when (val r = runCatching { repository.reviewResult() }.getOrNull()) {
+                        is com.nuvio.tv.data.nuvioc.NuvioCTasteReviewResult.Ready -> { _review.value = r.review; return@launch }
+                        com.nuvio.tv.data.nuvioc.NuvioCTasteReviewResult.None -> { _review.value = null; return@launch }
+                        else -> kotlinx.coroutines.delay(1_500)
+                    }
+                }
+            }
+            return
+        }
         viewModelScope.launch { _review.value = runCatching { repository.review() }.getOrNull() }
     }
 
@@ -173,7 +220,9 @@ class NuvioCTasteViewModel @Inject constructor(
         val card: com.nuvio.tv.data.nuvioc.NuvioCTasteInsight,
         val scope: String,
         val items: List<com.nuvio.tv.data.nuvioc.NuvioCTastePanelItem>? = null,
-        val sort: Int = 0
+        val sort: Int = 0,
+        /** [fork] round 42 taste_recap_panel: set when the panel shows a Recap month. */
+        val recap: com.nuvio.tv.data.nuvioc.NuvioCTasteRecapDetail? = null
     )
     private val _panel = MutableStateFlow<Panel?>(null)
     val panel: StateFlow<Panel?> = _panel.asStateFlow()
@@ -191,6 +240,33 @@ class NuvioCTasteViewModel @Inject constructor(
             _panel.value = _panel.value?.takeIf { it.card.id == card.id }?.copy(items = items)
         }
     }
+
+    /** [fork] round 42 taste_recap_panel: a Recap's month in the titles panel, with its breakdown on top. */
+    fun openRecapPanel(month: java.time.YearMonth, from: String) {
+        panelIndex = 0
+        panelFrom = from
+        val scope = month.month.getDisplayName(java.time.format.TextStyle.FULL, Locale.US) + " " + month.year
+        viewModelScope.launch {
+            val detail = runCatching { repository.recapDetail(month) }.getOrNull() ?: return@launch
+            val card = com.nuvio.tv.data.nuvioc.NuvioCTasteInsight(
+                id = "recap:$month",
+                kicker = "Recap",
+                value = "${detail.titles} ${if (detail.titles == 1) "title" else "titles"} · ${detail.hours} h",
+                line = recapLine(detail),
+                action = com.nuvio.tv.data.nuvioc.NuvioCTasteAction.Month(month.toString()),
+                keys = detail.keys
+            )
+            _panel.value = Panel(card, scope, recap = detail)
+            val window = com.nuvio.tv.data.nuvioc.tasteMonthWindow(month, java.time.ZoneId.systemDefault())
+            val items = runCatching { repository.panel(detail.keys, window) }.getOrDefault(emptyList())
+            _panel.value = _panel.value?.takeIf { it.card.id == card.id }?.copy(items = items)
+        }
+    }
+
+    private fun recapLine(d: com.nuvio.tv.data.nuvioc.NuvioCTasteRecapDetail): String = listOfNotNull(
+        d.films.takeIf { it > 0 }?.let { "$it ${if (it == 1) "film" else "films"}" },
+        d.episodes.takeIf { it > 0 }?.let { "$it ${if (it == 1) "episode" else "episodes"} from ${d.shows} ${if (d.shows == 1) "show" else "shows"}" }
+    ).joinToString(" · ")
 
     fun sortPanel(sort: Int) {
         val p = _panel.value ?: return
@@ -226,7 +302,12 @@ class NuvioCTasteViewModel @Inject constructor(
     /** This visit's six cards for [key] (a range or a month); the same until the page is opened again. */
     fun spotlight(all: List<com.nuvio.tv.data.nuvioc.NuvioCTasteInsight>, key: String): List<com.nuvio.tv.data.nuvioc.NuvioCTasteInsight> {
         if (all.isEmpty()) return emptyList()
-        val cacheKey = "$seed:$key:${all.size}"
+        // [fork] round 42 taste_focus_keep: the same cards all visit, even when a background rebuild changes the
+        // list; each keeps its slot and takes its fresh value, so closing a panel lands on the card that opened it.
+        if (com.nuvio.tv.NuvioCFeatures.TASTE_FOCUS_KEEP) {
+            spotlightCache["$seed:$key"]?.let { kept -> return kept.map { c -> all.firstOrNull { it.id == c.id } ?: c } }
+        }
+        val cacheKey = if (com.nuvio.tv.NuvioCFeatures.TASTE_FOCUS_KEEP) "$seed:$key" else "$seed:$key:${all.size}"
         spotlightCache[cacheKey]?.let { return it }
         val now = java.time.ZonedDateTime.now()
         val weekend = now.dayOfWeek == java.time.DayOfWeek.SATURDAY || now.dayOfWeek == java.time.DayOfWeek.SUNDAY

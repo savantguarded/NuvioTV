@@ -36,7 +36,8 @@ private const val TMDB_SOON_SKIP_GENRES = "10762,10763,10764,10766,10767"
 @Singleton
 class TmdbSoonClient @Inject constructor(
     private val api: NuvioCCalendarTmdbApi,
-    private val tmdbService: TmdbService
+    private val tmdbService: TmdbService,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context
 ) {
     private val apiKey: String get() = tmdbService.apiKey()
 
@@ -94,6 +95,30 @@ class TmdbSoonClient @Inject constructor(
 
     private class Checked(val at: Long, val keep: Boolean)
     private val checks = java.util.concurrent.ConcurrentHashMap<String, Checked>()
+    // [fork] round 42 tmdb_soon_all: the yes / no checks survive a restart (the TV often kills the app), so every
+    // candidate gets checked over a pass or two instead of the same 70 most popular each cold start.
+    private val checksFile by lazy { java.io.File(context.filesDir, "nuvio_c_tmdb_soon_checks.txt") }
+    @Volatile private var checksLoaded = false
+    private fun loadChecks() {
+        if (checksLoaded || !com.nuvio.tv.NuvioCFeatures.TMDB_SOON_ALL) return
+        checksLoaded = true
+        runCatching {
+            if (!checksFile.exists()) return
+            checksFile.readLines().forEach { line ->
+                val parts = line.split('|')
+                if (parts.size == 3) checks.putIfAbsent(parts[0], Checked(parts[1].toLongOrNull() ?: return@forEach, parts[2] == "1"))
+            }
+        }
+    }
+    private fun saveChecks() {
+        if (!com.nuvio.tv.NuvioCFeatures.TMDB_SOON_ALL) return
+        runCatching {
+            val now = System.currentTimeMillis()
+            checksFile.writeText(checks.entries.filter { now - it.value.at < CHECK_TTL_MS }
+                .joinToString("\n") { "${it.key}|${it.value.at}|${if (it.value.keep) 1 else 0}" })
+        }
+    }
+
     private fun cached(key: String): Boolean? = checks[key]?.takeIf {
         // [fork] round 32 tmdb_soon_recheck: a show's "no" is kept 6 h (a new season can be dated later that day)
         val ttl = if (com.nuvio.tv.NuvioCFeatures.TMDB_SOON_RECHECK && key.startsWith("s") && !it.keep) SHOW_NO_TTL_MS else CHECK_TTL_MS
@@ -101,6 +126,8 @@ class TmdbSoonClient @Inject constructor(
     }?.keep
 
     private suspend fun top20Items(today: LocalDate): List<TmdbSoonItem>? = try {
+        loadChecks()
+        val maxChecks = if (com.nuvio.tv.NuvioCFeatures.TMDB_SOON_ALL) TOP20_ALL_CHECKS else TOP20_MAX_CHECKS
         val from = today.plusDays(1)
         val to = today.plusDays(TMDB_SOON_DAYS)
         val films = mutableListOf<TmdbSoonItem>()
@@ -114,7 +141,7 @@ class TmdbSoonClient @Inject constructor(
         }
         var filmChecks = 0
         for (raw in filmRaw.distinctBy { it.id }) {
-            if (filmChecks >= TOP20_MAX_CHECKS) break
+            if (filmChecks >= maxChecks) break
             val item = raw.toItem(CalendarTitleType.MOVIE) ?: continue
             if (!raw.originalLanguage.equals("en", true) && (raw.voteCount ?: 0) < TMDB_SOON_FOREIGN_MIN_VOTES) continue
             val id = raw.id ?: continue
@@ -129,7 +156,8 @@ class TmdbSoonClient @Inject constructor(
         for (first in listOf(true, false)) {
             for (page in 1..TOP20_PAGES) {
                 val body = if (first) api.discoverSoonShows(apiKey, firstFrom = from.toString(), firstTo = to.toString(), withoutGenres = TMDB_SOON_SKIP_GENRES, page = page)
-                else api.discoverSoonShows(apiKey, airFrom = from.toString(), airTo = to.toString(), withoutGenres = TMDB_SOON_SKIP_GENRES, page = page)
+                else api.discoverSoonShows(apiKey, airFrom = from.toString(), airTo = to.toString(), withoutGenres = TMDB_SOON_SKIP_GENRES, page = page,
+                    timezone = if (com.nuvio.tv.NuvioCFeatures.TMDB_SOON_ALL) java.time.ZoneId.systemDefault().id else null)
                 if (!body.isSuccessful) break
                 val results = body.body()?.results.orEmpty()
                 showRaw += results
@@ -139,7 +167,7 @@ class TmdbSoonClient @Inject constructor(
         val shows = mutableListOf<TmdbSoonItem>()
         var showChecks = 0
         for (raw in showRaw.distinctBy { it.id }.sortedByDescending { it.popularity ?: 0.0 }) {
-            if (showChecks >= TOP20_MAX_CHECKS) break
+            if (showChecks >= maxChecks) break
             if (!top20WantedShow(raw.originalLanguage, raw.genreIds.orEmpty(), raw.originCountry.orEmpty())) continue
             val item = raw.toItem(CalendarTitleType.SERIES) ?: continue
             val id = raw.id ?: continue
@@ -154,6 +182,7 @@ class TmdbSoonClient @Inject constructor(
             if (keep) shows += item
         }
         Log.d(TAG, "Top 20 rules: ${films.size} films, ${shows.size} shows (checked $filmChecks + $showChecks new)")
+        if (filmChecks + showChecks > 0) saveChecks()
         (films + shows).sortedByDescending { it.popularity }.take(TOP20_MAX_TITLES)
     } catch (cancelled: CancellationException) {
         throw cancelled
@@ -191,6 +220,8 @@ class TmdbSoonClient @Inject constructor(
         const val TOP20_REGION = "US"
         const val TOP20_PAGES = 5
         const val TOP20_MAX_CHECKS = 70
+        /** [fork] round 42: every candidate of the five discover pages (Top 20 checks them all). */
+        const val TOP20_ALL_CHECKS = 300
         const val TOP20_MAX_TITLES = 60
         const val CHECK_TTL_MS = 24L * 60 * 60 * 1000
         const val SHOW_NO_TTL_MS = 6L * 60 * 60 * 1000

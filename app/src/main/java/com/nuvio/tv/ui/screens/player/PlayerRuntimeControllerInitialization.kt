@@ -1134,7 +1134,16 @@ internal fun PlayerRuntimeController.initializePlayer(
                     cacheKey = currentStreamCacheKey
                 )
 
-                if (initialResumePosition > 0L) {
+                val nuvioCHeaderFirst = NuvioCDvResume.shouldReadHeaderFirst(
+                    context, initialResumePosition, url, currentFilename, currentStreamMimeType
+                ) // [fork] round 42 dv_resume_header_first
+                NuvioCDvResume.lastHeaderFirst = nuvioCHeaderFirst
+                if (nuvioCHeaderFirst) {
+                    setMediaSource(initialMediaSource)
+                    _uiState.update { it.copy(pendingSeekPosition = initialResumePosition) }
+                    clearPendingInitialResumePosition()
+                    updatePlaybackTimeline(currentPosition = initialResumePosition)
+                } else if (initialResumePosition > 0L) {
                     setMediaSource(initialMediaSource, initialResumePosition)
                     clearPendingInitialResumePosition()
                     updatePlaybackTimeline(currentPosition = initialResumePosition)
