@@ -69,6 +69,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
@@ -115,6 +116,7 @@ import com.nuvio.tv.ui.screens.detail.requestFocusAfterFrames
 import com.nuvio.tv.ui.screens.shuffle.NuvioCRoulettePreset
 import com.nuvio.tv.ui.screens.shuffle.moodLabel
 import com.nuvio.tv.ui.theme.NuvioTheme
+import com.nuvio.tv.ui.util.nuvioCListGate
 import java.text.NumberFormat
 import java.time.YearMonth
 import java.time.format.TextStyle
@@ -129,7 +131,7 @@ internal val TASTE_RING = listOf(
 )
 private val TASTE_OTHERS = Color(0xFF6C6C76)
 
-@OptIn(ExperimentalTvMaterial3Api::class)
+@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 internal fun NuvioCTastePage(
     viewModel: NuvioCTasteViewModel,
@@ -141,6 +143,8 @@ internal fun NuvioCTastePage(
     val live by viewModel.live.collectAsState()
     val rows by viewModel.rows.collectAsState()
     val monthData by viewModel.monthData.collectAsState()
+    val review by viewModel.review.collectAsState() // [fork] round 41 taste_review
+    val panel by viewModel.panel.collectAsState() // [fork] round 41 taste_card_titles
     var range by rememberSaveable { mutableStateOf(NuvioCTasteRange.ALL) }
     var monthKey by rememberSaveable { mutableStateOf<String?>(null) }
     val month = monthKey?.let { runCatching { YearMonth.parse(it) }.getOrNull() }
@@ -153,16 +157,25 @@ internal fun NuvioCTastePage(
         if (month != null) viewModel.spotlight(monthData?.second.orEmpty(), "m$month")
         else viewModel.spotlight(state.insights[range] ?: state.insights[NuvioCTasteRange.ALL].orEmpty(), range.name)
     }
-    LaunchedEffect(state.builtAt) { all?.let { viewModel.loadRows(it, state.builtAt) } }
+    LaunchedEffect(state.builtAt) {
+        all?.let { viewModel.loadRows(it, state.builtAt) }
+        if (all != null) viewModel.loadReview(state.builtAt) // [fork] round 41 taste_review
+    }
     val accent = remember { viewModel.accent }
 
     val spinFocus = remember { FocusRequester() }
     val pillFocus = remember { FocusRequester() }
     val cardsFocus = remember { FocusRequester() }
+    // [fork] round 41: the review banner, the Month pill and the titles panel list
+    val reviewFocus = remember { FocusRequester() }
+    val monthPillFocus = remember { FocusRequester() }
+    val panelListFocus = remember { FocusRequester() }
     // Each section has a requester; coming back (Back from a title or a person) lands on the section left, and a row
     // hands focus to the item last focused in it.
     val sections = remember { HashMap<String, FocusRequester>() }
     fun section(key: String) = sections.getOrPut(key) { FocusRequester() }
+    sections["review"] = reviewFocus
+    sections["panel"] = panelListFocus
     LaunchedEffect(stats != null) {
         if (stats == null) return@LaunchedEffect
         val target = viewModel.lastArea?.let { sections[it] ?: if (it == "spin") spinFocus else null } ?: spinFocus
@@ -182,15 +195,72 @@ internal fun NuvioCTastePage(
         }
     }
 
+    // ---- [fork] round 41 taste_back: Back from a month view returns to the default view, focus on what opened it
+    var monthReturn by remember { mutableStateOf(false) }
+    fun openMonth(m: YearMonth?, from: String) {
+        if (m != null) viewModel.monthFrom = from
+        monthKey = m?.toString()
+    }
+    LaunchedEffect(month) {
+        if (!com.nuvio.tv.NuvioCFeatures.TASTE_BACK) return@LaunchedEffect
+        if (month != null) {
+            // the banner and Recaps aren't in a month view: land on Spin
+            if (viewModel.monthFrom == "review" || viewModel.monthFrom == "recaps") spinFocus.requestFocusAfterFrames()
+        } else if (monthReturn) {
+            monthReturn = false
+            val target = when (viewModel.monthFrom) {
+                "review" -> reviewFocus
+                "recaps" -> section("recaps")
+                "monthPill" -> monthPillFocus
+                else -> spinFocus
+            }
+            if (!target.requestFocusAfterFrames()) spinFocus.requestFocusAfterFrames()
+        }
+    }
+    androidx.activity.compose.BackHandler(enabled = com.nuvio.tv.NuvioCFeatures.TASTE_BACK && month != null && panel == null) {
+        monthReturn = true
+        range = NuvioCTasteRange.ALL
+        monthKey = null
+    }
+    // ---- [fork] round 41 taste_card_titles: the panel; Back closes it and focus returns to its card
+    var panelReturn by remember { mutableStateOf(false) }
+    androidx.activity.compose.BackHandler(enabled = panel != null) {
+        panelReturn = true
+        viewModel.closePanel()
+    }
+    LaunchedEffect(panel == null) {
+        if (panel != null) { viewModel.lastArea = "panel"; return@LaunchedEffect }
+        if (!panelReturn) return@LaunchedEffect
+        panelReturn = false
+        val from = viewModel.panelFrom
+        viewModel.lastArea = from
+        val target = from?.let { sections[it] } ?: cardsFocus
+        if (!target.requestFocusAfterFrames()) spinFocus.requestFocusAfterFrames()
+    }
+    fun scopeLabel(): String = month?.let { it.month.getDisplayName(TextStyle.FULL, Locale.US) + " " + it.year } ?: NuvioCTasteCopy.rangeLabel(range)
+    fun pressCard(card: NuvioCTasteInsight, from: String) {
+        if (com.nuvio.tv.NuvioCFeatures.TASTE_CARD_TITLES && card.keys.isNotEmpty()) viewModel.openPanel(card, scopeLabel(), from) else act(card.action)
+    }
+
     Box(Modifier.fillMaxSize().background(NuvioTheme.colors.Background)) {
-        TastePageBackdrop(all?.backdrops.orEmpty(), accent)
+        if (com.nuvio.tv.NuvioCFeatures.TASTE_POLISH) TasteRotatingBackdrop(viewModel.backdropFor(all?.recentBackdrops.orEmpty()))
+        else TastePageBackdrop(all?.backdrops.orEmpty(), accent)
         val building = stats == null && com.nuvio.tv.NuvioCFeatures.TASTE_BUILD_ANIM && state.progressTotal > 0
         if (building) {
             TasteBuilding(state, accent)
             return@Box
         }
+        val smooth = com.nuvio.tv.NuvioCFeatures.TASTE_SMOOTH
+        val panelOpen = panel != null
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalBringIntoViewSpec provides (if (smooth) rememberTasteVerticalPivot() else LocalBringIntoViewSpec.current)
+        ) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize()
+                .then(if (smooth) Modifier.nuvioCListGate() else Modifier)
+                // [fork] round 41: while the titles panel is open, focus can't wander back into the page
+                .focusProperties { onEnter = { if (panelOpen) cancelFocusChange() } }
+                .focusGroup(),
             state = rememberLazyListState(),
             contentPadding = PaddingValues(top = 28.dp, bottom = 56.dp),
             verticalArrangement = Arrangement.spacedBy(26.dp)
@@ -204,7 +274,8 @@ internal fun NuvioCTastePage(
                     months = state.months,
                     ranges = viewModel.rangesFor(all),
                     onRange = { range = it; monthKey = null },
-                    onMonth = { monthKey = it?.toString() },
+                    onMonth = { openMonth(it, "monthPill") },
+                    monthPillFocus = monthPillFocus,
                     onRefresh = { viewModel.open(force = true) },
                     pillFocus = pillFocus,
                     downTo = spinFocus
@@ -218,6 +289,7 @@ internal fun NuvioCTastePage(
                 return@LazyColumn
             }
             val light = !s.showNumbers
+            val showReview = com.nuvio.tv.NuvioCFeatures.TASTE_REVIEW && month == null && !light && review != null
             item(key = "hero") {
                 TasteHero(
                     stats = s,
@@ -227,15 +299,35 @@ internal fun NuvioCTastePage(
                     spinFocus = spinFocus,
                     onSpinFocused = { viewModel.lastArea = "spin" },
                     upTo = pillFocus,
-                    downTo = cardsFocus.takeIf { cards.isNotEmpty() },
+                    downTo = if (showReview) reviewFocus else cardsFocus.takeIf { cards.isNotEmpty() },
+                    spinPosters = s.spinPosters,
                     onSpin = { spin(s.genres.firstOrNull()?.name, s.topDecade) }
                 )
             }
             item(key = "tiles") {
-                if (month != null) TasteMonthTiles(s) else TasteLiveTiles(live, viewModel.countUp)
+                if (month != null) TasteMonthTiles(s) else TasteLiveTiles(live, viewModel.countUp, onCounted = { if (smooth) viewModel.markCounted() })
             }
-            if (cards.isNotEmpty() && !light) item(key = "spotlight") {
-                TasteSpotlight(cards, viewModel.changedIds, accent, cardsFocus, ::section, { viewModel.lastArea = it }, onCard = { act(it.action) })
+            val r = review
+            if (showReview && r != null) item(key = "review") {
+                TasteReviewBanner(
+                    r, accent,
+                    Modifier.focusRequester(reviewFocus)
+                        .onFocusChanged { if (it.isFocused) viewModel.lastArea = "review" }
+                        .nuvioCTasteVertical(up = spinFocus, down = cardsFocus.takeIf { cards.isNotEmpty() })
+                ) { openMonth(r.month, "review") }
+            }
+            if (cards.isNotEmpty() && !light) {
+                if (smooth) {
+                    // [fork] round 41 taste_smooth: the title and each line of cards are their own list items
+                    item(key = "spotlight:title") { TasteSpotlightTitle() }
+                    cards.chunked(3).forEachIndexed { line, row ->
+                        item(key = "spotlight:$line") {
+                            TasteSpotlightLine(row, line, viewModel.changedIds, accent, cardsFocus, ::section, { viewModel.lastArea = it }, onCard = ::pressCard)
+                        }
+                    }
+                } else item(key = "spotlight") {
+                    TasteSpotlight(cards, viewModel.changedIds, accent, cardsFocus, ::section, { viewModel.lastArea = it }, onCard = { c, from -> pressCard(c, from) })
+                }
             }
             if (month == null && !light && s.showPeople) item(key = "people") {
                 TasteRowFrame("Your people") { hold ->
@@ -255,11 +347,22 @@ internal fun NuvioCTastePage(
                 TasteRowFrame("Recaps") { hold ->
                     TasteRecapRow(state.recaps, viewModel.rowMemory("recaps"), hold, section("recaps"), { viewModel.lastArea = "recaps" }, accent) {
                         viewModel.lastArea = "spin"
-                        monthKey = it.month.toString()
+                        openMonth(it.month, "recaps")
                     }
                 }
             }
         }
+        }
+        // [fork] round 41 taste_card_titles
+        if (com.nuvio.tv.NuvioCFeatures.TASTE_CARD_TITLES) TasteTitlesPanel(
+            panel = panel,
+            listFocus = panelListFocus,
+            startIndex = { viewModel.panelIndex },
+            onIndex = { viewModel.panelIndex = it },
+            onAction = { act(it) },
+            onSort = viewModel::sortPanel,
+            onOpenTitle = onOpenTitle
+        )
     }
 }
 
@@ -278,7 +381,8 @@ private fun TasteTopBar(
     onMonth: (YearMonth?) -> Unit,
     onRefresh: () -> Unit,
     pillFocus: FocusRequester,
-    downTo: FocusRequester
+    downTo: FocusRequester,
+    monthPillFocus: FocusRequester? = null
 ) {
     Row(Modifier.fillMaxWidth().padding(horizontal = EDGE), verticalAlignment = Alignment.Bottom) {
         Column(Modifier.weight(1f)) {
@@ -305,7 +409,7 @@ private fun TasteTopBar(
                 TasteRangePill(
                     label,
                     selected = month != null,
-                    modifier = Modifier.onPreviewKeyEvent { e ->
+                    modifier = (monthPillFocus?.let { Modifier.focusRequester(it) } ?: Modifier).onPreviewKeyEvent { e ->
                         val n = e.nativeKeyEvent
                         if (month == null || n.action != KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
                         val i = months.indexOf(month)
@@ -371,6 +475,7 @@ private fun TasteHero(
     onSpinFocused: () -> Unit,
     upTo: FocusRequester,
     downTo: FocusRequester?,
+    spinPosters: List<String> = emptyList(),
     onSpin: () -> Unit
 ) {
     Row(
@@ -385,11 +490,19 @@ private fun TasteHero(
                 fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (!light && stats.genres.isNotEmpty()) TasteLegend(stats)
         }
-        TasteSpinCard(
+        val spinModifier = Modifier.focusRequester(spinFocus).onFocusChanged { if (it.isFocused) onSpinFocused() }.nuvioCVertical(upTo, downTo)
+        if (com.nuvio.tv.NuvioCFeatures.TASTE_POLISH) TasteSpinCardV2(
+            title = if (light) "Spin something" else "Spin my taste",
+            chips = spinChips(stats, light),
+            posters = if (light) emptyList() else spinPosters,
+            accent = accent,
+            modifier = spinModifier
+        ) { onSpin() }
+        else TasteSpinCard(
             title = if (light) "Spin something" else "Spin my taste",
             chips = spinChips(stats, light),
             accent = accent,
-            modifier = Modifier.width(250.dp).focusRequester(spinFocus).onFocusChanged { if (it.isFocused) onSpinFocused() }.nuvioCVertical(upTo, downTo)
+            modifier = Modifier.width(250.dp).then(spinModifier)
         ) { onSpin() }
     }
 }
@@ -473,6 +586,7 @@ private fun TasteLegend(s: NuvioCTasteStats) {
     val shown = s.genres.take(5)
     val others = (100 - shown.sumOf { it.percent }).coerceAtLeast(0)
     val items = shown.mapIndexed { i, g -> Triple(g.name, g.percent, TASTE_RING[i]) } + if (others > 0) listOf(Triple("Others", others, TASTE_OTHERS)) else emptyList()
+    if (com.nuvio.tv.NuvioCFeatures.TASTE_POLISH) { TasteLegendColumns(items); return } // [fork] round 41
     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
         items.chunked(3).forEach { line ->
             Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
@@ -492,7 +606,9 @@ private fun TasteLegend(s: NuvioCTasteStats) {
 // ---- tiles -----------------------------------------------------------------------------------------------
 
 @Composable
-private fun TasteLiveTiles(live: NuvioCTasteLive?, countUp: Boolean) {
+private fun TasteLiveTiles(live: NuvioCTasteLive?, countUp: Boolean, onCounted: () -> Unit = {}) {
+    // [fork] round 41 taste_smooth: once played, scrolling back to the tiles shows plain numbers
+    if (countUp && live != null) LaunchedEffect(Unit) { kotlinx.coroutines.delay(260); onCounted() }
     val tiles = buildList {
         live?.watching?.let { add(Triple(Icons.Default.PlayArrow, it, "Watching")) }
         live?.upNext?.let { add(Triple(Icons.Default.SkipNext, it, "Up next")) }
@@ -556,24 +672,46 @@ private fun TasteSpotlight(
     firstFocus: FocusRequester,
     section: (String) -> FocusRequester,
     onArea: (String) -> Unit,
-    onCard: (NuvioCTasteInsight) -> Unit
+    onCard: (NuvioCTasteInsight, String) -> Unit
 ) {
-    Column(Modifier.padding(horizontal = EDGE), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Spotlight", style = MaterialTheme.typography.titleMedium, color = NuvioTheme.colors.TextPrimary, fontWeight = FontWeight.SemiBold)
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        TasteSpotlightTitle()
         cards.chunked(3).forEachIndexed { r, line ->
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                line.forEachIndexed { c, card ->
-                    TasteInsightCard(
-                        card, card.id in changed, accent,
-                        Modifier.weight(1f).then(if (r == 0 && c == 0) Modifier.focusRequester(firstFocus) else Modifier)
-                            .focusRequester(section("card:${r * 3 + c}"))
-                            .onFocusChanged { if (it.isFocused) onArea("card:${r * 3 + c}") }
-                            .then(if (c == 0) Modifier.nuvioCHeldLeftStop() else Modifier)
-                    ) { onCard(card) }
-                }
-                repeat(3 - line.size) { Spacer(Modifier.weight(1f)) }
-            }
+            TasteSpotlightLine(line, r, changed, accent, firstFocus, section, onArea, onCard)
         }
+    }
+}
+
+@Composable
+private fun TasteSpotlightTitle() {
+    Text("Spotlight", style = MaterialTheme.typography.titleMedium, color = NuvioTheme.colors.TextPrimary, fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(horizontal = EDGE))
+}
+
+/** One line of three spotlight cards; [r] = the line's index. */
+@Composable
+private fun TasteSpotlightLine(
+    line: List<NuvioCTasteInsight>,
+    r: Int,
+    changed: Set<String>,
+    accent: Color,
+    firstFocus: FocusRequester,
+    section: (String) -> FocusRequester,
+    onArea: (String) -> Unit,
+    onCard: (NuvioCTasteInsight, String) -> Unit
+) {
+    Row(Modifier.padding(horizontal = EDGE), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        line.forEachIndexed { c, card ->
+            val key = "card:${r * 3 + c}"
+            TasteInsightCard(
+                card, card.id in changed, accent,
+                Modifier.weight(1f).then(if (r == 0 && c == 0) Modifier.focusRequester(firstFocus) else Modifier)
+                    .focusRequester(section(key))
+                    .onFocusChanged { if (it.isFocused) onArea(key) }
+                    .then(if (c == 0) Modifier.nuvioCHeldLeftStop() else Modifier)
+            ) { onCard(card, key) }
+        }
+        repeat(3 - line.size) { Spacer(Modifier.weight(1f)) }
     }
 }
 

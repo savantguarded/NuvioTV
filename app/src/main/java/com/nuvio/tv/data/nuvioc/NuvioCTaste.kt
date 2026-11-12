@@ -105,6 +105,32 @@ data class NuvioCTasteShelfItem(val id: String, val type: String, val name: Stri
 /** [fork] round 40 taste_live: the counts on the live tiles (null = not known on this TV). */
 data class NuvioCTasteLive(val watching: Int?, val upNext: Int?, val upcoming: Int?, val saved: Int?, val ratedThisMonth: Int?)
 
+/** [fork] round 41 taste_review: the Month in review banner. */
+data class NuvioCTasteReview(
+    val month: java.time.YearMonth,
+    /** true = the month is still running ("November so far"). */
+    val current: Boolean,
+    val headline: String,
+    val hours: Int,
+    val titles: Int,
+    val topGenre: String?,
+    val mostWatched: String?,
+    val biggestDay: java.time.LocalDate?,
+    val posters: List<String>
+)
+
+/** [fork] round 41 taste_card_titles: one row in a spotlight card's titles panel. */
+data class NuvioCTastePanelItem(
+    val id: String,
+    val type: String,
+    val name: String,
+    val year: Int?,
+    val poster: String?,
+    /** Your rating 1..10 (half stars), null if unrated. */
+    val score: Int?,
+    val lastWatched: Long
+)
+
 /** [fork] round 40 taste_rows: one poster row for this visit. */
 data class NuvioCTasteRow(val id: String, val title: String, val items: List<NuvioCTasteShelfItem>)
 
@@ -143,7 +169,11 @@ data class NuvioCTasteStats(
     val unfinished: List<NuvioCTasteShelfItem> = emptyList(),
     val rewatch: List<NuvioCTasteShelfItem> = emptyList(),
     val anyRatings: Boolean = false,
-    val localOnly: Boolean = false
+    val localOnly: Boolean = false,
+    /** [fork] round 41 taste_polish: backdrops of the five most recently watched titles (one shown per visit). */
+    val recentBackdrops: List<String> = emptyList(),
+    /** [fork] round 41 taste_polish: three posters (w154) from your best-liked titles in your top genre, for the Spin card. */
+    val spinPosters: List<String> = emptyList()
 ) {
     val empty: Boolean get() = titles == 0
     val showNumbers: Boolean get() = titles >= 10
@@ -436,6 +466,46 @@ class NuvioCTasteRepository @Inject constructor(
         val cache = titles()
         val stats = computeTasteStats(i.history, cache, i.scores, NuvioCTasteRange.ALL, now, zone, i.localOnly, window)
         stats to computeTasteInsights(i.history, cache, i.scores, window, now, zone, false, i.collections)
+    }
+
+    // ---- [fork] round 41 ------------------------------------------------------------------------------------
+
+    /**
+     * The Month in review banner: last month during the first 7 days of a month, then the current month so far.
+     * Null before a build or when that month has fewer than 10 titles. Pure, from the kept inputs.
+     */
+    suspend fun review(): NuvioCTasteReview? = withContext(Dispatchers.Default) {
+        val i = inputs?.takeIf { it.profile == profiles.activeProfileId.value } ?: return@withContext null
+        val zone = ZoneId.systemDefault()
+        val today = LocalDate.now(zone)
+        val current = today.dayOfMonth > 7
+        val month = java.time.YearMonth.from(today).let { if (current) it else it.minusMonths(1) }
+        computeTasteReview(i.history, titles(), tasteMonthWindow(month, zone), month, current, zone)
+    }
+
+    /** A card's titles with what the panel shows (nothing fetched: cached facts, your ratings, your history). */
+    suspend fun panel(keys: List<String>): List<NuvioCTastePanelItem> = withContext(Dispatchers.Default) {
+        val i = inputs ?: return@withContext emptyList()
+        val cache = titles()
+        val wanted = keys.toSet()
+        val last = HashMap<String, Long>()
+        i.history.forEach { w ->
+            val k = tasteKeyOf(w)
+            if (k in wanted && w.watchedAt > (last[k] ?: Long.MIN_VALUE)) last[k] = w.watchedAt
+        }
+        keys.distinct().mapNotNull { k ->
+            val t = cache[k] ?: return@mapNotNull null
+            if (t.name.isBlank()) return@mapNotNull null
+            NuvioCTastePanelItem(
+                id = t.imdbId ?: "tmdb:${t.tmdbId}",
+                type = if (t.isShow) "series" else "movie",
+                name = t.name,
+                year = t.year,
+                poster = t.poster?.replace("/w342/", "/w154/"),
+                score = tasteScoreFor(k, cache, i.scores)?.takeIf { it in 1..10 },
+                lastWatched = last[k] ?: 0L
+            )
+        }.sortedByDescending { it.lastWatched }
     }
 
     /** Collections you've seen two or more films of: parts from a small file, up to 5 new collections read per build. */
@@ -830,9 +900,50 @@ internal fun computeTasteStats(
         unfinished = unfinished,
         rewatch = rewatch,
         anyRatings = scores.isNotEmpty(),
-        localOnly = localOnly
+        localOnly = localOnly,
+        recentBackdrops = byTitle.entries.sortedByDescending { e -> e.value.maxOf { it.watchedAt } }
+            .mapNotNull { titles[it.key]?.backdrop }.distinct().take(5),
+        spinPosters = genres.firstOrNull()?.name?.let { top ->
+            byTitle.keys.mapNotNull { k -> titles[k]?.takeIf { top in it.genres && it.poster != null }?.let { t -> t to (scoreFor(k)?.toDouble() ?: (t.vote ?: 0.0)) } }
+                .sortedByDescending { it.second }.take(3).mapNotNull { it.first.poster?.replace("/w342/", "/w154/") }
+        }.orEmpty()
     )
 }
 
 private fun JsonObject.str(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() && it != "null" }
 private fun JsonObject.int(key: String): Int? = (this[key] as? JsonPrimitive)?.intOrNull
+
+/** [fork] round 41 taste_review: one month's banner (pure, tested). */
+internal fun computeTasteReview(
+    history: List<WatchedItem>,
+    titles: Map<String, NuvioCTasteTitle>,
+    window: LongRange,
+    month: java.time.YearMonth,
+    current: Boolean,
+    zone: ZoneId
+): NuvioCTasteReview? {
+    val lines = history.filter { it.watchedAt in window && (it.contentId.startsWith("tt") || it.contentId.startsWith("tmdb:")) }
+    val byTitle = lines.groupBy(::tasteKeyOf)
+    if (byTitle.size < 10) return null
+    fun minutesOf(k: String, v: List<WatchedItem>) =
+        if (k.startsWith("movie:")) titles[k]?.runtime ?: 110 else v.count { it.season != null } * (titles[k]?.runtime ?: 40)
+    val minutes = byTitle.entries.sumOf { (k, v) -> minutesOf(k, v) }
+    val genre = byTitle.keys.flatMap { titles[it]?.genres?.distinct().orEmpty() }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
+    val most = byTitle.entries.maxByOrNull { (k, v) -> minutesOf(k, v) }?.let { titles[it.key]?.name }?.takeIf { it.isNotBlank() }
+    // biggest day by watch time
+    val perDay = HashMap<LocalDate, Int>()
+    lines.forEach { w ->
+        val k = tasteKeyOf(w)
+        val m = if (k.startsWith("movie:")) titles[k]?.runtime ?: 110 else titles[k]?.runtime ?: 40
+        val d = Instant.ofEpochMilli(w.watchedAt).atZone(zone).toLocalDate()
+        perDay[d] = (perDay[d] ?: 0) + m
+    }
+    val big = perDay.maxByOrNull { it.value }
+    val headline = buildString {
+        append(genre?.let { "Mostly " + pluralGenre(it) } ?: "${byTitle.size} titles")
+        if (big != null && big.value >= 240) append(", and a long " + big.key.dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.US))
+    }
+    val posters = byTitle.entries.sortedByDescending { e -> e.value.maxOf { it.watchedAt } }
+        .mapNotNull { titles[it.key]?.poster?.replace("/w342/", "/w154/") }.distinct().take(12)
+    return NuvioCTasteReview(month, current, headline, (minutes / 60.0).roundToInt(), byTitle.size, genre, most, big?.key, posters)
+}

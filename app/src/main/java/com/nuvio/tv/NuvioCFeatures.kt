@@ -671,4 +671,15 @@ object NuvioCFeatures {
     const val TASTE_MONTH = true
     /** Taste: rotating poster rows (Because you loved, More from, decade and genre gaps, Unfinished, Rewatch), at most two TMDB calls a visit. Off = no rows. */
     const val TASTE_ROWS = true
+    // [fork] round 41
+    /** Taste: held Up / Down gate, tile count-up once per visit, Spotlight lines as separate list items and a steady scroll anchor. Off = round 40 scrolling. */
+    const val TASTE_SMOOTH = true
+    /** Taste: two-column genre legend, wider Spin card with a poster fan and compact chips, one backdrop rotating per visit from recent titles. Off = round 40 look. */
+    const val TASTE_POLISH = true
+    /** Taste: Month in review banner above Spotlight (last month in the first week, then the current month so far). Off = no banner. */
+    const val TASTE_REVIEW = true
+    /** Taste: pressing a spotlight card opens a right-side panel listing its titles, with the card's action at the top. Off = the card acts directly. */
+    const val TASTE_CARD_TITLES = true
+    /** Taste: Back from a month view returns to the default view, focus on what opened it. Off = Back leaves the page. */
+    const val TASTE_BACK = true
 }

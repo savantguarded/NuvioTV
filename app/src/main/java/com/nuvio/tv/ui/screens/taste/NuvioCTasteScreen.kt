@@ -120,6 +120,7 @@ class NuvioCTasteViewModel @Inject constructor(
             opened = true
             seed = System.nanoTime()
             rowsFor = -1L
+            reviewFor = -1L // [fork] round 41 taste_review
             if (com.nuvio.tv.NuvioCFeatures.TASTE_LIVE) viewModelScope.launch { _live.value = runCatching { repository.live() }.getOrNull() }
         }
     }
@@ -147,6 +148,62 @@ class NuvioCTasteViewModel @Inject constructor(
     private val spotlightCache = HashMap<String, List<com.nuvio.tv.data.nuvioc.NuvioCTasteInsight>>()
 
     fun rowMemory(id: String): NuvioCTasteRowMemory = memories.getOrPut(id) { NuvioCTasteRowMemory() }
+
+    // ---- [fork] round 41 ----------------------------------------------------------------------------------
+    /** taste_smooth: the count-up has played this visit (scrolling the tiles back into view shows plain numbers). */
+    fun markCounted() { countUp = false }
+
+    /** taste_polish: this visit's backdrop, one of the recent ones, chosen once per open. */
+    fun backdropFor(urls: List<String>): String? = if (urls.isEmpty()) null else urls[((seed ushr 1) % urls.size).toInt()]
+
+    private val _review = MutableStateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteReview?>(null)
+    val review: StateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteReview?> = _review.asStateFlow()
+    private var reviewFor = -1L
+    fun loadReview(builtAt: Long) {
+        if (!com.nuvio.tv.NuvioCFeatures.TASTE_REVIEW || builtAt == reviewFor) return
+        reviewFor = builtAt
+        viewModelScope.launch { _review.value = runCatching { repository.review() }.getOrNull() }
+    }
+
+    /** taste_back: what opened the month view ("monthPill", "review", "recaps"), so Back can return there. */
+    var monthFrom: String? = null
+
+    /** taste_card_titles: the open titles panel (null = closed). */
+    data class Panel(
+        val card: com.nuvio.tv.data.nuvioc.NuvioCTasteInsight,
+        val scope: String,
+        val items: List<com.nuvio.tv.data.nuvioc.NuvioCTastePanelItem>? = null,
+        val sort: Int = 0
+    )
+    private val _panel = MutableStateFlow<Panel?>(null)
+    val panel: StateFlow<Panel?> = _panel.asStateFlow()
+    /** The panel row last focused (Back from a title lands on it). */
+    var panelIndex = 0
+    /** The spotlight card the panel was opened from. */
+    var panelFrom: String? = null
+
+    fun openPanel(card: com.nuvio.tv.data.nuvioc.NuvioCTasteInsight, scope: String, from: String) {
+        panelIndex = 0
+        panelFrom = from
+        _panel.value = Panel(card, scope)
+        viewModelScope.launch {
+            val items = runCatching { repository.panel(card.keys) }.getOrDefault(emptyList())
+            _panel.value = _panel.value?.takeIf { it.card.id == card.id }?.copy(items = items)
+        }
+    }
+
+    fun sortPanel(sort: Int) {
+        val p = _panel.value ?: return
+        val items = p.items ?: return
+        panelIndex = 0
+        _panel.value = p.copy(sort = sort, items = when (sort) {
+            1 -> items.sortedWith(compareByDescending<com.nuvio.tv.data.nuvioc.NuvioCTastePanelItem> { it.score ?: -1 }.thenByDescending { it.lastWatched })
+            2 -> items.sortedBy { it.name.lowercase(Locale.US) }
+            else -> items.sortedByDescending { it.lastWatched }
+        })
+    }
+
+    fun closePanel() { _panel.value = null }
 
     fun loadRows(stats: NuvioCTasteStats, builtAt: Long) {
         if (!com.nuvio.tv.NuvioCFeatures.TASTE_ROWS || builtAt == rowsFor || stats.titles == 0) return

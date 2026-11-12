@@ -45,7 +45,9 @@ data class NuvioCTasteInsight(
     val action: NuvioCTasteAction? = null,
     /** Hours of the day when this card is favoured (null = any time). */
     val hours: Set<Int>? = null,
-    val weekend: Boolean = false
+    val weekend: Boolean = false,
+    /** [fork] round 41 taste_card_titles: the titles this card counted (taste keys), for its titles panel. */
+    val keys: List<String> = emptyList()
 )
 
 data class NuvioCTasteRecap(val month: YearMonth, val titles: Int, val hours: Int, val topGenre: String?)
@@ -81,7 +83,7 @@ internal fun tasteCountryName(code: String): String = when (code.uppercase(Local
 
 internal fun tasteDecadeLabel(start: Int): String = if (start >= 2000) "${start}s" else "${start % 100}".padStart(2, '0') + "s"
 
-private fun pluralGenre(g: String): String = when (g.lowercase()) {
+internal fun pluralGenre(g: String): String = when (g.lowercase()) {
     "comedy" -> "comedies"; "drama" -> "dramas"; "thriller" -> "thrillers"; "western" -> "westerns"
     "documentary" -> "documentaries"; "romance" -> "romances"; "mystery" -> "mysteries"; "war" -> "war films"
     "family" -> "family films"; "music" -> "music films"; "horror" -> "horror"; "animation" -> "animation"
@@ -123,7 +125,8 @@ internal fun computeTasteInsights(
         out += NuvioCTasteInsight(
             "balance", "Films and series",
             when { f >= 60 -> "Mostly films by watch time"; f <= 40 -> "Mostly series by watch time"; else -> "An even split by watch time" },
-            visual = NuvioCTasteVisual.Split(listOf(f / 100f), "Films $f%", "Series ${100 - f}%")
+            visual = NuvioCTasteVisual.Split(listOf(f / 100f), "Films $f%", "Series ${100 - f}%"),
+            keys = keys.toList()
         )
     }
 
@@ -146,7 +149,8 @@ internal fun computeTasteInsights(
                 diff >= 0.3 -> "${one(diff)} above TMDB on average"
                 else -> "In step with TMDB"
             },
-            visual = NuvioCTasteVisual.Versus(you, crowd, harsh?.let { "Harshest on ${pluralGenre(it.first)}" }, kind?.let { "Kindest on ${pluralGenre(it.first)}" })
+            visual = NuvioCTasteVisual.Versus(you, crowd, harsh?.let { "Harshest on ${pluralGenre(it.first)}" }, kind?.let { "Kindest on ${pluralGenre(it.first)}" }),
+            keys = rated.map { it.first }
         )
     }
 
@@ -162,7 +166,8 @@ internal fun computeTasteInsights(
             if (second != null && ordered[1].value * 3 >= ordered[0].value) "The ${tasteDecadeLabel(first)}, then the ${tasteDecadeLabel(second)}"
             else "Mostly the ${tasteDecadeLabel(first)}",
             visual = NuvioCTasteVisual.Bars(span.map { decadeCounts[it] ?: 0 }, span.indexOf(first), tasteDecadeLabel(span.first()), tasteDecadeLabel(span.last())),
-            action = NuvioCTasteAction.Spin(genreRank.firstOrNull(), first)
+            action = NuvioCTasteAction.Spin(genreRank.firstOrNull(), first),
+            keys = keys.filter { k -> titles[k]?.year?.let { it - it % 10 == first } == true }
         )
     }
 
@@ -177,7 +182,8 @@ internal fun computeTasteInsights(
             "binge", "Binge depth", "${one(avg)} episodes a sitting",
             line = if (longest != null && name != null && longest.value.size >= 3) "Longest: ${longest.value.size} episodes of $name in a day" else null,
             action = longest?.let { l -> titles[l.key.first]?.let { NuvioCTasteAction.Title(it.imdbId ?: "tmdb:${it.tmdbId}", "series") } },
-            weekend = true
+            weekend = true,
+            keys = episodeLines.map(::tasteKeyOf).distinct()
         )
     }
 
@@ -188,7 +194,8 @@ internal fun computeTasteInsights(
         out += NuvioCTasteInsight(
             "countries", "Where it's from",
             counts.joinToString(" · ") { "${tasteCountryName(it.key)} ${pct(it.value, countryTitles.size)}%" },
-            visual = NuvioCTasteVisual.Split(counts.map { it.value.toFloat() / countryTitles.size })
+            visual = NuvioCTasteVisual.Split(counts.map { it.value.toFloat() / countryTitles.size }),
+            keys = counts.map { it.key }.toSet().let { top -> keys.filter { titles[it]?.countries?.firstOrNull() in top } }
         )
     }
 
@@ -204,7 +211,8 @@ internal fun computeTasteInsights(
             else -> "Films of ${minutesLabel(edges[top])} to ${minutesLabel(edges[top + 1])}"
         }
         out += NuvioCTasteInsight("runtime", "Runtime sweet spot", value,
-            visual = NuvioCTasteVisual.Bars(buckets, top, "Short", "Long"))
+            visual = NuvioCTasteVisual.Bars(buckets, top, "Short", "Long"),
+            keys = movieKeys.filter { k -> titles[k]?.runtime?.let { it in 40..300 && it >= edges[top] && it < edges[top + 1] } == true })
     }
 
     // 7. busiest day
@@ -214,7 +222,8 @@ internal fun computeTasteInsights(
         val top = perDay.indices.maxBy { perDay[it] }
         val day = DayOfWeek.entries[top].getDisplayName(TextStyle.FULL, Locale.US)
         out += NuvioCTasteInsight("day", "Busiest day", "$day, ${pct(perDay[top], stamps.size)}% of your viewing",
-            visual = NuvioCTasteVisual.Bars(perDay, top, "Mon", "Sun"), weekend = true)
+            visual = NuvioCTasteVisual.Bars(perDay, top, "Mon", "Sun"), weekend = true,
+            keys = lines.filter { Instant.ofEpochMilli(it.watchedAt).atZone(zone).dayOfWeek == DayOfWeek.entries[top] }.map(::tasteKeyOf).distinct())
 
         // 8. late nights
         val late = stamps.count { it.hour >= 22 || it.hour < 4 }
@@ -225,7 +234,8 @@ internal fun computeTasteInsights(
             out += NuvioCTasteInsight("late", "After dark", "$share% of your viewing starts after 10 pm",
                 line = lateGenre?.let { "Mostly ${pluralGenre(it)}" },
                 action = lateGenre?.let { NuvioCTasteAction.Spin(it, null) },
-                hours = setOf(21, 22, 23, 0, 1, 2, 3))
+                hours = setOf(21, 22, 23, 0, 1, 2, 3),
+                keys = lines.filter { Instant.ofEpochMilli(it.watchedAt).atZone(zone).let { z -> z.hour >= 22 || z.hour < 4 } }.map(::tasteKeyOf).distinct())
         }
     }
 
@@ -239,7 +249,8 @@ internal fun computeTasteInsights(
         val t = titles[most.first]
         out += NuvioCTasteInsight("rewatch", "Rewatches", "${rewatched.size} films seen more than once",
             line = t?.name?.takeIf { it.isNotBlank() }?.let { "Most often: $it, ${most.second} times" },
-            action = t?.let { NuvioCTasteAction.Title(it.imdbId ?: "tmdb:${it.tmdbId}", "movie") })
+            action = t?.let { NuvioCTasteAction.Title(it.imdbId ?: "tmdb:${it.tmdbId}", "movie") },
+            keys = rewatched.sortedByDescending { it.second }.map { it.first })
     }
 
     // 10. mainstream score
@@ -250,7 +261,8 @@ internal fun computeTasteInsights(
         val share = pct(wide, votes.size)
         out += NuvioCTasteInsight("mainstream", "Mainstream score", "$share% widely known titles",
             line = "A typical pick has ${NF.format(median)} TMDB ratings",
-            visual = NuvioCTasteVisual.Split(listOf(share / 100f), "Widely known", "Lesser known"))
+            visual = NuvioCTasteVisual.Split(listOf(share / 100f), "Widely known", "Lesser known"),
+            keys = keys.filter { k -> titles[k]?.let { t -> t.votes >= if (t.isShow) 1_000 else 5_000 } == true })
     }
 
     // 11. on the rise (last 90 days against the year before)
@@ -272,7 +284,8 @@ internal fun computeTasteInsights(
                 out += NuvioCTasteInsight("rise", "On the rise", "${rise.first} is up ${rise.second} points lately",
                     line = "$was% to $isNow% of your titles",
                     visual = NuvioCTasteVisual.Split(listOf(isNow / 100f)),
-                    action = NuvioCTasteAction.Spin(rise.first, null))
+                    action = NuvioCTasteAction.Spin(rise.first, null),
+                    keys = recent.filter { rise.first in titles[it]?.genres.orEmpty() })
             }
         }
     }
@@ -286,7 +299,8 @@ internal fun computeTasteInsights(
             val g = month.flatMap { titles[it]?.genres?.distinct().orEmpty() }.groupingBy { it }.eachCount().maxByOrNull { it.value }?.key
             out += NuvioCTasteInsight("month", today.month.getDisplayName(TextStyle.FULL, Locale.US) + " so far",
                 "${month.size} titles so far", line = g?.let { "Mostly ${pluralGenre(it)}" },
-                action = g?.let { NuvioCTasteAction.Spin(it, null) })
+                action = g?.let { NuvioCTasteAction.Spin(it, null) },
+                keys = month.toList())
         }
     }
 
@@ -300,14 +314,16 @@ internal fun computeTasteInsights(
                 .map { Locale(it.key).getDisplayLanguage(Locale.US).ifBlank { it.key } }
             out += NuvioCTasteInsight("language", "Languages", "$share% not in English",
                 line = when (top.size) { 0 -> null; 1 -> "${top[0]} leads"; else -> "${top[0]} leads, then ${top[1]}" },
-                visual = NuvioCTasteVisual.Split(listOf(share / 100f), "Other languages", "English"))
+                visual = NuvioCTasteVisual.Split(listOf(share / 100f), "Other languages", "English"),
+                keys = keys.filter { titles[it]?.lang?.let { l -> l != "en" } == true })
         }
     }
 
     // 14. studio / network
     val studio = keys.flatMap { titles[it]?.studios.orEmpty() }.groupingBy { it }.eachCount().maxByOrNull { it.value }
     if (studio != null && studio.value >= 3) {
-        out += NuvioCTasteInsight("studio", "Studio or network", "${studio.value} titles from ${studio.key}", line = "More than any other")
+        out += NuvioCTasteInsight("studio", "Studio or network", "${studio.value} titles from ${studio.key}", line = "More than any other",
+            keys = keys.filter { studio.key in titles[it]?.studios.orEmpty() })
     }
 
     // 15-17. people
@@ -319,11 +335,13 @@ internal fun computeTasteInsights(
     }
     dirCount.values.maxByOrNull { it.second }?.takeIf { it.second >= 3 }?.let { (p, n) ->
         out += NuvioCTasteInsight("director", "Director loyalty", "$n ${p.name} titles", line = "More than any other director",
-            action = NuvioCTasteAction.Person(p.id, p.name, true))
+            action = NuvioCTasteAction.Person(p.id, p.name, true),
+            keys = keys.filter { k -> titles[k]?.directors.orEmpty().any { it.id == p.id } })
     }
     castCount.values.maxByOrNull { it.second }?.takeIf { it.second >= 3 }?.let { (p, n) ->
         out += NuvioCTasteInsight("actor", "Most watched", p.name, line = "In $n of your titles",
-            action = NuvioCTasteAction.Person(p.id, p.name, false))
+            action = NuvioCTasteAction.Person(p.id, p.name, false),
+            keys = keys.filter { k -> titles[k]?.cast.orEmpty().any { it.id == p.id } })
     }
     if (allTime) {
         val cut = nowMs - 60L * DAY
@@ -335,7 +353,8 @@ internal fun computeTasteInsights(
         fresh?.let { (_, list) ->
             val p = list.first()
             out += NuvioCTasteInsight("discovery", "New to you", p.name, line = "${list.size} titles in the last two months",
-                action = NuvioCTasteAction.Person(p.id, p.name, false))
+                action = NuvioCTasteAction.Person(p.id, p.name, false),
+                keys = recentKeys.filter { k -> titles[k]?.cast.orEmpty().any { it.id == p.id } })
         }
     }
 
@@ -352,7 +371,8 @@ internal fun computeTasteInsights(
             if (done >= c.parts.size) "All ${c.parts.size} $name films" else "$done of ${c.parts.size} $name films",
             line = next?.let { "Next: ${it.second}" },
             visual = NuvioCTasteVisual.Steps(done, c.parts.size),
-            action = next?.let { NuvioCTasteAction.Title("tmdb:${it.first}", "movie") })
+            action = next?.let { NuvioCTasteAction.Title("tmdb:${it.first}", "movie") },
+            keys = seen.map { it.key })
     }?.let { out += it }
 
     // 19. longest streak
@@ -360,18 +380,26 @@ internal fun computeTasteInsights(
     var longest = 0
     var run = 0
     var prev: LocalDate? = null
+    var streakEnd: LocalDate? = null
     for (d in daySet) {
         run = if (prev != null && ChronoUnit.DAYS.between(prev, d) == 1L) run + 1 else 1
-        longest = maxOf(longest, run)
+        if (run > longest) { longest = run; streakEnd = d }
         prev = d
     }
-    if (longest >= 3) out += NuvioCTasteInsight("streak", "Longest streak", "$longest days in a row", line = "Something watched every day")
+    if (longest >= 3) {
+        val end = streakEnd!!
+        val start = end.minusDays(longest - 1L)
+        out += NuvioCTasteInsight("streak", "Longest streak", "$longest days in a row", line = "Something watched every day",
+            keys = lines.filter { Instant.ofEpochMilli(it.watchedAt).atZone(zone).toLocalDate().let { d -> !d.isBefore(start) && !d.isAfter(end) } }
+                .map(::tasteKeyOf).distinct())
+    }
 
     // 20. oldest film
     movieKeys.mapNotNull { titles[it] }.filter { it.year != null && it.name.isNotBlank() }.minByOrNull { it.year!! }
         ?.takeIf { it.year!! < 1980 && movieKeys.size >= 10 }?.let { t ->
             out += NuvioCTasteInsight("oldest", "Oldest film", "${t.name} (${t.year})",
-                action = NuvioCTasteAction.Title(t.imdbId ?: "tmdb:${t.tmdbId}", "movie"))
+                action = NuvioCTasteAction.Title(t.imdbId ?: "tmdb:${t.tmdbId}", "movie"),
+                keys = movieKeys.filter { k -> titles[k]?.year?.let { it < 1980 } == true })
         }
 
     // 21. how you rate
@@ -384,7 +412,8 @@ internal fun computeTasteInsights(
         out += NuvioCTasteInsight("ratings", "How you rate",
             "Most often ${if (stars % 1.0 == 0.0) stars.toInt().toString() else one(stars)} stars",
             line = "${NF.format(ratingSource.size)} ratings",
-            visual = NuvioCTasteVisual.Bars(bins, top, "½", "5"))
+            visual = NuvioCTasteVisual.Bars(bins, top, "½", "5"),
+            keys = keys.filter { tasteScoreFor(it, titles, scores) == top + 1 })
     }
 
     // 22. milestone title
@@ -400,7 +429,8 @@ internal fun computeTasteInsights(
                 val date = Instant.ofEpochMilli(at).atZone(zone).toLocalDate()
                 out += NuvioCTasteInsight("milestone", "Milestone", "Title ${NF.format(n)}: ${t.name}",
                     line = "${date.dayOfMonth} ${date.month.getDisplayName(TextStyle.SHORT, Locale.US)} ${date.year}",
-                    action = NuvioCTasteAction.Title(t.imdbId ?: "tmdb:${t.tmdbId}", if (t.isShow) "series" else "movie"))
+                    action = NuvioCTasteAction.Title(t.imdbId ?: "tmdb:${t.tmdbId}", if (t.isShow) "series" else "movie"),
+                    keys = firsts.subList((n - 10).coerceAtLeast(0), (n + 10).coerceAtMost(firsts.size)).map { it.key })
             }
         }
     }
