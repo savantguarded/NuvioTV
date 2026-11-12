@@ -46,6 +46,7 @@ import com.nuvio.tv.domain.model.Meta
 import com.nuvio.tv.ui.theme.NuvioTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -100,7 +101,16 @@ data class NuvioCNextEpisode(val season: Int?, val episode: Int?, val date: Loca
 data class NuvioCDetailInfo(
     val metaId: String,
     val rows: List<NuvioCInfoRow> = emptyList(),
-    val next: NuvioCNextEpisode? = null
+    val next: NuvioCNextEpisode? = null,
+    // [fork] round 43 detail_info_slots / detail_awards_bodies / detail_guide
+    val show: Boolean = false,
+    val loaded: Boolean = false,
+    val rated: String? = null,
+    val awards: NuvioCAwards? = null,
+    val awardsText: String? = null,
+    val guide: com.nuvio.tv.data.repository.NuvioCGuide? = null,
+    val guideChecked: Boolean = false,
+    val imdbFromTmdb: String? = null
 )
 
 /** The info of the details page on screen; consumers check [NuvioCDetailInfo.metaId] against their title. */
@@ -127,7 +137,8 @@ class NuvioCDetailInfoViewModel @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: android.content.Context, // [fork] round 37 omdb_awards
     @Named("tmdb") tmdbRetrofit: Retrofit,
     private val tmdbService: TmdbService,
-    private val tvMaze: TvMazeApi
+    private val tvMaze: TvMazeApi,
+    private val parentalGuide: com.nuvio.tv.data.repository.ParentalGuideRepository // [fork] round 43 detail_guide
 ) : ViewModel() {
     private val api = tmdbRetrofit.create(NuvioCDetailInfoApi::class.java)
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -145,6 +156,29 @@ class NuvioCDetailInfoViewModel @Inject constructor(
         viewModelScope.launch {
             delay(SETTLE_MS) // after the page, trailer and ratings have started
             val fetched = withContext(Dispatchers.IO) { runCatching { fetch(meta) }.getOrNull() } ?: NuvioCDetailInfo(meta.id, localRows(meta))
+            if (NuvioCFeatures.DETAIL_INFO_SLOTS) {
+                // [fork] round 43: the slots show at once (fixed places, dashes until filled); awards and the guide fill in
+                // their own slots when they answer, so nothing moves.
+                var info = fetched.copy(show = isShow(meta), loaded = true, rated = meta.ageRating?.trim()?.takeIf { it.isNotBlank() })
+                NuvioCDetailInfoStore.publish(info)
+                val imdb = meta.imdbId?.takeIf { it.startsWith("tt") } ?: meta.id.takeIf { it.startsWith("tt") } ?: fetched.imdbFromTmdb
+                val awardsJob = viewModelScope.async {
+                    if (!NuvioCFeatures.DETAIL_AWARDS_BODIES || imdb == null) null
+                    else withTimeoutOrNull(15_000) { NuvioCWikidataAwards.awards(appContext, imdb) }
+                }
+                val totalJob = viewModelScope.async { withAwards(NuvioCDetailInfo(meta.id), meta, imdb).rows.firstOrNull()?.value }
+                val guideJob = viewModelScope.async {
+                    if (!NuvioCFeatures.DETAIL_GUIDE || imdb == null) null
+                    else withTimeoutOrNull(10_000) { withContext(Dispatchers.IO) { parentalGuide.nuvioCGuide(imdb) } }
+                }
+                val guide = guideJob.await()
+                info = info.copy(guide = guide, guideChecked = true)
+                if (NuvioCDetailInfoStore.current.value?.metaId == meta.id) NuvioCDetailInfoStore.publish(info)
+                info = info.copy(awards = awardsJob.await(), awardsText = totalJob.await())
+                NuvioCDetailInfoStore.put(info)
+                if (NuvioCDetailInfoStore.current.value?.metaId == meta.id) NuvioCDetailInfoStore.publish(info)
+                return@launch
+            }
             val info = withAwards(fetched, meta) // [fork] round 37 omdb_awards
             NuvioCDetailInfoStore.put(info)
             NuvioCDetailInfoStore.publish(info)
@@ -157,10 +191,10 @@ class NuvioCDetailInfoViewModel @Inject constructor(
      * [fork] round 37 omdb_awards: an Awards line last in the block. Your meta add-on's awards text when it has one,
      * else OMDb with your key (Settings > Integrations). Nothing when neither has awards.
      */
-    private suspend fun withAwards(info: NuvioCDetailInfo, meta: Meta): NuvioCDetailInfo {
+    private suspend fun withAwards(info: NuvioCDetailInfo, meta: Meta, imdbFallback: String? = null): NuvioCDetailInfo {
         if (!NuvioCFeatures.OMDB_AWARDS || info.rows.any { it.label == R.string.nuvio_c_info_awards }) return info
         val text = com.nuvio.tv.core.nuvioc.NuvioCOmdb.tidy(meta.awards) ?: run {
-            val imdb = meta.imdbId?.takeIf { it.startsWith("tt") } ?: meta.id.takeIf { it.startsWith("tt") } ?: return info
+            val imdb = meta.imdbId?.takeIf { it.startsWith("tt") } ?: meta.id.takeIf { it.startsWith("tt") } ?: imdbFallback ?: return info
             withTimeoutOrNull(8_000) { runCatching { com.nuvio.tv.core.nuvioc.NuvioCOmdb.awards(appContext, imdb) }.getOrNull() }
         } ?: return info
         return info.copy(rows = info.rows + NuvioCInfoRow(R.string.nuvio_c_info_awards, text))
@@ -174,6 +208,7 @@ class NuvioCDetailInfoViewModel @Inject constructor(
                 ?.let { add(NuvioCInfoRow(R.string.nuvio_c_info_runtime, it)) }
         }
         meta.language?.let(::languageName)?.let { add(NuvioCInfoRow(R.string.nuvio_c_info_language, it)) }
+        if (NuvioCFeatures.DETAIL_INFO_SLOTS) meta.country?.trim()?.takeIf { it.isNotBlank() }?.let { add(NuvioCInfoRow(R.string.nuvio_c_info_country, it)) }
     }
 
     private suspend fun fetch(meta: Meta): NuvioCDetailInfo? {
@@ -182,7 +217,15 @@ class NuvioCDetailInfoViewModel @Inject constructor(
             runCatching { tmdbService.ensureTmdbId(meta.id, if (show) "series" else "movie") }.getOrNull()
         }?.toIntOrNull() ?: return null
         val body = withTimeoutOrNull(8_000) {
-            api.details(if (show) "tv" else "movie", tmdbId, tmdbService.apiKey(), if (show) "external_ids" else "release_dates")
+            api.details(
+                if (show) "tv" else "movie", tmdbId, tmdbService.apiKey(),
+                when { // [fork] round 43: credits for "Based on"
+                    NuvioCFeatures.DETAIL_INFO_SLOTS && show -> "external_ids,credits"
+                    NuvioCFeatures.DETAIL_INFO_SLOTS -> "release_dates,credits,external_ids"
+                    show -> "external_ids"
+                    else -> "release_dates"
+                }
+            )
                 .takeIf { it.isSuccessful }?.body()?.use { it.string() }
         } ?: return null
         val o = json.parseToJsonElement(body).jsonObject
@@ -206,8 +249,9 @@ class NuvioCDetailInfoViewModel @Inject constructor(
             o.long("budget")?.takeIf { it > 0 }?.let { add(NuvioCInfoRow(R.string.nuvio_c_info_budget, money(it))) }
             o.long("revenue")?.takeIf { it > 0 }?.let { add(NuvioCInfoRow(R.string.nuvio_c_info_box_office, money(it))) }
             (o.str("original_language") ?: meta.language)?.let(::languageName)?.let { add(NuvioCInfoRow(R.string.nuvio_c_info_language, it)) }
+            if (NuvioCFeatures.DETAIL_INFO_SLOTS) addAll(slotExtras(meta, o, show = false))
         }
-        return NuvioCDetailInfo(meta.id, rows)
+        return NuvioCDetailInfo(meta.id, rows, imdbFromTmdb = o.str("imdb_id") ?: o.obj("external_ids")?.str("imdb_id"))
     }
 
     private suspend fun showInfo(meta: Meta, o: JsonObject): NuvioCDetailInfo {
@@ -262,8 +306,37 @@ class NuvioCDetailInfoViewModel @Inject constructor(
                 }))
             }
             (o.str("original_language") ?: meta.language)?.let(::languageName)?.let { add(NuvioCInfoRow(R.string.nuvio_c_info_language, it)) }
+            if (NuvioCFeatures.DETAIL_INFO_SLOTS) {
+                if (o.str("status")?.lowercase() in setOf("ended", "canceled", "cancelled")) {
+                    nuvioCDate(o.str("last_air_date"))?.let { add(NuvioCInfoRow(R.string.nuvio_c_info_last_aired, it)) }
+                }
+                episodes?.let { add(NuvioCInfoRow(R.string.nuvio_c_info_episodes, "$it")) }
+                val length = (o["episode_run_time"] as? JsonArray)?.firstNotNullOfOrNull { (it as? JsonPrimitive)?.intOrNull?.takeIf { m -> m > 0 } }
+                    ?: o.obj("last_episode_to_air")?.int("runtime")?.takeIf { it > 0 }
+                length?.let { add(NuvioCInfoRow(R.string.nuvio_c_info_episode_length, "about $it min")) }
+                addAll(slotExtras(meta, o, show = true))
+            }
         }
-        return NuvioCDetailInfo(meta.id, rows, next)
+        return NuvioCDetailInfo(meta.id, rows, next, imdbFromTmdb = imdb)
+    }
+
+    /** [fork] round 43 detail_info_slots: Country, Based on, Original title (when it differs). */
+    private fun slotExtras(meta: Meta, o: JsonObject, show: Boolean): List<NuvioCInfoRow> = buildList {
+        val countries = if (show) {
+            (o["origin_country"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+                .map { Locale("", it).getDisplayCountry(Locale.ENGLISH).ifBlank { it } }
+        } else {
+            (o["production_countries"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.str("name") }
+                .map { it.replace("United States of America", "United States").replace("United Kingdom of Great Britain and Northern Ireland", "United Kingdom") }
+        }
+        (countries.takeIf { it.isNotEmpty() }?.take(3)?.joinToString(", ") ?: meta.country?.trim()?.takeIf { it.isNotBlank() })
+            ?.let { add(NuvioCInfoRow(R.string.nuvio_c_info_country, it)) }
+        nuvioCBasedOn(o.obj("credits"))?.let { add(NuvioCInfoRow(R.string.nuvio_c_info_based_on, it)) }
+        val original = o.str(if (show) "original_name" else "original_title")
+        val shown = o.str(if (show) "name" else "title") ?: meta.name
+        if (original != null && !original.equals(shown, ignoreCase = true) && !original.equals(meta.name, ignoreCase = true)) {
+            add(NuvioCInfoRow(R.string.nuvio_c_info_original_title, original))
+        }
     }
 
     private companion object {
@@ -271,6 +344,23 @@ class NuvioCDetailInfoViewModel @Inject constructor(
         const val REGION = "US"
         val TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
     }
+}
+
+/**
+ * [fork] round 43: "Novel by Jim Thompson" from TMDB credits (crew jobs for source material), or null.
+ * Order: novel, book, short story, comic / graphic novel, play, memoir, article, characters.
+ */
+internal fun nuvioCBasedOn(credits: JsonObject?): String? {
+    val crew = (credits?.get("crew") as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
+    val order = listOf("Novel", "Book", "Short Story", "Comic Book", "Graphic Novel", "Play", "Memoir", "Article", "Characters")
+    for (job in order) {
+        val names = crew.filter { it.str("job").equals(job, ignoreCase = true) }.mapNotNull { it.str("name") }.distinct()
+        if (names.isNotEmpty()) {
+            val what = if (job == "Characters") "Characters" else job.lowercase().replaceFirstChar { it.uppercase() }
+            return "$what by ${names.take(2).joinToString(" and ")}"
+        }
+    }
+    return null
 }
 
 // ---- formatting ---------------------------------------------------------------------------------------
@@ -327,6 +417,13 @@ internal fun nuvioCNextEpisodeBadge(next: NuvioCNextEpisode?, today: LocalDate =
 internal fun NuvioCDetailInfoBlock(metaId: String) {
     if (!NuvioCFeatures.DETAIL_INFO_BLOCK) return
     val info by NuvioCDetailInfoStore.current.collectAsState()
+    if (NuvioCFeatures.DETAIL_INFO_SLOTS) { // [fork] round 43 detail_info_slots: fixed places, Awards, Parental guidance
+        val current = info?.takeIf { it.metaId == metaId && it.loaded } ?: return
+        Column(Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 36.dp)) {
+            NuvioCInfoSlots(current, com.nuvio.tv.ui.components.nuvioCDetailMargin)
+        }
+        return
+    }
     val rows = info?.takeIf { it.metaId == metaId }?.rows.orEmpty()
         .filter { !com.nuvio.tv.NuvioCFeatures.DETAIL_INFO_TRIM || it.label !in NUVIO_C_INFO_TRIMMED } // [fork] round 32 detail_info_trim
     if (rows.isEmpty()) return

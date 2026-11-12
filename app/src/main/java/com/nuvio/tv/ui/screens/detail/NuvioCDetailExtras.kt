@@ -1,0 +1,401 @@
+package com.nuvio.tv.ui.screens.detail
+
+// [fork] Nuvio C round 43 (switches `detail_info_slots`, `detail_awards_bodies`, `detail_guide`).
+//
+// The Information block as fixed slots: every label always in the same place for films (8) and shows (10), a dim
+// dash where a value is missing, so the eye always finds the same thing in the same spot. Anything the top of the
+// page already shows (rating, runtime, genres, seasons, director / creator) stays out.
+//
+// Awards: one line per major body, always the same lines (films: Academy Awards, Golden Globes, BAFTA, Festivals,
+// Overall; shows: Primetime Emmys, Golden Globes, BAFTA, Overall). Per-body counts and categories come from
+// Wikidata by IMDb id (free, no key; wins and nominations recorded on the title and on the people "for" it), kept
+// 7 days on disk. Overall is OMDb's / the meta add-on's total. Wikidata can miss nominations for smaller titles, so
+// a dash means "none found", not "none".
+//
+// Parental guidance: next to Information, the rating chip (NR when none) and the five IMDb categories in a fixed
+// order with a 3-step bar and the shortest non-spoiler note (2 lines, space kept even when shorter or missing).
+// Same IMDb source as the player's start-up popup.
+//
+// Nothing here is focusable and it all sits below the last row, so the page gets no new stops and late data
+// never moves anything above it.
+
+import android.content.Context
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Text
+import com.nuvio.tv.R
+import com.nuvio.tv.data.repository.NuvioCGuide
+import com.nuvio.tv.data.repository.NuvioCGuideLine
+import com.nuvio.tv.ui.theme.NuvioTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
+
+/** One awards line: counts ("1 win · 4 nominations") and the categories (wins first). */
+@Immutable
+data class NuvioCAwardLine(val wins: Int, val nominations: Int, val categories: List<String>)
+
+/** The per-body lines Wikidata gave, keyed by body; null = not looked up / unreachable. */
+@Immutable
+data class NuvioCAwards(val bodies: Map<NuvioCAwardBody, NuvioCAwardLine>)
+
+enum class NuvioCAwardBody { OSCARS, GLOBES, BAFTA, EMMYS, FESTIVALS }
+
+internal object NuvioCAwardBodies {
+    /** Which body an award belongs to, and the category text to show, or null for awards outside the five. */
+    fun classify(label: String): Pair<NuvioCAwardBody, String>? {
+        val l = label.trim()
+        fun after(prefix: String) = l.substring(prefix.length).trim().replaceFirstChar { it.uppercase() }
+        return when {
+            l.startsWith("Academy Award for ") -> NuvioCAwardBody.OSCARS to after("Academy Award for ").replace("Best Writing, ", "Best ")
+            l.startsWith("Golden Globe Award for ") -> NuvioCAwardBody.GLOBES to after("Golden Globe Award for ")
+            l.startsWith("BAFTA Award for ") -> NuvioCAwardBody.BAFTA to after("BAFTA Award for ")
+            l.startsWith("British Academy Film Award for ") -> NuvioCAwardBody.BAFTA to after("British Academy Film Award for ")
+            l.startsWith("British Academy Television Award for ") -> NuvioCAwardBody.BAFTA to after("British Academy Television Award for ")
+            l.startsWith("BAFTA TV Award for ") -> NuvioCAwardBody.BAFTA to after("BAFTA TV Award for ")
+            l.startsWith("Primetime Emmy Award for ") -> NuvioCAwardBody.EMMYS to after("Primetime Emmy Award for ")
+            FESTIVAL.containsMatchIn(l) -> NuvioCAwardBody.FESTIVALS to l
+            else -> null
+        }
+    }
+
+    private val FESTIVAL = Regex(
+        "Palme d'Or|Palme d’Or|Cannes|Golden Lion|Silver Lion|Venice|Volpi Cup|Golden Bear|Silver Bear|Berlin",
+        RegexOption.IGNORE_CASE
+    )
+
+    /** Rows of (kind "win"/"nom", award label, who) into per-body lines. A win counts as a nomination too. */
+    fun group(rows: List<Triple<String, String, String>>): NuvioCAwards {
+        val noms = HashMap<NuvioCAwardBody, MutableSet<Pair<String, String>>>()
+        val wins = HashMap<NuvioCAwardBody, MutableSet<Pair<String, String>>>()
+        val winCats = HashMap<NuvioCAwardBody, LinkedHashSet<String>>()
+        val nomCats = HashMap<NuvioCAwardBody, LinkedHashSet<String>>()
+        rows.forEach { (kind, label, who) ->
+            val (body, cat) = classify(label) ?: return@forEach
+            noms.getOrPut(body) { HashSet() }.add(label to who)
+            if (kind == "win") {
+                wins.getOrPut(body) { HashSet() }.add(label to who)
+                winCats.getOrPut(body) { LinkedHashSet() }.add(cat)
+            } else {
+                nomCats.getOrPut(body) { LinkedHashSet() }.add(cat)
+            }
+        }
+        val out = noms.keys.associateWith { body ->
+            val w = winCats[body].orEmpty()
+            val n = nomCats[body].orEmpty().filter { it !in w }
+            NuvioCAwardLine(wins[body]?.size ?: 0, noms[body]?.size ?: 0, w.toList() + n)
+        }
+        return NuvioCAwards(out)
+    }
+
+    /** "152 wins & 220 nominations" / "4 wins" / "3 nominations" out of OMDb's or the add-on's text, else null. */
+    fun overall(text: String?): String? {
+        val t = text ?: return null
+        val w = Regex("""(\d+)\s+wins?""", RegexOption.IGNORE_CASE).find(t)?.groupValues?.get(1)?.toIntOrNull()
+        val n = Regex("""(\d+)\s+nominations?""", RegexOption.IGNORE_CASE).find(t)?.groupValues?.get(1)?.toIntOrNull()
+        return countText(w ?: 0, n ?: 0).takeIf { w != null || n != null }
+    }
+
+    fun countText(wins: Int, nominations: Int): String {
+        val parts = buildList {
+            if (wins > 0) add("$wins ${if (wins == 1) "win" else "wins"}")
+            if (nominations > 0) add("$nominations ${if (nominations == 1) "nomination" else "nominations"}")
+        }
+        return parts.joinToString(" · ")
+    }
+}
+
+/** Wikidata lookup by IMDb id, 7 days on disk (30 entries in memory). */
+internal object NuvioCWikidataAwards {
+    private const val TTL_MS = 7L * 24 * 60 * 60 * 1000
+    private const val FILE = "nuvio_c_awards.json"
+    private const val MAX = 400
+    private val memory = LinkedHashMap<String, NuvioCAwards>()
+
+    suspend fun awards(context: Context, imdbId: String): NuvioCAwards? = withContext(Dispatchers.IO) {
+        if (!imdbId.matches(Regex("tt\\d+"))) return@withContext null
+        synchronized(memory) { memory[imdbId] }?.let { return@withContext it }
+        val file = File(context.applicationContext.filesDir, FILE)
+        val store = runCatching { if (file.exists()) JSONObject(file.readText()) else JSONObject() }.getOrDefault(JSONObject())
+        val now = System.currentTimeMillis()
+        store.optJSONObject(imdbId)?.takeIf { now - it.optLong("at") < TTL_MS }?.let { kept ->
+            val rows = kept.optJSONArray("rows")?.let(::rowsOf).orEmpty()
+            return@withContext NuvioCAwardBodies.group(rows).also { remember(imdbId, it) }
+        }
+        val rows = query(imdbId) ?: return@withContext null // unreachable: ask again next visit
+        runCatching {
+            store.put(imdbId, JSONObject().put("at", now).put("rows", JSONArray().apply {
+                rows.forEach { put(JSONArray().put(it.first).put(it.second).put(it.third)) }
+            }))
+            if (store.length() > MAX) {
+                val oldest = store.keys().asSequence().toList().sortedBy { store.optJSONObject(it)?.optLong("at") ?: 0L }
+                oldest.take(store.length() - MAX).forEach { store.remove(it) }
+            }
+            file.writeText(store.toString())
+        }
+        NuvioCAwardBodies.group(rows).also { remember(imdbId, it) }
+    }
+
+    private fun remember(id: String, a: NuvioCAwards) = synchronized(memory) {
+        memory.remove(id); memory[id] = a
+        while (memory.size > 30) memory.remove(memory.keys.first())
+    }
+
+    private fun rowsOf(a: JSONArray): List<Triple<String, String, String>> = (0 until a.length()).mapNotNull { i ->
+        a.optJSONArray(i)?.let { Triple(it.optString(0), it.optString(1), it.optString(2)) }
+    }
+
+    private fun query(imdbId: String): List<Triple<String, String, String>>? = runCatching {
+        val sparql = """
+            SELECT DISTINCT ?kind ?awardLabel ?who WHERE {
+              ?film wdt:P345 "$imdbId" .
+              {
+                { ?film p:P166 ?st . ?st ps:P166 ?award . BIND("win" AS ?kind) BIND(?film AS ?who) }
+                UNION { ?film p:P1411 ?st . ?st ps:P1411 ?award . BIND("nom" AS ?kind) BIND(?film AS ?who) }
+                UNION { ?st pq:P1686 ?film . ?who p:P166 ?st . ?st ps:P166 ?award . BIND("win" AS ?kind) }
+                UNION { ?st pq:P1686 ?film . ?who p:P1411 ?st . ?st ps:P1411 ?award . BIND("nom" AS ?kind) }
+              }
+              SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+            }
+        """.trimIndent()
+        val url = URL("https://query.wikidata.org/sparql?format=json&query=" + URLEncoder.encode(sparql, "UTF-8"))
+        val c = (url.openConnection() as HttpURLConnection).apply {
+            connectTimeout = 6_000
+            readTimeout = 10_000
+            setRequestProperty("Accept", "application/sparql-results+json")
+            setRequestProperty("User-Agent", "NuvioC/1.0 (personal Android TV app)")
+        }
+        try {
+            if (c.responseCode !in 200..299) return@runCatching null
+            val body = c.inputStream.bufferedReader().use { it.readText() }
+            val bindings = JSONObject(body).getJSONObject("results").getJSONArray("bindings")
+            (0 until bindings.length()).mapNotNull { i ->
+                val b = bindings.getJSONObject(i)
+                val kind = b.optJSONObject("kind")?.optString("value") ?: return@mapNotNull null
+                val label = b.optJSONObject("awardLabel")?.optString("value") ?: return@mapNotNull null
+                val who = b.optJSONObject("who")?.optString("value").orEmpty().substringAfterLast('/')
+                Triple(kind, label, who)
+            }
+        } finally {
+            c.disconnect()
+        }
+    }.getOrNull()
+}
+
+// ---- the slots -------------------------------------------------------------------------------------------
+
+private const val DASH = "–"
+
+/** The fixed Information labels, in reading order (two per line). */
+internal val NUVIO_C_FILM_SLOTS = listOf(
+    R.string.nuvio_c_info_theatrical, R.string.nuvio_c_info_digital,
+    R.string.nuvio_c_info_country, R.string.nuvio_c_info_language,
+    R.string.nuvio_c_info_budget, R.string.nuvio_c_info_box_office,
+    R.string.nuvio_c_info_based_on, R.string.nuvio_c_info_original_title
+)
+internal val NUVIO_C_SHOW_SLOTS = listOf(
+    R.string.nuvio_c_info_status, R.string.nuvio_c_info_airs,
+    R.string.nuvio_c_info_first_aired, R.string.nuvio_c_info_last_aired,
+    R.string.nuvio_c_info_episodes, R.string.nuvio_c_info_episode_length,
+    R.string.nuvio_c_info_country, R.string.nuvio_c_info_language,
+    R.string.nuvio_c_info_based_on, R.string.nuvio_c_info_original_title
+)
+
+@Composable
+internal fun NuvioCInfoSlots(info: NuvioCDetailInfo, margin: Dp) {
+    val hairline = NuvioTheme.colors.TextPrimary.copy(alpha = 0.08f)
+    val dim = NuvioTheme.extendedColors.textTertiary
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = margin),
+        horizontalArrangement = Arrangement.spacedBy(56.dp)
+    ) {
+        // Left: Information, then Awards
+        Column(Modifier.weight(1.3f)) {
+            Heading(stringResource(R.string.nuvio_c_info_title))
+            val slots = if (info.show) NUVIO_C_SHOW_SLOTS else NUVIO_C_FILM_SLOTS
+            val byLabel = info.rows.associateBy { it.label }
+            slots.chunked(2).forEach { pair ->
+                Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
+                Row(horizontalArrangement = Arrangement.spacedBy(40.dp), modifier = Modifier.fillMaxWidth()) {
+                    pair.forEach { label ->
+                        val row = byLabel[label]
+                        val value = row?.value?.let { v ->
+                            if (v.startsWith("\u0000")) v.drop(1).toIntOrNull()?.let { stringResource(it) } else v
+                        }?.takeIf { it.isNotBlank() }
+                        SlotLine(stringResource(label), value, Modifier.weight(1f))
+                    }
+                }
+            }
+            Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
+            if (com.nuvio.tv.NuvioCFeatures.DETAIL_AWARDS_BODIES) {
+                Spacer(Modifier.height(22.dp))
+                SubHeading(stringResource(R.string.nuvio_c_info_awards))
+                val bodies = if (info.show) {
+                    listOf(NuvioCAwardBody.EMMYS to R.string.nuvio_c_award_emmys, NuvioCAwardBody.GLOBES to R.string.nuvio_c_award_globes, NuvioCAwardBody.BAFTA to R.string.nuvio_c_award_bafta)
+                } else {
+                    listOf(NuvioCAwardBody.OSCARS to R.string.nuvio_c_award_oscars, NuvioCAwardBody.GLOBES to R.string.nuvio_c_award_globes, NuvioCAwardBody.BAFTA to R.string.nuvio_c_award_bafta, NuvioCAwardBody.FESTIVALS to R.string.nuvio_c_award_festivals)
+                }
+                bodies.forEach { (body, name) ->
+                    val line = info.awards?.bodies?.get(body)
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
+                    AwardLine(stringResource(name), line?.let { NuvioCAwardBodies.countText(it.wins, it.nominations) }, line?.categories?.joinToString(" · "))
+                }
+                Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
+                AwardLine(stringResource(R.string.nuvio_c_award_overall), NuvioCAwardBodies.overall(info.awardsText), null)
+                Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
+            }
+        }
+        // Right: Parental guidance
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_GUIDE) {
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Heading(stringResource(R.string.nuvio_c_guide_title))
+                    Spacer(Modifier.width(12.dp))
+                    Box(
+                        Modifier
+                            .padding(bottom = 12.dp)
+                            .border(1.dp, NuvioTheme.colors.TextPrimary.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 1.dp)
+                    ) {
+                        Text(info.rated ?: "NR", style = MaterialTheme.typography.labelMedium, color = NuvioTheme.colors.TextPrimary, maxLines = 1)
+                    }
+                }
+                val g = info.guide
+                listOf(
+                    R.string.nuvio_c_guide_nudity to g?.nudity,
+                    R.string.nuvio_c_guide_violence to g?.violence,
+                    R.string.nuvio_c_guide_profanity to g?.profanity,
+                    R.string.nuvio_c_guide_alcohol to g?.alcohol,
+                    R.string.nuvio_c_guide_frightening to g?.frightening
+                ).forEach { (label, line) ->
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
+                    GuideLine(stringResource(label), line, dimmed = g == null)
+                }
+                Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
+                if (g == null && info.guideChecked) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(stringResource(R.string.nuvio_c_guide_none), style = MaterialTheme.typography.labelMedium, color = dim, maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Heading(text: String) {
+    Text(text, style = MaterialTheme.typography.titleLarge, color = NuvioTheme.colors.TextPrimary, maxLines = 1, modifier = Modifier.padding(bottom = 12.dp))
+}
+
+@Composable
+private fun SubHeading(text: String) {
+    Text(text, style = MaterialTheme.typography.titleMedium, color = NuvioTheme.colors.TextPrimary, maxLines = 1, modifier = Modifier.padding(bottom = 8.dp))
+}
+
+@Composable
+private fun SlotLine(label: String, value: String?, modifier: Modifier) {
+    Row(modifier.padding(vertical = 11.dp), verticalAlignment = Alignment.Top) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = NuvioTheme.extendedColors.textTertiary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.width(124.dp)
+        )
+        Text(
+            value ?: DASH,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (value != null) NuvioTheme.colors.TextPrimary else NuvioTheme.extendedColors.textTertiary.copy(alpha = 0.6f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun AwardLine(body: String, counts: String?, categories: String?) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 9.dp), verticalAlignment = Alignment.Top) {
+        Text(body, style = MaterialTheme.typography.bodyMedium, color = NuvioTheme.extendedColors.textTertiary, maxLines = 1, modifier = Modifier.width(150.dp))
+        Text(
+            counts?.takeIf { it.isNotBlank() } ?: DASH,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (!counts.isNullOrBlank()) NuvioTheme.colors.TextPrimary else NuvioTheme.extendedColors.textTertiary.copy(alpha = 0.6f),
+            maxLines = 1,
+            modifier = Modifier.width(190.dp)
+        )
+        Text(
+            categories.orEmpty(),
+            style = MaterialTheme.typography.bodySmall,
+            color = NuvioTheme.extendedColors.textTertiary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun GuideLine(label: String, line: NuvioCGuideLine?, dimmed: Boolean) {
+    val steps = when (line?.level) { "mild" -> 1; "moderate" -> 2; "severe" -> 3; else -> 0 }
+    val levelText = when (line?.level) {
+        "none" -> stringResource(R.string.nuvio_c_guide_level_none)
+        "mild" -> stringResource(R.string.nuvio_c_guide_level_mild)
+        "moderate" -> stringResource(R.string.nuvio_c_guide_level_moderate)
+        "severe" -> stringResource(R.string.nuvio_c_guide_level_severe)
+        else -> DASH
+    }
+    val alpha = if (dimmed) 0.45f else 1f
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = NuvioTheme.extendedColors.textTertiary.copy(alpha = alpha), maxLines = 1, modifier = Modifier.width(132.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.width(66.dp)) {
+                repeat(3) { i ->
+                    Box(
+                        Modifier.width(18.dp).height(5.dp)
+                            .background(
+                                if (i < steps) NuvioTheme.colors.TextPrimary.copy(alpha = 0.9f) else NuvioTheme.colors.TextPrimary.copy(alpha = 0.14f * alpha),
+                                RoundedCornerShape(3.dp)
+                            )
+                    )
+                }
+            }
+            Text(levelText, style = MaterialTheme.typography.bodyMedium, color = (if (line?.level != null) NuvioTheme.colors.TextPrimary else NuvioTheme.extendedColors.textTertiary).copy(alpha = alpha), maxLines = 1)
+        }
+        // Two lines of room always, so every row is the same height.
+        Text(
+            line?.note.orEmpty(),
+            style = MaterialTheme.typography.bodySmall,
+            color = NuvioTheme.extendedColors.textTertiary,
+            maxLines = 2,
+            minLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 132.dp, top = 3.dp).heightIn(min = 0.dp)
+        )
+    }
+}

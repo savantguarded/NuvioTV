@@ -359,4 +359,37 @@
     <string name="nuvio_c_empty_seen_title">Nothing new in this mix</string>
     <string name="nuvio_c_empty_seen_body">Everything here has been watched or shown recently.</string>
     <string name="nuvio_c_empty_open_refine">Open Refine</string>
+    <!-- [fork] round 43 -->
+    <plurals name="nuvio_c_hero_seasons">
+        <item quantity="one">%d season</item>
+        <item quantity="other">%d seasons</item>
+    </plurals>
+    <string name="nuvio_c_info_country">Country</string>
+    <string name="nuvio_c_info_based_on">Based on</string>
+    <string name="nuvio_c_info_original_title">Original title</string>
+    <string name="nuvio_c_info_last_aired">Last aired</string>
+    <string name="nuvio_c_info_episodes">Episodes</string>
+    <string name="nuvio_c_info_episode_length">Episode length</string>
+    <string name="nuvio_c_award_oscars">Academy Awards</string>
+    <string name="nuvio_c_award_globes">Golden Globes</string>
+    <string name="nuvio_c_award_bafta">BAFTA</string>
+    <string name="nuvio_c_award_emmys">Primetime Emmys</string>
+    <string name="nuvio_c_award_festivals">Festivals</string>
+    <string name="nuvio_c_award_overall">Overall</string>
+    <string name="nuvio_c_guide_title">Parental guidance</string>
+    <string name="nuvio_c_guide_nudity">Sex &amp; nudity</string>
+    <string name="nuvio_c_guide_violence">Violence</string>
+    <string name="nuvio_c_guide_profanity">Profanity</string>
+    <string name="nuvio_c_guide_alcohol">Alcohol &amp; drugs</string>
+    <string name="nuvio_c_guide_frightening">Frightening</string>
+    <string name="nuvio_c_guide_level_none">None</string>
+    <string name="nuvio_c_guide_level_mild">Mild</string>
+    <string name="nuvio_c_guide_level_moderate">Moderate</string>
+    <string name="nuvio_c_guide_level_severe">Severe</string>
+    <string name="nuvio_c_guide_none">No IMDb guide for this title</string>
+    <string name="nuvio_c_find">Find</string>
+    <string name="nuvio_c_find_hint">Episode number or name</string>
+    <string name="nuvio_c_find_matches">%d matches</string>
+    <string name="nuvio_c_find_one">1 match</string>
+    <string name="nuvio_c_find_none">No episodes match</string>
 </resources>

@@ -7,6 +7,18 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** [fork] Nuvio C round 43: one guide category for the details page: level (none / mild / moderate / severe) and a short note. */
+data class NuvioCGuideLine(val level: String?, val note: String?)
+
+/** [fork] Nuvio C round 43: the five categories, in the order the details page shows them. */
+data class NuvioCGuide(
+    val nudity: NuvioCGuideLine? = null,
+    val violence: NuvioCGuideLine? = null,
+    val profanity: NuvioCGuideLine? = null,
+    val alcohol: NuvioCGuideLine? = null,
+    val frightening: NuvioCGuideLine? = null
+)
+
 /**
  * Resolved parental guide data with a single severity per category,
  * determined by the highest-voted severity level from the API.
@@ -42,6 +54,45 @@ class ParentalGuideRepository @Inject constructor(
             }
         } catch (e: Exception) {
             Log.e("ParentalGuide", "Failed to fetch parental guide for $imdbId", e)
+            null
+        }
+    }
+
+    // [fork] Nuvio C round 43 detail_guide: the same IMDb guide with a level and one short note per category, for the
+    // details page. Kept apart from the player's lookup above (own cache), which stays as official.
+    private val nuvioCCache = ConcurrentHashMap<String, NuvioCGuide>()
+
+    suspend fun nuvioCGuide(imdbId: String): NuvioCGuide? {
+        if (!imdbId.startsWith("tt")) return null
+        nuvioCCache[imdbId]?.let { return it }
+        return try {
+            val response = api.getParentsGuide(imdbId)
+            if (!response.isSuccessful) return null
+            val categories = response.body()?.parentsGuide.orEmpty()
+            val byKey = categories.associateBy { it.category.uppercase() }
+            fun line(key: String): NuvioCGuideLine? {
+                val c = byKey[key] ?: return null
+                val votes = c.severityBreakdowns.orEmpty().filter { it.voteCount > 0 }
+                val level = votes.maxByOrNull { it.voteCount }?.severityLevel?.lowercase()
+                val note = c.reviews.orEmpty()
+                    .filter { it.isSpoiler != true }
+                    .mapNotNull { r -> r.text?.let { android.text.Html.fromHtml(it, android.text.Html.FROM_HTML_MODE_LEGACY).toString() } }
+                    .map { it.replace(Regex("\\s+"), " ").trim() }
+                    .filter { it.length >= 3 }
+                    .minByOrNull { it.length }
+                    ?.let { if (it.length > 170) it.take(168).trimEnd() + "…" else it }
+                if (level == null && note == null) return null
+                return NuvioCGuideLine(level, note)
+            }
+            NuvioCGuide(
+                nudity = line("SEXUAL_CONTENT"),
+                violence = line("VIOLENCE"),
+                profanity = line("PROFANITY"),
+                alcohol = line("ALCOHOL_DRUGS"),
+                frightening = line("FRIGHTENING_INTENSE_SCENES")
+            ).also { nuvioCCache[imdbId] = it }
+        } catch (e: Exception) {
+            Log.w("ParentalGuide", "Nuvio C guide failed for $imdbId", e)
             null
         }
     }

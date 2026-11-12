@@ -128,7 +128,8 @@ fun SeasonTabs(
     selectedTabFocusRequester: FocusRequester,
     upFocusRequester: FocusRequester? = null,
     downFocusRequester: FocusRequester? = null,
-    isFocusEnabled: Boolean = true
+    isFocusEnabled: Boolean = true,
+    nuvioCTrailing: (@Composable () -> Unit)? = null // [fork] round 43 episode_find: the Find chip after the last tab
 ) {
     // Move season 0 (specials) to the end
     val sortedSeasons = remember(seasons) {
@@ -278,7 +279,7 @@ fun SeasonTabs(
     ) {
         items(sortedSeasons, key = { it }) { season ->
             val isSelected = season == selectedSeason
-            val isRightEdge = if (isRtl) season == sortedSeasons.first() else season == sortedSeasons.last()
+            val isRightEdge = nuvioCTrailing == null && (if (isRtl) season == sortedSeasons.first() else season == sortedSeasons.last()) // [fork] round 43: Right reaches Find
             val isLeftEdge = if (isRtl) season == sortedSeasons.last() else season == sortedSeasons.first()
             var isFocused by remember { mutableStateOf(false) }
             var longPressTriggered by remember { mutableStateOf(false) }
@@ -371,6 +372,9 @@ fun SeasonTabs(
                     modifier = Modifier.padding(vertical = 10.dp, horizontal = 20.dp)
                 )
             }
+        }
+        if (nuvioCTrailing != null) {
+            item(key = "nuvio_c_find", contentType = "nuvio_c_find") { nuvioCTrailing() }
         }
     }
 }
@@ -811,9 +815,11 @@ private fun EpisodeCard(
     }
     val strEpisode = stringResource(R.string.episodes_episode)
     val strUnavailable = stringResource(R.string.episodes_unavailable)
-    val episodeCode = remember(episode.episode, strEpisode) {
+    val nuvioCSeasonCode = LocalNuvioCEpisodeSeasonCode.current // [fork] round 43 episode_find
+    val episodeCode = remember(episode.episode, episode.season, strEpisode, nuvioCSeasonCode) {
         val prefix = strEpisode.uppercase(Locale.getDefault())
-        episode.episode?.let { number -> "$prefix $number" } ?: prefix
+        val code = episode.episode?.let { number -> "$prefix $number" } ?: prefix
+        if (nuvioCSeasonCode && episode.season != null) (if (episode.season == 0) "SP · $code" else "S${episode.season} · $code") else code
     }
 
     val primaryColor = NuvioTheme.colors.Secondary

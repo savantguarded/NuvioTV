@@ -15,6 +15,8 @@ import android.view.Display
 internal object NuvioCDvResume {
     /** True when the current start used the header-first resume (for the playback log line). */
     @Volatile var lastHeaderFirst: Boolean = false
+    /** [fork] round 43 dv_log_more: whether this start used official's Custom Network (parallel range) source, for the playback log. */
+    @Volatile var lastParallel: Boolean? = null
 
     fun shouldReadHeaderFirst(context: Context, positionMs: Long, url: String?, filename: String?, mime: String?): Boolean {
         if (!com.nuvio.tv.NuvioCFeatures.DV_RESUME_HEADER_FIRST || positionMs <= 0L) return false

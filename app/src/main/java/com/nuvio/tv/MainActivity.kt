@@ -447,7 +447,12 @@ open class MainActivity : ComponentActivity() {
             // thinks there is one default profile), so it flashed before the profile screen.
             val nuvioCPickerPrefs = remember { getSharedPreferences("startup_splash", android.content.Context.MODE_PRIVATE) }
             val nuvioCExpectPicker = remember {
-                com.nuvio.tv.NuvioCFeatures.STARTUP_TO_PROFILES && nuvioCPickerPrefs.getBoolean("nuvioc_expect_picker", false)
+                com.nuvio.tv.NuvioCFeatures.STARTUP_TO_PROFILES && (
+                    // [fork] round 43 startup_gate_always: every fresh cold start waits (black) for the real profile list,
+                    // whatever the last launch did, so a stale "expect the profile screen" note can't let Home's logo in first.
+                    (com.nuvio.tv.NuvioCFeatures.STARTUP_GATE_ALWAYS && nuvioCStartedFresh) ||
+                        nuvioCPickerPrefs.getBoolean("nuvioc_expect_picker", false)
+                    )
             }
             var nuvioCPickerWaitOver by remember { mutableStateOf(!nuvioCExpectPicker) }
             remember { if (nuvioCExpectPicker && !com.nuvio.tv.NuvioCFeatures.STARTUP_NO_LOGO) com.nuvio.tv.ui.components.NuvioCOpening.begin(); 0 } // [fork] round 37 startup_opening (round 42b: no logo)

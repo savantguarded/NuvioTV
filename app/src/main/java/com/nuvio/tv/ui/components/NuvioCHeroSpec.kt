@@ -34,6 +34,8 @@ object NuvioCHeroSpec {
 
     /** Details: share of the hero column (48 dp each side). Narrower than home, Apple TV style (~38% of the screen). */
     const val DETAIL_TEXT_FRACTION = 0.42f
+    /** [fork] round 43 hero_synopsis_wide: the synopsis as wide as the details button row with all six buttons (0.42 x 810 / 665 px at 1080p). Fixed, the same on every title. */
+    const val DETAIL_TEXT_FRACTION_WIDE = 0.51f
 
     /**
      * Details synopsis opacity when not focused (focused = full). Apple TV draws it as translucent

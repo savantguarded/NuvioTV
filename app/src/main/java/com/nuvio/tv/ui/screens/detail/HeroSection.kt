@@ -467,10 +467,17 @@ fun HeroContentSection(
                         }
                     }
 
+                    if (com.nuvio.tv.NuvioCFeatures.HERO_FACTS_ABOVE) { // [fork] round 43 hero_facts_above
+                        Spacer(modifier = Modifier.height(NuvioTheme.spacing.md))
+                        Box(modifier = Modifier.nuvioCFade { nuvioCTextAlpha.value }) {
+                            NuvioCHeroFacts(meta = meta, hideImdbRating = hideMetaInfoImdb, tmdbRating = tmdbRating)
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
 
                     // Director/Writer line above description
-                    if (!creditLine.isNullOrBlank()) {
+                    if (!creditLine.isNullOrBlank() && !com.nuvio.tv.NuvioCFeatures.HERO_FACTS_ABOVE) { // [fork] round 43: Cast & Crew has it
                         Text(
                             text = creditLine,
                             style = MaterialTheme.typography.labelLarge.copy(
@@ -503,12 +510,15 @@ fun HeroContentSection(
                             modifier = Modifier
                                 .nuvioCFade { nuvioCTextAlpha.value * nuvioCDescriptionAlpha.value } // [fork]
                                 .onFocusChanged { nuvioCSynopsisFocused = it.hasFocus } // [fork]
-                                .fillMaxWidth(if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.DETAIL_TEXT_FRACTION else 0.6f) // [fork] hero spec
+                                .fillMaxWidth(
+                                    if (com.nuvio.tv.NuvioCFeatures.HERO_SYNOPSIS_WIDE) com.nuvio.tv.ui.components.NuvioCHeroSpec.DETAIL_TEXT_FRACTION_WIDE // [fork] round 43: as wide as the button row
+                                    else if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.DETAIL_TEXT_FRACTION else 0.6f
+                                ) // [fork] hero spec
                                 .padding(bottom = NuvioTheme.spacing.md)
                         )
                     }
 
-                    Box(modifier = Modifier.nuvioCFade { nuvioCTextAlpha.value }) { MetaInfoRow( // [fork] dimmed with the text
+                    if (!com.nuvio.tv.NuvioCFeatures.HERO_FACTS_ABOVE) Box(modifier = Modifier.nuvioCFade { nuvioCTextAlpha.value }) { MetaInfoRow( // [fork] dimmed with the text (round 43: replaced by the facts line under the buttons)
                         meta = meta,
                         hideImdbRating = hideMetaInfoImdb,
                         showFullReleaseDate = showFullReleaseDate,
@@ -1150,3 +1160,66 @@ private fun MetaInfoDivider() {
 @Composable
 private fun Modifier.nuvioCDetailFocusLabel(focused: Boolean, label: String): Modifier =
     nuvioCFocusLabel(focused, label, enabled = com.nuvio.tv.NuvioCFeatures.DETAIL_FOCUS_LABEL, above = true, osdDim = false)
+
+/**
+ * [fork] round 43 hero_facts_above: one line under the buttons in place of the two lines under the synopsis.
+ * Film: [rating] year · genres · runtime. Show: [rating] years · genres · N seasons [S5 E4 TONIGHT 9:00 PM].
+ * The IMDb / TMDB scores official put in the old line come along only when the ratings row above doesn't carry them
+ * (no MDBList, e.g. a Nuvio-sync-only profile). Status, countries and language live in the Information block.
+ */
+@Composable
+private fun NuvioCHeroFacts(meta: Meta, hideImdbRating: Boolean, tmdbRating: Float?) {
+    val context = LocalContext.current
+    val isSeries = meta.type == ContentType.SERIES || meta.type == ContentType.TV
+    val parts = remember(meta.id, meta.genres, meta.runtime, meta.releaseInfo, meta.videos.size) {
+        buildList {
+            formatYearRange(meta.releaseInfo)?.let { add(it) }
+            meta.genres.take(3).takeIf { it.isNotEmpty() }?.joinToString(", ") { localizedGenreLabel(context, it) }?.let { add(it) }
+            if (isSeries) {
+                val seasons = meta.videos.mapNotNull { it.season }.filter { it > 0 }.distinct().size
+                if (seasons > 0) add(context.resources.getQuantityString(R.plurals.nuvio_c_hero_seasons, seasons, seasons))
+            } else {
+                meta.runtime?.let { formatRuntime(it) }?.let { add(it) }
+            }
+        }
+    }
+    val chip = meta.ageRating?.trim()?.takeIf { it.isNotBlank() }
+    val info by NuvioCDetailInfoStore.current.collectAsState()
+    val countdown = if (com.nuvio.tv.NuvioCFeatures.DETAIL_NEXT_EP_BADGE && isSeries) {
+        info?.takeIf { it.metaId == meta.id }?.next?.let { nuvioCNextEpisodeBadge(it) }
+    } else null
+    val imdb = if (hideImdbRating) null else meta.imdbRating
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.height(28.dp)
+    ) {
+        chip?.let { HeroMetaBadge(text = it) }
+        parts.forEachIndexed { i, part ->
+            if (i > 0) MetaInfoDivider()
+            Text(
+                text = part,
+                style = MaterialTheme.typography.labelLarge,
+                color = NuvioTheme.extendedColors.textSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        imdb?.let { rating ->
+            if (parts.isNotEmpty()) MetaInfoDivider()
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)) {
+                ImdbRatingSourceLabel(
+                    logoModifier = Modifier.size(26.dp),
+                    textStyle = MaterialTheme.typography.labelLarge,
+                    textColor = NuvioTheme.extendedColors.textSecondary
+                )
+                Text(String.format("%.1f", rating), style = MaterialTheme.typography.labelLarge, color = NuvioTheme.extendedColors.textSecondary)
+            }
+        }
+        tmdbRating?.let { rating ->
+            if (parts.isNotEmpty() || imdb != null) MetaInfoDivider()
+            Text("TMDB ${(rating * 10).toInt()}", style = MaterialTheme.typography.labelLarge, color = NuvioTheme.extendedColors.textSecondary)
+        }
+        countdown?.let { HeroMetaBadge(text = it, contentColor = NuvioTheme.colors.Secondary) }
+    }
+}

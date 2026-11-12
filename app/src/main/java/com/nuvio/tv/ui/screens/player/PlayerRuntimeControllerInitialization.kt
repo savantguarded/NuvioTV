@@ -1138,6 +1138,7 @@ internal fun PlayerRuntimeController.initializePlayer(
                     context, initialResumePosition, url, currentFilename, currentStreamMimeType
                 ) // [fork] round 42 dv_resume_header_first
                 NuvioCDvResume.lastHeaderFirst = nuvioCHeaderFirst
+                NuvioCDvResume.lastParallel = mediaSourceFactory.useParallelConnections // [fork] round 43 dv_log_more (read-only)
                 if (nuvioCHeaderFirst) {
                     setMediaSource(initialMediaSource)
                     _uiState.update { it.copy(pendingSeekPosition = initialResumePosition) }

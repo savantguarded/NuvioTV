@@ -702,7 +702,7 @@ object NuvioCFeatures {
     /** Taste: the refresh button spins while rebuilding and says Updated; a long press re-reads every title's details. Off = silent refresh. */
     const val TASTE_REFRESH_FEEDBACK = true
     /** Player: resuming an MKV mid-file on a Dolby Vision TV reads the file's header from the start, then jumps to the resume point, so the Dolby Vision track isn't lost. Decoder untouched. Off = official resume. */
-    const val DV_RESUME_HEADER_FIRST = true
+    const val DV_RESUME_HEADER_FIRST = false // round 43: off, back to official resume (set position at prepare). It also lost the resume point.
     // [fork] round 42b
     /** Taste: closing a titles or recap panel puts focus back on the card or recap that opened it (the panel's focus guard stops at Back). Off = round 42. */
     const val TASTE_CLOSE_FOCUS = true
@@ -712,4 +712,21 @@ object NuvioCFeatures {
     const val TASTE_MONTH_TITLES = true
     /** Cold start onto the profile screen: no logo first (black, then the profile screen). Off = the still logo while profiles load. */
     const val STARTUP_NO_LOGO = true
+    // [fork] round 43
+    /** Start-up: every fresh cold start waits on black for the real profile list before choosing profile screen or Home, not only when the last launch showed the profile screen. Off = round 42b (remembered note). */
+    const val STARTUP_GATE_ALWAYS = true
+    /** Playback log (read-only): adds whether the filename says Dolby Vision, Custom Network on/off, time to ready, and MISS when a DV-named file came out without Dolby Vision. Off = round 42 line. */
+    const val DV_LOG_MORE = true
+    /** Details hero: rating chip, year, genres, runtime (shows: seasons and the next-episode countdown) on one line under the buttons; Director line and the two lines under the synopsis gone, so the block sits lower. Off = official lines. */
+    const val HERO_FACTS_ABOVE = true
+    /** Details hero: synopsis as wide as the six-button row (fixed on every title), left fade a little wider. Off = round 39 width. */
+    const val HERO_SYNOPSIS_WIDE = true
+    /** Details Information as fixed slots (films 8, shows 10, a dim dash when missing), nothing that the top of the page already shows; adds Country, Based on, Original title, Last aired, Episodes, Episode length. Off = round 39 block. */
+    const val DETAIL_INFO_SLOTS = true
+    /** Details Awards: one fixed line per major body (Oscars / Emmys, Golden Globes, BAFTA, Festivals for films) from Wikidata, plus Overall from OMDb. Needs DETAIL_INFO_SLOTS. Off = no Awards lines. */
+    const val DETAIL_AWARDS_BODIES = true
+    /** Details Parental guidance next to Information: rating chip, the five IMDb categories with a level bar and a short non-spoiler note. Needs DETAIL_INFO_SLOTS. Off = no guide. */
+    const val DETAIL_GUIDE = true
+    /** Details episodes: a Find chip at the end of the season tabs; search by number (12, e12, s3e5, 3x05) or name across all seasons. Off = official tabs. */
+    const val EPISODE_FIND = true
 }

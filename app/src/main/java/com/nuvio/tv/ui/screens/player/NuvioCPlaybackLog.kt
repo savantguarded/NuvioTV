@@ -36,9 +36,11 @@ internal class NuvioCPlaybackLog(
     private var format: Format? = null
     private var logged = false
     private var starts = 0
+    private var openedAt = android.os.SystemClock.elapsedRealtime() // [fork] round 43 dv_log_more
 
     private fun reset() {
         decoder = null; format = null; logged = false
+        openedAt = android.os.SystemClock.elapsedRealtime()
     }
 
     override fun onMediaItemTransition(eventTime: AnalyticsListener.EventTime, mediaItem: androidx.media3.common.MediaItem?, reason: Int) = reset()
@@ -71,6 +73,14 @@ internal class NuvioCPlaybackLog(
             // [fork] round 42: where playback started, and whether the header-first resume ran
             append(" | at=").append(eventTime.currentPlaybackPositionMs / 1000).append("s")
             if (NuvioCDvResume.lastHeaderFirst) append(" headerFirst")
+            if (com.nuvio.tv.NuvioCFeatures.DV_LOG_MORE) {
+                // [fork] round 43 dv_log_more: what to compare between a Dolby Vision start and a miss (read-only)
+                val described = runCatching(describe).getOrDefault("")
+                append(" | named=").append(if (namesDolbyVision(described)) "DV" else "-")
+                append(" net=").append(when (NuvioCDvResume.lastParallel) { true -> "custom"; false -> "default"; null -> "?" })
+                append(" ready=").append(android.os.SystemClock.elapsedRealtime() - openedAt).append("ms")
+                if (namesDolbyVision(described) && !looksDolbyVision(f)) append(" MISS")
+            }
         }
         Log.i(TAG, line)
         val target = file ?: return
@@ -88,6 +98,10 @@ internal class NuvioCPlaybackLog(
             val codecs = f.codecs.orEmpty().lowercase(Locale.US)
             return "dolby-vision" in mime || codecs.startsWith("dvh") || codecs.startsWith("dva") || codecs.startsWith("dav1")
         }
+
+        /** [fork] round 43: the filename / title says Dolby Vision (DV, DoVi, Dolby Vision, DVHE), as a word. */
+        internal fun namesDolbyVision(text: String): Boolean =
+            Regex("(?i)(^|[^a-z0-9])(dv|dovi|dvhe|dolby[ ._-]?vision)([^a-z0-9]|$)").containsMatchIn(text)
 
         internal fun decoderIsDolby(name: String?): Boolean {
             val n = name.orEmpty().lowercase(Locale.US)
