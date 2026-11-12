@@ -1,5 +1,6 @@
 package com.nuvio.tv.ui.screens.calendar
 
+import com.nuvio.tv.core.calendar.parseCalendarTitleKey
 import com.nuvio.tv.core.calendar.CalendarClock
 import com.nuvio.tv.core.calendar.CalendarEpisodeResolver
 import com.nuvio.tv.core.calendar.CalendarReminder
@@ -112,7 +113,19 @@ class DefaultCalendarScreenData @Inject constructor(
     }
 
     override suspend fun setBell(titleKey: String, on: Boolean) {
-        settingsStore.setBell(titleKey, on)
+        // [fork] round 39 bell_sync: ring every id the Calendar knows for this title, so the details page bell
+        // (which often only knows the IMDb id) shows the same state, and off clears what either screen wrote.
+        if (!com.nuvio.tv.NuvioCFeatures.BELL_SYNC) { settingsStore.setBell(titleKey, on); return }
+        val record = refresher.state.value.titles.firstOrNull { it.key == titleKey || it.matchesKey(titleKey) }
+        val parsed = parseCalendarTitleKey(titleKey)
+        val type = record?.type ?: parsed?.first
+        val ids = when {
+            record != null && parsed != null -> record.ids.merged(parsed.second)
+            record != null -> record.ids
+            else -> parsed?.second
+        }
+        if (type == null || ids == null || ids.isEmpty) settingsStore.setBell(titleKey, on)
+        else settingsStore.setBellForTitle(type, ids, on)
     }
     override suspend fun setHidden(titleKey: String, hidden: Boolean, name: String?) {
         settingsStore.setTitleHidden(titleKey, hidden, name)

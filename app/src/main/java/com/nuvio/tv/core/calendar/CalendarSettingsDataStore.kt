@@ -110,6 +110,13 @@ internal fun Set<String>.withTitleKey(titleKey: String, present: Boolean): Set<S
     return filterNotTo(linkedSetOf()) { it == titleKey || calendarKeyMatches(it, type, ids) }
 }
 
+/** [fork] round 39 bell_sync: see [CalendarSettingsDataStore.setBellForTitle]. */
+internal fun Set<String>.withBellForTitle(type: CalendarTitleType, ids: CalendarIds, on: Boolean): Set<String> {
+    val prefix = type.name.lowercase()
+    return if (on) this + ids.aliases().map { "$prefix:$it" }
+    else filterNotTo(linkedSetOf()) { calendarKeyMatches(it, type, ids) }
+}
+
 internal fun MutablePreferences.toggleInSet(key: Preferences.Key<Set<String>>, value: String, present: Boolean) {
     this[key] = this[key].orEmpty().withTitleKey(value, present)
 }
@@ -190,6 +197,13 @@ class CalendarSettingsDataStore @Inject constructor(
 
     suspend fun setBell(titleKey: String, on: Boolean) =
         store().edit { it.toggleInSet(CalendarSettingsKeys.bellOn, titleKey, on) }
+
+    // [fork] round 39 bell_sync: one bell per title, whichever screen rings it. On writes a key for every id the
+    // title is known by (the details page usually knows the IMDb id, the Calendar sometimes only TMDB / TVDB), so
+    // both screens always see it; off removes every key naming any of those ids, so it can't linger on one screen.
+    suspend fun setBellForTitle(type: CalendarTitleType, ids: CalendarIds, on: Boolean) = store().edit { prefs ->
+        prefs[CalendarSettingsKeys.bellOn] = prefs[CalendarSettingsKeys.bellOn].orEmpty().withBellForTitle(type, ids, on)
+    }
 
     private companion object {
         const val FEATURE = "calendar_settings"

@@ -231,11 +231,13 @@ fun CalendarScreen(
                     else -> CalendarStateMessage(uiState, modeFocusRequester)
                 }
             }
+            if (!com.nuvio.tv.NuvioCFeatures.CALENDAR_NO_CREDIT) { // [fork] round 39: credit lives on the About screen
             TvdbCreditLine(
                 Modifier
                     .align(Alignment.End)
                     .padding(top = NuvioTheme.spacing.xs, bottom = NuvioTheme.spacing.sm)
             )
+            }
         }
     }
     } // [fork] calendar_edge_brake

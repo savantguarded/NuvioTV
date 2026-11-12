@@ -57,20 +57,33 @@ class NuvioCDetailBellViewModel @Inject constructor(
 ) : ViewModel() {
     val bells: StateFlow<Set<String>> = settingsStore.settings
         .map { it?.bellOn.orEmpty() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, settingsStore.settings.value?.bellOn.orEmpty())
 
-    fun isOn(target: NuvioCBellTarget?, bells: Set<String>): Boolean =
-        target != null && bells.any { calendarKeyMatches(it, target.type, target.ids) }
+    // [fork] round 39 bell_sync: the details page often only knows the IMDb id while the Calendar may follow the
+    // title under TMDB / TVDB, so the target borrows the Calendar's ids for the same title before matching.
+    private fun withCalendarIds(target: NuvioCBellTarget): NuvioCBellTarget {
+        if (!NuvioCFeatures.BELL_SYNC) return target
+        val record = refresher.state.value.titles.firstOrNull { it.type == target.type && it.ids.sharesIdWith(target.ids) }
+            ?: return target
+        return target.copy(ids = target.ids.merged(record.ids))
+    }
+
+    fun isOn(target: NuvioCBellTarget?, bells: Set<String>): Boolean {
+        if (target == null) return false
+        val full = withCalendarIds(target)
+        return bells.any { calendarKeyMatches(it, full.type, full.ids) }
+    }
 
     fun toggle(target: NuvioCBellTarget) {
-        val key = target.key ?: return
-        val turnOn = !isOn(target, bells.value)
+        if (target.key == null) return
+        val full = withCalendarIds(target)
+        val turnOn = !isOn(full, bells.value)
         viewModelScope.launch {
-            // Off removes every bell key naming this title (the Calendar may have stored it under another id).
-            settingsStore.setBell(key, turnOn)
+            // Writes / clears every id the title is known by, the same call the Calendar's bell makes.
+            settingsStore.setBellForTitle(full.type, full.ids, turnOn)
             if (turnOn) {
                 val hidden = settingsStore.settings.value?.hiddenTitleKeys.orEmpty()
-                hidden.filter { calendarKeyMatches(it, target.type, target.ids) }
+                hidden.filter { calendarKeyMatches(it, full.type, full.ids) }
                     .forEach { settingsStore.setTitleHidden(it, hidden = false) }
                 // A plain refresh: the new bell title joins the followed list and is fetched first (bells go first);
                 // no service calendars (MDBList / TMDB) are asked again for it.
