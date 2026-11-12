@@ -402,7 +402,7 @@ private fun PanelPill(label: String, selected: Boolean, modifier: Modifier = Mod
     }
 }
 
-@OptIn(ExperimentalTvMaterial3Api::class)
+@OptIn(ExperimentalTvMaterial3Api::class, androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun PanelList(
     items: List<NuvioCTastePanelItem>,
