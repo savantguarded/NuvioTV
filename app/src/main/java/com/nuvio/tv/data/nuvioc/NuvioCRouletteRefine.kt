@@ -51,8 +51,36 @@ enum class NuvioCRouletteRegion(val key: String, val countries: String?) {
     MIDDLE_EAST("middle_east", "TR|IL|IR|SA|AE|EG|LB|JO"),
     LATIN_AMERICA("latin_america", "MX|BR|AR|CO|CL|PE|CU"),
     NORTH_AMERICA("north_america", "US|CA"),
-    OCEANIA("oceania", "AU|NZ")
+    OCEANIA("oceania", "AU|NZ"),
+    // [fork] round 39 roulette_refine_more: single countries, after the regions so saved choices keep their meaning
+    HOLLYWOOD("us", "US"),
+    BRITISH("gb", "GB"),
+    FRENCH("fr", "FR"),
+    SPANISH("es", "ES"),
+    KOREAN("kr", "KR"),
+    JAPANESE("jp", "JP"),
+    INDIAN("in", "IN"),
+    NIGERIAN("ng", "NG")
 }
+
+/** [fork] round 39 roulette_refine_more: a theme, from TMDB keywords (War uses the war genre). */
+enum class NuvioCRouletteTheme(val key: String, val keyword: String?) {
+    ANY("any", null),
+    HEIST("heist", "10051"),
+    REVENGE("revenge", "9748"),
+    BOOK("book", "818"),
+    TIME_TRAVEL("time_travel", "4379"),
+    SURVIVAL("survival", "10349"),
+    COURTROOM("courtroom", "33519"),
+    SPORTS("sports", "6075"),
+    WAR("war", null)
+}
+
+/** [fork] round 39 roulette_refine_more: who it's for (films only: TMDB has US certifications for films, not shows). */
+enum class NuvioCRouletteAudience(val key: String) { ANY("any"), FAMILY("family"), ADULTS("adults") }
+
+/** [fork] round 39 roulette_refine_more: show status / format (shows only, TMDB `with_status` / `with_type`). */
+enum class NuvioCRouletteStatus(val key: String) { ANY("any"), ONGOING("ongoing"), ENDED("ended"), MINISERIES("miniseries") }
 
 /** Film running time / episode length (TMDB `with_runtime`, minutes). */
 enum class NuvioCRouletteLength(val key: String, val movieMin: Int?, val movieMax: Int?, val tvMin: Int?, val tvMax: Int?) {
@@ -72,12 +100,19 @@ data class NuvioCRouletteRefine(
     val region: NuvioCRouletteRegion = NuvioCRouletteRegion.ANY,
     val length: NuvioCRouletteLength = NuvioCRouletteLength.ANY,
     val acclaim: NuvioCRouletteAcclaim = NuvioCRouletteAcclaim.ANY,
-    val pool: NuvioCRoulettePool = NuvioCRoulettePool.WIDE
+    val pool: NuvioCRoulettePool = NuvioCRoulettePool.WIDE,
+    val theme: NuvioCRouletteTheme = NuvioCRouletteTheme.ANY,
+    val audience: NuvioCRouletteAudience = NuvioCRouletteAudience.ANY,
+    val status: NuvioCRouletteStatus = NuvioCRouletteStatus.ANY
 ) {
     /** Filters switched on (pool size isn't a filter). Shown on the Refine chip. */
     val active: Int
         get() = listOf(decade != NuvioCRouletteDecade.ANY, region != NuvioCRouletteRegion.ANY,
-            length != NuvioCRouletteLength.ANY, acclaim != NuvioCRouletteAcclaim.ANY).count { it }
+            length != NuvioCRouletteLength.ANY, acclaim != NuvioCRouletteAcclaim.ANY,
+            theme != NuvioCRouletteTheme.ANY, audience != NuvioCRouletteAudience.ANY, status != NuvioCRouletteStatus.ANY).count { it }
+
+    /** [fork] round 39: the filters only (pool size kept), what a fresh visit starts from. */
+    fun cleared(): NuvioCRouletteRefine = NuvioCRouletteRefine(pool = pool)
 
     /** What a raw query actually uses (switch off = round 34 behaviour). */
     fun effective(): NuvioCRouletteRefine = when {
@@ -87,7 +122,7 @@ data class NuvioCRouletteRefine(
         else -> this
     }
 
-    fun encode(): String = listOf(decade.key, region.key, length.key, acclaim.key, pool.key).joinToString(",")
+    fun encode(): String = listOf(decade.key, region.key, length.key, acclaim.key, pool.key, theme.key, audience.key, status.key).joinToString(",")
 
     companion object {
         fun decode(s: String?): NuvioCRouletteRefine {
@@ -97,7 +132,10 @@ data class NuvioCRouletteRefine(
                 region = NuvioCRouletteRegion.entries.firstOrNull { it.key == p.getOrNull(1) } ?: NuvioCRouletteRegion.ANY,
                 length = NuvioCRouletteLength.entries.firstOrNull { it.key == p.getOrNull(2) } ?: NuvioCRouletteLength.ANY,
                 acclaim = NuvioCRouletteAcclaim.entries.firstOrNull { it.key == p.getOrNull(3) } ?: NuvioCRouletteAcclaim.ANY,
-                pool = NuvioCRoulettePool.entries.firstOrNull { it.key == p.getOrNull(4) } ?: NuvioCRoulettePool.WIDE
+                pool = NuvioCRoulettePool.entries.firstOrNull { it.key == p.getOrNull(4) } ?: NuvioCRoulettePool.WIDE,
+                theme = NuvioCRouletteTheme.entries.firstOrNull { it.key == p.getOrNull(5) } ?: NuvioCRouletteTheme.ANY,
+                audience = NuvioCRouletteAudience.entries.firstOrNull { it.key == p.getOrNull(6) } ?: NuvioCRouletteAudience.ANY,
+                status = NuvioCRouletteStatus.entries.firstOrNull { it.key == p.getOrNull(7) } ?: NuvioCRouletteStatus.ANY
             )
         }
     }

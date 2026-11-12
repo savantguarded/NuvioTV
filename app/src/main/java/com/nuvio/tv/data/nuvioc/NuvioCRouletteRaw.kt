@@ -178,13 +178,34 @@ internal class NuvioCRouletteRaw(
         val (rMin, rMax) = if (movie) refine.length.movieMin to refine.length.movieMax else refine.length.tvMin to refine.length.tvMax
         rMin?.let { q["with_runtime.gte"] = it.toString() }
         rMax?.let { q["with_runtime.lte"] = it.toString() }
+        // [fork] round 39 roulette_refine_more: theme (keywords, AND with the mood's), audience (films), status (shows)
+        val themeKeyword = refine.theme.keyword
+        when (refine.audience) {
+            NuvioCRouletteAudience.ANY -> Unit
+            NuvioCRouletteAudience.FAMILY -> if (movie) { q["certification_country"] = "US"; q["certification.lte"] = "PG" }
+            NuvioCRouletteAudience.ADULTS -> if (movie) { q["certification_country"] = "US"; q["certification"] = "R|NC-17" }
+        }
+        if (!movie) when (refine.status) {
+            NuvioCRouletteStatus.ANY -> Unit
+            NuvioCRouletteStatus.ONGOING -> q["with_status"] = "0"
+            NuvioCRouletteStatus.ENDED -> q["with_status"] = "3|4"
+            NuvioCRouletteStatus.MINISERIES -> q["with_type"] = "2"
+        }
+        val warGenre = if (refine.theme == NuvioCRouletteTheme.WAR) (if (movie) "10752" else "10768") else null
         if (mood == NuvioCShuffleMood.TRUE_STORY && com.nuvio.tv.NuvioCFeatures.ROULETTE_TRUE_STORY_TAG && !anime) {
-            q["with_keywords"] = TRUE_STORY_KEYWORD // [fork] round 37: TMDB "based on true story" (was the History genre)
+            q["with_keywords"] = listOfNotNull(TRUE_STORY_KEYWORD, themeKeyword).joinToString(",") // [fork] round 37: TMDB "based on true story" (was the History genre)
+            warGenre?.let { q["with_genres"] = it }
             return q
         }
+        themeKeyword?.let { q["with_keywords"] = it }
         val genres = if (anime) "16" else moodGenres(type, mood)
         if (genres == null) return null
-        if (genres.isNotEmpty()) q["with_genres"] = genres
+        val withGenres = when {
+            warGenre == null -> genres
+            genres.isEmpty() -> warGenre
+            else -> "$genres,$warGenre" // mood (any of) and war
+        }
+        if (withGenres.isNotEmpty()) q["with_genres"] = withGenres
         if (anime) q["with_original_language"] = "ja"
         return q
     }

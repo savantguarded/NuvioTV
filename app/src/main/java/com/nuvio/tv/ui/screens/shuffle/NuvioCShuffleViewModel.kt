@@ -37,6 +37,8 @@ data class NuvioCShuffleUi(
     val kind: NuvioCShuffleKind = NuvioCShuffleKind.MOVIES,
     val mood: NuvioCShuffleMood = NuvioCShuffleMood.ANY,
     val unwatched: Boolean = true,
+    /** [fork] round 39 roulette_watched_cycle: Unwatched -> Watched -> All. */
+    val watchFilter: com.nuvio.tv.data.nuvioc.NuvioCWatchFilter = com.nuvio.tv.data.nuvioc.NuvioCWatchFilter.UNWATCHED,
     /** Three posters per tile. */
     val fans: Map<NuvioCShuffleKind, List<String>> = emptyMap(),
     val pick: NuvioCShufflePick? = null,
@@ -86,6 +88,7 @@ class NuvioCShuffleViewModel @Inject constructor(
     private var titleOpened = false
     private var ratingsJob: Job? = null
     private var visit = kotlin.random.Random.nextInt(1000) // [fork] round 36: consecutive visits never repeat a line
+    private val refineByKind = HashMap<NuvioCShuffleKind, com.nuvio.tv.data.nuvioc.NuvioCRouletteRefine>() // [fork] round 39
 
     // [fork] round 35 roulette_ratings: one MDBList lookup for the title the reel lands on, never for the pool or
     // the posters flying past. Same call and 12 h disk cache as the details page, so opening it afterwards is free.
@@ -108,7 +111,7 @@ class NuvioCShuffleViewModel @Inject constructor(
 
     private fun fromPrefs(ui: NuvioCShuffleUi): NuvioCShuffleUi {
         val c = prefs.config.value
-        return ui.copy(kind = c.kind, mood = c.mood, unwatched = c.unwatched, sourcesOn = NuvioCShuffleSource.entries.count { c.weight(it) > 0 }, refine = c.refine)
+        return ui.copy(kind = c.kind, mood = c.mood, unwatched = c.watchFilter == com.nuvio.tv.data.nuvioc.NuvioCWatchFilter.UNWATCHED, watchFilter = c.watchFilter, sourcesOn = NuvioCShuffleSource.entries.count { c.weight(it) > 0 }, refine = c.refine)
     }
 
     /** Each time the page comes into view. Back from a title's details keeps the result; otherwise start at the mood screen. */
@@ -120,9 +123,25 @@ class NuvioCShuffleViewModel @Inject constructor(
         rollJob?.cancel()
         pool.beginVisit()
         prefs.setMood(NuvioCShuffleMood.ANY) // [fork] roulette_page: the mood starts fresh on every visit
+        if (com.nuvio.tv.NuvioCFeatures.ROULETTE_REFINE_RESET) {
+            // [fork] round 39: Refine starts clean on every visit (pool size is a setting and stays), and movies and
+            // shows keep their own Refine choices while you're here, so a show's filters never ride along on a film spin.
+            refineByKind.clear()
+            val current = prefs.config.value.refine
+            if (current.active > 0) prefs.setRefine(current.cleared())
+        }
         visit++ // [fork] round 36 roulette_copy
         _ui.update { fromPrefs(it).copy(phase = NuvioCShufflePhase.MOOD, pick = null, spin = null, landed = false, nothingLeft = false, visit = visit, spins = 0, poolSize = null) }
         loadFans()
+        // [fork] round 39 taste_page: "Spin my taste" (or a genre / decade on the Taste page) lands here with a preset.
+        NuvioCRoulettePreset.take()?.let { preset ->
+            prefs.setKind(preset.kind)
+            prefs.setMood(preset.mood)
+            val refine = prefs.config.value.refine.cleared().copy(decade = preset.decade)
+            prefs.setRefine(refine)
+            _ui.update { it.copy(kind = preset.kind, mood = preset.mood, refine = refine) }
+            roll()
+        }
     }
 
     private fun loadFans() {
@@ -143,6 +162,14 @@ class NuvioCShuffleViewModel @Inject constructor(
     fun refreshSourcesCount() = _ui.update { fromPrefs(it) }
 
     fun chooseKind(kind: NuvioCShuffleKind) {
+        if (com.nuvio.tv.NuvioCFeatures.ROULETTE_REFINE_RESET && kind != _ui.value.kind) {
+            // [fork] round 39: each type keeps its own Refine for this visit
+            val now = _ui.value.refine
+            refineByKind[_ui.value.kind] = now
+            val next = refineByKind[kind] ?: now.cleared()
+            if (next != now) prefs.setRefine(next)
+            _ui.update { it.copy(refine = next) }
+        }
         prefs.setKind(kind)
         _ui.update { it.copy(kind = kind) }
         roll()
@@ -155,6 +182,14 @@ class NuvioCShuffleViewModel @Inject constructor(
     }
 
     fun toggleUnwatched(reroll: Boolean = false) {
+        if (com.nuvio.tv.NuvioCFeatures.ROULETTE_WATCHED_CYCLE) {
+            // [fork] round 39: Unwatched -> Watched -> All
+            val next = _ui.value.watchFilter.next()
+            prefs.setWatchFilter(next)
+            _ui.update { it.copy(watchFilter = next, unwatched = next == com.nuvio.tv.data.nuvioc.NuvioCWatchFilter.UNWATCHED, nothingLeft = false) }
+            if (reroll) roll()
+            return
+        }
         val on = !_ui.value.unwatched
         prefs.setUnwatched(on)
         _ui.update { it.copy(unwatched = on, nothingLeft = false) }
@@ -202,7 +237,8 @@ class NuvioCShuffleViewModel @Inject constructor(
             _ui.update { if (token == myToken) it.copy(poolSize = n) else it }
         }
         rollJob = viewModelScope.launch {
-            when (val outcome = pool.roll(state.kind, state.mood, state.unwatched, state.refine)) {
+            val watchedOnly = com.nuvio.tv.NuvioCFeatures.ROULETTE_WATCHED_CYCLE && state.watchFilter == com.nuvio.tv.data.nuvioc.NuvioCWatchFilter.WATCHED
+            when (val outcome = pool.roll(state.kind, state.mood, state.unwatched, state.refine, watchedOnly)) {
                 is NuvioCShuffleOutcome.Picked -> {
                     val pick = outcome.pick
                     pick.item.background?.let { context.imageLoader.enqueue(shuffleBackdropRequest(context, it)) }
@@ -235,4 +271,40 @@ class NuvioCShuffleViewModel @Inject constructor(
     fun onOpenTitle() {
         titleOpened = true
     }
+}
+
+/** [fork] round 39 taste_page: a one-shot Roulette starting point handed over by the Taste page. */
+object NuvioCRoulettePreset {
+    data class Preset(
+        val kind: NuvioCShuffleKind = NuvioCShuffleKind.MOVIES,
+        val mood: NuvioCShuffleMood = NuvioCShuffleMood.ANY,
+        val decade: com.nuvio.tv.data.nuvioc.NuvioCRouletteDecade = com.nuvio.tv.data.nuvioc.NuvioCRouletteDecade.ANY
+    )
+
+    @Volatile private var pending: Preset? = null
+
+    fun set(preset: Preset) { pending = preset }
+    internal fun take(): Preset? = pending.also { pending = null }
+
+    /** The closest Roulette mood for a Taste genre name. */
+    fun moodFor(genre: String?): NuvioCShuffleMood = when (genre?.lowercase()) {
+        "crime", "thriller", "action" -> NuvioCShuffleMood.GRIPPING
+        "comedy" -> NuvioCShuffleMood.FUNNY
+        "horror", "war" -> NuvioCShuffleMood.DARK
+        "sci-fi", "mystery", "fantasy" -> NuvioCShuffleMood.MIND_BENDING
+        "romance" -> NuvioCShuffleMood.ROMANTIC
+        "animation" -> NuvioCShuffleMood.ANIMATED
+        "history" -> NuvioCShuffleMood.TRUE_STORY
+        "western" -> NuvioCShuffleMood.WESTERN
+        "documentary" -> NuvioCShuffleMood.DOCUMENTARY
+        "adventure" -> NuvioCShuffleMood.ADVENTURE
+        "family" -> NuvioCShuffleMood.FAMILY
+        "music" -> NuvioCShuffleMood.MUSIC
+        else -> NuvioCShuffleMood.ANY
+    }
+
+    fun decadeFor(year: Int?): com.nuvio.tv.data.nuvioc.NuvioCRouletteDecade =
+        com.nuvio.tv.data.nuvioc.NuvioCRouletteDecade.entries.firstOrNull { d ->
+            year != null && d.from != null && d.to != null && year in d.from..d.to
+        } ?: if (year != null && year < 1960) com.nuvio.tv.data.nuvioc.NuvioCRouletteDecade.EARLIER else com.nuvio.tv.data.nuvioc.NuvioCRouletteDecade.ANY
 }

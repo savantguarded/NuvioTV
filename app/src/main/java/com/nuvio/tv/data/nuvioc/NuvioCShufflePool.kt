@@ -124,7 +124,7 @@ sealed interface NuvioCShuffleOutcome {
     data object NothingLeft : NuvioCShuffleOutcome
 }
 
-private data class Filters(val kind: NuvioCShuffleKind, val mood: NuvioCShuffleMood, val unwatched: Boolean, val refine: NuvioCRouletteRefine = NuvioCRouletteRefine())
+private data class Filters(val kind: NuvioCShuffleKind, val mood: NuvioCShuffleMood, val unwatched: Boolean, val refine: NuvioCRouletteRefine = NuvioCRouletteRefine(), val watchedOnly: Boolean = false)
 
 @Singleton
 class NuvioCShufflePool @Inject constructor(
@@ -583,8 +583,8 @@ class NuvioCShufflePool @Inject constructor(
     }
 
     /** One pick for these choices. Uses the prepared pick when it was made for the same choices. */
-    suspend fun roll(kind: NuvioCShuffleKind, mood: NuvioCShuffleMood, unwatched: Boolean, refine: NuvioCRouletteRefine = prefs.config.value.refine): NuvioCShuffleOutcome {
-        val filters = Filters(kind, mood, unwatched, refine)
+    suspend fun roll(kind: NuvioCShuffleKind, mood: NuvioCShuffleMood, unwatched: Boolean, refine: NuvioCRouletteRefine = prefs.config.value.refine, watchedOnly: Boolean = false): NuvioCShuffleOutcome {
+        val filters = Filters(kind, mood, unwatched && !watchedOnly, refine, watchedOnly)
         val ready = pickMutex.withLock {
             prepared?.takeIf { it.first == filters }?.second.also { prepared = null }
         }
@@ -602,6 +602,7 @@ class NuvioCShufflePool @Inject constructor(
 
     private suspend fun pick(filters: Filters): NuvioCShuffleOutcome {
         if (filters.kind == NuvioCShuffleKind.EPISODES) return pickEpisode(filters) // [fork] round 37
+        if (filters.watchedOnly) return pickWatched(filters) // [fork] round 39 roulette_watched_cycle
         if (rawOn) return pickRaw(filters)
         val pool = ensure() ?: return NuvioCShuffleOutcome.NothingLeft
         val config = prefs.config.value
@@ -646,6 +647,52 @@ class NuvioCShufflePool @Inject constructor(
                 return NuvioCShuffleOutcome.Picked(checked)
             }
             synchronized(rejected) { rejected += item.identity }
+        }
+        return NuvioCShuffleOutcome.NothingLeft
+    }
+
+    /**
+     * [fork] round 39 roulette_watched_cycle: the Watched state of the chip. One random title from your own watch
+     * history (films you've watched, shows you've started), checked against the mood and the Era choice from its
+     * details. A rewatch picker: no TMDB pool, nothing downloaded beyond the details of the titles it looks at.
+     */
+    private suspend fun pickWatched(filters: Filters): NuvioCShuffleOutcome {
+        val movies = filters.kind != NuvioCShuffleKind.SHOWS
+        val ids: List<String> = withContext(Dispatchers.Default) {
+            if (movies) withTimeoutOrNull(3_000) { watchProgress.observeWatchedMovieIds().first() }.orEmpty().toList()
+            else runCatching { watchProgress.getWatchedShowEpisodes().keys.toList() }.getOrDefault(emptyList())
+        }.filter { it.startsWith("tt") || it.startsWith("tmdb:") }.distinct()
+        if (ids.isEmpty()) return NuvioCShuffleOutcome.NothingLeft
+        val recent = prefs.recent().toHashSet()
+        val type = if (movies) "movie" else "series"
+        val decade = filters.refine.effective().decade
+        val order = ids.shuffled(shuffleRandom)
+        for (id in order.take(WATCHED_TRIES)) {
+            val identity = (if (movies) "m:" else "s:") + (if (id.startsWith("tmdb:")) "tmdb" + id.removePrefix("tmdb:") else id)
+            if (identity in recent && order.size > recent.size) continue
+            val meta = withTimeoutOrNull(6_000) {
+                metaRepository.getMetaFromPrimaryAddon(type, id).first { it !is NetworkResult.Loading }
+            }
+            val m = (meta as? NetworkResult.Success)?.data ?: continue
+            val item = NuvioCShuffleItem(
+                id = id,
+                type = type,
+                name = m.name,
+                poster = m.poster,
+                background = m.background,
+                logo = m.logo,
+                description = m.description,
+                year = m.releaseInfo?.take(4),
+                genres = m.genres.map(::normalizeShuffleGenre),
+                imdbId = m.imdbId ?: id.takeIf { it.startsWith("tt") },
+                tmdbId = id.removePrefix("tmdb:").toIntOrNull()?.takeIf { id.startsWith("tmdb:") },
+                from = "watched"
+            )
+            if (!nuvioCMoodMatches(item, filters.mood)) continue
+            val year = item.year?.toIntOrNull()
+            if (decade.from != null && (year == null || year < decade.from)) continue
+            if (decade.to != null && (year == null || year > decade.to)) continue
+            return NuvioCShuffleOutcome.Picked(NuvioCShufflePick(item, runtime = m.runtime))
         }
         return NuvioCShuffleOutcome.NothingLeft
     }
@@ -723,6 +770,7 @@ class NuvioCShufflePool @Inject constructor(
 
     companion object {
         private const val TAG = "NuvioCShuffle"
+        private const val WATCHED_TRIES = 12 // [fork] round 39
         const val MAX_AGE_MS = 12 * 60 * 60 * 1000L
         private const val SEED_WINDOW_MS = 120L * 24 * 60 * 60 * 1000
         private const val SEEDS = 10

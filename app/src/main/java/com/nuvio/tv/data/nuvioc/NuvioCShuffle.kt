@@ -41,9 +41,17 @@ enum class NuvioCShuffleKind(val key: String) {
     EPISODES("episodes")
 }
 
+/** [fork] round 39 roulette_watched_cycle: what the watched chip picks from. */
+enum class NuvioCWatchFilter(val key: String) {
+    UNWATCHED("unwatched"), WATCHED("watched"), ALL("all");
+
+    fun next(): NuvioCWatchFilter = entries[(ordinal + 1) % entries.size]
+}
+
 /** [fork] round 31 roulette_anime: the three types on screen, in order. */
 val nuvioCShuffleKinds: List<NuvioCShuffleKind>
-    get() = (if (com.nuvio.tv.NuvioCFeatures.ROULETTE_ANIME) {
+    get() = if (com.nuvio.tv.NuvioCFeatures.ROULETTE_TWO_KINDS) listOf(NuvioCShuffleKind.MOVIES, NuvioCShuffleKind.SHOWS) // [fork] round 39
+    else (if (com.nuvio.tv.NuvioCFeatures.ROULETTE_ANIME) {
         listOf(NuvioCShuffleKind.MOVIES, NuvioCShuffleKind.SHOWS, NuvioCShuffleKind.ANIME)
     } else {
         listOf(NuvioCShuffleKind.MOVIES, NuvioCShuffleKind.SHOWS, NuvioCShuffleKind.EITHER)
@@ -123,6 +131,8 @@ data class NuvioCShuffleConfig(
     val kind: NuvioCShuffleKind = NuvioCShuffleKind.MOVIES,
     val mood: NuvioCShuffleMood = NuvioCShuffleMood.ANY,
     val unwatched: Boolean = true,
+    /** [fork] round 39 roulette_watched_cycle: Unwatched -> Watched -> All. */
+    val watchFilter: NuvioCWatchFilter = if (unwatched) NuvioCWatchFilter.UNWATCHED else NuvioCWatchFilter.ALL,
     /** [fork] round 37 roulette_refine / roulette_pool_size: Refine panel choices. */
     val refine: NuvioCRouletteRefine = NuvioCRouletteRefine()
 ) {
@@ -210,6 +220,8 @@ class NuvioCShufflePrefs @Inject constructor(
                 ?.takeIf { it in nuvioCShuffleKinds } ?: NuvioCShuffleKind.MOVIES, // [fork] roulette_anime
             mood = NuvioCShuffleMood.entries.firstOrNull { it.key == prefs.getString(k(p, "mood"), null) } ?: NuvioCShuffleMood.ANY,
             unwatched = prefs.getBoolean(k(p, "unwatched"), true),
+            watchFilter = NuvioCWatchFilter.entries.firstOrNull { it.key == prefs.getString(k(p, "watch_filter"), null) }
+                ?: if (prefs.getBoolean(k(p, "unwatched"), true)) NuvioCWatchFilter.UNWATCHED else NuvioCWatchFilter.ALL,
             refine = NuvioCRouletteRefine.decode(prefs.getString(k(p, "refine"), null)) // [fork] round 37
         )
     }.getOrDefault(NuvioCShuffleConfig())
@@ -226,6 +238,11 @@ class NuvioCShufflePrefs @Inject constructor(
     fun setKind(kind: NuvioCShuffleKind) = update { putString(k(it, "kind"), kind.key) }
     fun setMood(mood: NuvioCShuffleMood) = update { putString(k(it, "mood"), mood.key) }
     fun setUnwatched(on: Boolean) = update { putBoolean(k(it, "unwatched"), on) }
+    /** [fork] round 39 roulette_watched_cycle (keeps the old Unwatched flag in step for anything still reading it). */
+    fun setWatchFilter(filter: NuvioCWatchFilter) = update {
+        putString(k(it, "watch_filter"), filter.key)
+        putBoolean(k(it, "unwatched"), filter == NuvioCWatchFilter.UNWATCHED)
+    }
     fun setRefine(refine: NuvioCRouletteRefine) = update { putString(k(it, "refine"), refine.encode()) } // [fork] round 37
 
     /** The last [RECENT_MAX] picks (identities), newest last. */

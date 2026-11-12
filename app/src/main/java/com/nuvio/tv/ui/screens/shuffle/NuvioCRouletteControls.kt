@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -232,6 +233,11 @@ internal fun RouletteRefineDialog(
         width = 540.dp,
         contentSpacing = 10.dp
     ) {
+        // [fork] round 39: the rows scroll (focus brings each into view) and Clear all / Done stay in place.
+        Column(
+            Modifier.weight(1f, fill = false).verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(vertical = 2.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
         if (filtersOn) {
             RefineRow(
                 label = stringResource(R.string.nuvio_c_refine_decade),
@@ -258,6 +264,26 @@ internal fun RouletteRefineDialog(
                 selected = refine.acclaim,
                 onSelect = { refine = refine.copy(acclaim = it) }
             )
+            if (com.nuvio.tv.NuvioCFeatures.ROULETTE_REFINE_MORE && !episodes) { // [fork] round 39
+                RefineRow(
+                    label = stringResource(R.string.nuvio_c_refine_theme),
+                    options = com.nuvio.tv.data.nuvioc.NuvioCRouletteTheme.entries.map { RouletteOption(themeLabel(it), it) },
+                    selected = refine.theme,
+                    onSelect = { refine = refine.copy(theme = it) }
+                )
+                if (kind == NuvioCShuffleKind.MOVIES) RefineRow(
+                    label = stringResource(R.string.nuvio_c_refine_audience),
+                    options = com.nuvio.tv.data.nuvioc.NuvioCRouletteAudience.entries.map { RouletteOption(audienceLabel(it), it) },
+                    selected = refine.audience,
+                    onSelect = { refine = refine.copy(audience = it) }
+                )
+                if (kind == NuvioCShuffleKind.SHOWS) RefineRow(
+                    label = stringResource(R.string.nuvio_c_refine_status),
+                    options = com.nuvio.tv.data.nuvioc.NuvioCRouletteStatus.entries.map { RouletteOption(statusLabel(it), it) },
+                    selected = refine.status,
+                    onSelect = { refine = refine.copy(status = it) }
+                )
+            }
         }
         if (com.nuvio.tv.NuvioCFeatures.ROULETTE_POOL_SIZE && !episodes) {
             if (filtersOn) Box(Modifier.fillMaxWidth().padding(vertical = 4.dp).height(1.dp).background(NuvioTheme.colors.Border))
@@ -276,8 +302,9 @@ internal fun RouletteRefineDialog(
                 modifier = if (!filtersOn) Modifier.focusRequester(firstRow) else Modifier
             )
         }
+        } // [fork] round 39 scroll column
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.End)) {
-            RefineButton(stringResource(R.string.nuvio_c_refine_reset)) { refine = NuvioCRouletteRefine(pool = refine.pool) }
+            RefineButton(stringResource(if (com.nuvio.tv.NuvioCFeatures.ROULETTE_REFINE_MORE) R.string.nuvio_c_refine_clear_all else R.string.nuvio_c_refine_reset)) { refine = NuvioCRouletteRefine(pool = refine.pool) }
             RefineButton(stringResource(R.string.nuvio_c_refine_done), primary = true) { onClose(refine) }
         }
     }
@@ -385,6 +412,48 @@ internal fun regionLabel(r: NuvioCRouletteRegion): String = stringResource(
         NuvioCRouletteRegion.LATIN_AMERICA -> R.string.nuvio_c_region_latin_america
         NuvioCRouletteRegion.NORTH_AMERICA -> R.string.nuvio_c_region_north_america
         NuvioCRouletteRegion.OCEANIA -> R.string.nuvio_c_region_oceania
+        NuvioCRouletteRegion.HOLLYWOOD -> R.string.nuvio_c_region_us
+        NuvioCRouletteRegion.BRITISH -> R.string.nuvio_c_region_gb
+        NuvioCRouletteRegion.FRENCH -> R.string.nuvio_c_region_fr
+        NuvioCRouletteRegion.SPANISH -> R.string.nuvio_c_region_es
+        NuvioCRouletteRegion.KOREAN -> R.string.nuvio_c_region_kr
+        NuvioCRouletteRegion.JAPANESE -> R.string.nuvio_c_region_jp
+        NuvioCRouletteRegion.INDIAN -> R.string.nuvio_c_region_in
+        NuvioCRouletteRegion.NIGERIAN -> R.string.nuvio_c_region_ng
+    }
+)
+
+@Composable
+internal fun themeLabel(t: com.nuvio.tv.data.nuvioc.NuvioCRouletteTheme): String = stringResource(
+    when (t) {
+        com.nuvio.tv.data.nuvioc.NuvioCRouletteTheme.ANY -> R.string.nuvio_c_theme_any
+        com.nuvio.tv.data.nuvioc.NuvioCRouletteTheme.HEIST -> R.string.nuvio_c_theme_heist
+        com.nuvio.tv.data.nuvioc.NuvioCRouletteTheme.REVENGE -> R.string.nuvio_c_theme_revenge
+        com.nuvio.tv.data.nuvioc.NuvioCRouletteTheme.BOOK -> R.string.nuvio_c_theme_book
+        com.nuvio.tv.data.nuvioc.NuvioCRouletteTheme.TIME_TRAVEL -> R.string.nuvio_c_theme_time_travel
+        com.nuvio.tv.data.nuvioc.NuvioCRouletteTheme.SURVIVAL -> R.string.nuvio_c_theme_survival
+        com.nuvio.tv.data.nuvioc.NuvioCRouletteTheme.COURTROOM -> R.string.nuvio_c_theme_courtroom
+        com.nuvio.tv.data.nuvioc.NuvioCRouletteTheme.SPORTS -> R.string.nuvio_c_theme_sports
+        com.nuvio.tv.data.nuvioc.NuvioCRouletteTheme.WAR -> R.string.nuvio_c_theme_war
+    }
+)
+
+@Composable
+internal fun audienceLabel(a: com.nuvio.tv.data.nuvioc.NuvioCRouletteAudience): String = stringResource(
+    when (a) {
+        com.nuvio.tv.data.nuvioc.NuvioCRouletteAudience.ANY -> R.string.nuvio_c_audience_any
+        com.nuvio.tv.data.nuvioc.NuvioCRouletteAudience.FAMILY -> R.string.nuvio_c_audience_family
+        com.nuvio.tv.data.nuvioc.NuvioCRouletteAudience.ADULTS -> R.string.nuvio_c_audience_adults
+    }
+)
+
+@Composable
+internal fun statusLabel(st: com.nuvio.tv.data.nuvioc.NuvioCRouletteStatus): String = stringResource(
+    when (st) {
+        com.nuvio.tv.data.nuvioc.NuvioCRouletteStatus.ANY -> R.string.nuvio_c_status_any
+        com.nuvio.tv.data.nuvioc.NuvioCRouletteStatus.ONGOING -> R.string.nuvio_c_status_ongoing
+        com.nuvio.tv.data.nuvioc.NuvioCRouletteStatus.ENDED -> R.string.nuvio_c_status_ended
+        com.nuvio.tv.data.nuvioc.NuvioCRouletteStatus.MINISERIES -> R.string.nuvio_c_status_miniseries
     }
 )
 
