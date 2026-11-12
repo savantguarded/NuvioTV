@@ -592,7 +592,7 @@ object NuvioCFeatures {
     /** Start-up and opening logo 10% smaller (76 dp, was 84). Off = 84 dp. */
     const val STARTUP_LOGO_SMALLER = true
     /** Start-up and opening logo: a soft band of light passes across it every 2.4 s while loading, drawn by the render thread. No text. Off = still logo. */
-    const val STARTUP_LOGO_SHIMMER = true
+    const val STARTUP_LOGO_SHIMMER = false // round 39 (Charles): fully still logo
     /** Roulette mood screen: cards keep a fixed shape (width x 1.15) centred between the header and the mood chips, so the posters fill them with no empty space on top. Off = cards stretch to the screen height. */
     const val ROULETTE_CARDS_FIT = true
 
@@ -605,4 +605,40 @@ object NuvioCFeatures {
     const val AMBIENT_OPEN_DETAILS = true
     /** Start-up logo shimmer: the band of light leans 20 degrees and has feathered edges. Same timing. Off = upright band. */
     const val STARTUP_SHIMMER_SLANT = true
+
+    // ---- Round 39 (2026-11-12) ----
+    /** Calendar and Details bells are one bell: ringing either writes every id the title is known by, turning either off clears them all, so the two never disagree. Off = one key per screen, as before. */
+    const val BELL_SYNC = true
+    /** Calendar: no TheTVDB credit line under the views (kept on the About screen). Off = credit line shown. */
+    const val CALENDAR_NO_CREDIT = true
+    /** Start-up: the opening logo fades out plainly with no shrink; with the system splash showing no icon, only one still logo ever appears. Off = 300 ms fade with a slight shrink. */
+    const val STARTUP_STILL = true
+    /** Home (Featured): only a key you press in the rows counts as moving into them, so a row taking focus by itself at start-up no longer makes Home open on Continue Watching. Off = as before. */
+    const val HOME_OPEN_CAROUSEL = true
+    /** Player Details panel (About tab): Up / Down glide to a moving target (held keys scroll at a steady speed), and the ratings line keeps its room while loading. Off = a new spring per press. */
+    const val OSD_ABOUT_SCROLL = true
+    /** Player: the Sources list is fetched quietly 15 s into smooth playback, so the panel opens on a finished list. Off = fetched when the panel opens. */
+    const val SOURCES_WARM = true
+    /** Player: Auto skip intro switch in the OSD (More row by default, movable in Player buttons). Same setting as Settings > Playback. Off = no button. */
+    const val OSD_AUTO_SKIP = true
+    /** Player: one read-only log line per playback start (decoder, Dolby Vision, transfer) in logcat (NuvioCPlaybackLog) and Android/data/com.nuvio.tv.c/files/nuvio-c-playback.log. Off = no log. */
+    const val PLAYBACK_LOG = true
+    /** Roulette: Movies and Shows only (no Anime, no Episodes); the two cards grow into the room. Off = round 37 types. */
+    const val ROULETTE_TWO_KINDS = true
+    /** Roulette: dim backdrop from the focused card's poster behind the mood screen (fetched tiny, no blur pass). Off = plain. */
+    const val ROULETTE_BACKDROP = true
+    /** Roulette: the watched chip cycles Unwatched -> Watched (rewatch picks from your history) -> All titles. Off = Unwatched on / off. */
+    const val ROULETTE_WATCHED_CYCLE = true
+    /** Roulette: Refine starts clean on every visit (pool size kept) and movies / shows keep their own choices. Off = Refine remembered. */
+    const val ROULETTE_REFINE_RESET = true
+    /** Roulette: Theme, Audience (films), Status (shows) and single countries in Refine; Clear all. Off = round 37 Refine. */
+    const val ROULETTE_REFINE_MORE = true
+    /** Roulette: "Refined: …" line under the header while any Refine filter is on. Off = count on the chip only. */
+    const val ROULETTE_REFINE_SUMMARY = true
+    /** Player subtitles panel: one-line rows, no add-on ids, numbered add-on subtitles with the file type on the source chip. Off = official rows. */
+    const val SUBTITLE_PANEL_CLEAN = true
+    /** Details Information block: fixed label column, same value alignment on every line, closing hairline, one order for films and shows; appears once, complete. Off = round 33 ledger. */
+    const val DETAIL_INFO_POLISH = true
+    /** Sidebar: Taste page under Calendar (genres, ratings, habits, people, shelves for this profile). Off = no page. */
+    const val TASTE_PAGE = true
 }
