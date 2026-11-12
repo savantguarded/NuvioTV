@@ -1307,10 +1307,37 @@ private fun SubtitleOptionCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = NuvioTheme.spacing.md, vertical = 9.dp),
+                .padding(horizontal = NuvioTheme.spacing.md, vertical = if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_PANEL_CLEAN) 10.dp else 9.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_PANEL_CLEAN) {
+                // [fork] round 39 subtitle_panel_clean: one line (language, then the source chip), an optional
+                // release name under it on one line, nothing else. Rows are about half as tall as before.
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = item.title,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = titleColor,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        SourceChip(label = item.sourceLabel, selected = item.isSelected)
+                        item.addonSubtitle?.let { AutoSyncedChip(it.url, item.isSelected) } // AutoSync hook
+                    }
+                    if (!item.meta.isNullOrBlank()) {
+                        Text(
+                            text = item.meta,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = metaColor,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            } else
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -2060,6 +2087,7 @@ private fun buildSubtitleOptionRailItems(
             )
         )
         .map { (_, subtitle) -> toAddonItem(subtitle) }
+        .let { if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_PANEL_CLEAN) NuvioCSubtitleRows.tidyAddonItems(it, { i -> i.addonSubtitle }, { i, t, src, meta -> i.copy(title = t, sourceLabel = src, meta = meta) }) else it }
 
     return internalItems + streamProvidedItems + addonFetchedItems
 }

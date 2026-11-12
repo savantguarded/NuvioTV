@@ -162,6 +162,9 @@ private fun NuvioCAboutContent(about: NuvioCAboutInfo) {
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
     var focused by remember { mutableStateOf(false) }
+    // [fork] round 39 osd_about_scroll: one glide towards a moving target instead of a new spring per key press,
+    // so a held key scrolls at a steady, app-like speed and single presses stay smooth.
+    val glide = remember { NuvioCAboutGlide() }
     // The text holds focus so Up / Down scroll a long synopsis; Up at the top goes back to the tabs.
     Column(
         Modifier
@@ -169,6 +172,14 @@ private fun NuvioCAboutContent(about: NuvioCAboutInfo) {
             .onFocusChanged { focused = it.isFocused }
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                if (com.nuvio.tv.NuvioCFeatures.OSD_ABOUT_SCROLL) {
+                    val held = event.nativeKeyEvent.repeatCount > 0
+                    return@onPreviewKeyEvent when (event.key) {
+                        Key.DirectionDown -> { if (scroll.value < scroll.maxValue) glide.move(scope, scroll, +1, held); true }
+                        Key.DirectionUp -> if (scroll.value > 0 || glide.target > 0) { glide.move(scope, scroll, -1, held); true } else false
+                        else -> false
+                    }
+                }
                 when (event.key) {
                     Key.DirectionDown -> if (scroll.value < scroll.maxValue) { scope.launch { scroll.animateScrollBy(160f) }; true } else true
                     Key.DirectionUp -> if (scroll.value > 0) { scope.launch { scroll.animateScrollBy(-160f) }; true } else false
@@ -201,6 +212,9 @@ private fun NuvioCAboutContent(about: NuvioCAboutInfo) {
             }
         } else if (filmRatings != null && about.season == null) {
             MDBListRatingsRow(ratings = filmRatings, order = ratings.order, maxItems = 3)
+        } else if (com.nuvio.tv.NuvioCFeatures.OSD_ABOUT_SCROLL && about.contentId != null) {
+            // [fork] round 39: the ratings line's room is kept while they load, so the synopsis never jumps under you.
+            Spacer(Modifier.height(22.dp))
         }
         about.synopsis?.let {
             Text(it, style = MaterialTheme.typography.bodyMedium, color = NuvioTheme.colors.TextSecondary)
@@ -213,6 +227,32 @@ private fun NuvioCAboutContent(about: NuvioCAboutInfo) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+        }
+    }
+}
+
+/** [fork] round 39 osd_about_scroll: steady scrolling for the About tab (see NuvioCAboutContent). */
+internal class NuvioCAboutGlide {
+    var target = 0f
+        private set
+    private var job: kotlinx.coroutines.Job? = null
+
+    fun move(scope: kotlinx.coroutines.CoroutineScope, scroll: androidx.compose.foundation.ScrollState, dir: Int, held: Boolean) {
+        val base = if (job?.isActive == true) target else scroll.value.toFloat()
+        target = (base + dir * (if (held) 240f else 200f)).coerceIn(0f, scroll.maxValue.toFloat())
+        job?.cancel()
+        job = scope.launch {
+            val from = scroll.value.toFloat()
+            val distance = target - from
+            if (distance == 0f) return@launch
+            var done = 0f
+            androidx.compose.animation.core.animate(
+                0f, distance,
+                animationSpec = androidx.compose.animation.core.tween(if (held) 110 else 170, easing = androidx.compose.animation.core.LinearOutSlowInEasing)
+            ) { value, _ ->
+                scroll.dispatchRawDelta(value - done)
+                done = value
+            }
         }
     }
 }

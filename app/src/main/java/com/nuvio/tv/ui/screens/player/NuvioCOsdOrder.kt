@@ -29,10 +29,12 @@ internal enum class NuvioCOsdButton(val key: String, @StringRes val label: Int, 
     ENGINE("engine", R.string.cd_switch_player_engine, true),
     EXTERNAL("external", R.string.cd_open_external_player, true),
     INFO("info", R.string.cd_stream_info, true),
+    AUTO_SKIP("auto_skip", R.string.nuvio_c_auto_skip_intro, true), // [fork] round 39 osd_auto_skip: More row by default
     REPORT("report", R.string.player_report_issue, true); // [fork] round 32 osd_order_all: only when reports are on
 
     /** [fork] round 32: Play, Watch Party and Report are listed only with `osd_order_all`. */
-    val listed: Boolean get() = NuvioCFeatures.OSD_ORDER_ALL || this !in NUVIO_C_ROUND32_BUTTONS
+    val listed: Boolean get() = (NuvioCFeatures.OSD_ORDER_ALL || this !in NUVIO_C_ROUND32_BUTTONS) &&
+        (this != AUTO_SKIP || NuvioCFeatures.OSD_AUTO_SKIP)
 
     /** Play / Pause can move but never goes behind More. */
     val mainOnly: Boolean get() = this == PLAY
@@ -108,3 +110,8 @@ internal object NuvioCOsdOrder {
     fun toggled(slots: List<NuvioCOsdSlot>, index: Int): List<NuvioCOsdSlot> =
         slots.mapIndexed { i, s -> if (i == index && !s.button.mainOnly) s.copy(inMore = !s.inMore) else s }
 }
+
+/** [fork] round 39 osd_auto_skip: the auto skip intro switch the player's More row shows (same setting as Settings > Playback). */
+internal data class NuvioCAutoSkipState(val on: Boolean, val toggle: () -> Unit)
+
+internal val LocalNuvioCAutoSkip = androidx.compose.runtime.staticCompositionLocalOf<NuvioCAutoSkipState?> { null }

@@ -77,6 +77,7 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
@@ -230,6 +231,17 @@ fun PlayerScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val playerBadges = rememberPlayerBadges(viewModel, uiState)
+    val nuvioCAutoSkipOn by viewModel.nuvioCAutoSkipIntro.collectAsState() // [fork] round 39 osd_auto_skip
+    val nuvioCAutoSkip = remember(nuvioCAutoSkipOn) { NuvioCAutoSkipState(nuvioCAutoSkipOn) { viewModel.nuvioCToggleAutoSkipIntro() } }
+    // [fork] round 39 sources_warm: once playback has run smoothly for a while, the Sources list is fetched quietly
+    // in the background, so opening the panel only draws a finished list (it used to fetch on open and grow).
+    val nuvioCSmooth = uiState.isPlaying && !uiState.isBuffering
+    LaunchedEffect(uiState.currentVideoId, uiState.currentEpisode, nuvioCSmooth) {
+        if (com.nuvio.tv.NuvioCFeatures.SOURCES_WARM && nuvioCSmooth) {
+            kotlinx.coroutines.delay(15_000)
+            viewModel.nuvioCWarmSources()
+        }
+    }
     val partyState by viewModel.party.state.collectAsState()
     val partyPlayback by viewModel.party.playback.collectAsState()
     val partyAvailable by viewModel.party.available.collectAsState()
@@ -263,6 +275,19 @@ fun PlayerScreen(
                 runCatching { nuvioCStatsPlayer?.removeAnalyticsListener(stats) }
                 if (NuvioCPlaybackStats.current === stats) NuvioCPlaybackStats.current = null
             }
+        }
+    }
+    if (com.nuvio.tv.NuvioCFeatures.PLAYBACK_LOG) { // [fork] round 39: one read-only line per start (decoder, DV, transfer)
+        val nuvioCLogPlayer = viewModel.exoPlayer
+        val nuvioCLogContext = LocalContext.current
+        val nuvioCLogDescribe = rememberUpdatedState {
+            val ep = if (uiState.currentSeason != null && uiState.currentEpisode != null) " S${uiState.currentSeason}E${uiState.currentEpisode}" else ""
+            "${uiState.contentName ?: uiState.title}$ep | ${viewModel.playerStreamFilename() ?: "no filename"}"
+        }
+        DisposableEffect(nuvioCLogPlayer) {
+            val log = NuvioCPlaybackLog(nuvioCLogContext) { nuvioCLogDescribe.value() }
+            runCatching { nuvioCLogPlayer?.addAnalyticsListener(log) }
+            onDispose { runCatching { nuvioCLogPlayer?.removeAnalyticsListener(log) } }
         }
     }
     val nuvioCOsdAnchor = remember { NuvioCOsdAnchor() } // [fork] where the seek bar is, for Skip Intro
@@ -1705,7 +1730,7 @@ fun PlayerScreen(
         ) {
             val context = LocalContext.current
             val nuvioCOsd = nuvioCLift // [fork] badges + subtitle lift (lift effect runs at screen level, below)
-            CompositionLocalProvider(LocalNuvioCFocusMemory provides nuvioCFocus, LocalNuvioCHdrDim provides nuvioCHdr, LocalNuvioCOsdAnchor provides nuvioCOsdAnchor, LocalNuvioCOsdCast provides nuvioCCast) { // [fork]
+            CompositionLocalProvider(LocalNuvioCFocusMemory provides nuvioCFocus, LocalNuvioCHdrDim provides nuvioCHdr, LocalNuvioCOsdAnchor provides nuvioCOsdAnchor, LocalNuvioCOsdCast provides nuvioCCast, LocalNuvioCAutoSkip provides nuvioCAutoSkip) { // [fork]
             NuvioCOsdAnchorReset(nuvioCOsdAnchor) // [fork]
             PlayerControlsOverlay(
                 osdLogoAllowed = osdLogoAllowed, // [fork]
@@ -3464,6 +3489,18 @@ private fun PlayerControlsOverlay(
                                 onDownKey = onHideControls,
                                 onFocused = onResetHideTimer
                             )
+                            NuvioCOsdButton.AUTO_SKIP -> LocalNuvioCAutoSkip.current?.takeIf { !isLivePlayback }?.let { nuvioCSkip -> // [fork] round 39 osd_auto_skip
+                                ControlButton(
+                                    icon = Icons.Default.FastForward,
+                                    contentDescription = stringResource(R.string.nuvio_c_auto_skip_intro),
+                                    onClick = nuvioCSkip.toggle,
+                                    upFocusRequester = progressUpTarget,
+                                    onDownKey = onHideControls,
+                                    onFocused = onResetHideTimer,
+                                    contentColor = if (nuvioCSkip.on) NuvioTheme.colors.Secondary else Color.White,
+                                    nuvioCLabel = stringResource(if (nuvioCSkip.on) R.string.nuvio_c_auto_skip_intro_on else R.string.nuvio_c_auto_skip_intro_off)
+                                )
+                            }
                             NuvioCOsdButton.PLAY, NuvioCOsdButton.PARTY, NuvioCOsdButton.REPORT -> Unit // [fork] round 32: placed by the loops below
                         }
                     }

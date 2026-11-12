@@ -44,6 +44,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
@@ -301,6 +302,25 @@ class PlayerViewModel @Inject constructor(
     }
 
     fun playerMediaInfo(): PlayerMediaInfo = controller.playerMediaInfo()
+
+    /** [fork] round 39 osd_auto_skip: auto skip intro on / off from the player (the Settings switch, same profile). */
+    val nuvioCAutoSkipIntro: kotlinx.coroutines.flow.StateFlow<Boolean> = playerSettingsDataStore.playerSettings
+        .map { com.nuvio.tv.data.local.AutoSkipSegmentType.INTRO in it.autoSkipSegmentTypes && it.skipIntroEnabled }
+        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
+
+    fun nuvioCToggleAutoSkipIntro() {
+        val turnOn = !nuvioCAutoSkipIntro.value
+        viewModelScope.launch {
+            if (turnOn) playerSettingsDataStore.setSkipIntroEnabled(true)
+            playerSettingsDataStore.setAutoSkipSegmentTypeEnabled(com.nuvio.tv.data.local.AutoSkipSegmentType.INTRO, turnOn)
+        }
+    }
+
+    /** [fork] round 39 sources_warm: fetch the Sources list ahead of time (no-op once it's there or loading). */
+    fun nuvioCWarmSources() {
+        if (controller.uiState.value.showSourcesPanel) return
+        controller.loadSourceStreams(forceRefresh = false)
+    }
 
     fun playerStreamFilename(): String? = controller.currentFilename
 
