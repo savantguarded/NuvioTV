@@ -65,9 +65,9 @@ internal fun rememberSubtitleFontFamily(fontId: String): FontFamily {
     val context = LocalContext.current
     val store = remember(context) { SubtitleFontStore.get(context) }
     val typeface = rememberSubtitleTypeface(fontId)
-    return remember(fontId, typeface) {
+    return remember(fontId, typeface, context) {
         typeface?.let { store.fontFile(fontId) }?.let { FontFamily(Font(it)) }
-            ?: typeface?.takeIf { NuvioCSubtitleFont.isNuvioCId(fontId) }?.let { FontFamily(it) } // [fork] round 44: Nuvio C fonts in official's list
+            ?: typeface?.let { NuvioCSubtitleFont.composeFamily(context, fontId) } // [fork] round 45: Nuvio C fonts with real Regular + Bold faces
             ?: builtInSubtitleFontFamily(fontId)
     }
 }

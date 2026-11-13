@@ -1201,7 +1201,12 @@ fun PlayerScreen(
                 val subtitleCueState by viewModel.controller.subtitleCueTracker.state.collectAsState()
                 val prescannedSubtitleTexts by viewModel.controller.subtitleCueTracker.prescannedTexts.collectAsState()
                 val renderedSubtitleStyle = uiState.effectiveSubtitleStyle
-                val styledSubtitleTypeface = rememberSubtitleTypeface(renderedSubtitleStyle.fontId)
+                val nuvioCStyledContext = LocalContext.current // [fork] round 45: measure with the real Bold file of Nuvio C fonts
+                val nuvioCBoldTypeface = remember(renderedSubtitleStyle.fontId, renderedSubtitleStyle.bold) {
+                    if (NuvioCSubtitleFont.isNuvioCId(renderedSubtitleStyle.fontId)) NuvioCSubtitleFont.styleTypeface(nuvioCStyledContext, renderedSubtitleStyle.fontId, renderedSubtitleStyle.bold) else null
+                }
+                val officialStyledTypeface = rememberSubtitleTypeface(renderedSubtitleStyle.fontId)
+                val styledSubtitleTypeface = nuvioCBoldTypeface ?: officialStyledTypeface
                 val measuredSubtitleTextMetrics = remember(
                     subtitleTextMetrics,
                     renderedSubtitleStyle.usesStyledRenderer,

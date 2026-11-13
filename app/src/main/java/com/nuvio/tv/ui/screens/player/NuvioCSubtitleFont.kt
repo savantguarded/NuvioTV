@@ -179,6 +179,20 @@ internal object NuvioCSubtitleFont {
         return typefaceFor(context, option, bold = false)
     }
 
+    private val composeFamilies = ConcurrentHashMap<String, androidx.compose.ui.text.font.FontFamily>()
+
+    /** [fork] round 45: Compose family for official's new renderer and previews, holding the font's real Regular and
+     * Bold files so the Bold setting picks the Bold file (a family built from one Typeface ignores the weight). */
+    fun composeFamily(context: Context, id: String): androidx.compose.ui.text.font.FontFamily? {
+        val file = optionFor(id)?.file ?: return null
+        return composeFamilies.getOrPut(id) {
+            androidx.compose.ui.text.font.FontFamily(
+                androidx.compose.ui.text.font.Font("$ASSET_DIR/$file-Regular.ttf", context.assets, androidx.compose.ui.text.font.FontWeight.Normal),
+                androidx.compose.ui.text.font.Font("$ASSET_DIR/$file-Bold.ttf", context.assets, androidx.compose.ui.text.font.FontWeight.Bold)
+            )
+        }
+    }
+
     /** Official id for the font picked before round 44 (app-wide Nuvio C pref), used while a profile has no official pick yet. */
     fun legacyOfficialId(context: Context): String? {
         if (!NuvioCFeatures.SUBTITLE_FONT) return null
