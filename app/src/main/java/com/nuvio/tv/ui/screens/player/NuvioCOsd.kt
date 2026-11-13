@@ -629,7 +629,7 @@ internal fun NuvioCSubtitleLiftEffect(
             fun measure(cues: List<androidx.media3.common.text.Cue>) {
                 val sv = controller.exoPlayerView?.subtitleView
                 cueBlockPx.floatValue = if (sv == null) Float.NaN else runCatching {
-                    NuvioCSubtitleTop.bottomBlockHeight(cues, sv, textSizePx, NuvioCSubtitleFont.typeface(context, subtitleStyle.bold)
+                    NuvioCSubtitleTop.bottomBlockHeight(cues, sv, textSizePx, NuvioCSubtitleFont.styleTypeface(context, subtitleStyle.fontId, subtitleStyle.bold)
                         ?: if (subtitleStyle.bold) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT)
                 }.getOrDefault(Float.NaN)
             }

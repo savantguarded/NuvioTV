@@ -65,6 +65,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.LayoutDirection
 import com.nuvio.tv.ui.util.keepLtr
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.res.stringResource
 import kotlin.math.roundToInt
 import androidx.tv.material3.Card
@@ -889,6 +891,16 @@ private fun SubtitleStyleRail(
                 }
             }
             item {
+                SubtitleFontStyleCard(
+                    subtitleStyle = subtitleStyle,
+                    focusRequesters = focusRequesters,
+                    onMoveLeft = onMoveLeft,
+                    onFocused = onStyleFocused,
+                    onEvent = dispatchStyleEvent,
+                    modifier = styleCardModifier
+                )
+            }
+            item {
                 OverlaySectionCard(
                     title = stringResource(R.string.subtitle_style_font_size),
                     modifier = styleCardModifier
@@ -902,27 +914,6 @@ private fun SubtitleStyleRail(
                         incrementFocusRequester = focusRequesters[StyleFocusKey.FontSizeIncrease],
                         decrementFocusKey = StyleFocusKey.FontSizeDecrease,
                         incrementFocusKey = StyleFocusKey.FontSizeIncrease,
-                        onFocusChanged = onStyleFocused
-                    )
-                }
-            }
-            if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_FONT) item { // [fork] Nuvio C subtitle font
-                val nuvioCContext = androidx.compose.ui.platform.LocalContext.current
-                val nuvioCFont = NuvioCSubtitleFont.let { it.load(nuvioCContext); it.current }
-                OverlaySectionCard(
-                    title = stringResource(R.string.nuvio_c_subtitle_font_title),
-                    modifier = styleCardModifier
-                ) {
-                    StepperRow(
-                        value = nuvioCFont.label,
-                        valueWidth = 136.dp,
-                        onDecrease = { if (!isStyleDisabledByLibass) NuvioCSubtitleFont.step(nuvioCContext, -1) },
-                        onIncrease = { if (!isStyleDisabledByLibass) NuvioCSubtitleFont.step(nuvioCContext, 1) },
-                        onMoveLeft = onMoveLeft,
-                        decrementFocusRequester = focusRequesters[NUVIO_C_FONT_PREV],
-                        incrementFocusRequester = focusRequesters[NUVIO_C_FONT_NEXT],
-                        decrementFocusKey = NUVIO_C_FONT_PREV,
-                        incrementFocusKey = NUVIO_C_FONT_NEXT,
                         onFocusChanged = onStyleFocused
                     )
                 }
@@ -993,32 +984,6 @@ private fun SubtitleStyleRail(
                     )
                 }
             }
-            item { // [fork] round 29: background box opacity, changed from the player (steps of 10%, like Text opacity)
-                OverlaySectionCard(
-                    title = stringResource(R.string.nuvio_c_subtitle_background_title),
-                    modifier = styleCardModifier
-                ) {
-                    val bgColor = Color(subtitleStyle.backgroundColor)
-                    val bgPercent = (bgColor.alpha * 100f).roundToInt().coerceIn(0, 100)
-                    StepperRow(
-                        value = "$bgPercent%",
-                        onDecrease = {
-                            val a = (bgPercent - 10).coerceAtLeast(0) / 100f
-                            dispatchStyleEvent(PlayerEvent.OnSetSubtitleBackgroundColor(bgColor.copy(alpha = a).toArgb()))
-                        },
-                        onIncrease = {
-                            val a = (bgPercent + 10).coerceAtMost(100) / 100f
-                            dispatchStyleEvent(PlayerEvent.OnSetSubtitleBackgroundColor(bgColor.copy(alpha = a).toArgb()))
-                        },
-                        onMoveLeft = onMoveLeft,
-                        decrementFocusRequester = focusRequesters[NUVIO_C_BG_PREV],
-                        incrementFocusRequester = focusRequesters[NUVIO_C_BG_NEXT],
-                        decrementFocusKey = NUVIO_C_BG_PREV,
-                        incrementFocusKey = NUVIO_C_BG_NEXT,
-                        onFocusChanged = onStyleFocused
-                    )
-                }
-            }
             if (isEditingHdrStyle) {
                 item {
                     OverlaySectionCard(
@@ -1042,6 +1007,16 @@ private fun SubtitleStyleRail(
                         )
                     }
                 }
+            }
+            item {
+                SubtitleBackgroundStyleCard(
+                    subtitleStyle = subtitleStyle,
+                    focusRequesters = focusRequesters,
+                    onMoveLeft = onMoveLeft,
+                    onFocused = onStyleFocused,
+                    onEvent = dispatchStyleEvent,
+                    modifier = styleCardModifier
+                )
             }
             item {
                 OverlaySectionCard(
@@ -1075,6 +1050,16 @@ private fun SubtitleStyleRail(
                         )
                     }
                 }
+            }
+            if (!com.nuvio.tv.NuvioCFeatures.SUBTITLE_CLASSIC_RENDERER) item { // [fork] round 44: shadow needs official's new renderer
+                SubtitleShadowStyleCard(
+                    subtitleStyle = subtitleStyle,
+                    focusRequesters = focusRequesters,
+                    onMoveLeft = onMoveLeft,
+                    onFocused = onStyleFocused,
+                    onEvent = dispatchStyleEvent,
+                    modifier = styleCardModifier
+                )
             }
             item {
                 OverlaySectionCard(
@@ -1481,7 +1466,7 @@ private fun OverlayEmptyCard(text: String) {
 }
 
 @Composable
-private fun OverlaySectionCard(
+internal fun OverlaySectionCard(
     title: String,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
@@ -1500,11 +1485,12 @@ private fun OverlaySectionCard(
 }
 
 @Composable
-private fun StepperRow(
+internal fun StepperRow(
     value: String,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
     valueWidth: Dp = 84.dp,
+    valueFontFamily: FontFamily? = null,
     onMoveLeft: (() -> Unit)? = null,
     decrementFocusRequester: FocusRequester? = null,
     incrementFocusRequester: FocusRequester? = null,
@@ -1535,7 +1521,10 @@ private fun StepperRow(
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White
+                color = Color.White,
+                fontFamily = valueFontFamily,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
         StepperButton(
@@ -1616,7 +1605,7 @@ private fun StepperButton(
 }
 
 @Composable
-private fun ToggleChip(
+internal fun ToggleChip(
     label: String,
     isEnabled: Boolean,
     onMoveLeft: (() -> Unit)? = null,
@@ -1697,7 +1686,7 @@ private fun ToggleChip(
 }
 
 @Composable
-private fun ColorChipRow(
+internal fun ColorChipRow(
     colors: List<Color>,
     selectedColor: Int,
     enabled: Boolean = true,
@@ -1823,7 +1812,7 @@ private fun overlaySwatchColorLabel(color: Color): String {
     return "#" + rgb.toString(16).padStart(6, '0').uppercase()
 }
 
-private object StyleFocusKey {
+internal object StyleFocusKey {
     const val FontSizeDecrease = "font_size_decrease"
     const val FontSizeIncrease = "font_size_increase"
     const val Bold = "bold"
@@ -1838,6 +1827,18 @@ private object StyleFocusKey {
     const val HdrBrightnessDecrease = "hdr_brightness_decrease"
     const val HdrBrightnessIncrease = "hdr_brightness_increase"
     const val OutlineColorPrefix = "outline_color"
+    const val FontDecrease = "font_decrease"
+    const val FontIncrease = "font_increase"
+    const val BackgroundColorPrefix = "background_color"
+    const val BackgroundOpacityDecrease = "background_opacity_decrease"
+    const val BackgroundOpacityIncrease = "background_opacity_increase"
+    const val RoundnessDecrease = "roundness_decrease"
+    const val RoundnessIncrease = "roundness_increase"
+    const val ShadowToggle = "shadow_toggle"
+    const val ShadowOpacityDecrease = "shadow_opacity_decrease"
+    const val ShadowOpacityIncrease = "shadow_opacity_increase"
+    const val ShadowSizeDecrease = "shadow_size_decrease"
+    const val ShadowSizeIncrease = "shadow_size_increase"
 }
 
 private enum class OverlayFocusRail {
@@ -1854,26 +1855,30 @@ private fun String.isHdrBrightnessFocusKey(): Boolean =
  * outline, bottom offset, reset. The HDR brightness item sits right after background opacity.
  */
 private fun styleListIndexForFocusKey(focusKey: String, hasHdrBrightnessItem: Boolean): Int {
-    val f = if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_FONT) 1 else 0
-    val bg = 5 + f
-    if (focusKey.isHdrBrightnessFocusKey()) return bg + 1
-    val index = styleListIndexForFocusKey(focusKey)
-    return if (hasHdrBrightnessItem && index > bg) index + 1 else index
+    if (focusKey.isHdrBrightnessFocusKey()) return 6
+    val raw = styleListIndexForFocusKey(focusKey)
+    // [fork] round 44 subtitle_classic_renderer: no Shadow card, so the rows after it move up one
+    val index = if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_CLASSIC_RENDERER && raw >= 9) raw - 1 else raw
+    return if (hasHdrBrightnessItem && index >= 6) index + 1 else index
 }
 
 private fun styleListIndexForFocusKey(focusKey: String): Int {
-    val f = if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_FONT) 1 else 0
     return when {
         focusKey == StyleFocusKey.DelaySet -> 0
-        focusKey == StyleFocusKey.FontSizeDecrease || focusKey == StyleFocusKey.FontSizeIncrease -> 1
-        focusKey == NUVIO_C_FONT_PREV || focusKey == NUVIO_C_FONT_NEXT -> 2 // [fork]
-        focusKey == StyleFocusKey.Bold -> 2 + f
-        focusKey.startsWith("${StyleFocusKey.TextColorPrefix}:") -> 3 + f
-        focusKey == StyleFocusKey.OpacityDecrease || focusKey == StyleFocusKey.OpacityIncrease -> 4 + f
-        focusKey == NUVIO_C_BG_PREV || focusKey == NUVIO_C_BG_NEXT -> 5 + f
-        focusKey == StyleFocusKey.OutlineToggle || focusKey.startsWith("${StyleFocusKey.OutlineColorPrefix}:") -> 6 + f
-        focusKey == StyleFocusKey.OffsetDecrease || focusKey == StyleFocusKey.OffsetIncrease -> 7 + f
-        focusKey == StyleFocusKey.Reset -> 8 + f
+        focusKey == StyleFocusKey.FontDecrease || focusKey == StyleFocusKey.FontIncrease -> 1
+        focusKey == StyleFocusKey.FontSizeDecrease || focusKey == StyleFocusKey.FontSizeIncrease -> 2
+        focusKey == StyleFocusKey.Bold -> 3
+        focusKey.startsWith("${StyleFocusKey.TextColorPrefix}:") -> 4
+        focusKey == StyleFocusKey.OpacityDecrease || focusKey == StyleFocusKey.OpacityIncrease -> 5
+        focusKey.startsWith("${StyleFocusKey.BackgroundColorPrefix}:") ||
+            focusKey == StyleFocusKey.BackgroundOpacityDecrease || focusKey == StyleFocusKey.BackgroundOpacityIncrease ||
+            focusKey == StyleFocusKey.RoundnessDecrease || focusKey == StyleFocusKey.RoundnessIncrease -> 6
+        focusKey == StyleFocusKey.OutlineToggle || focusKey.startsWith("${StyleFocusKey.OutlineColorPrefix}:") -> 7
+        focusKey == StyleFocusKey.ShadowToggle ||
+            focusKey == StyleFocusKey.ShadowOpacityDecrease || focusKey == StyleFocusKey.ShadowOpacityIncrease ||
+            focusKey == StyleFocusKey.ShadowSizeDecrease || focusKey == StyleFocusKey.ShadowSizeIncrease -> 8
+        focusKey == StyleFocusKey.OffsetDecrease || focusKey == StyleFocusKey.OffsetIncrease -> 9
+        focusKey == StyleFocusKey.Reset -> 10
         else -> 0
     }
 }
@@ -1899,14 +1904,26 @@ private fun rememberStyleFocusRequesters(): Map<String, FocusRequester> {
             StyleFocusKey.OffsetIncrease,
             StyleFocusKey.DelaySet,
             StyleFocusKey.Reset,
-            NUVIO_C_FONT_PREV, NUVIO_C_FONT_NEXT, // [fork]
-            NUVIO_C_BG_PREV, NUVIO_C_BG_NEXT // [fork] round 29
+            StyleFocusKey.FontDecrease,
+            StyleFocusKey.FontIncrease,
+            StyleFocusKey.BackgroundOpacityDecrease,
+            StyleFocusKey.BackgroundOpacityIncrease,
+            StyleFocusKey.RoundnessDecrease,
+            StyleFocusKey.RoundnessIncrease,
+            StyleFocusKey.ShadowToggle,
+            StyleFocusKey.ShadowOpacityDecrease,
+            StyleFocusKey.ShadowOpacityIncrease,
+            StyleFocusKey.ShadowSizeDecrease,
+            StyleFocusKey.ShadowSizeIncrease
         ).associateWith { FocusRequester() } +
             SubtitleTextColorPresets.associate { color ->
                 "${StyleFocusKey.TextColorPrefix}:${color.toArgb()}" to FocusRequester()
             } +
             SubtitleOutlineColorPresets.associate { color ->
                 "${StyleFocusKey.OutlineColorPrefix}:${color.toArgb()}" to FocusRequester()
+            } +
+            SubtitleBackgroundColorPresets.associate { color ->
+                "${StyleFocusKey.BackgroundColorPrefix}:${color.toArgb()}" to FocusRequester()
             }
     }
 }

@@ -48,7 +48,7 @@ object NuvioCFeatures {
     const val LOADING_FILENAME = true
     /** Player: a "stream" that is really a short error clip is paused and the Sources panel opens. */
     const val PLACEHOLDER_CHECK = true
-    /** Player: the next episode starts without the 3-second countdown (Next press and auto-play). */
+    /** Player: the next episode starts without the 3-second countdown when you press Next (round 44: unattended auto-play keeps the countdown, see AUTOPLAY_COUNTDOWN). */
     const val NEXT_EP_NO_COUNTDOWN = true
     /** Player: controls stay up 8 s after opening (3 s after a seek). Off = 3 s always. */
     const val OSD_TIMEOUT = true
@@ -732,4 +732,15 @@ object NuvioCFeatures {
     // [fork] round 43b
     /** Details: the Information block is one focus stop after the logo rows; the logo rows then scroll like any other row (no scroll-to-end, no blocked scroll). Needs DETAIL_INFO_SLOTS. Off = round 9 scroll-to-end on the logo rows. */
     const val DETAIL_INFO_STOP = true
+    // [fork] round 44
+    /** Player: unattended auto-play gets official's 3-second countdown card again (Back cancels it for that episode), with a small "Back to stay" line. A Next press still starts at once. Off = no countdown for auto-play either (round 43). */
+    const val AUTOPLAY_COUNTDOWN = true
+    /** Subtitles: text subtitles keep the player's own subtitle view (Nuvio C lift, top jump and HDR dim), with official 1.2's Font list (plus the Nuvio C fonts) and Background colour / opacity applied to it. Official's new drawn renderer, rounded background corners and drop shadow are left out. Off = official 1.2 renderer. */
+    const val SUBTITLE_CLASSIC_RENDERER = true
+    /** Details hero: facts line, its chips and the ratings row one size smaller (12 sp, one meta tier with the synopsis), tighter even spacing. Off = round 43 sizes. */
+    const val HERO_META_SMALL = true
+    /** Details Information: Based on gets its own full-width line (wraps to two lines) and labels / values are 13 sp. Needs DETAIL_INFO_SLOTS. Off = round 43b slots. */
+    const val INFO_FULL_ROWS = true
+    /** Details Information: a Themes line from TMDB keywords (same request, no extra call), meta tags filtered out, up to 8 chips. Needs DETAIL_INFO_SLOTS. Off = no Themes. */
+    const val DETAIL_THEMES = true
 }

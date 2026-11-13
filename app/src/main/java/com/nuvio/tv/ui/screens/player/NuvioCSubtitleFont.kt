@@ -150,4 +150,63 @@ internal object NuvioCSubtitleFont {
 
     /** Family name for mpv's sub-font, or null to keep official's. */
     fun mpvFamily(context: Context): String? = load(context).family
+
+    // ---- [fork] round 44: the Nuvio C fonts inside official 1.2's Font list ----------------------------------
+    // Official stores the pick as `fontId` in the player settings (per profile); the Nuvio C fonts join that list
+    // as "nuvioc_<id>". The subtitle view (SUBTITLE_CLASSIC_RENDERER) draws any official id: Nuvio C fonts from the
+    // APK, Serif / Monospace, and fonts imported from a phone. mpv follows the pick through the old app-wide pref.
+
+    private const val PREFIX = "nuvioc_"
+    @Volatile private var appContext: Context? = null
+
+    fun attach(context: Context) { appContext = context.applicationContext }
+
+    val officialIds: List<String> by lazy {
+        if (NuvioCFeatures.SUBTITLE_FONT) options.drop(1).map { PREFIX + it.id } else emptyList()
+    }
+
+    fun isNuvioCId(id: String): Boolean = id.startsWith(PREFIX)
+
+    private fun optionFor(id: String): Option? =
+        if (isNuvioCId(id)) options.firstOrNull { it.id == id.removePrefix(PREFIX) && it.file != null } else null
+
+    fun officialLabel(id: String): String = optionFor(id)?.label ?: "Default"
+
+    /** Regular face of a Nuvio C font for official's previews, or null for any other id. */
+    fun officialTypeface(id: String): Typeface? {
+        val option = optionFor(id) ?: return null
+        val context = appContext ?: return null
+        return typefaceFor(context, option, bold = false)
+    }
+
+    /** Official id for the font picked before round 44 (app-wide Nuvio C pref), used while a profile has no official pick yet. */
+    fun legacyOfficialId(context: Context): String? {
+        if (!NuvioCFeatures.SUBTITLE_FONT) return null
+        val id = NuvioCPrefs.subtitleFont(context)
+        return options.firstOrNull { it.id == id && it.file != null }?.let { PREFIX + it.id }
+    }
+
+    /** Typeface for the subtitle view from official's [fontId], or null for the system default. */
+    fun styleTypeface(context: Context, fontId: String, bold: Boolean): Typeface? {
+        optionFor(fontId)?.let { return typefaceFor(context, it, bold) }
+        val style = if (bold) Typeface.BOLD else Typeface.NORMAL
+        return when (fontId) {
+            com.nuvio.tv.core.player.SubtitleFonts.SERIF -> Typeface.create(Typeface.SERIF, style)
+            com.nuvio.tv.core.player.SubtitleFonts.MONO -> Typeface.create(Typeface.MONOSPACE, style)
+            else -> if (com.nuvio.tv.core.player.SubtitleFonts.isCustom(fontId)) {
+                com.nuvio.tv.core.player.SubtitleFontStore.get(context).typeface(fontId)?.let { Typeface.create(it, style) }
+            } else null
+        }
+    }
+
+    /** Keeps the app-wide pref (mpv's sub-font and font folder) on the profile's official pick. */
+    fun syncFromStyle(context: Context, fontId: String) {
+        if (!NuvioCFeatures.SUBTITLE_FONT) return
+        load(context)
+        val option = optionFor(fontId) ?: options.first()
+        if (option == current) return
+        current = option
+        NuvioCPrefs.setSubtitleFont(context, option.id)
+        stageForMpv(context, option)
+    }
 }
