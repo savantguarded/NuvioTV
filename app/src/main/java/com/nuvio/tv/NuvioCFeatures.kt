@@ -586,7 +586,7 @@ object NuvioCFeatures {
     /** Settings > Integrations: TheTVDB and OMDb rows with your own keys (kept on this TV only, never in your Nuvio account). Off = rows hidden, the built-in TVDB key only. */
     const val API_KEYS = true
     /** Details Information block: an Awards line, from your meta add-on or OMDb with your key. Off = no Awards line. */
-    const val OMDB_AWARDS = true
+    const val OMDB_AWARDS = false // round 43c: awards removed (inaccurate); also hides the OMDb entry in Integrations
 
     // ---- Round 37b (2026-11-10) ----
     /** Start-up and opening logo 10% smaller (76 dp, was 84). Off = 84 dp. */
@@ -724,7 +724,7 @@ object NuvioCFeatures {
     /** Details Information as fixed slots (films 8, shows 10, a dim dash when missing), nothing that the top of the page already shows; adds Country, Based on, Original title, Last aired, Episodes, Episode length. Off = round 39 block. */
     const val DETAIL_INFO_SLOTS = true
     /** Details Awards: one fixed line per major body (Oscars / Emmys, Golden Globes, BAFTA, Festivals for films) from Wikidata, plus Overall from OMDb. Needs DETAIL_INFO_SLOTS. Off = no Awards lines. */
-    const val DETAIL_AWARDS_BODIES = true
+    const val DETAIL_AWARDS_BODIES = false // round 43c: removed (inaccurate)
     /** Details Parental guidance next to Information: rating chip, the five IMDb categories with a level bar and a short non-spoiler note. Needs DETAIL_INFO_SLOTS. Off = no guide. */
     const val DETAIL_GUIDE = true
     /** Details episodes: a Find chip at the end of the season tabs; search by number (12, e12, s3e5, 3x05) or name across all seasons. Off = official tabs. */

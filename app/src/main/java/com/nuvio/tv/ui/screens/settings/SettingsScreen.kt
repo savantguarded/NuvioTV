@@ -1193,7 +1193,7 @@ private fun IntegrationSettingsContent(
                                         }
                                     )
                                 }
-                                item(key = "integration_hub_nuvio_c_omdb") {
+                                if (com.nuvio.tv.NuvioCFeatures.OMDB_AWARDS) item(key = "integration_hub_nuvio_c_omdb") { // [fork] round 43c: hidden with the awards
                                     SettingsActionRow(
                                         title = stringResource(R.string.nuvio_c_omdb_title),
                                         subtitle = stringResource(R.string.nuvio_c_omdb_hub_subtitle),
