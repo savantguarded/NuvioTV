@@ -735,8 +735,11 @@ object NuvioCFeatures {
     // [fork] round 44
     /** Player: unattended auto-play gets official's 3-second countdown card again (Back cancels it for that episode), with a small "Back to stay" line. A Next press still starts at once. Off = no countdown for auto-play either (round 43). */
     const val AUTOPLAY_COUNTDOWN = true
-    /** Subtitles: text subtitles keep the player's own subtitle view (Nuvio C lift, top jump and HDR dim), with official 1.2's Font list (plus the Nuvio C fonts) and Background colour / opacity applied to it. Official's new drawn renderer, rounded background corners and drop shadow are left out. Off = official 1.2 renderer. */
-    const val SUBTITLE_CLASSIC_RENDERER = true
+    /** Subtitles: text subtitles keep the player's own subtitle view, with official 1.2's Font list (plus the Nuvio C fonts) and Background colour / opacity applied to it; rounded corners and drop shadow hidden. Round 44b: off, official 1.2's drawn renderer is used (see SUBTITLE_STYLED_LIFT). */
+    const val SUBTITLE_CLASSIC_RENDERER = false
+    // [fork] round 44b
+    /** Subtitles: official 1.2's drawn renderer (fonts, background box, rounded corners, shadow) gets the Nuvio C lift above the OSD, the top jump, the pause-screen lift and HDR dim. Off = it only moves with official's own lift. */
+    const val SUBTITLE_STYLED_LIFT = true
     /** Details hero: facts line, its chips and the ratings row one size smaller (12 sp, one meta tier with the synopsis), tighter even spacing. Off = round 43 sizes. */
     const val HERO_META_SMALL = true
     /** Details Information: Based on gets its own full-width line (wraps to two lines) and labels / values are 13 sp. Needs DETAIL_INFO_SLOTS. Off = round 43b slots. */

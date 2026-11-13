@@ -1354,10 +1354,10 @@ fun PlayerScreen(
                     }
                     StyledSubtitleOverlay(
                         cues = styledSubtitleCues,
-                        style = renderedSubtitleStyle,
+                        style = nuvioCHdrSubtitleStyle(renderedSubtitleStyle, nuvioCHdr), // [fork] round 44b: HDR dim
                         textSizePx = subtitleTextMetrics?.textSizePx ?: fallbackSubtitleTextSizePx,
-                        liftPx = subtitleLiftPx,
-                        modifier = Modifier.fillMaxSize()
+                        liftPx = nuvioCOfficialLiftPx, // [fork] round 44b: official lift drops while the Nuvio C lift is on
+                        modifier = Modifier.fillMaxSize().nuvioCStyledLift() // [fork] round 44b: Nuvio C lift / top jump
                     )
                 }
 

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import com.nuvio.tv.data.local.SubtitleStyleSettings
 
@@ -53,6 +54,7 @@ internal fun StyledSubtitleOverlay(
         }
         if (cues.bottom.isNotEmpty()) {
             val insetPx = subtitleBottomPlacement(heightPx, style.verticalOffset, liftPx).insetPx(heightPx)
+            NuvioCStyledLift.reportInset(insetPx) // [fork] round 44b styled lift
             StyledSubtitleText(
                 text = cues.bottom,
                 style = style,
@@ -61,6 +63,7 @@ internal fun StyledSubtitleOverlay(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .padding(bottom = with(density) { insetPx.toDp() })
+                    .then(if (NuvioCStyledLift.enabled) Modifier.onSizeChanged { NuvioCStyledLift.reportBlock(it.height.toFloat()) } else Modifier) // [fork]
             )
         }
     }

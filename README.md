@@ -9,7 +9,7 @@ Nuvio C is a personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV)
 ### Playback
 - **Information-rich controls.** Title logo plus resolution, HDR / Dolby Vision, audio (Dolby Atmos spelled out), source and file-size badges, a slimmer high-contrast seek bar and a label under the focused button.
 - **Subtitles that stay readable.** Bottom subtitles lift clear of the controls and pause screen; subtitles and controls are dimmed during HDR and Dolby Vision playback.
-- **Subtitle styling.** Official's subtitle appearance (font list, fonts imported from a phone, background colour and opacity) on the Nuvio C subtitle view, with the Nuvio C fonts added to the list, plus outline width and an option to hide SDH tracks. Your saved subtitle carries to the next episode, with SDH only as a fallback.
+- **Subtitle styling.** Official's subtitle appearance (font list with the Nuvio C fonts added, fonts imported from a phone, background colour, opacity and rounded corners, drop shadow), with the Nuvio C lift, top jump and HDR dim carried over, plus an option to hide SDH tracks. Your saved subtitle carries to the next episode, with SDH only as a fallback.
 - **Night mode for passthrough setups.** Lifts dialogue and quiet passages, switching a title from bitstream to decoded audio without interrupting playback, with an optional evening schedule.
 - **Stream information panel.** Source server, decoder, display mode, HDR metadata, buffering and network health in one panel that fits the screen.
 - **Cleaner track lists.** Audio and subtitle tracks are named by language, with the track's own description underneath; add-on subtitles drop their raw file ids and are numbered by add-on with the file type.

@@ -652,9 +652,22 @@ internal fun NuvioCSubtitleLiftEffect(
     val style by rememberUpdatedState(subtitleStyle)
 
     LaunchedEffect(controller) {
-        snapshotFlow { Triple(progress.value, state.bottomBlockTop, if (usePause) state.pauseTop else Float.NaN) to cueBlockPx.floatValue }.collect { (t, block) ->
+        snapshotFlow { Triple(progress.value, state.bottomBlockTop, if (usePause) state.pauseTop else Float.NaN) to (cueBlockPx.floatValue to NuvioCStyledLift.block.floatValue) }.collect { (t, blocks) ->
+            val block = blocks.first
             val (p, osdTop, pauseTop) = t
             val top = if (usePause) pauseTop else osdTop
+            // [fork] round 44b subtitle_styled_lift: official's drawn subtitles (fonts, box, corners, shadow) get the
+            // same lift / top jump; their own block height places the top edge at the top band.
+            if (NuvioCStyledLift.enabled) {
+                val styledBlock = blocks.second
+                val limit = when {
+                    toTop && !styledBlock.isNaN() -> topClearPx + styledBlock
+                    toTop -> topBottom
+                    top.isNaN() -> Float.NaN
+                    else -> top - gapPx
+                }
+                NuvioCStyledLift.apply(p, limit)
+            }
             runCatching {
                 controller.exoPlayerView?.nuvioCApplySubtitleLift(
                     p, top, gapPx, style,
@@ -699,6 +712,7 @@ internal fun NuvioCSubtitleLiftEffect(
 
     DisposableEffect(controller) {
         onDispose {
+            NuvioCStyledLift.reset() // [fork] round 44b
             runCatching { controller.exoPlayerView?.nuvioCApplySubtitleLift(0f, Float.NaN, 0f, style) }
             runCatching { controller.mpvView?.nuvioCSetSubtitleLift(null, style) }
         }
