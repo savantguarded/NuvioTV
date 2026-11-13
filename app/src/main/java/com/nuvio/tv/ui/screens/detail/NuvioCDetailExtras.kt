@@ -36,6 +36,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
@@ -231,7 +232,8 @@ internal fun NuvioCInfoSlots(info: NuvioCDetailInfo, margin: Dp) {
     val hairline = NuvioTheme.colors.TextPrimary.copy(alpha = 0.08f)
     Column(Modifier.fillMaxWidth().padding(horizontal = margin)) {
         Heading(stringResource(R.string.nuvio_c_info_title))
-        val slots = if (info.show) NUVIO_C_SHOW_SLOTS else NUVIO_C_FILM_SLOTS
+        val full = com.nuvio.tv.NuvioCFeatures.INFO_FULL_ROWS // [fork] round 44: Based on (and Themes) get the full width
+        val slots = (if (info.show) NUVIO_C_SHOW_SLOTS else NUVIO_C_FILM_SLOTS).let { if (full) it - R.string.nuvio_c_info_based_on else it }
         val byLabel = info.rows.associateBy { it.label }
         slots.chunked(2).forEach { pair ->
             Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
@@ -242,7 +244,16 @@ internal fun NuvioCInfoSlots(info: NuvioCDetailInfo, margin: Dp) {
                     }?.takeIf { it.isNotBlank() }
                     SlotLine(stringResource(label), value, Modifier.weight(1f))
                 }
+                if (pair.size == 1) Spacer(Modifier.weight(1f)) // a lone slot keeps half the width
             }
+        }
+        if (full) {
+            Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
+            SlotLine(stringResource(R.string.nuvio_c_info_based_on), byLabel[R.string.nuvio_c_info_based_on]?.value?.takeIf { it.isNotBlank() }, Modifier.fillMaxWidth(), maxLines = 2)
+        }
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_THEMES) {
+            Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
+            NuvioCThemesLine(stringResource(R.string.nuvio_c_info_themes), info.themes)
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
 
@@ -310,11 +321,12 @@ private fun Heading(text: String) {
 private fun dashColor() = NuvioTheme.extendedColors.textTertiary.copy(alpha = 0.6f)
 
 @Composable
-private fun SlotLine(label: String, value: String?, modifier: Modifier) {
+private fun SlotLine(label: String, value: String?, modifier: Modifier, maxLines: Int = 1) {
+    val style = slotStyle()
     Row(modifier.padding(vertical = 10.dp), verticalAlignment = Alignment.Top) {
         Text(
             label,
-            style = MaterialTheme.typography.bodyMedium,
+            style = style,
             color = NuvioTheme.extendedColors.textTertiary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -322,9 +334,9 @@ private fun SlotLine(label: String, value: String?, modifier: Modifier) {
         )
         Text(
             value ?: DASH,
-            style = MaterialTheme.typography.bodyMedium,
+            style = style,
             color = if (value != null) NuvioTheme.colors.TextPrimary else dashColor(),
-            maxLines = 1,
+            maxLines = maxLines,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
@@ -377,6 +389,64 @@ private fun GuideCell(label: String, level: String?, modifier: Modifier) {
                 color = if (levelText != null) NuvioTheme.colors.TextPrimary else dashColor(),
                 maxLines = 1
             )
+        }
+    }
+}
+
+/** [fork] round 44 info_full_rows: Information labels and values at 13 sp (were 14). */
+@Composable
+private fun slotStyle(): androidx.compose.ui.text.TextStyle =
+    if (com.nuvio.tv.NuvioCFeatures.INFO_FULL_ROWS) MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 18.sp)
+    else MaterialTheme.typography.bodyMedium
+
+/**
+ * [fork] round 44 detail_themes: label, then quiet outline chips on one line, as many whole chips as fit and "+N" for
+ * the rest. Not focusable (the Information block is one focus stop). A dash while TMDB has none.
+ */
+@Composable
+private fun NuvioCThemesLine(label: String, themes: List<String>) {
+    val style = slotStyle()
+    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = style, color = NuvioTheme.extendedColors.textTertiary, maxLines = 1, modifier = Modifier.width(136.dp))
+        if (themes.isEmpty()) {
+            Text(DASH, style = style, color = dashColor())
+            return@Row
+        }
+        val chipStyle = MaterialTheme.typography.labelMedium
+        val chipColor = NuvioTheme.colors.TextPrimary.copy(alpha = 0.85f)
+        val border = NuvioTheme.colors.TextPrimary.copy(alpha = 0.22f)
+        val more = NuvioTheme.extendedColors.textTertiary
+        androidx.compose.ui.layout.SubcomposeLayout(Modifier.weight(1f)) { constraints ->
+            val gap = 8.dp.roundToPx()
+            val loose = constraints.copy(minWidth = 0, minHeight = 0)
+            val chips = themes.mapIndexed { i, t ->
+                subcompose("c$i") {
+                    Box(
+                        Modifier
+                            .border(1.dp, border, RoundedCornerShape(50))
+                            .padding(horizontal = 10.dp, vertical = 3.dp)
+                    ) { Text(t, style = chipStyle, color = chipColor, maxLines = 1) }
+                }.first().measure(loose)
+            }
+            val plusWidth = subcompose("plusProbe") { Text("+${themes.size}", style = chipStyle, color = more) }.first().measure(loose).width
+            var used = 0
+            var count = 0
+            for ((i, p) in chips.withIndex()) {
+                val next = (if (count == 0) 0 else used + gap) + p.width
+                val rest = chips.size - i - 1
+                val room = if (rest > 0) next + gap + plusWidth else next
+                if (room > constraints.maxWidth) break
+                used = next
+                count++
+            }
+            val left = chips.size - count
+            val plus = if (left > 0) subcompose("plus") { Text("+$left", style = chipStyle, color = more) }.first().measure(loose) else null
+            val height = (chips.take(count).maxOfOrNull { it.height } ?: 0).coerceAtLeast(plus?.height ?: 0)
+            layout(constraints.maxWidth, height) {
+                var x = 0
+                chips.take(count).forEach { p -> p.placeRelative(x, (height - p.height) / 2); x += p.width + gap }
+                plus?.placeRelative(x, (height - plus.height) / 2)
+            }
         }
     }
 }

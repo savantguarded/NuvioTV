@@ -80,6 +80,10 @@ class StyledSubtitlePresenterTest {
         val defaults = SubtitleStyleSettings()
 
         assertFalse(defaults.usesStyledRenderer)
+        if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_CLASSIC_RENDERER) { // [fork] round 44: Nuvio C keeps the subtitle view
+            assertFalse(defaults.copy(fontId = SubtitleFonts.SERIF, shadowEnabled = true).usesStyledRenderer)
+            return
+        }
         assertTrue(defaults.copy(fontId = SubtitleFonts.SERIF).usesStyledRenderer)
         assertTrue(defaults.copy(backgroundColor = Color.Black.copy(alpha = 0.5f).toArgb()).usesStyledRenderer)
         assertTrue(defaults.copy(shadowEnabled = true).usesStyledRenderer)

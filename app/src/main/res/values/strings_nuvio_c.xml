@@ -392,4 +392,7 @@
     <string name="nuvio_c_find_matches">%d matches</string>
     <string name="nuvio_c_find_one">1 match</string>
     <string name="nuvio_c_find_none">No episodes match</string>
+    <!-- [fork] round 44 -->
+    <string name="nuvio_c_autoplay_back_hint">Back to stay</string>
+    <string name="nuvio_c_info_themes">Themes</string>
 </resources>

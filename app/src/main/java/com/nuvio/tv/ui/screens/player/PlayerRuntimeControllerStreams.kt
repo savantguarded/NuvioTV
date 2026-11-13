@@ -2280,8 +2280,11 @@ internal fun PlayerRuntimeController.playNextEpisode(userInitiated: Boolean = fa
             }
             if (streamToPlay != null) {
                 val sourceName = (streamToPlay.name?.takeIf { it.isNotBlank() } ?: streamToPlay.addonName).trim()
-                // [fork] Nuvio C: no 3-second countdown, for a Next press and for auto-play alike
-                if (!com.nuvio.tv.NuvioCFeatures.NEXT_EP_NO_COUNTDOWN) for (remaining in 3 downTo 1) {
+                // [fork] Nuvio C: no 3-second countdown for a Next press; round 44 auto_play_countdown: unattended
+                // auto-play gets official's countdown back (Back on the card cancels it, official OnDismissNextEpisodeCard).
+                val nuvioCSkipCountdown = com.nuvio.tv.NuvioCFeatures.NEXT_EP_NO_COUNTDOWN &&
+                    (userInitiated || !com.nuvio.tv.NuvioCFeatures.AUTOPLAY_COUNTDOWN)
+                if (!nuvioCSkipCountdown) for (remaining in 3 downTo 1) {
                     _uiState.update { current ->
                         val episodeForMode = current.nextEpisode ?: nextInfo
                         current.copy(

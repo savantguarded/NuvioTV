@@ -111,7 +111,8 @@ data class NuvioCDetailInfo(
     val awardsText: String? = null,
     val guide: com.nuvio.tv.data.repository.NuvioCGuide? = null,
     val guideChecked: Boolean = false,
-    val imdbFromTmdb: String? = null
+    val imdbFromTmdb: String? = null,
+    val themes: List<String> = emptyList() // [fork] round 44 detail_themes
 )
 
 /** The info of the details page on screen; consumers check [NuvioCDetailInfo.metaId] against their title. */
@@ -225,12 +226,13 @@ class NuvioCDetailInfoViewModel @Inject constructor(
                     NuvioCFeatures.DETAIL_INFO_SLOTS -> "release_dates,credits,external_ids"
                     show -> "external_ids"
                     else -> "release_dates"
-                }
+                } + if (NuvioCFeatures.DETAIL_THEMES) ",keywords" else "" // [fork] round 44: Themes in the same request
             )
                 .takeIf { it.isSuccessful }?.body()?.use { it.string() }
         } ?: return null
         val o = json.parseToJsonElement(body).jsonObject
-        return if (show) showInfo(meta, o) else filmInfo(meta, o)
+        val info = if (show) showInfo(meta, o) else filmInfo(meta, o)
+        return if (NuvioCFeatures.DETAIL_THEMES) info.copy(themes = nuvioCThemes(o)) else info // [fork] round 44
     }
 
     private fun filmInfo(meta: Meta, o: JsonObject): NuvioCDetailInfo {
@@ -627,3 +629,36 @@ private fun JsonObject.obj(key: String): JsonObject? = this[key] as? JsonObject
 
 /** [fork] round 32 detail_info_trim: rows the details page already shows elsewhere. */
 private val NUVIO_C_INFO_TRIMMED = setOf(R.string.nuvio_c_info_runtime, R.string.nuvio_c_info_language)
+
+/**
+ * [fork] round 44 detail_themes: TMDB keywords (films: keywords.keywords, shows: keywords.results) as Themes. Meta tags
+ * about the production or the release (based on…, stingers, sequel, remake, woman director, 3D…) are left out; title
+ * case, duplicates removed, up to [max].
+ */
+internal fun nuvioCThemes(o: JsonObject, max: Int = 8): List<String> {
+    val k = o["keywords"] as? JsonObject ?: return emptyList()
+    val list = ((k["keywords"] ?: k["results"]) as? JsonArray).orEmpty()
+        .mapNotNull { (it as? JsonObject)?.get("name")?.let { n -> (n as? JsonPrimitive)?.contentOrNull } }
+    return nuvioCCleanThemes(list, max)
+}
+
+internal fun nuvioCCleanThemes(names: List<String>, max: Int = 8): List<String> {
+    val skip = Regex(
+        "^(based on|inspired by|adaptation|remake|reboot|sequel|prequel|spin ?off|duringcreditsstinger|aftercreditsstinger|" +
+            "post-credits scene|mid-credits scene|woman director|female director|independent film|short film|3d|imax|" +
+            "live action remake|anime|aftercredits|duringcredits|no opening credits|black and white)\\b",
+        RegexOption.IGNORE_CASE
+    )
+    val small = setOf("a", "an", "and", "the", "of", "in", "on", "to", "for", "vs", "vs.", "with", "at", "by", "or")
+    return names.asSequence()
+        .map { it.trim() }
+        .filter { it.length in 3..28 && !skip.containsMatchIn(it) && !it.contains("stinger", ignoreCase = true) }
+        .map { name ->
+            name.split(' ').mapIndexed { i, w ->
+                if (i > 0 && w.lowercase() in small) w.lowercase() else w.replaceFirstChar { c -> c.titlecase() }
+            }.joinToString(" ")
+        }
+        .distinctBy { it.lowercase() }
+        .take(max)
+        .toList()
+}

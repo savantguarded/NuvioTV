@@ -475,7 +475,7 @@ fun HeroContentSection(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
+                    Spacer(modifier = Modifier.height(if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL && com.nuvio.tv.NuvioCFeatures.HERO_FACTS_ABOVE) 10.dp else NuvioTheme.spacing.lg)) // [fork] round 44
 
                     // Director/Writer line above description
                     if (!creditLine.isNullOrBlank() && !com.nuvio.tv.NuvioCFeatures.HERO_FACTS_ABOVE) { // [fork] round 43: Cast & Crew has it
@@ -493,11 +493,11 @@ fun HeroContentSection(
                     }
 
                     if (mdbListRatings?.isEmpty() == false) {
-                        MDBListRatingsRow(ratings = mdbListRatings, order = mdbListRatingOrder, modifier = Modifier.nuvioCFade { nuvioCTextAlpha.value }) // [fork]
-                        Spacer(modifier = Modifier.height(14.dp))
+                        MDBListRatingsRow(ratings = mdbListRatings, order = mdbListRatingOrder, modifier = Modifier.nuvioCFade { nuvioCTextAlpha.value }, iconSize = if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) 20.dp else NuvioTheme.spacing.xl) // [fork] round 44: smaller logos
+                        Spacer(modifier = Modifier.height(if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) 12.dp else 14.dp))
                     } else if (com.nuvio.tv.NuvioCFeatures.HERO_RATINGS_SPACE && rememberNuvioCRatingsHold(nuvioCRatingsPending, meta.id)) { // [fork] same height, invisible, until MDBList answers
-                        MDBListRatingsRow(ratings = NUVIO_C_RATINGS_PLACEHOLDER, modifier = Modifier.nuvioCInvisible())
-                        Spacer(modifier = Modifier.height(14.dp))
+                        MDBListRatingsRow(ratings = NUVIO_C_RATINGS_PLACEHOLDER, modifier = Modifier.nuvioCInvisible(), iconSize = if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) 20.dp else NuvioTheme.spacing.xl)
+                        Spacer(modifier = Modifier.height(if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) 12.dp else 14.dp))
                     }
 
                     meta.description?.nuvioCCleanSynopsis()?.let { description -> // [fork] no blank lines at the end
@@ -1016,20 +1016,21 @@ private fun MetaInfoRow(
 @Composable
 private fun HeroMetaBadge(
     text: String,
-    contentColor: Color = NuvioTheme.colors.TextSecondary
+    contentColor: Color = NuvioTheme.colors.TextSecondary,
+    nuvioCSmall: Boolean = false // [fork] round 44 hero_meta_small: 10 sp chip for the facts line
 ) {
     Box(
         modifier = Modifier
             .border(
                 border = BorderStroke(NuvioTheme.spacing.hairline, contentColor.copy(alpha = 0.55f)),
-                shape = RoundedCornerShape(6.dp)
+                shape = RoundedCornerShape(if (nuvioCSmall) 5.dp else 6.dp)
             )
-            .padding(horizontal = NuvioTheme.spacing.sm, vertical = NuvioTheme.spacing.xs),
+            .padding(horizontal = if (nuvioCSmall) 6.dp else NuvioTheme.spacing.sm, vertical = if (nuvioCSmall) 1.dp else NuvioTheme.spacing.xs),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
-            style = MaterialTheme.typography.labelMedium,
+            style = if (nuvioCSmall) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium,
             color = contentColor,
             maxLines = 1
         )
@@ -1190,18 +1191,21 @@ private fun NuvioCHeroFacts(meta: Meta, hideImdbRating: Boolean, tmdbRating: Flo
         info?.takeIf { it.metaId == meta.id }?.next?.let { nuvioCNextEpisodeBadge(it) }
     } else null
     val imdb = if (hideImdbRating) null else meta.imdbRating
+    val small = com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL // [fork] round 44: 12 sp, one meta tier with the synopsis
+    val textStyle = if (small) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge
+    val textColor = if (small) NuvioTheme.extendedColors.textSecondary.copy(alpha = 0.85f) else NuvioTheme.extendedColors.textSecondary
     Row(
-        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
+        horizontalArrangement = Arrangement.spacedBy(if (small) 10.dp else NuvioTheme.spacing.md),
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.height(28.dp)
+        modifier = Modifier.height(if (small) 22.dp else 28.dp)
     ) {
-        chip?.let { HeroMetaBadge(text = it) }
+        chip?.let { HeroMetaBadge(text = it, nuvioCSmall = small) }
         parts.forEachIndexed { i, part ->
             if (i > 0) MetaInfoDivider()
             Text(
                 text = part,
-                style = MaterialTheme.typography.labelLarge,
-                color = NuvioTheme.extendedColors.textSecondary,
+                style = textStyle,
+                color = textColor,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -1210,17 +1214,17 @@ private fun NuvioCHeroFacts(meta: Meta, hideImdbRating: Boolean, tmdbRating: Flo
             if (parts.isNotEmpty()) MetaInfoDivider()
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)) {
                 ImdbRatingSourceLabel(
-                    logoModifier = Modifier.size(26.dp),
-                    textStyle = MaterialTheme.typography.labelLarge,
-                    textColor = NuvioTheme.extendedColors.textSecondary
+                    logoModifier = Modifier.size(if (small) 22.dp else 26.dp),
+                    textStyle = textStyle,
+                    textColor = textColor
                 )
-                Text(String.format("%.1f", rating), style = MaterialTheme.typography.labelLarge, color = NuvioTheme.extendedColors.textSecondary)
+                Text(String.format("%.1f", rating), style = textStyle, color = textColor)
             }
         }
         tmdbRating?.let { rating ->
             if (parts.isNotEmpty() || imdb != null) MetaInfoDivider()
-            Text("TMDB ${(rating * 10).toInt()}", style = MaterialTheme.typography.labelLarge, color = NuvioTheme.extendedColors.textSecondary)
+            Text("TMDB ${(rating * 10).toInt()}", style = textStyle, color = textColor)
         }
-        countdown?.let { HeroMetaBadge(text = it, contentColor = NuvioTheme.colors.Secondary) }
+        countdown?.let { HeroMetaBadge(text = it, contentColor = NuvioTheme.colors.Secondary, nuvioCSmall = small) }
     }
 }

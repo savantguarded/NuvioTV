@@ -213,6 +213,14 @@ private fun AutoPlayBody(
                 Spacer(modifier = Modifier.height(NuvioTheme.spacing.xxs))
                 NextEpisodeStatusLine(text = statusText)
             }
+            if (com.nuvio.tv.NuvioCFeatures.AUTOPLAY_COUNTDOWN && mode.countdownSec != null && !mode.sourceName.isNullOrBlank()) { // [fork] round 44
+                Text(
+                    text = stringResource(R.string.nuvio_c_autoplay_back_hint),
+                    color = Color.White.copy(alpha = 0.55f),
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                )
+            }
         }
 
         Row(
