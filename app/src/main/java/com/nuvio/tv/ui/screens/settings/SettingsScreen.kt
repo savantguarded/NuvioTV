@@ -410,6 +410,7 @@ fun SettingsScreen(
         pendingContentFocusCategory = null
     }
 
+    NuvioCSettingsSmooth { // [fork] round 46 settings_smooth
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -833,6 +834,7 @@ fun SettingsScreen(
             }
         }
     }
+    } // [fork] round 46 settings_smooth
 }
 
 @Composable

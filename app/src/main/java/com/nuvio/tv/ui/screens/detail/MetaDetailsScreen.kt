@@ -2178,6 +2178,7 @@ private fun MetaDetailsContent(
     var nuvioCFindQuery by androidx.compose.runtime.saveable.rememberSaveable(meta.id) { mutableStateOf<String?>(null) }
     val nuvioCFinding = com.nuvio.tv.NuvioCFeatures.EPISODE_FIND && nuvioCFindQuery != null
     val nuvioCFindChipFocus = remember { FocusRequester() }
+    val nuvioCSeasonRowFocus = remember(meta.id) { NuvioCSeasonRowFocus() } // [fork] round 46 find_focus
     val nuvioCFindFieldFocus = remember { FocusRequester() }
     val nuvioCFindFirstResult = remember { FocusRequester() }
     val nuvioCFindRequesters = remember(meta.id) { mutableMapOf<String, FocusRequester>() }
@@ -2690,6 +2691,8 @@ private fun MetaDetailsContent(
                             upFocusRequester = heroPlayFocusRequester,
                             downFocusRequester = seasonDownFocusRequester,
                             isFocusEnabled = pendingRestoreType != RestoreTarget.EPISODE,
+                            nuvioCRowFocus = nuvioCSeasonRowFocus, // [fork] round 46 find_focus
+                            nuvioCFindRequester = if (com.nuvio.tv.NuvioCFeatures.EPISODE_FIND) nuvioCFindChipFocus else null,
                             nuvioCTrailing = if (com.nuvio.tv.NuvioCFeatures.EPISODE_FIND) {
                                 {
                                     NuvioCEpisodeFindChip(
@@ -2715,7 +2718,23 @@ private fun MetaDetailsContent(
                     } else {
                         null
                     }
-                    Box(modifier = Modifier.bringIntoViewResponder(episodeRowStayVerticalResponder)) {
+                    Box(modifier = Modifier.bringIntoViewResponder(episodeRowStayVerticalResponder).then(
+                        // [fork] round 46 find_focus: Up from the episodes goes into the season row through its own
+                        // memory (Find or the selected season), scrolled into view first; Play if that fails.
+                        if (com.nuvio.tv.NuvioCFeatures.FIND_FOCUS && showSeasonTabs && !nuvioCFinding) Modifier.onPreviewKeyEvent { event ->
+                            val native = event.nativeKeyEvent
+                            if (native.keyCode != android.view.KeyEvent.KEYCODE_DPAD_UP) return@onPreviewKeyEvent false
+                            if (native.action == android.view.KeyEvent.ACTION_DOWN) {
+                                if (pendingRestoreType == RestoreTarget.EPISODE) clearPendingRestore()
+                                coroutineScope.launch {
+                                    if (!nuvioCSeasonRowFocus.enter()) {
+                                        runCatching { (heroPlayFocusRequester ?: heroPlayButtonFocusRequester).requestFocus() }
+                                    }
+                                }
+                            }
+                            true
+                        } else Modifier
+                    )) {
                         if (NuvioCDetailSmooth.enabled && !nuvioCFinding) NuvioCEpisodeEntry(nuvioCEpisodeEntry) { nuvioCResolveEpisode() } // [fork]
                         androidx.compose.runtime.CompositionLocalProvider(LocalNuvioCEpisodeSeasonCode provides nuvioCFinding) { // [fork] round 43 episode_find
                         if (nuvioCFinding && nuvioCFindResults.isEmpty()) {

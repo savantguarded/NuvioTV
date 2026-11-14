@@ -395,4 +395,12 @@
     <!-- [fork] round 44 -->
     <string name="nuvio_c_autoplay_back_hint">Back to stay</string>
     <string name="nuvio_c_info_themes">Themes</string>
+    <string name="nuvio_c_outline_width">Outline width</string>
+    <string name="nuvio_c_osd_crew">Crew</string>
+    <string name="nuvio_c_osd_more">More</string>
+    <string name="nuvio_c_osd_style">Player controls style</string>
+    <string name="nuvio_c_osd_style_sub">Clean: one row with Subtitles and Audio on the left, Sources and Details on the right, everything else behind the gear.</string>
+    <string name="nuvio_c_osd_style_nuvio_c">Nuvio C</string>
+    <string name="nuvio_c_osd_style_clean">Clean</string>
+    <string name="nuvio_c_osd_info_key">Info button</string>
 </resources>

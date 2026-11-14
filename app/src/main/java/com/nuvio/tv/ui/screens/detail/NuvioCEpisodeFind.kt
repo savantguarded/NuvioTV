@@ -56,6 +56,21 @@ import com.nuvio.tv.domain.model.Video
 import com.nuvio.tv.ui.theme.NuvioTheme
 import java.text.Normalizer
 
+/**
+ * [fork] round 46 `find_focus`: what the season row (tabs + Find chip) remembers, and a way in from outside.
+ * Up from the episodes calls [enter]: the row scrolls the target (Find if it was last, else the selected season)
+ * into view, then focuses it, retrying a few frames. Before, Up aimed straight at the selected tab's requester; with
+ * Find at the end the row was often scrolled so that tab wasn't composed, and focus went nowhere.
+ */
+@androidx.compose.runtime.Stable
+class NuvioCSeasonRowFocus {
+    /** True when Find had focus last in the row. */
+    var lastFind: Boolean = false
+    internal var enterAction: (suspend (toFind: Boolean) -> Boolean)? = null
+    suspend fun enter(): Boolean = enterAction?.invoke(lastFind) ?: false
+    suspend fun enterSeason(): Boolean = enterAction?.invoke(false) ?: false
+}
+
 /** True inside Find results: episode cards show the season in their code ("S2 · EPISODE 5"). */
 internal val LocalNuvioCEpisodeSeasonCode = compositionLocalOf { false }
 

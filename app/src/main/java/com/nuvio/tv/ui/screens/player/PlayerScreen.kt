@@ -77,6 +77,7 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings // [fork] round 46 osd_clean
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -3027,6 +3028,11 @@ private fun PlayerControlsOverlay(
     val isLivePlayback by remember { derivedStateOf { nuvioCTimeline.value.isLive } }
     val nuvioCHasDuration by remember { derivedStateOf { nuvioCTimeline.value.duration > 0L } }
     val nuvioCSplit = com.nuvio.tv.NuvioCFeatures.OSD_SPLIT && !isLivePlayback // [fork] live keeps the official row
+    // [fork] round 46 osd_clean: the Clean controls (Settings > Playback > Player controls style); live keeps the row
+    val nuvioCStyleContext = LocalContext.current
+    LaunchedEffect(Unit) { NuvioCOsdStyle.load(nuvioCStyleContext) }
+    val nuvioCStyle by NuvioCOsdStyle.style.collectAsState()
+    val nuvioCClean = com.nuvio.tv.NuvioCFeatures.OSD_CLEAN && nuvioCStyle == NuvioCOsdStyle.CLEAN && !isLivePlayback
     val progressUpTarget = if (isLivePlayback) {
         progressBarUpFocusRequester ?: playPauseFocusRequester
     } else {
@@ -3277,7 +3283,7 @@ private fun PlayerControlsOverlay(
                         )
                         } // [fork]
                     }
-                    if (nuvioCSplit) { // [fork] split layout: time under the seek bar, right-aligned
+                    if (nuvioCSplit || nuvioCClean) { // [fork] split layout (and round 46 Clean): time under the seek bar, right-aligned
                         Spacer(modifier = Modifier.height(NuvioTheme.spacing.sm))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                             PlayerControlsTimeTextHost(viewModel = viewModel)
@@ -3292,6 +3298,41 @@ private fun PlayerControlsOverlay(
 
             // Control buttons row — always LTR regardless of locale
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            if (nuvioCClean) {
+                NuvioCCleanControls( // [fork] round 46 osd_clean
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    hasDuration = nuvioCHasDuration,
+                    playPauseFocusRequester = playPauseFocusRequester,
+                    streamInfoFocusRequester = streamInfoFocusRequester,
+                    progressUpTarget = progressUpTarget,
+                    playPainter = customPlayPainter,
+                    pausePainter = customPausePainter,
+                    subtitlePainter = customSubtitlePainter,
+                    audioPainter = customAudioPainter,
+                    sourcePainter = customSourcePainter,
+                    episodesPainter = customEpisodesPainter,
+                    onPlayPause = onPlayPause,
+                    onPlayNextEpisode = onPlayNextEpisode,
+                    onSeekTo = onSeekTo,
+                    onShowChaptersPanel = onShowChaptersPanel,
+                    onShowEpisodesPanel = onShowEpisodesPanel,
+                    onShowSourcesPanel = onShowSourcesPanel,
+                    onShowPartyPanel = onShowPartyPanel,
+                    partyActive = partyActive,
+                    onShowAudioDialog = onShowAudioDialog,
+                    onShowSubtitleDialog = onShowSubtitleDialog,
+                    onShowSpeedDialog = onShowSpeedDialog,
+                    onToggleAspectRatio = onToggleAspectRatio,
+                    onSwitchEngine = { showEngineSwitchConfirm = true },
+                    onReportPlaybackIssue = onReportPlaybackIssue,
+                    onOpenInExternalPlayer = onOpenInExternalPlayer,
+                    onShowStreamInfo = onShowStreamInfo,
+                    onResetHideTimer = onResetHideTimer,
+                    onHideControls = onHideControls,
+                    reportCodeVisible = reportCodeVisible
+                )
+            } else
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -3659,6 +3700,273 @@ private fun PlayerControlsOverlay(
     }
 }
 
+/**
+ * [fork] round 46 osd_clean: the Clean controls row. Left: Subtitles and Audio pills. Centre: Start over (a second
+ * press within 8 s goes to the previous episode), Play / Pause (larger), Next (shows). Right: Sources and Details
+ * pills, Episodes (shows), Chapters (when the file has them), any other button the Player buttons setting keeps in the
+ * main row, then the gear, which opens the More sheet with everything the setting keeps behind More.
+ * Up from any button goes to the seek bar (and from there to Skip Intro / the next-episode card as before); Down
+ * hides the controls; a panel's button gets focus back when the panel closes; the gear gets it back when the sheet
+ * closes. Stream info closing (Info key or its row) also lands on the gear.
+ */
+@Composable
+private fun NuvioCCleanControls(
+    uiState: PlayerUiState,
+    viewModel: PlayerViewModel,
+    hasDuration: Boolean,
+    playPauseFocusRequester: FocusRequester,
+    streamInfoFocusRequester: FocusRequester,
+    progressUpTarget: FocusRequester,
+    playPainter: androidx.compose.ui.graphics.painter.Painter?,
+    pausePainter: androidx.compose.ui.graphics.painter.Painter?,
+    subtitlePainter: androidx.compose.ui.graphics.painter.Painter?,
+    audioPainter: androidx.compose.ui.graphics.painter.Painter?,
+    sourcePainter: androidx.compose.ui.graphics.painter.Painter?,
+    episodesPainter: androidx.compose.ui.graphics.painter.Painter?,
+    onPlayPause: () -> Unit,
+    onPlayNextEpisode: () -> Unit,
+    onSeekTo: (Long) -> Unit,
+    onShowChaptersPanel: () -> Unit,
+    onShowEpisodesPanel: () -> Unit,
+    onShowSourcesPanel: () -> Unit,
+    onShowPartyPanel: (() -> Unit)?,
+    partyActive: Boolean,
+    onShowAudioDialog: () -> Unit,
+    onShowSubtitleDialog: () -> Unit,
+    onShowSpeedDialog: () -> Unit,
+    onToggleAspectRatio: () -> Unit,
+    onSwitchEngine: () -> Unit,
+    onReportPlaybackIssue: () -> Unit,
+    onOpenInExternalPlayer: (() -> Unit)?,
+    onShowStreamInfo: () -> Unit,
+    onResetHideTimer: () -> Unit,
+    onHideControls: () -> Unit,
+    reportCodeVisible: Boolean
+) {
+    val context = LocalContext.current
+    LaunchedEffect(Unit) { NuvioCOsdOrder.load(context) }
+    val savedSlots by NuvioCOsdOrder.slots.collectAsState()
+    val slots = if (com.nuvio.tv.NuvioCFeatures.OSD_BUTTON_ORDER) savedSlots else NuvioCOsdOrder.defaults
+    fun inMore(b: NuvioCOsdButton) = slots.firstOrNull { it.button == b }?.inMore ?: b.defaultInMore
+
+    val hasEpisodeContext = uiState.currentSeason != null && uiState.currentEpisode != null
+    val hasSubtitles = uiState.subtitleTracks.isNotEmpty() || uiState.addonSubtitles.isNotEmpty()
+    val hasAudio = uiState.audioTracks.isNotEmpty()
+    val showNext = uiState.nextEpisode?.hasAired == true &&
+        (uiState.postPlayMode as? PostPlayMode.AutoPlay)?.let { !it.searching && it.countdownSec == null } != false
+    val castState = LocalNuvioCOsdCast.current
+    val detailsAvailable = castState != null &&
+        (nuvioCOsdCastAvailable(uiState.castMembers) || (com.nuvio.tv.NuvioCFeatures.OSD_CAST && com.nuvio.tv.NuvioCFeatures.OSD_ABOUT_TAB))
+    val autoSkip = LocalNuvioCAutoSkip.current
+    val memory = LocalNuvioCFocusMemory.current
+    val hdrDim = LocalNuvioCHdrDim.current
+
+    // Start over, then (within 8 s) the previous episode: same rule as the Nuvio C row
+    var prevArmed by remember { mutableStateOf(false) }
+    var prevArmToken by remember { mutableStateOf(0) }
+    LaunchedEffect(prevArmToken) { if (prevArmed) { delay(8_000); prevArmed = false } }
+    val previous = remember(uiState.currentSeason, uiState.currentEpisode, prevArmToken) {
+        if (com.nuvio.tv.NuvioCFeatures.START_OVER_PREVIOUS) viewModel.controller.nuvioCPreviousEpisodeVideo() else null
+    }
+    LaunchedEffect(uiState.currentSeason, uiState.currentEpisode) { prevArmed = false }
+    val startOver: () -> Unit = {
+        val prev = previous
+        if (prevArmed && prev != null) {
+            prevArmed = false
+            viewModel.controller.nuvioCPlayPreviousEpisode()
+        } else {
+            onSeekTo(0L)
+            if (!uiState.isPlaying) onPlayPause()
+            if (prev != null) { prevArmed = true; prevArmToken++ }
+        }
+    }
+    val startOverAvailable = com.nuvio.tv.NuvioCFeatures.START_OVER && hasDuration
+
+    // The gear's sheet. It keeps the controls up while open and gives focus back to the gear on Back.
+    val sheet = remember { NuvioCMoreSheetState() }
+    val gearFocus = remember { FocusRequester() }
+    // the Info key / stream info row: closing it opens the (hidden) More row and focuses this requester; in Clean
+    // the gear holds it, unless Stream info sits in the main row
+    val infoInMain = !inMore(NuvioCOsdButton.INFO)
+    LaunchedEffect(uiState.showMoreDialog) {
+        // the Nuvio C More row doesn't exist here; drop the flag once the focus step after stream info has run
+        if (uiState.showMoreDialog) { delay(400); viewModel.onEvent(PlayerEvent.OnDismissMoreDialog) }
+    }
+    if (sheet.open) {
+        LaunchedEffect(Unit) {
+            viewModel.onCastPanelChanged(true)
+            try {
+                while (true) { viewModel.scheduleHideControls(); delay(3_000) }
+            } finally {
+                viewModel.onCastPanelChanged(false)
+            }
+        }
+    }
+
+    val labels = NuvioCOsdButton.entries.associateWith { stringResource(it.label) }
+    val subtitlesLabel = stringResource(R.string.cd_subtitles)
+    val audioLabel = stringResource(R.string.cd_audio_tracks)
+    val sourcesLabel = stringResource(R.string.cd_sources)
+    val detailsLabel = stringResource(R.string.nuvio_c_osd_details)
+    val moreLabel = stringResource(R.string.nuvio_c_osd_more)
+    val onText = stringResource(R.string.subtitle_style_on)
+    val offText = stringResource(R.string.subtitle_style_off)
+    val aspectText = stringResource(uiState.aspectMode.labelResId)
+    val engineText = stringResource(
+        if (uiState.internalPlayerEngine == InternalPlayerEngine.MVP_PLAYER) R.string.playback_engine_mvplayer else R.string.playback_engine_exoplayer
+    )
+    val infoKeyText = stringResource(R.string.nuvio_c_osd_info_key)
+    val autoSkipLabel = stringResource(R.string.nuvio_c_auto_skip_intro)
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+    // Buttons that sit behind the gear, in the saved order, only those that apply now
+    val moreRows = slots.filter { it.inMore && it.button != NuvioCOsdButton.PLAY }.mapNotNull { slot ->
+        val b = slot.button
+        val label = labels.getValue(b)
+        when (b) {
+            NuvioCOsdButton.START_OVER -> if (startOverAvailable) NuvioCMoreRow(b.key, label, null, startOver) else null
+            NuvioCOsdButton.NEXT -> if (showNext) NuvioCMoreRow(b.key, label, null, onPlayNextEpisode) else null
+            NuvioCOsdButton.SUBTITLES -> if (hasSubtitles) NuvioCMoreRow(b.key, label, null, onShowSubtitleDialog) else null
+            NuvioCOsdButton.AUDIO -> if (hasAudio) NuvioCMoreRow(b.key, label, null, onShowAudioDialog) else null
+            NuvioCOsdButton.CHAPTERS -> if (uiState.chapters.isNotEmpty()) NuvioCMoreRow(b.key, label, null, onShowChaptersPanel) else null
+            NuvioCOsdButton.CAST -> if (detailsAvailable) NuvioCMoreRow(b.key, detailsLabel, null) { castState?.open = true } else null
+            NuvioCOsdButton.SOURCES -> NuvioCMoreRow(b.key, label, null, onShowSourcesPanel)
+            NuvioCOsdButton.EPISODES -> if (hasEpisodeContext) NuvioCMoreRow(b.key, label, null, onShowEpisodesPanel) else null
+            NuvioCOsdButton.SPEED -> NuvioCMoreRow(b.key, label, formatSpeedLabel(uiState.playbackSpeed), onShowSpeedDialog)
+            NuvioCOsdButton.ASPECT -> NuvioCMoreRow(b.key, label, aspectText, onToggleAspectRatio)
+            NuvioCOsdButton.ENGINE -> NuvioCMoreRow(b.key, label, engineText, onSwitchEngine)
+            NuvioCOsdButton.EXTERNAL -> onOpenInExternalPlayer?.let { NuvioCMoreRow(b.key, label, null, it) }
+            NuvioCOsdButton.INFO -> NuvioCMoreRow(b.key, label, infoKeyText, onShowStreamInfo)
+            NuvioCOsdButton.AUTO_SKIP -> autoSkip?.let { s -> NuvioCMoreRow(b.key, autoSkipLabel, if (s.on) onText else offText, s.toggle) }
+            NuvioCOsdButton.PARTY -> if (onShowPartyPanel != null && !partyActive) NuvioCMoreRow(b.key, label, null, onShowPartyPanel) else null
+            NuvioCOsdButton.REPORT -> if (uiState.playbackIssueReportsEnabled &&
+                uiState.playbackIssueReportStatus != PlaybackIssueReportStatus.Sending &&
+                uiState.playbackIssueReportStatus != PlaybackIssueReportStatus.Sent
+            ) NuvioCMoreRow(b.key, label, if (reportCodeVisible) uiState.playbackIssueReportId else null, onReportPlaybackIssue) else null
+            NuvioCOsdButton.PLAY -> null
+        }
+    }
+
+    // Main-row extras (buttons the setting keeps in the main row that have no fixed place in Clean)
+    val fixed = setOf(
+        NuvioCOsdButton.PLAY, NuvioCOsdButton.START_OVER, NuvioCOsdButton.NEXT, NuvioCOsdButton.SUBTITLES, NuvioCOsdButton.AUDIO,
+        NuvioCOsdButton.SOURCES, NuvioCOsdButton.CAST, NuvioCOsdButton.EPISODES, NuvioCOsdButton.CHAPTERS
+    )
+    val extras = slots.filter { !it.inMore && it.button !in fixed }.map { it.button }
+
+    @Composable
+    fun icon(
+        vector: androidx.compose.ui.graphics.vector.ImageVector,
+        description: String,
+        onClick: () -> Unit,
+        painter: androidx.compose.ui.graphics.painter.Painter? = null,
+        focusRequester: FocusRequester? = null,
+        label: String? = null,
+        tint: Color = Color.White
+    ) = ControlButton(
+        icon = vector, iconPainter = painter, contentDescription = description, onClick = onClick,
+        focusRequester = focusRequester, upFocusRequester = progressUpTarget, onDownKey = onHideControls,
+        onFocused = onResetHideTimer, contentColor = tint, nuvioCLabel = label
+    )
+
+    // One row: left group, flexible space, centre group, the same flexible space, right group, so the transport sits
+    // centred between the two groups and nothing can overlap however many buttons a title has.
+    Row(Modifier.fillMaxWidth().height(64.dp), verticalAlignment = Alignment.CenterVertically) {
+        // left: track pills
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (hasSubtitles && !inMore(NuvioCOsdButton.SUBTITLES)) NuvioCOsdPill(subtitlesLabel, subtitlePainter, Icons.Default.ClosedCaption,
+                onShowSubtitleDialog, progressUpTarget, onHideControls, onResetHideTimer)
+            if (hasAudio && !inMore(NuvioCOsdButton.AUDIO)) NuvioCOsdPill(audioLabel, audioPainter, Icons.AutoMirrored.Filled.VolumeUp,
+                onShowAudioDialog, progressUpTarget, onHideControls, onResetHideTimer)
+        }
+        Spacer(Modifier.weight(1f).widthIn(min = 16.dp))
+        // centre: transport
+        Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (startOverAvailable && !inMore(NuvioCOsdButton.START_OVER)) {
+                val prev = previous
+                icon(
+                    androidx.compose.material.icons.Icons.Default.RestartAlt, labels.getValue(NuvioCOsdButton.START_OVER), startOver,
+                    painter = if (com.nuvio.tv.NuvioCFeatures.START_OVER_ICON) androidx.compose.ui.res.painterResource(R.drawable.nuvio_c_ic_start_over) else null,
+                    label = if (prevArmed && prev != null) stringResource(R.string.nuvio_c_previous_episode, prev.season ?: 0, prev.episode ?: 0) else null
+                )
+            }
+            ControlButton(
+                icon = if (uiState.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                iconPainter = if (uiState.isPlaying) pausePainter else playPainter,
+                contentDescription = if (uiState.isPlaying) stringResource(R.string.cd_pause) else stringResource(R.string.cd_play),
+                onClick = onPlayPause,
+                focusRequester = playPauseFocusRequester,
+                upFocusRequester = progressUpTarget,
+                onDownKey = onHideControls,
+                onFocused = onResetHideTimer,
+                nuvioCSize = 60.dp
+            )
+            if (showNext && !inMore(NuvioCOsdButton.NEXT)) icon(Icons.Default.SkipNext, labels.getValue(NuvioCOsdButton.NEXT), onPlayNextEpisode)
+        }
+        Spacer(Modifier.weight(1f).widthIn(min = 16.dp))
+        // right: panels, extras, gear
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (!inMore(NuvioCOsdButton.SOURCES)) NuvioCOsdPill(sourcesLabel, sourcePainter, Icons.Default.SwapHoriz,
+                onShowSourcesPanel, progressUpTarget, onHideControls, onResetHideTimer)
+            if (detailsAvailable && !inMore(NuvioCOsdButton.CAST)) NuvioCOsdPill(detailsLabel, null, Icons.Default.Info,
+                { castState?.open = true }, progressUpTarget, onHideControls, onResetHideTimer)
+            if (hasEpisodeContext && !inMore(NuvioCOsdButton.EPISODES)) icon(Icons.AutoMirrored.Filled.List, labels.getValue(NuvioCOsdButton.EPISODES), onShowEpisodesPanel, painter = episodesPainter)
+            if (uiState.chapters.isNotEmpty() && !inMore(NuvioCOsdButton.CHAPTERS)) icon(Icons.AutoMirrored.Filled.Toc, labels.getValue(NuvioCOsdButton.CHAPTERS), onShowChaptersPanel)
+            extras.forEach { b ->
+                when (b) {
+                    NuvioCOsdButton.SPEED -> icon(Icons.Default.Speed, labels.getValue(b), onShowSpeedDialog)
+                    NuvioCOsdButton.ASPECT -> icon(Icons.Default.AspectRatio, labels.getValue(b), onToggleAspectRatio)
+                    NuvioCOsdButton.ENGINE -> icon(Icons.Default.SwapHoriz, labels.getValue(b), onSwitchEngine)
+                    NuvioCOsdButton.EXTERNAL -> onOpenInExternalPlayer?.let { icon(Icons.AutoMirrored.Filled.OpenInNew, labels.getValue(b), it) }
+                    NuvioCOsdButton.INFO -> icon(Icons.Default.Info, labels.getValue(b), onShowStreamInfo, focusRequester = streamInfoFocusRequester)
+                    NuvioCOsdButton.AUTO_SKIP -> autoSkip?.let { s ->
+                        icon(Icons.Default.FastForward, stringResource(R.string.nuvio_c_auto_skip_intro), s.toggle,
+                            label = stringResource(if (s.on) R.string.nuvio_c_auto_skip_intro_on else R.string.nuvio_c_auto_skip_intro_off),
+                            tint = if (s.on) NuvioTheme.colors.Secondary else Color.White)
+                    }
+                    NuvioCOsdButton.PARTY -> if (onShowPartyPanel != null) icon(Icons.Rounded.Groups, labels.getValue(b), onShowPartyPanel,
+                        tint = if (partyActive) NuvioTheme.colors.Secondary else Color.White)
+                    NuvioCOsdButton.REPORT -> if (uiState.playbackIssueReportsEnabled) ReportControlButton(
+                        reportId = uiState.playbackIssueReportId,
+                        showReportId = reportCodeVisible,
+                        onClick = onReportPlaybackIssue,
+                        enabled = uiState.playbackIssueReportStatus != PlaybackIssueReportStatus.Sending &&
+                            uiState.playbackIssueReportStatus != PlaybackIssueReportStatus.Sent,
+                        upFocusRequester = progressUpTarget,
+                        onDownKey = onHideControls,
+                        onFocused = onResetHideTimer
+                    )
+                    else -> Unit
+                }
+            }
+            // a running Watch Party always shows here, wherever the setting keeps it
+            if (onShowPartyPanel != null && partyActive && NuvioCOsdButton.PARTY !in extras) icon(Icons.Rounded.Groups, labels.getValue(NuvioCOsdButton.PARTY), onShowPartyPanel,
+                tint = NuvioTheme.colors.Secondary)
+            if (moreRows.isNotEmpty()) icon(
+                Icons.Default.Settings, moreLabel, { sheet.open = true },
+                focusRequester = if (infoInMain) gearFocus else streamInfoFocusRequester
+            )
+        }
+    }
+
+    NuvioCOsdMoreSheet(
+        state = sheet,
+        title = moreLabel,
+        rows = moreRows,
+        hdrDim = hdrDim,
+        onClosed = {
+            viewModel.scheduleHideControls()
+            // Back on the sheet: focus back to the gear. (A row that opens a panel closes the sheet without this
+            // step; that panel's own close step brings focus back to the gear through the focus memory.)
+            if (uiState.showControls) {
+                val gear = if (infoInMain) gearFocus else streamInfoFocusRequester
+                memory?.onClick(moreLabel)
+                scope.launch { gear.requestFocusAfterFrames() }
+            }
+        }
+    )
+}
+
 @Composable
 private fun PlayerControlsProgressBarHost(
     viewModel: PlayerViewModel,
@@ -3766,7 +4074,8 @@ private fun ControlButton(
     onDownKey: (() -> Unit)? = null,
     onFocused: (() -> Unit)? = null,
     contentColor: Color = Color.White,
-    nuvioCLabel: String? = null // [fork] name shown under the button while focused (default: contentDescription)
+    nuvioCLabel: String? = null, // [fork] name shown under the button while focused (default: contentDescription)
+    nuvioCSize: androidx.compose.ui.unit.Dp? = null // [fork] round 46 osd_clean: the larger Play / Pause
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val nuvioCFocus = LocalNuvioCFocusMemory.current // [fork] focus returns here after its panel closes
@@ -3776,7 +4085,7 @@ private fun ControlButton(
         onClick = { nuvioCFocus?.onClick(contentDescription); onClick() }, // [fork] was onClick
         enabled = enabled,
         modifier = Modifier
-            .size(NuvioTheme.spacing.xxxl)
+            .size(nuvioCSize ?: NuvioTheme.spacing.xxxl)
             .nuvioCFocusLabel(isFocused, nuvioCLabel ?: contentDescription) // [fork]
             .then(
                 if (nuvioCRequester != null) Modifier.focusRequester(nuvioCRequester) // [fork] was focusRequester

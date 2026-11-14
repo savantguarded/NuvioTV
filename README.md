@@ -7,14 +7,15 @@ Nuvio C is a personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV)
 ## Highlights
 
 ### Playback
+- **Two control layouts.** Choose Nuvio C or Clean in Settings > Playback: Clean puts Subtitles and Audio on the left, the transport in the middle, Sources and Details on the right, and everything else behind a gear with current values.
 - **Information-rich controls.** Title logo plus resolution, HDR / Dolby Vision, audio (Dolby Atmos spelled out), source and file-size badges, a slimmer high-contrast seek bar and a label under the focused button.
 - **Subtitles that stay readable.** Bottom subtitles lift clear of the controls and pause screen; subtitles and controls are dimmed during HDR and Dolby Vision playback.
-- **Subtitle styling.** Official's subtitle appearance (font list with the Nuvio C fonts added, fonts imported from a phone, background colour, opacity and rounded corners, drop shadow), with the Nuvio C lift, top jump and HDR dim carried over, plus an option to hide SDH tracks. Your saved subtitle carries to the next episode, with SDH only as a fallback.
+- **Subtitle styling.** Official's subtitle appearance (font list with the Nuvio C fonts added, fonts imported from a phone, background colour, opacity and rounded corners, outline width, drop shadow), with the Nuvio C lift, top jump and HDR dim carried over, plus an option to hide SDH tracks. Your saved subtitle carries to the next episode, with SDH only as a fallback.
 - **Night mode for passthrough setups.** Lifts dialogue and quiet passages, switching a title from bitstream to decoded audio without interrupting playback, with an optional evening schedule.
 - **Stream information panel.** Source server, decoder, display mode, HDR metadata, buffering and network health in one panel that fits the screen.
 - **Cleaner track lists.** Audio and subtitle tracks are named by language, with the track's own description underneath; add-on subtitles drop their raw file ids and are numbered by add-on with the file type.
 - **Faster sources.** Up always reaches the first source, and the filter tabs disappear when only one source is installed.
-- **Thoughtful details.** Start over or jump to the previous episode, a pause screen with title and synopsis, cast and about panel, an auto skip intro switch in the controls, filename on the loading screen, no countdown when you press Next (auto-play keeps a 3-second countdown you can cancel with Back), and Watch Party tucked into the extra controls.
+- **Thoughtful details.** Start over or jump to the previous episode, a pause screen with title and synopsis, details panel with director, writers and cast, an auto skip intro switch in the controls, filename on the loading screen, no countdown when you press Next (auto-play keeps a 3-second countdown you can cancel with Back), and Watch Party tucked into the extra controls.
 
 ### Home
 - **Featured layout.** A full-screen carousel of hero catalogs above Modern home, with ranks, top ratings and a timed page indicator.
@@ -38,7 +39,7 @@ Nuvio C is a personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV)
 - **Richer pages.** Tagline, a calmer hero (one facts line under the buttons, wider synopsis), an Information block with fixed slots, Based on in full and Themes from TMDB keywords, IMDb parental guidance, next-episode countdown, episode Find (number or name) and acting-only filmographies with roles.
 - **Trailers.** Background trailers with a mute setting and one-press exit, a full seek bar and logo on the trailer screen, and IMDb trailers as a fallback when YouTube limits quality.
 - **Roulette and Shuffle.** A genuine shuffle across tens of thousands of TMDB films and shows (from well known to deep cuts, with title counts per level), filtered by type, mood and Unwatched / Watched / All titles, and refined by era, origin, length, acclaim, theme, audience and status, every rating you use shown, a clear message when nothing matches and no repeats within 30 days, plus a Shuffle button on series pages and a random pick in the Library.
-- **Your taste.** A page per profile: a Taste DNA ring, a one-press Spin my taste, live counts for what you are watching, saving and expecting, rotating spotlight cards (eras, binge depth, you against the crowd, franchise progress and more) that open the titles behind them, a Month in review, month-by-month recaps that open the month's titles with a short breakdown, and fresh rows each visit that leave out anything you've watched or rated. Kept strictly per profile and works with Nuvio sync alone.
+- **Your taste.** A page per profile: a genre ring, a one-press Spin my taste, This week compared with your usual week (hours, shows on the go, the next new episode, your rating average), large spotlight cards that change every visit (eras, binge depth, you against the crowd, franchise progress and more) that open the titles behind them, a Month in review, month-by-month recaps that open the month's titles with a short breakdown, and fresh rows each visit that leave out anything you've watched or rated. Kept strictly per profile and works with Nuvio sync alone.
 
 ### Performance and reliability
 - Tuned for 2 GB TVs: lighter player memory use, compiled-on-install updates, smoother scrolling and sidebar transitions.

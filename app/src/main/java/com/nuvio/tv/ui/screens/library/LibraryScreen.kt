@@ -261,7 +261,12 @@ fun LibraryScreen(
 
     LaunchedEffect(uiState.sortSelectionVersion, firstVisiblePosterKey) {
         if (uiState.sortSelectionVersion <= 0L) return@LaunchedEffect
+        // [fork] round 46 library_back_focus: this effect runs again whenever Library comes back into composition
+        // (Back from a title). Only a version not handled yet jumps to the first poster; otherwise the opened
+        // title's focus restore (pendingPrimaryFocus) wins.
+        if (NuvioCFeatures.LIBRARY_BACK_FOCUS && uiState.sortSelectionVersion <= viewModel.nuvioCHandledSortVersion) return@LaunchedEffect
         val targetKey = firstVisiblePosterKey ?: return@LaunchedEffect
+        viewModel.nuvioCHandledSortVersion = uiState.sortSelectionVersion
         runCatching { gridState.scrollToItem(0) }
         var focused = false
         repeat(6) {

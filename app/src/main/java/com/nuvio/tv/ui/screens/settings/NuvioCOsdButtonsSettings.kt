@@ -47,6 +47,27 @@ import com.nuvio.tv.ui.screens.detail.requestFocusAfterFrames
 import com.nuvio.tv.ui.screens.player.NuvioCOsdOrder
 import com.nuvio.tv.ui.theme.NuvioTheme
 
+/** [fork] round 46 osd_clean: "Player controls style", Nuvio C or Clean. OK switches between the two. */
+@Composable
+internal fun NuvioCOsdStyleRow() {
+    if (!NuvioCFeatures.OSD_CLEAN) return
+    val context = LocalContext.current
+    LaunchedEffect(Unit) { com.nuvio.tv.ui.screens.player.NuvioCOsdStyle.load(context) }
+    val style by com.nuvio.tv.ui.screens.player.NuvioCOsdStyle.style.collectAsState()
+    val clean = style == com.nuvio.tv.ui.screens.player.NuvioCOsdStyle.CLEAN
+    SettingsActionRow(
+        title = stringResource(R.string.nuvio_c_osd_style),
+        subtitle = stringResource(R.string.nuvio_c_osd_style_sub),
+        value = stringResource(if (clean) R.string.nuvio_c_osd_style_clean else R.string.nuvio_c_osd_style_nuvio_c),
+        onClick = {
+            com.nuvio.tv.ui.screens.player.NuvioCOsdStyle.set(
+                context,
+                if (clean) com.nuvio.tv.ui.screens.player.NuvioCOsdStyle.NUVIO_C else com.nuvio.tv.ui.screens.player.NuvioCOsdStyle.CLEAN
+            )
+        }
+    )
+}
+
 @Composable
 internal fun NuvioCOsdButtonsRow() {
     if (!NuvioCFeatures.OSD_BUTTON_ORDER) return

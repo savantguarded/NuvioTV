@@ -746,4 +746,19 @@ object NuvioCFeatures {
     const val INFO_FULL_ROWS = true
     /** Details Information: a Themes line from TMDB keywords (same request, no extra call), meta tags filtered out, up to 8 chips. Needs DETAIL_INFO_SLOTS. Off = no Themes. */
     const val DETAIL_THEMES = true
+    // [fork] round 46
+    /** Library: Back from a title lands on that title again. A list, filter or sort change still jumps to the first poster once. Off = round 26 (Back could jump to the first poster). */
+    const val LIBRARY_BACK_FOCUS = true
+    /** Details Find: Up from the episodes returns to whatever was last focused in the season row (Find or a season), scrolled into view first, with a fallback so focus never vanishes; Left from Find goes straight to the selected season; Back from a cast page lands on Find again. Off = round 43. */
+    const val FIND_FOCUS = true
+    /** Subtitle appearance (Settings and the player's Style tab): Outline width row (1 to 5) under Outline. Off = no row (round 44). */
+    const val SUBTITLE_OUTLINE_WIDTH_ROW = true
+    /** Player Details panel: "Directed by" / "This episode" (director and writer) above the cast, from the credits already fetched. Off = cast only. */
+    const val OSD_CREW = true
+    /** Taste: larger Spotlight cards (two across), This week tiles, Spotlight picks that change each visit, rotating rows with specific headers, new copy, no Taste DNA label. Off = round 42 page. */
+    const val TASTE_V3 = true
+    /** Settings: the left menu, the options pane and pickers keep the focused row at a fixed height and scroll in even steps while a key is held. Off = default scrolling. */
+    const val SETTINGS_SMOOTH = true
+    /** Player: "Player controls style" setting (Nuvio C / Clean). Clean = the round 46 layout. Off = setting hidden, Nuvio C controls. */
+    const val OSD_CLEAN = true
 }

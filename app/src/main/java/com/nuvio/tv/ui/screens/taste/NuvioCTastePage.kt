@@ -156,6 +156,7 @@ internal fun NuvioCTastePage(
 
     val all = state.all[NuvioCTasteRange.ALL]
     val stats: NuvioCTasteStats? = if (month != null) monthData?.first ?: all else state.all[range] ?: all
+    val cardPool = if (month != null) monthData?.second.orEmpty().size else (state.insights[range] ?: state.insights[NuvioCTasteRange.ALL].orEmpty()).size // [fork] round 46
     val cards: List<NuvioCTasteInsight> = remember(state.builtAt, range, month, monthData) {
         if (month != null) viewModel.spotlight(monthData?.second.orEmpty(), "m$month")
         else viewModel.spotlight(state.insights[range] ?: state.insights[NuvioCTasteRange.ALL].orEmpty(), range.name)
@@ -320,7 +321,9 @@ internal fun NuvioCTastePage(
                 )
             }
             item(key = "tiles") {
-                if (month != null) TasteMonthTiles(s) else TasteLiveTiles(live, viewModel.countUp, onCounted = { if (smooth) viewModel.markCounted() })
+                if (month != null) TasteMonthTiles(s)
+                else if (com.nuvio.tv.NuvioCFeatures.TASTE_V3 && live != null) live?.let { TasteWeekTiles(it) } // [fork] round 46
+                else TasteLiveTiles(live, viewModel.countUp, onCounted = { if (smooth) viewModel.markCounted() })
             }
             if (com.nuvio.tv.NuvioCFeatures.TASTE_MONTH_TITLES && month != null && monthTitles.isNotEmpty()) item(key = "monthTitles") {
                 TasteRowFrame("Watched in " + month.month.getDisplayName(TextStyle.FULL, Locale.US)) { hold ->
@@ -339,8 +342,8 @@ internal fun NuvioCTastePage(
             if (cards.isNotEmpty() && !light) {
                 if (smooth) {
                     // [fork] round 41 taste_smooth: the title and each line of cards are their own list items
-                    item(key = "spotlight:title") { TasteSpotlightTitle() }
-                    cards.chunked(3).forEachIndexed { line, row ->
+                    item(key = "spotlight:title") { TasteSpotlightTitle(cards.size, cardPool) }
+                    cards.chunked(TASTE_PER_LINE).forEachIndexed { line, row ->
                         item(key = "spotlight:$line") {
                             TasteSpotlightLine(row, line, viewModel.changedIds, accent, cardsFocus, ::section, { viewModel.lastArea = it }, onCard = ::pressCard)
                         }
@@ -537,7 +540,7 @@ private fun TasteHero(
     ) {
         if (!light && stats.genres.isNotEmpty()) TasteRing(stats, Modifier.size(164.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (!light) Text("TASTE DNA", style = MaterialTheme.typography.labelSmall, color = NuvioTheme.colors.TextTertiary)
+            if (!light && !com.nuvio.tv.NuvioCFeatures.TASTE_V3) Text("TASTE DNA", style = MaterialTheme.typography.labelSmall, color = NuvioTheme.colors.TextTertiary)
             Text(summary, style = MaterialTheme.typography.headlineSmall, color = NuvioTheme.colors.TextPrimary,
                 fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             if (!light && stats.genres.isNotEmpty()) TasteLegend(stats)
@@ -683,6 +686,56 @@ private fun TasteMonthTiles(s: NuvioCTasteStats) {
     TasteTileRow(tiles, countUp = false)
 }
 
+/** [fork] round 46 taste_v3: This week. Each tile shows only when its number is known; up to four. */
+@Composable
+private fun TasteWeekTiles(live: com.nuvio.tv.data.nuvioc.NuvioCTasteLive) {
+    data class T(val value: String, val label: String, val line: String?, val good: Boolean? = null)
+    val zone = java.time.ZoneId.systemDefault()
+    val now = System.currentTimeMillis()
+    val tiles = buildList {
+        live.week?.let { w ->
+            val diff = w.usualMinutes?.let { w.minutes - it }
+            add(T(com.nuvio.tv.data.nuvioc.tasteDuration(w.minutes), "watched since Monday", com.nuvio.tv.data.nuvioc.tasteWeekCompare(w),
+                diff?.let { if (kotlin.math.abs(it) < 30) null else it > 0 }))
+        }
+        live.showsOnTheGo?.takeIf { it > 0 }?.let { n ->
+            val newEps = live.newEpisodesThisWeek ?: 0
+            add(T(NF.format(n), if (n == 1) "show on the go" else "shows on the go",
+                when (newEps) { 0 -> null; 1 -> "1 new episode this week"; else -> "$newEps new episodes this week" }))
+        }
+        live.nextAir?.let { a ->
+            add(T(com.nuvio.tv.data.nuvioc.tasteAirLabel(a, now, zone), "next new episode", listOfNotNull(a.show, a.slot).joinToString(" · ")))
+        }
+        live.week?.avgThisMonth?.let { avg ->
+            val last = live.week.avgLastMonth
+            add(T("${com.nuvio.tv.data.nuvioc.oneDecimal(avg)} ★", "your average this month", com.nuvio.tv.data.nuvioc.tasteRatingCompare(live.week),
+                last?.let { if (kotlin.math.abs(avg - it) < 0.05) null else avg > it }))
+        }
+        if (size < 4) live.saved?.let { add(T(NF.format(it), "saved in your library", null)) }
+    }.take(4)
+    if (tiles.isEmpty()) return
+    Column(Modifier.fillMaxWidth().padding(horizontal = EDGE), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("This week", style = MaterialTheme.typography.titleLarge, color = NuvioTheme.colors.TextPrimary, fontWeight = FontWeight.SemiBold)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            tiles.forEach { t ->
+                Column(
+                    Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.05f))
+                        .padding(vertical = 16.dp, horizontal = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(t.value, style = MaterialTheme.typography.headlineSmall, color = NuvioTheme.colors.TextPrimary, fontWeight = FontWeight.SemiBold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(t.label, style = MaterialTheme.typography.bodyMedium, color = NuvioTheme.colors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    t.line?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            color = if (t.good == true) Color(0xFF8FD3A8) else NuvioTheme.colors.TextTertiary)
+                    }
+                }
+            }
+        }
+    }
+}
+
 private data class TasteTile(val icon: ImageVector?, val number: Int?, val text: String?, val label: String)
 
 @Composable
@@ -728,17 +781,30 @@ private fun TasteSpotlight(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TasteSpotlightTitle()
-        cards.chunked(3).forEachIndexed { r, line ->
+        cards.chunked(TASTE_PER_LINE).forEachIndexed { r, line ->
             TasteSpotlightLine(line, r, changed, accent, firstFocus, section, onArea, onCard)
         }
     }
 }
 
 @Composable
-private fun TasteSpotlightTitle() {
-    Text("Spotlight", style = MaterialTheme.typography.titleMedium, color = NuvioTheme.colors.TextPrimary, fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(horizontal = EDGE))
+private fun TasteSpotlightTitle(shown: Int = 0, pool: Int = 0) {
+    if (!com.nuvio.tv.NuvioCFeatures.TASTE_V3) {
+        Text("Spotlight", style = MaterialTheme.typography.titleMedium, color = NuvioTheme.colors.TextPrimary, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = EDGE))
+        return
+    }
+    // [fork] round 46 taste_v3: the title says the picks change
+    Row(Modifier.fillMaxWidth().padding(horizontal = EDGE), verticalAlignment = Alignment.Bottom) {
+        Text("Spotlight", style = MaterialTheme.typography.titleLarge, color = NuvioTheme.colors.TextPrimary, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f))
+        if (pool > shown && shown > 0) Text("New picks each visit · $shown of $pool", style = MaterialTheme.typography.bodySmall,
+            color = NuvioTheme.colors.TextTertiary, maxLines = 1)
+    }
 }
+
+/** [fork] round 46 taste_v3: two larger cards per line (three before). */
+private val TASTE_PER_LINE: Int get() = if (com.nuvio.tv.NuvioCFeatures.TASTE_V3) 2 else 3
 
 /** One line of three spotlight cards; [r] = the line's index. */
 @Composable
@@ -754,7 +820,7 @@ private fun TasteSpotlightLine(
 ) {
     Row(Modifier.padding(horizontal = EDGE), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         line.forEachIndexed { c, card ->
-            val key = "card:${r * 3 + c}"
+            val key = "card:${r * TASTE_PER_LINE + c}"
             TasteInsightCard(
                 card, card.id in changed, accent,
                 Modifier.weight(1f).then(if (r == 0 && c == 0) Modifier.focusRequester(firstFocus) else Modifier)
@@ -763,13 +829,14 @@ private fun TasteSpotlightLine(
                     .then(if (c == 0) Modifier.nuvioCHeldLeftStop() else Modifier)
             ) { onCard(card, key) }
         }
-        repeat(3 - line.size) { Spacer(Modifier.weight(1f)) }
+        repeat(TASTE_PER_LINE - line.size) { Spacer(Modifier.weight(1f)) }
     }
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun TasteInsightCard(card: NuvioCTasteInsight, changed: Boolean, accent: Color, modifier: Modifier, onClick: () -> Unit) {
+    if (com.nuvio.tv.NuvioCFeatures.TASTE_V3) { TasteInsightCardV3(card, changed, accent, modifier, onClick); return }
     var focused by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
@@ -800,6 +867,58 @@ private fun TasteInsightCard(card: NuvioCTasteInsight, changed: Boolean, accent:
             card.line?.let { line ->
                 FocusMarqueeText(text = line, focused = focused, style = MaterialTheme.typography.bodySmall, color = NuvioTheme.colors.TextSecondary,
                     modifier = Modifier.padding(top = 4.dp))
+            }
+        }
+    }
+}
+
+/** [fork] round 46 taste_v3: the larger card (two per line): bigger headline, up to three posters of the titles it counted. */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun TasteInsightCardV3(card: NuvioCTasteInsight, changed: Boolean, accent: Color, modifier: Modifier, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(196.dp).onFocusChanged { focused = it.isFocused },
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(18.dp)),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.02f),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color.White.copy(alpha = 0.05f),
+            contentColor = NuvioTheme.colors.TextPrimary,
+            focusedContainerColor = Color.White.copy(alpha = 0.10f),
+            focusedContentColor = NuvioTheme.colors.TextPrimary
+        ),
+        border = ClickableSurfaceDefaults.border(
+            border = Border(BorderStroke(1.dp, Color.White.copy(alpha = 0.07f)), shape = RoundedCornerShape(18.dp)),
+            focusedBorder = Border(BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(18.dp))
+        )
+    ) {
+        Row(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 18.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(Modifier.weight(1f).fillMaxHeight()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(card.kicker.uppercase(Locale.US), style = MaterialTheme.typography.labelMedium, color = NuvioTheme.colors.TextTertiary, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    if (changed) Box(Modifier.padding(start = 6.dp).size(7.dp).clip(CircleShape).background(accent))
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(card.value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.weight(1f))
+                card.visual?.let { TasteVisual(it, accent) }
+                card.line?.let { line ->
+                    FocusMarqueeText(text = line, focused = focused, style = MaterialTheme.typography.bodyMedium, color = NuvioTheme.colors.TextSecondary,
+                        modifier = Modifier.padding(top = 6.dp))
+                }
+            }
+            if (card.posters.isNotEmpty()) Row(Modifier.align(Alignment.Bottom), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                card.posters.forEach { url ->
+                    AsyncImage(
+                        model = ImageRequest.Builder(context).data(url).size(154, 231).build(),
+                        contentDescription = null,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        modifier = Modifier.width(60.dp).height(90.dp).clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.06f))
+                    )
+                }
             }
         }
     }

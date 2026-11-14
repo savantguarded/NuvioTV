@@ -103,7 +103,14 @@ data class NuvioCTastePersonStat(val person: NuvioCTastePerson, val count: Int, 
 data class NuvioCTasteShelfItem(val id: String, val type: String, val name: String, val poster: String?, val note: String? = null)
 
 /** [fork] round 40 taste_live: the counts on the live tiles (null = not known on this TV). */
-data class NuvioCTasteLive(val watching: Int?, val upNext: Int?, val upcoming: Int?, val saved: Int?, val ratedThisMonth: Int?)
+data class NuvioCTasteLive(
+    val watching: Int?, val upNext: Int?, val upcoming: Int?, val saved: Int?, val ratedThisMonth: Int?,
+    // [fork] round 46 taste_v3: This week tiles
+    val week: NuvioCTasteWeek? = null,
+    val showsOnTheGo: Int? = null,
+    val newEpisodesThisWeek: Int? = null,
+    val nextAir: NuvioCTasteNextAir? = null
+)
 
 /** [fork] round 41 taste_review: the Month in review banner. */
 data class NuvioCTasteReview(
@@ -610,8 +617,10 @@ class NuvioCTasteRepository @Inject constructor(
 
     /** The live tiles: what's on the go now, for this profile. Each count fails quietly to null. */
     suspend fun live(): NuvioCTasteLive = withContext(Dispatchers.IO) {
-        val watching = withTimeoutOrNull(4_000) { watchProgress.continueWatching.first() }?.map { it.contentId }?.toSet()?.size
-        val upNext = withTimeoutOrNull(4_000) { watchProgress.observeNextUpSeeds().first() }?.map { it.contentId }?.toSet()?.size
+        val cw = withTimeoutOrNull(4_000) { watchProgress.continueWatching.first() }
+        val seeds = withTimeoutOrNull(4_000) { watchProgress.observeNextUpSeeds().first() }
+        val watching = cw?.map { it.contentId }?.toSet()?.size
+        val upNext = seeds?.map { it.contentId }?.toSet()?.size
         val saved = withTimeoutOrNull(4_000) { library.libraryItems.first() }?.size
         val upcoming = runCatching {
             val cal = calendar.get().state.value
@@ -630,7 +639,38 @@ class NuvioCTasteRepository @Inject constructor(
         val dates = runCatching { ratings.ratedDates() }.getOrDefault(emptyMap())
         val monthStart = LocalDate.now().withDayOfMonth(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val ratedThisMonth = if (dates.isEmpty() && inputs?.scores.isNullOrEmpty()) null else dates.values.count { it >= monthStart }
-        NuvioCTasteLive(watching, upNext, upcoming, saved, ratedThisMonth)
+        if (!com.nuvio.tv.NuvioCFeatures.TASTE_V3) return@withContext NuvioCTasteLive(watching, upNext, upcoming, saved, ratedThisMonth)
+        // [fork] round 46 taste_v3: This week. Kept inputs of the active profile only; nothing fetched.
+        val zone = ZoneId.systemDefault()
+        val now = System.currentTimeMillis()
+        val i = inputs?.takeIf { it.profile == profiles.activeProfileId.value }
+        val week = i?.let { runCatching { computeTasteWeek(it.history, titles(), it.scores, dates, now, zone) }.getOrNull() }
+        val onTheGo = if (cw == null && seeds == null) null else
+            (cw.orEmpty().filter { it.contentType != "movie" }.map { it.contentId } + seeds.orEmpty().map { it.contentId }).toSet().size
+        var newThisWeek: Int? = null
+        var next: NuvioCTasteNextAir? = null
+        runCatching {
+            val cal = calendar.get().state.value
+            if (cal.loaded && (cal.profileId == null || cal.profileId == profiles.activeProfileId.value)) {
+                val today = LocalDate.now(zone)
+                val weekEnd = today.plusDays(7)
+                var count = 0
+                cal.titles.forEach { t ->
+                    t.entries.forEach { e ->
+                        if (e.kind != com.nuvio.tv.core.calendar.CalendarEntryKind.EPISODE) return@forEach
+                        val at = e.airInstantMs ?: e.airDate?.let { d -> runCatching { LocalDate.parse(d.take(10)).atStartOfDay(zone).toInstant().toEpochMilli() }.getOrNull() } ?: return@forEach
+                        val day = Instant.ofEpochMilli(at).atZone(zone).toLocalDate()
+                        if (!day.isBefore(today) && day.isBefore(weekEnd)) count++
+                        val upcomingAt = if (e.airInstantMs != null) at >= now else !day.isBefore(today)
+                        if (upcomingAt && (next == null || at < next!!.atMs)) {
+                            next = NuvioCTasteNextAir(at, e.airInstantMs != null, t.name.orEmpty(), e.season?.let { s -> e.episode?.let { "S$s E$it" } })
+                        }
+                    }
+                }
+                newThisWeek = count
+            }
+        }
+        NuvioCTasteLive(watching, upNext, upcoming, saved, ratedThisMonth, week, onTheGo, newThisWeek, next?.takeIf { it.show.isNotBlank() })
     }
 
     /**
@@ -697,10 +737,12 @@ class NuvioCTasteRepository @Inject constructor(
         val dates = runCatching { ratings.ratedDates() }.getOrDefault(emptyMap())
         val keys = i.history.map(::tasteKeyOf).toSet()
         fun usedRecently(t: NuvioCTasteTitle) = now - rowPrefs.getLong("p${i.profile}:seed:${t.tmdbId}", 0L) < 7 * DAY_MS
+        val lovedScore = HashMap<Int, Int>()
         val loved = keys.mapNotNull { k ->
             val t = cache[k] ?: return@mapNotNull null
             val s = tasteScoreFor(k, cache, i.scores) ?: return@mapNotNull null
             if (s < 9 || usedRecently(t)) return@mapNotNull null
+            lovedScore[t.tmdbId] = s // [fork] round 46 taste_v3
             val at = dates[(if (t.isShow) "show:" else "movie:") + (t.imdbId ?: "tmdb${t.tmdbId}")]
             t to at
         }
@@ -721,7 +763,9 @@ class NuvioCTasteRepository @Inject constructor(
         } ?: return null
         val items = discoverItems(body, if (seed.isShow) "tv" else "movie", watched).shuffled(random).take(15)
         rowPrefs.edit().putLong("p${i.profile}:seed:${seed.tmdbId}", now).apply()
-        return NuvioCTasteRow("because:${seed.tmdbId}", "Because you loved ${seed.name}", items)
+        val title = (if (com.nuvio.tv.NuvioCFeatures.TASTE_V3) tasteBecauseTitle(seed.name, lovedScore[seed.tmdbId]) else null)
+            ?: "Because you loved ${seed.name}"
+        return NuvioCTasteRow("because:${seed.tmdbId}", title, items)
     }
 
     /** "More from X": one of your top five people, their acting (or directing) work you haven't seen. */

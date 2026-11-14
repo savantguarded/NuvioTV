@@ -49,7 +49,9 @@ data class NuvioCTasteInsight(
     val hours: Set<Int>? = null,
     val weekend: Boolean = false,
     /** [fork] round 41 taste_card_titles: the titles this card counted (taste keys), for its titles panel. */
-    val keys: List<String> = emptyList()
+    val keys: List<String> = emptyList(),
+    /** [fork] round 46 taste_v3: up to three small posters from [keys], shown on the larger cards. */
+    val posters: List<String> = emptyList()
 )
 
 data class NuvioCTasteRecap(val month: YearMonth, val titles: Int, val hours: Int, val topGenre: String?)
@@ -436,7 +438,7 @@ internal fun computeTasteInsights(
             }
         }
     }
-    return out
+    return if (com.nuvio.tv.NuvioCFeatures.TASTE_V3) tasteV3Dress(out, titles) else out
 }
 
 /**

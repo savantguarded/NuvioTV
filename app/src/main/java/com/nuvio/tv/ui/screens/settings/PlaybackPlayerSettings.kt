@@ -153,6 +153,7 @@ internal fun PlaybackPlayerInterfaceSection(
 ) {
     val internalPlayer = settings.playerPreference != PlayerPreference.EXTERNAL
 
+    NuvioCOsdStyleRow() // [fork] round 46 osd_clean
     NuvioCOsdButtonsRow() // [fork] round 31 osd_button_order
 
     SettingsToggleRow(

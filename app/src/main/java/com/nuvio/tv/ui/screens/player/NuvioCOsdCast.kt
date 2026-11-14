@@ -162,6 +162,8 @@ data class NuvioCCastBio(val tmdbId: Int?, val biography: String?, val knownFor:
 data class NuvioCOsdCastUi(
     val guests: List<NuvioCCastPerson> = emptyList(),
     val regulars: List<NuvioCCastPerson> = emptyList(),
+    /** [fork] round 46 osd_crew: director and writers (the episode's for a show, the film's for a film), role in [NuvioCCastPerson.character]. */
+    val crew: List<NuvioCCastPerson> = emptyList(),
     val selected: NuvioCCastPerson? = null,
     val bio: NuvioCCastBio? = null,
     val bioLoading: Boolean = false,
@@ -198,13 +200,17 @@ class NuvioCOsdCastViewModel @Inject constructor(
         _ui.value = NuvioCOsdCastUi(
             regulars = regulars,
             guests = if (same) previous.guests else emptyList(),
+            crew = if (same) previous.crew else emptyList(),
             lastKey = if (same) previous.lastKey else null,
             tab = if (same) previous.tab else NuvioCOsdCastUi().tab
         )
         if (NuvioCFeatures.OSD_CAST_TMDB && contentId != null) loadTmdbCast(regulars, contentId, isShow = season != null, titleKey)
         if (contentId == null || season == null || episode == null) return
         val key = "$contentId:$season:$episode"
-        episodeCache[key]?.let { cached -> _ui.value = _ui.value.copy(guests = cached.notIn(regulars)); return }
+        episodeCache[key]?.let { cached ->
+            _ui.value = _ui.value.copy(guests = cached.notIn(regulars), crew = if (NuvioCFeatures.OSD_CREW) crewCache[key].orEmpty() else emptyList())
+            return
+        }
         viewModelScope.launch {
             val guests = runCatching {
                 val tvId = contentId.removePrefix("tmdb:").substringBefore(':').toIntOrNull()
@@ -213,10 +219,11 @@ class NuvioCOsdCastViewModel @Inject constructor(
                 val body = api.episodeCredits(tvId, season, episode, tmdbService.apiKey()).takeIf { it.isSuccessful }?.body()?.use { it.string() }
                     ?: return@runCatching emptyList()
                 val root = json.parseToJsonElement(body).jsonObject
+                crewCache[key] = parseCrew(root) // [fork] round 46 osd_crew: same response, no extra request
                 (root["guest_stars"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.toPerson() }
             }.getOrDefault(emptyList())
             episodeCache[key] = guests
-            _ui.value = _ui.value.copy(guests = guests.notIn(regulars))
+            _ui.value = _ui.value.copy(guests = guests.notIn(regulars), crew = if (NuvioCFeatures.OSD_CREW) crewCache[key].orEmpty() else _ui.value.crew)
         }
     }
 
@@ -225,18 +232,51 @@ class NuvioCOsdCastViewModel @Inject constructor(
     // without an id were then found by name, which could pick a namesake. TMDB's own cast for the title is now
     // the base list; the add-on only fills in people TMDB doesn't list. Cached per title.
     private val tmdbCastCache = HashMap<String, List<NuvioCCastPerson>>()
+    /** [fork] round 46 osd_crew: crew per episode key or per film base key. */
+    private val crewCache = HashMap<String, List<NuvioCCastPerson>>()
+
+    /** Directors first, then writers (Screenplay / Writer / Teleplay / Story), one row per person with their jobs joined. */
+    private fun parseCrew(root: JsonObject): List<NuvioCCastPerson> {
+        val crew = (root["crew"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
+        val wanted = listOf("Director", "Screenplay", "Writer", "Teleplay", "Story")
+        data class Row(val name: String, val id: Int?, val photo: String?, val jobs: LinkedHashSet<String>, val rank: Int)
+        val rows = LinkedHashMap<String, Row>()
+        crew.forEach { o ->
+            val job = o.str("job") ?: return@forEach
+            val rank = wanted.indexOf(job).takeIf { it >= 0 } ?: return@forEach
+            val name = o.str("name") ?: return@forEach
+            val label = if (rank == 0) "Director" else "Writer"
+            val k = (o.int("id")?.toString() ?: name.lowercase())
+            val existing = rows[k]
+            if (existing == null) {
+                rows[k] = Row(name, o.int("id"), o.str("profile_path")?.let { "https://image.tmdb.org/t/p/w185$it" }, linkedSetOf(label), rank)
+            } else {
+                existing.jobs += label
+                if (rank < existing.rank) rows[k] = existing.copy(rank = rank)
+            }
+        }
+        return rows.values.sortedBy { it.rank }.take(4).map { r ->
+            NuvioCCastPerson(r.name, r.jobs.sortedBy { if (it == "Director") 0 else 1 }.joinToString(" · "), r.photo, r.id)
+        }
+    }
     @Volatile private var titleTmdbId: Int? = null
 
     private fun loadTmdbCast(addon: List<NuvioCCastPerson>, contentId: String, isShow: Boolean, titleKey: String) {
         val baseKey = "${if (isShow) "tv" else "movie"}:${contentId.substringBefore(':')}"
-        tmdbCastCache[baseKey]?.let { cached -> applyBase(cached, addon, titleKey); return }
+        tmdbCastCache[baseKey]?.let { cached ->
+            if (NuvioCFeatures.OSD_CREW && !isShow) _ui.value = _ui.value.copy(crew = crewCache[baseKey].orEmpty())
+            applyBase(cached, addon, titleKey)
+            return
+        }
         viewModelScope.launch {
             val people = runCatching {
                 val id = resolveTmdbId(contentId, isShow) ?: return@runCatching null
                 titleTmdbId = id
                 val response = if (isShow) api.tvAggregateCredits(id, tmdbService.apiKey()) else api.movieCredits(id, tmdbService.apiKey())
                 val body = response.takeIf { it.isSuccessful }?.body()?.use { it.string() } ?: return@runCatching null
-                val cast = (json.parseToJsonElement(body).jsonObject["cast"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
+                val rootObj = json.parseToJsonElement(body).jsonObject
+                if (!isShow) crewCache[baseKey] = parseCrew(rootObj) // [fork] round 46 osd_crew: same response
+                val cast = (rootObj["cast"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
                 cast.take(MAX_TMDB_CAST).mapNotNull { o ->
                     val name = o.str("name") ?: return@mapNotNull null
                     val character = o.str("character")
@@ -245,6 +285,7 @@ class NuvioCOsdCastViewModel @Inject constructor(
                 }
             }.getOrNull() ?: return@launch
             tmdbCastCache[baseKey] = people
+            if (NuvioCFeatures.OSD_CREW && !isShow && loadedKey == titleKey) _ui.value = _ui.value.copy(crew = crewCache[baseKey].orEmpty())
             applyBase(people, addon, titleKey)
         }
     }
@@ -435,7 +476,7 @@ internal fun NuvioCOsdCastPanel(
                         .background(NuvioTheme.colors.BackgroundElevated)
                 ) {
                     val selected = ui.selected
-                    val hasCast = ui.regulars.isNotEmpty() || ui.guests.isNotEmpty()
+                    val hasCast = ui.regulars.isNotEmpty() || ui.guests.isNotEmpty() || ui.crew.isNotEmpty()
                     if (selected != null) {
                         PersonView(selected, ui.bio, ui.bioLoading, bioExpanded) { bioExpanded = it }
                     } else if (about != null && NuvioCFeatures.OSD_ABOUT_TAB) {
@@ -464,18 +505,28 @@ private fun CastList(
     onSelect: (NuvioCCastPerson, String) -> Unit
 ) {
     val listState = rememberLazyListState()
-    val guestKeys = ui.guests.mapIndexed { i, p -> "g$i${p.name}" }
-    val regularKeys = ui.regulars.mapIndexed { i, p -> "r$i${p.name}" }
-    // Coming back from a person's view, focus lands on that person again; otherwise on the first row.
-    val firstKey = guestKeys.firstOrNull() ?: regularKeys.firstOrNull()
-    val targetKey = ui.lastKey?.takeIf { it in guestKeys || it in regularKeys } ?: firstKey
-    val target = remember { FocusRequester() }
-    val headerOffset = if (ui.guests.isNotEmpty()) 1 else 0
-    val targetIndex = when {
-        targetKey == null -> 0
-        targetKey in guestKeys -> headerOffset + guestKeys.indexOf(targetKey)
-        else -> headerOffset + guestKeys.size + headerOffset + regularKeys.indexOf(targetKey)
+    // [fork] round 46 osd_crew: one flat list (headers + people) so focus restore works with any mix of groups.
+    // Films: Crew (director, writers), then Cast. Shows: This episode (its director and writers, then guest stars),
+    // then Regulars.
+    val entries = buildList<Pair<String, NuvioCCastPerson?>> {
+        val crew = if (NuvioCFeatures.OSD_CREW) ui.crew else emptyList()
+        if (ui.guests.isNotEmpty()) {
+            add("h_guests" to null)
+            crew.forEachIndexed { i, p -> add("c$i${p.name}" to p) }
+            ui.guests.forEachIndexed { i, p -> add("g$i${p.name}" to p) }
+            add("h_regulars" to null)
+        } else if (crew.isNotEmpty()) {
+            add("h_crew" to null)
+            crew.forEachIndexed { i, p -> add("c$i${p.name}" to p) }
+            if (ui.regulars.isNotEmpty()) add("h_cast" to null)
+        }
+        ui.regulars.forEachIndexed { i, p -> add("r$i${p.name}" to p) }
     }
+    val personKeys = entries.filter { it.second != null }.map { it.first }
+    // Coming back from a person's view, focus lands on that person again; otherwise on the first row.
+    val targetKey = ui.lastKey?.takeIf { it in personKeys } ?: personKeys.firstOrNull()
+    val target = remember { FocusRequester() }
+    val targetIndex = entries.indexOfFirst { it.first == targetKey }.coerceAtLeast(0)
     LaunchedEffect(targetKey) {
         if (targetIndex > 1) listState.scrollToItem((targetIndex - 1).coerceAtLeast(0))
         target.requestFocusAfterFrames()
@@ -497,15 +548,20 @@ private fun CastList(
                 .fillMaxSize()
                 .nuvioCListGate() // [fork] round 31 list_repeat_gate
         ) {
-            if (ui.guests.isNotEmpty()) {
-                item(key = "h_guests") { GroupLabel(stringResource(R.string.nuvio_c_osd_cast_episode)) }
-                itemsIndexed(ui.guests, key = { i, p -> "g$i${p.name}" }) { i, p ->
-                    PersonRow(p, guestKeys[i], if (guestKeys[i] == targetKey) target else null, onSelect)
+            items(entries.size, key = { entries[it].first }, contentType = { if (entries[it].second == null) 0 else 1 }) { i ->
+                val (key, person) = entries[i]
+                if (person == null) {
+                    GroupLabel(
+                        when (key) {
+                            "h_guests" -> stringResource(R.string.nuvio_c_osd_cast_episode)
+                            "h_regulars" -> stringResource(R.string.nuvio_c_osd_cast_regulars)
+                            "h_crew" -> stringResource(R.string.nuvio_c_osd_crew)
+                            else -> stringResource(R.string.nuvio_c_osd_cast)
+                        }
+                    )
+                } else {
+                    PersonRow(person, key, if (key == targetKey) target else null, onSelect)
                 }
-                item(key = "h_regulars") { GroupLabel(stringResource(R.string.nuvio_c_osd_cast_regulars)) }
-            }
-            itemsIndexed(ui.regulars, key = { i, p -> "r$i${p.name}" }) { i, p ->
-                PersonRow(p, regularKeys[i], if (regularKeys[i] == targetKey) target else null, onSelect)
             }
         }
     }

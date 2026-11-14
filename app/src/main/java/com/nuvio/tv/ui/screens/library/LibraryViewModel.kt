@@ -290,6 +290,9 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
+    /** [fork] round 46 library_back_focus: the last list / sort change the screen has already jumped to the top for. */
+    var nuvioCHandledSortVersion: Long = 0L
+
     fun onSelectSortOption(option: LibrarySortOption) {
         val profileId = profileManager.activeProfileId.value
         selectedSortOverride = profileId to option

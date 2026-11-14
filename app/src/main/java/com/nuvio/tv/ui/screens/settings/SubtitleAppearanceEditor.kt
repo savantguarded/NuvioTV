@@ -231,6 +231,17 @@ private fun SubtitleAppearanceControls(
                         onColorSelected = { color -> onUpdate { setSubtitleOutlineColor(color.toArgb()) } }
                     )
                 }
+                if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_OUTLINE_WIDTH_ROW) item(key = "outline_width") { // [fork] round 46
+                    SliderSettingsItem(
+                        title = stringResource(R.string.nuvio_c_outline_width),
+                        value = style.outlineWidth,
+                        valueText = style.outlineWidth.toString(),
+                        minValue = 1,
+                        maxValue = 5,
+                        step = 1,
+                        onValueChange = { width -> onUpdate { setSubtitleOutlineWidth(width) } }
+                    )
+                }
             }
             if (!com.nuvio.tv.NuvioCFeatures.SUBTITLE_CLASSIC_RENDERER) item(key = "shadow") { // [fork] round 44: needs official's new renderer
                 SettingsToggleRow(

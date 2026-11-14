@@ -361,9 +361,15 @@ class NuvioCTasteViewModel @Inject constructor(
         spotlightCache[cacheKey]?.let { return it }
         val now = java.time.ZonedDateTime.now()
         val weekend = now.dayOfWeek == java.time.DayOfWeek.SATURDAY || now.dayOfWeek == java.time.DayOfWeek.SUNDAY
-        val picked = com.nuvio.tv.data.nuvioc.pickTasteSpotlight(all, seed xor key.hashCode().toLong(), now.hour, weekend)
-        // the dot: a card shown before whose value is different now
         val profile = profiles.activeProfileId.value
+        val picked = if (com.nuvio.tv.NuvioCFeatures.TASTE_V3) {
+            // [fork] round 46 taste_v3: last visit's cards sit out while enough others exist; changed ones count double
+            val lastShown = prefs.getStringSet("p$profile:last_spot:$key", emptySet()).orEmpty()
+            val changedNow = all.filter { c -> prefs.getString("p$profile:${c.id}", null)?.let { it != c.value } == true }.map { it.id }.toSet()
+            com.nuvio.tv.data.nuvioc.pickTasteSpotlightV3(all, seed xor key.hashCode().toLong(), now.hour, weekend, lastShown, changedNow)
+                .also { p -> prefs.edit().putStringSet("p$profile:last_spot:$key", p.map { it.id }.toSet()).apply() }
+        } else com.nuvio.tv.data.nuvioc.pickTasteSpotlight(all, seed xor key.hashCode().toLong(), now.hour, weekend)
+        // the dot: a card shown before whose value is different now
         val changed = picked.filter { c ->
             val before = prefs.getString("p$profile:${c.id}", null)
             before != null && before != c.value

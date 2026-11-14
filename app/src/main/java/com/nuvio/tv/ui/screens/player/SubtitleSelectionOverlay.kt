@@ -1048,6 +1048,20 @@ private fun SubtitleStyleRail(
                                 dispatchStyleEvent(PlayerEvent.OnSetSubtitleOutlineColor(color))
                             }
                         )
+                        if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_OUTLINE_WIDTH_ROW && subtitleStyle.outlineEnabled) {
+                            // [fork] round 46: Outline width came back (lost when round 44 took official's Style tab)
+                            StepperRow(
+                                value = subtitleStyle.outlineWidth.toString(),
+                                onDecrease = { dispatchStyleEvent(PlayerEvent.OnSetSubtitleOutlineWidth((subtitleStyle.outlineWidth - 1).coerceIn(1, 5))) },
+                                onIncrease = { dispatchStyleEvent(PlayerEvent.OnSetSubtitleOutlineWidth((subtitleStyle.outlineWidth + 1).coerceIn(1, 5))) },
+                                onMoveLeft = onMoveLeft,
+                                decrementFocusRequester = focusRequesters[StyleFocusKey.OutlineWidthDecrease],
+                                incrementFocusRequester = focusRequesters[StyleFocusKey.OutlineWidthIncrease],
+                                decrementFocusKey = StyleFocusKey.OutlineWidthDecrease,
+                                incrementFocusKey = StyleFocusKey.OutlineWidthIncrease,
+                                onFocusChanged = onStyleFocused
+                            )
+                        }
                     }
                 }
             }
@@ -1839,6 +1853,8 @@ internal object StyleFocusKey {
     const val ShadowOpacityIncrease = "shadow_opacity_increase"
     const val ShadowSizeDecrease = "shadow_size_decrease"
     const val ShadowSizeIncrease = "shadow_size_increase"
+    const val OutlineWidthDecrease = "outline_width_decrease" // [fork] round 46
+    const val OutlineWidthIncrease = "outline_width_increase" // [fork] round 46
 }
 
 private enum class OverlayFocusRail {
@@ -1873,7 +1889,8 @@ private fun styleListIndexForFocusKey(focusKey: String): Int {
         focusKey.startsWith("${StyleFocusKey.BackgroundColorPrefix}:") ||
             focusKey == StyleFocusKey.BackgroundOpacityDecrease || focusKey == StyleFocusKey.BackgroundOpacityIncrease ||
             focusKey == StyleFocusKey.RoundnessDecrease || focusKey == StyleFocusKey.RoundnessIncrease -> 6
-        focusKey == StyleFocusKey.OutlineToggle || focusKey.startsWith("${StyleFocusKey.OutlineColorPrefix}:") -> 7
+        focusKey == StyleFocusKey.OutlineToggle || focusKey.startsWith("${StyleFocusKey.OutlineColorPrefix}:") ||
+            focusKey == StyleFocusKey.OutlineWidthDecrease || focusKey == StyleFocusKey.OutlineWidthIncrease -> 7
         focusKey == StyleFocusKey.ShadowToggle ||
             focusKey == StyleFocusKey.ShadowOpacityDecrease || focusKey == StyleFocusKey.ShadowOpacityIncrease ||
             focusKey == StyleFocusKey.ShadowSizeDecrease || focusKey == StyleFocusKey.ShadowSizeIncrease -> 8
@@ -1914,7 +1931,9 @@ private fun rememberStyleFocusRequesters(): Map<String, FocusRequester> {
             StyleFocusKey.ShadowOpacityDecrease,
             StyleFocusKey.ShadowOpacityIncrease,
             StyleFocusKey.ShadowSizeDecrease,
-            StyleFocusKey.ShadowSizeIncrease
+            StyleFocusKey.ShadowSizeIncrease,
+            StyleFocusKey.OutlineWidthDecrease,
+            StyleFocusKey.OutlineWidthIncrease
         ).associateWith { FocusRequester() } +
             SubtitleTextColorPresets.associate { color ->
                 "${StyleFocusKey.TextColorPrefix}:${color.toArgb()}" to FocusRequester()
