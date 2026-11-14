@@ -1,6 +1,7 @@
 package com.nuvio.tv.ui.screens.detail
 
 import com.nuvio.tv.ui.util.nuvioCRowThrottle
+import com.nuvio.tv.ui.util.nuvioCRowEdge
 
 import com.nuvio.tv.ui.theme.NuvioTheme
 
@@ -162,7 +163,7 @@ fun CollectionSection(
                 }
 
                 Column(
-                    modifier = restoreItemModifier.then(
+                    modifier = restoreItemModifier.nuvioCRowEdge(isFirstItem).then(
                         if (isRestoreTarget && suppressRestoreScroll) {
                             Modifier.onPlaced {
                                 if (placedFocused) return@onPlaced

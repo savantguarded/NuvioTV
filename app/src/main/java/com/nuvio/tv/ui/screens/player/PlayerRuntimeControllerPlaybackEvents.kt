@@ -2137,6 +2137,20 @@ fun PlayerRuntimeController.onEvent(
                 _uiState.update { it.copy(showAspectRatioIndicator = false) }
             }
         }
+        is PlayerEvent.OnNuvioCSetAspectMode -> {
+            // [fork] round 46b: same as a toggle press, landing on the chosen mode (tunneling keeps its Fit / Fill toggle)
+            val state = _uiState.value
+            if (state.tunnelingEnabled) { onEvent(PlayerEvent.OnToggleAspectRatio); return }
+            val newMode = event.mode
+            val label = aspectModeLabel(newMode, context::getString)
+            _uiState.update { it.copy(aspectMode = newMode, showAspectRatioIndicator = true, aspectRatioIndicatorText = label) }
+            scope.launch { deviceLocalPlayerPreferences.setAspectMode(newMode) }
+            hideAspectRatioIndicatorJob?.cancel()
+            hideAspectRatioIndicatorJob = scope.launch {
+                delay(1500)
+                _uiState.update { it.copy(showAspectRatioIndicator = false) }
+            }
+        }
         PlayerEvent.OnSwitchInternalPlayerEngine -> {
             logSwitchTrace(
                 stage = "event-switch-engine",

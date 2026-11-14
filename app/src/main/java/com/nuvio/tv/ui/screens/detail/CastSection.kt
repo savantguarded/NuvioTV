@@ -1,6 +1,7 @@
 package com.nuvio.tv.ui.screens.detail
 
 import com.nuvio.tv.ui.util.nuvioCRowThrottle
+import com.nuvio.tv.ui.util.nuvioCRowEdge
 
 import com.nuvio.tv.ui.theme.NuvioTheme
 import com.nuvio.tv.domain.model.CardDepthSurface
@@ -285,7 +286,7 @@ fun CastSection(
                         remember(focusKey) { itemFocusRequesters.getOrPut(focusKey) { FocusRequester() } }
                     }
 
-                    Box(modifier = restoreItemModifier.padding(end = endPadding)) {
+                    Box(modifier = restoreItemModifier.nuvioCRowEdge(isFirstItem).padding(end = endPadding)) {
                         CastMemberItem(
                             member = member,
                             modifier = Modifier
@@ -336,7 +337,7 @@ fun CastSection(
                     remember(focusKey) { itemFocusRequesters.getOrPut(focusKey) { FocusRequester() } }
                 }
 
-                Box(modifier = restoreItemModifier.padding(end = standardGap)) {
+                Box(modifier = restoreItemModifier.nuvioCRowEdge(isFirstCastItem).padding(end = standardGap)) {
                     CastMemberItem(
                         member = member,
                         modifier = Modifier

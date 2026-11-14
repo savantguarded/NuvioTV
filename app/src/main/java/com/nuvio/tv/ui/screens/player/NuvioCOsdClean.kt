@@ -63,6 +63,8 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.nuvio.tv.NuvioCFeatures
+import com.nuvio.tv.ui.util.nuvioCListGate
+import androidx.compose.material.icons.filled.Check
 import com.nuvio.tv.ui.screens.detail.requestFocusAfterFrames
 import com.nuvio.tv.ui.theme.NuvioTheme
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -115,7 +117,7 @@ internal fun NuvioCOsdPill(
     Surface(
         onClick = { memory?.onClick(label); onClick() },
         modifier = Modifier
-            .height(44.dp)
+            .height(38.dp)
             .then(if (requester != null) Modifier.focusRequester(requester) else Modifier)
             .then(if (upFocusRequester != null) Modifier.focusProperties { up = upFocusRequester } else Modifier)
             .onPreviewKeyEvent { e ->
@@ -134,7 +136,7 @@ internal fun NuvioCOsdPill(
                 focused = it.isFocused
                 if (it.isFocused) onFocused()
             },
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(22.dp)),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = nuvioCOsd(Color(0xFF3A3A3A)).copy(alpha = 0.72f),
@@ -144,48 +146,71 @@ internal fun NuvioCOsdPill(
         )
     ) {
         Row(
-            Modifier.padding(start = 12.dp, end = 16.dp).fillMaxHeight(),
+            Modifier.padding(start = 11.dp, end = 14.dp).fillMaxHeight(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            if (iconPainter != null) Icon(iconPainter, contentDescription = null, modifier = Modifier.size(18.dp))
-            else Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
-            Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium, maxLines = 1)
+            if (iconPainter != null) Icon(iconPainter, contentDescription = null, modifier = Modifier.size(17.dp))
+            else Icon(icon, contentDescription = null, modifier = Modifier.size(17.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium, maxLines = 1)
         }
     }
 }
 
-/** One line in the gear's sheet. */
-internal data class NuvioCMoreRow(val key: String, val label: String, val value: String?, val onClick: () -> Unit)
+/** One option in a More sub-list. [closes] = the sheet closes before [onPick] runs (it opens something else). */
+internal data class NuvioCMoreOption(val label: String, val selected: Boolean, val closes: Boolean = false, val onPick: () -> Unit)
+
+/** [fork] round 46b: a line in the gear's sheet. [section] groups lines under a small heading. */
+internal sealed class NuvioCMoreItem {
+    abstract val key: String
+    abstract val label: String
+    abstract val section: String
+
+    /** Runs something that opens its own panel or acts at once; the sheet closes first. */
+    data class Action(override val key: String, override val label: String, override val section: String, val value: String? = null, val onClick: () -> Unit) : NuvioCMoreItem()
+    /** Opens a sub-list in the same panel; the current pick is ticked and focused. */
+    data class Choice(override val key: String, override val label: String, override val section: String, val value: String, val options: List<NuvioCMoreOption>) : NuvioCMoreItem()
+    /** Flips in place. */
+    data class Toggle(override val key: String, override val label: String, override val section: String, val on: Boolean, val onToggle: () -> Unit) : NuvioCMoreItem()
+    /** Left / Right step it in place; OK resets it. */
+    data class Stepper(
+        override val key: String, override val label: String, override val section: String, val value: String,
+        val onDecrease: () -> Unit, val onIncrease: () -> Unit, val onReset: () -> Unit
+    ) : NuvioCMoreItem()
+}
 
 @Stable
 internal class NuvioCMoreSheetState {
     var open by mutableStateOf(false)
-    /** Row last pressed; the sheet opens on it next time. */
+    /** Line last used; the sheet opens on it next time. */
     var lastKey: String? = null
+    /** The Choice whose sub-list is showing, or null for the main list. */
+    var page by mutableStateOf<String?>(null)
 }
 
 /**
- * The gear's sheet: a panel on the right over the playing video, rows with their current value. OK runs the row
- * (the sheet closes first, so a panel it opens comes back to the gear when it closes); Back closes the sheet and
- * focus goes back to the gear.
+ * The gear's sheet: a panel on the right over the playing video. Lines with a choice open a sub-list in the same
+ * panel (Back returns to the line), switches flip in place, delays step with Left / Right (OK resets), and lines that
+ * open a panel close the sheet first, so that panel brings focus back to the gear when it closes. Back on the main
+ * list closes the sheet; focus goes back to the gear.
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 internal fun NuvioCOsdMoreSheet(
     state: NuvioCMoreSheetState,
     title: String,
-    rows: List<NuvioCMoreRow>,
+    items: List<NuvioCMoreItem>,
     hdrDim: Boolean,
     onClosed: () -> Unit
 ) {
     if (!state.open) return
     val close = {
         state.open = false
+        state.page = null
         onClosed()
     }
     Dialog(
-        onDismissRequest = close,
+        onDismissRequest = { if (state.page != null) state.page = null else close() },
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
         val window = (LocalView.current.parent as? DialogWindowProvider)?.window
@@ -194,9 +219,6 @@ internal fun NuvioCOsdMoreSheet(
             window?.setDimAmount(0f)
         }
         val shown = remember { MutableTransitionState(false).apply { targetState = true } }
-        val first = remember { FocusRequester() }
-        val startIndex = rows.indexOfFirst { it.key == state.lastKey }.coerceAtLeast(0)
-        LaunchedEffect(Unit) { first.requestFocusAfterFrames() }
         Box(Modifier.fillMaxSize()) {
             AnimatedVisibility(visibleState = shown, enter = fadeIn(tween(120))) {
                 Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.35f)))
@@ -217,47 +239,168 @@ internal fun NuvioCOsdMoreSheet(
                         .background(NuvioTheme.colors.BackgroundElevated)
                         .padding(vertical = 20.dp)
                 ) {
-                    Text(title, style = MaterialTheme.typography.headlineSmall, color = NuvioTheme.colors.TextPrimary,
-                        modifier = Modifier.padding(horizontal = 24.dp))
-                    Spacer(Modifier.height(12.dp))
-                    LazyColumn(
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.fillMaxWidth().weight(1f)
-                    ) {
-                        items(rows.size, key = { rows[it].key }) { i ->
-                            val row = rows[i]
-                            var focused by remember { mutableStateOf(false) }
-                            Surface(
-                                onClick = {
-                                    state.lastKey = row.key
-                                    state.open = false
-                                    row.onClick()
-                                },
-                                modifier = Modifier.fillMaxWidth().height(50.dp)
-                                    .then(if (i == startIndex) Modifier.focusRequester(first) else Modifier)
-                                    .onFocusChanged { focused = it.isFocused },
-                                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
-                                scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
-                                colors = ClickableSurfaceDefaults.colors(
-                                    containerColor = Color.Transparent,
-                                    contentColor = NuvioTheme.colors.TextPrimary,
-                                    focusedContainerColor = Color.White,
-                                    focusedContentColor = Color.Black
-                                )
-                            ) {
-                                Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(row.label, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                        modifier = Modifier.weight(1f))
-                                    row.value?.let {
-                                        Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 1,
-                                            color = if (focused) Color.Black.copy(alpha = 0.65f) else NuvioTheme.colors.TextSecondary,
-                                            modifier = Modifier.padding(start = 12.dp))
-                                    }
-                                }
-                            }
-                        }
+                    val choice = state.page?.let { k -> items.firstOrNull { it.key == k } as? NuvioCMoreItem.Choice }
+                    if (choice != null) NuvioCMoreSubList(state, title, choice)
+                    else NuvioCMoreMainList(state, title, items)
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.NuvioCMoreMainList(state: NuvioCMoreSheetState, title: String, items: List<NuvioCMoreItem>) {
+    Text(title, style = MaterialTheme.typography.headlineSmall, color = NuvioTheme.colors.TextPrimary, modifier = Modifier.padding(horizontal = 24.dp))
+    Spacer(Modifier.height(8.dp))
+    val target = remember { FocusRequester() }
+    val targetKey = items.firstOrNull { it.key == state.lastKey }?.key ?: items.firstOrNull()?.key
+    LaunchedEffect(targetKey) { target.requestFocusAfterFrames() }
+    // headings go in where the section changes
+    val entries = buildList<Pair<String, NuvioCMoreItem?>> {
+        var last: String? = null
+        items.forEach { item ->
+            if (item.section != last) { add("h:${item.section}" to null); last = item.section }
+            add(item.key to item)
+        }
+    }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState(
+        initialFirstVisibleItemIndex = (entries.indexOfFirst { it.first == targetKey } - 2).coerceAtLeast(0)
+    )
+    LazyColumn(
+        state = listState,
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = Modifier.fillMaxWidth().weight(1f).nuvioCListGate()
+    ) {
+        items(entries.size, key = { entries[it].first }, contentType = { if (entries[it].second == null) 0 else 1 }) { i ->
+            val (key, item) = entries[i]
+            if (item == null) {
+                Text(
+                    key.removePrefix("h:").uppercase(java.util.Locale.ROOT),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = NuvioTheme.colors.TextTertiary,
+                    modifier = Modifier.padding(start = 12.dp, top = if (i == 0) 4.dp else 14.dp, bottom = 4.dp)
+                )
+            } else {
+                NuvioCMoreLine(state, item, if (key == targetKey) target else null)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun NuvioCMoreLine(state: NuvioCMoreSheetState, item: NuvioCMoreItem, requester: FocusRequester?) {
+    var focused by remember { mutableStateOf(false) }
+    val onClick: () -> Unit = {
+        state.lastKey = item.key
+        when (item) {
+            is NuvioCMoreItem.Action -> { state.open = false; state.page = null; item.onClick() }
+            is NuvioCMoreItem.Choice -> state.page = item.key
+            is NuvioCMoreItem.Toggle -> item.onToggle()
+            is NuvioCMoreItem.Stepper -> item.onReset()
+        }
+    }
+    val secondary = if (focused) Color.Black.copy(alpha = 0.62f) else NuvioTheme.colors.TextSecondary
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().height(48.dp)
+            .then(if (requester != null) Modifier.focusRequester(requester) else Modifier)
+            .onFocusChanged { focused = it.isFocused; if (it.isFocused) state.lastKey = item.key }
+            .then(
+                if (item is NuvioCMoreItem.Stepper) Modifier.onPreviewKeyEvent { e ->
+                    val n = e.nativeKeyEvent
+                    if (n.action != KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent n.keyCode == KeyEvent.KEYCODE_DPAD_LEFT || n.keyCode == KeyEvent.KEYCODE_DPAD_RIGHT
+                    when (n.keyCode) {
+                        KeyEvent.KEYCODE_DPAD_LEFT -> { item.onDecrease(); true }
+                        KeyEvent.KEYCODE_DPAD_RIGHT -> { item.onIncrease(); true }
+                        else -> false
                     }
+                } else Modifier
+            ),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color.Transparent,
+            contentColor = NuvioTheme.colors.TextPrimary,
+            focusedContainerColor = Color.White,
+            focusedContentColor = Color.Black
+        )
+    ) {
+        Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(item.label, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            when (item) {
+                is NuvioCMoreItem.Action -> item.value?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = secondary, maxLines = 1, modifier = Modifier.padding(start = 12.dp)) }
+                is NuvioCMoreItem.Choice -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(item.value, style = MaterialTheme.typography.bodyMedium, color = secondary, maxLines = 1, modifier = Modifier.padding(start = 12.dp))
+                    Text("  ›", style = MaterialTheme.typography.bodyLarge, color = secondary)
+                }
+                is NuvioCMoreItem.Toggle -> NuvioCMoreSwitch(item.on, focused)
+                is NuvioCMoreItem.Stepper -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("‹", style = MaterialTheme.typography.bodyLarge, color = secondary)
+                    Text(item.value, style = MaterialTheme.typography.bodyMedium, color = secondary, maxLines = 1,
+                        modifier = Modifier.padding(horizontal = 10.dp))
+                    Text("›", style = MaterialTheme.typography.bodyLarge, color = secondary)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NuvioCMoreSwitch(on: Boolean, focused: Boolean) {
+    val track = when {
+        on -> NuvioTheme.colors.Secondary
+        focused -> Color.Black.copy(alpha = 0.25f)
+        else -> Color.White.copy(alpha = 0.22f)
+    }
+    Box(Modifier.width(36.dp).height(20.dp).clip(RoundedCornerShape(10.dp)).background(track).padding(2.dp)) {
+        Box(Modifier.align(if (on) Alignment.CenterEnd else Alignment.CenterStart).size(16.dp).clip(RoundedCornerShape(8.dp)).background(Color.White))
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun androidx.compose.foundation.layout.ColumnScope.NuvioCMoreSubList(state: NuvioCMoreSheetState, title: String, choice: NuvioCMoreItem.Choice) {
+    Text("$title  ›", style = MaterialTheme.typography.bodySmall, color = NuvioTheme.colors.TextTertiary, modifier = Modifier.padding(horizontal = 24.dp))
+    Text(choice.label, style = MaterialTheme.typography.headlineSmall, color = NuvioTheme.colors.TextPrimary, modifier = Modifier.padding(horizontal = 24.dp))
+    Spacer(Modifier.height(10.dp))
+    val target = remember(choice.key) { FocusRequester() }
+    val selectedIndex = choice.options.indexOfFirst { it.selected }.coerceAtLeast(0)
+    LaunchedEffect(choice.key) { target.requestFocusAfterFrames() }
+    LazyColumn(
+        state = androidx.compose.foundation.lazy.rememberLazyListState(initialFirstVisibleItemIndex = (selectedIndex - 2).coerceAtLeast(0)),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = Modifier.fillMaxWidth().weight(1f)
+    ) {
+        items(choice.options.size, key = { "${choice.key}:$it" }) { i ->
+            val option = choice.options[i]
+            var focused by remember { mutableStateOf(false) }
+            Surface(
+                onClick = {
+                    if (option.closes) { state.open = false; state.page = null } else state.page = null
+                    option.onPick()
+                },
+                modifier = Modifier.fillMaxWidth().height(48.dp)
+                    .then(if (i == selectedIndex) Modifier.focusRequester(target) else Modifier)
+                    .onFocusChanged { focused = it.isFocused },
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
+                scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = Color.Transparent,
+                    contentColor = NuvioTheme.colors.TextPrimary,
+                    focusedContainerColor = Color.White,
+                    focusedContentColor = Color.Black
+                )
+            ) {
+                Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(option.label, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    if (option.selected) Icon(
+                        androidx.compose.material.icons.Icons.Filled.Check, contentDescription = null,
+                        tint = if (focused) Color.Black else NuvioTheme.colors.Secondary, modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }

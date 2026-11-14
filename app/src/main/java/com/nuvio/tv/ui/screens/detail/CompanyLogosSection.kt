@@ -6,6 +6,7 @@
 package com.nuvio.tv.ui.screens.detail
 
 import com.nuvio.tv.ui.util.nuvioCRowThrottle
+import com.nuvio.tv.ui.util.nuvioCRowEdge
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
@@ -199,6 +200,7 @@ fun CompanyLogosSection(
                 }
                 Box(
                     modifier = Modifier
+                        .nuvioCRowEdge(isFirstItem)
                         .bringIntoViewResponder(
                             if (suppressRestoreScroll) restoreNoScrollResponder else stayVerticalResponder
                         )

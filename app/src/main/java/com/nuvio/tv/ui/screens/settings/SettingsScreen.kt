@@ -414,7 +414,8 @@ fun SettingsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .nuvioCListGate() // [fork] list_repeat_gate: held Up / Down no longer sticks
+            .then(if (com.nuvio.tv.NuvioCFeatures.SETTINGS_SMOOTH) Modifier.onPreviewKeyEvent { NuvioCSettingsJank.onKey(it.nativeKeyEvent); false } else Modifier) // [fork] 46b hold log
+            .nuvioCListGate(if (com.nuvio.tv.NuvioCFeatures.SETTINGS_SMOOTH) 80L else 112L) // [fork] list_repeat_gate: held Up / Down no longer sticks (46b: 80 ms here)
             .background(NuvioTheme.colors.Background)
             .padding(
                 start = NuvioTheme.spacing.xxl,

@@ -6,6 +6,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalFocusManager
 import com.nuvio.tv.NuvioCFeatures
@@ -16,7 +17,27 @@ import com.nuvio.tv.NuvioCFeatures
 // page filmography rows. Without it a held Left queued more focus moves and scroll animations than
 // the TV could draw, and the row stalled. Single presses are untouched.
 fun Modifier.nuvioCRowThrottle(): Modifier =
-    if (NuvioCFeatures.DETAIL_ROW_THROTTLE) this.dpadRepeatThrottle() else this
+    (if (NuvioCFeatures.DETAIL_ROW_HOLD_STOP) this.onPreviewKeyEvent { e -> NuvioCHeldLeft.track(e.nativeKeyEvent); false } else this)
+        .then(if (NuvioCFeatures.DETAIL_ROW_THROTTLE) Modifier.dpadRepeatThrottle() else Modifier)
+
+// [fork] Nuvio C round 46b `detail_row_hold_stop`: a held Left stops on a row's first item (cast / crew, more like
+// this, collection, trailers, companies, filmography) instead of focus search carrying on into the row above. The
+// row records whether Left is being held; the first item's `left` is Cancel only while it is. Single presses are
+// unchanged.
+object NuvioCHeldLeft {
+    @Volatile var held: Boolean = false
+        private set
+
+    fun track(event: KeyEvent) {
+        if (event.keyCode != KeyEvent.KEYCODE_DPAD_LEFT) return
+        held = event.action == KeyEvent.ACTION_DOWN && event.repeatCount > 0
+    }
+}
+
+/** Put on a row item's outer container; applies to the card's focus inside it. */
+fun Modifier.nuvioCRowEdge(first: Boolean): Modifier =
+    if (!NuvioCFeatures.DETAIL_ROW_HOLD_STOP || !first) this
+    else this.focusProperties { if (NuvioCHeldLeft.held) left = androidx.compose.ui.focus.FocusRequester.Cancel }
 
 // [fork] Nuvio C round 31 (switch `list_repeat_gate`): the same gate for held Up / Down only, on screens
 // that are long vertical lists (Settings, the player's Cast / About panel, Calendar, Roulette). A held key

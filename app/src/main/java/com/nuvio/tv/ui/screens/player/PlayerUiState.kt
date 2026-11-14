@@ -405,6 +405,7 @@ sealed class PlayerEvent {
     data class OnSetSubtitleStripSdh(val enabled: Boolean) : PlayerEvent() // [fork] round 29
     data object OnResetSubtitleDefaults : PlayerEvent()
     data object OnToggleAspectRatio : PlayerEvent()
+    data class OnNuvioCSetAspectMode(val mode: AspectMode) : PlayerEvent() // [fork] round 46b osd_clean: More sheet picks a mode directly
     data object OnSwitchInternalPlayerEngine : PlayerEvent()
     data object OnSwitchToMpvPlayer : PlayerEvent()
     data object OnShowStreamInfo : PlayerEvent()

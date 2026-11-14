@@ -1,6 +1,7 @@
 package com.nuvio.tv.ui.screens.cast
 
 import com.nuvio.tv.ui.util.nuvioCRowThrottle
+import com.nuvio.tv.ui.util.nuvioCRowEdge
 
 import com.nuvio.tv.ui.theme.NuvioTheme
 
@@ -647,7 +648,7 @@ private fun FilmographyRow(
                 onClick = { onItemClick(item) },
                 onLongPress = { onItemLongPress(item) },
                 isWatched = isItemWatched(item),
-                modifier = if (isFirstItem) {
+                modifier = Modifier.nuvioCRowEdge(isFirstItem).then(if (isFirstItem) {
                     Modifier.onGloballyPositioned {
                         if (!hasRequestedInitialFocus.value) {
                             hasRequestedInitialFocus.value = true
@@ -656,7 +657,7 @@ private fun FilmographyRow(
                     }
                 } else {
                     Modifier
-                },
+                }),
                 posterCardStyle = posterCardStyle,
                 showLabel = nuvioCShowLabel, // [fork] was true
                 focusRequester = itemFocusRequester,

@@ -761,4 +761,9 @@ object NuvioCFeatures {
     const val SETTINGS_SMOOTH = true
     /** Player: "Player controls style" setting (Nuvio C / Clean). Clean = the round 46 layout. Off = setting hidden, Nuvio C controls. */
     const val OSD_CLEAN = true
+    // [fork] round 46b
+    /** Settings: log one line per held Up / Down (frames, slow frames, worst frame) under NuvioCJank. Off = no log. */
+    const val SETTINGS_HOLD_LOG = true
+    /** Details rows: a held Left stops on the row's first item instead of moving up to the row above. Single presses unchanged. */
+    const val DETAIL_ROW_HOLD_STOP = true
 }

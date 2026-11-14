@@ -534,11 +534,11 @@ private fun TasteHero(
     onSpin: () -> Unit
 ) {
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = EDGE).height(if (light) 120.dp else 176.dp),
+        Modifier.fillMaxWidth().padding(horizontal = EDGE).height(if (light) 120.dp else if (com.nuvio.tv.NuvioCFeatures.TASTE_V3) 206.dp else 176.dp),
         horizontalArrangement = Arrangement.spacedBy(28.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (!light && stats.genres.isNotEmpty()) TasteRing(stats, Modifier.size(164.dp))
+        if (!light && stats.genres.isNotEmpty()) TasteRing(stats, Modifier.size(if (com.nuvio.tv.NuvioCFeatures.TASTE_V3) 196.dp else 164.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (!light && !com.nuvio.tv.NuvioCFeatures.TASTE_V3) Text("TASTE DNA", style = MaterialTheme.typography.labelSmall, color = NuvioTheme.colors.TextTertiary)
             Text(summary, style = MaterialTheme.typography.headlineSmall, color = NuvioTheme.colors.TextPrimary,
@@ -719,14 +719,15 @@ private fun TasteWeekTiles(live: com.nuvio.tv.data.nuvioc.NuvioCTasteLive) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             tiles.forEach { t ->
                 Column(
-                    Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.05f))
-                        .padding(vertical = 16.dp, horizontal = 18.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    // [fork] 46b: every tile the same size, whatever it holds
+                    Modifier.weight(1f).height(108.dp).clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.05f))
+                        .padding(vertical = 14.dp, horizontal = 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
                     Text(t.value, style = MaterialTheme.typography.headlineSmall, color = NuvioTheme.colors.TextPrimary, fontWeight = FontWeight.SemiBold,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(t.label, style = MaterialTheme.typography.bodyMedium, color = NuvioTheme.colors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    t.line?.let {
+                    (t.line ?: "").let {
                         Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             color = if (t.good == true) Color(0xFF8FD3A8) else NuvioTheme.colors.TextTertiary)
                     }
@@ -872,6 +873,17 @@ private fun TasteInsightCard(card: NuvioCTasteInsight, changed: Boolean, accent:
     }
 }
 
+/** [fork] round 46b: the card headline at the largest of three sizes that fits in two lines; ellipsis only after the smallest. */
+@Composable
+private fun TasteFitText(text: String) {
+    val styles = listOf(MaterialTheme.typography.headlineSmall, MaterialTheme.typography.titleLarge, MaterialTheme.typography.titleMedium)
+    var step by remember(text) { mutableStateOf(0) }
+    Text(
+        text, style = styles[step], fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis,
+        onTextLayout = { r -> if (r.hasVisualOverflow && step < styles.lastIndex) step++ }
+    )
+}
+
 /** [fork] round 46 taste_v3: the larger card (two per line): bigger headline, up to three posters of the titles it counted. */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -894,29 +906,29 @@ private fun TasteInsightCardV3(card: NuvioCTasteInsight, changed: Boolean, accen
             focusedBorder = Border(BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(18.dp))
         )
     ) {
-        Row(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 18.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Column(Modifier.weight(1f).fillMaxHeight()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(card.kicker.uppercase(Locale.US), style = MaterialTheme.typography.labelMedium, color = NuvioTheme.colors.TextTertiary, maxLines = 1,
-                        overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    FocusMarqueeText(text = card.kicker.uppercase(Locale.US), focused = focused, style = MaterialTheme.typography.labelMedium,
+                        color = NuvioTheme.colors.TextTertiary, modifier = Modifier.weight(1f, fill = false))
                     if (changed) Box(Modifier.padding(start = 6.dp).size(7.dp).clip(CircleShape).background(accent))
                 }
-                Spacer(Modifier.height(8.dp))
-                Text(card.value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(6.dp))
+                TasteFitText(card.value) // [fork] 46b: steps down a size before it would cut off
                 Spacer(Modifier.weight(1f))
                 card.visual?.let { TasteVisual(it, accent) }
                 card.line?.let { line ->
                     FocusMarqueeText(text = line, focused = focused, style = MaterialTheme.typography.bodyMedium, color = NuvioTheme.colors.TextSecondary,
-                        modifier = Modifier.padding(top = 6.dp))
+                        modifier = Modifier.padding(top = 4.dp))
                 }
             }
             if (card.posters.isNotEmpty()) Row(Modifier.align(Alignment.Bottom), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                card.posters.forEach { url ->
+                card.posters.take(2).forEach { url -> // [fork] 46b: two at most, smaller, so the text keeps its width
                     AsyncImage(
                         model = ImageRequest.Builder(context).data(url).size(154, 231).build(),
                         contentDescription = null,
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                        modifier = Modifier.width(60.dp).height(90.dp).clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.06f))
+                        modifier = Modifier.width(50.dp).height(75.dp).clip(RoundedCornerShape(7.dp)).background(Color.White.copy(alpha = 0.06f))
                     )
                 }
             }
