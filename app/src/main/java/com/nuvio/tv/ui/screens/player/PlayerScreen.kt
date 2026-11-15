@@ -3033,6 +3033,7 @@ private fun PlayerControlsOverlay(
     LaunchedEffect(Unit) { NuvioCOsdStyle.load(nuvioCStyleContext) }
     val nuvioCStyle by NuvioCOsdStyle.style.collectAsState()
     val nuvioCClean = com.nuvio.tv.NuvioCFeatures.OSD_CLEAN && nuvioCStyle == NuvioCOsdStyle.CLEAN && !isLivePlayback
+    val nuvioCCleanTimeTop = nuvioCClean && com.nuvio.tv.NuvioCFeatures.CLEAN_TIME_TOP // [fork] round 48
     val progressUpTarget = if (isLivePlayback) {
         progressBarUpFocusRequester ?: playPauseFocusRequester
     } else {
@@ -3044,16 +3045,9 @@ private fun PlayerControlsOverlay(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(150.dp)
+                .height(if (com.nuvio.tv.NuvioCFeatures.OSD_SHADE) NUVIO_C_OSD_TOP_SHADE_HEIGHT else 150.dp) // [fork] round 48 osd_shade
                 .align(Alignment.TopCenter)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Black.copy(alpha = 0.7f),
-                            Color.Transparent
-                        )
-                    )
-                )
+                .background(nuvioCOsdTopBrush())
         )
 
         // [fork] ClearLogo, top-left of the OSD. Bottom-left keeps the official text title.
@@ -3103,16 +3097,9 @@ private fun PlayerControlsOverlay(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (com.nuvio.tv.NuvioCFeatures.SEEK_BAR_STYLE) 260.dp else 200.dp) // [fork] was 200.dp
+                .height(if (com.nuvio.tv.NuvioCFeatures.OSD_SHADE) NUVIO_C_OSD_BOTTOM_SHADE_HEIGHT else if (com.nuvio.tv.NuvioCFeatures.SEEK_BAR_STYLE) 260.dp else 200.dp) // [fork] was 200.dp; round 48 osd_shade
                 .align(Alignment.BottomCenter)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            Color.Black.copy(alpha = 0.8f)
-                        )
-                    )
-                )
+                .background(nuvioCOsdBottomBrush())
         )
 
         Column(
@@ -3150,7 +3137,7 @@ private fun PlayerControlsOverlay(
                         Row(verticalAlignment = Alignment.Bottom) { // name ellipsizes, the year always shows
                             Text(
                                 text = displayName,
-                                style = MaterialTheme.typography.headlineMedium,
+                                style = MaterialTheme.typography.headlineMedium.nuvioCOsdShadow(), // [fork] round 48 osd_shade
                                 color = nuvioCOsd(Color.White), // [fork] HDR dim
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -3158,7 +3145,7 @@ private fun PlayerControlsOverlay(
                             )
                             Text(
                                 text = " (${uiState.releaseYear})",
-                                style = MaterialTheme.typography.headlineMedium,
+                                style = MaterialTheme.typography.headlineMedium.nuvioCOsdShadow(), // [fork] round 48 osd_shade
                                 color = nuvioCOsd(Color.White), // [fork] HDR dim
                                 maxLines = 1,
                                 softWrap = false
@@ -3168,7 +3155,7 @@ private fun PlayerControlsOverlay(
                     Text(
                         text = displayName,
                         modifier = Modifier.reportRightEdge("name", titleRights),
-                        style = MaterialTheme.typography.headlineMedium,
+                        style = MaterialTheme.typography.headlineMedium.nuvioCOsdShadow(), // [fork] round 48 osd_shade
                         color = nuvioCOsd(Color.White), // [fork] HDR dim
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -3192,7 +3179,7 @@ private fun PlayerControlsOverlay(
                         Text(
                             text = episodeInfo,
                             modifier = Modifier.reportRightEdge("episode", titleRights),
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleMedium.nuvioCOsdShadow(), // [fork] round 48 osd_shade
                             color = nuvioCOsd(Color.White.copy(alpha = 0.9f)), // [fork] HDR dim
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -3279,11 +3266,13 @@ private fun PlayerControlsOverlay(
                             downFocusRequester = playPauseFocusRequester,
                             onUpKey = onHideControls,
                             onFocused = onResetHideTimer,
-                            onClick = onPlayPause
+                            onClick = onPlayPause,
+                            timeAbove = if (nuvioCCleanTimeTop) { { PlayerControlsTimeTextHost(viewModel = viewModel) } } else null, // [fork] round 48
+                            chapterJump = com.nuvio.tv.NuvioCFeatures.CHAPTER_JUMP && uiState.chaptersEnabled // [fork] round 48: off with chapters off
                         )
                         } // [fork]
                     }
-                    if (nuvioCSplit || nuvioCClean) { // [fork] split layout (and round 46 Clean): time under the seek bar, right-aligned
+                    if ((nuvioCSplit || nuvioCClean) && !nuvioCCleanTimeTop) { // [fork] split layout (and round 46 Clean): time under the seek bar, right-aligned
                         Spacer(modifier = Modifier.height(if (nuvioCClean) 2.dp else NuvioTheme.spacing.sm)) // [fork] 46b compact
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                             PlayerControlsTimeTextHost(viewModel = viewModel)
@@ -3291,7 +3280,8 @@ private fun PlayerControlsOverlay(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(if (nuvioCClean) 4.dp else NuvioTheme.spacing.lg)) // [fork] 46b compact
+                // [fork] 46b compact; round 48: with the time above the bar, 10 dp clears the focused thumb (4 dp past the bar) and the buttons' focus zoom
+                Spacer(modifier = Modifier.height(if (nuvioCCleanTimeTop) 10.dp else if (nuvioCClean) 4.dp else NuvioTheme.spacing.lg))
             } else {
                 Spacer(modifier = Modifier.height(NuvioTheme.spacing.lg))
             }
@@ -3424,7 +3414,8 @@ private fun PlayerControlsOverlay(
                                     onClick = onPlayNextEpisode,
                                     upFocusRequester = progressUpTarget,
                                     onDownKey = onHideControls,
-                                    onFocused = onResetHideTimer
+                                    onFocused = onResetHideTimer,
+                                    nuvioCLabel = nuvioCNextLabel(uiState.nextEpisode, stringResource(R.string.next_episode_label)) // [fork] round 48
                                 )
                             }
                             NuvioCOsdButton.SUBTITLES -> if (hasSubtitleControl) {
@@ -3967,7 +3958,7 @@ private fun NuvioCCleanControls(
                 onFocused = onResetHideTimer,
                 nuvioCSize = 52.dp
             )
-            if (showNext && !inMore(NuvioCOsdButton.NEXT)) icon(Icons.Default.SkipNext, labels.getValue(NuvioCOsdButton.NEXT), onPlayNextEpisode)
+            if (showNext && !inMore(NuvioCOsdButton.NEXT)) icon(Icons.Default.SkipNext, labels.getValue(NuvioCOsdButton.NEXT), onPlayNextEpisode, label = nuvioCNextLabel(uiState.nextEpisode, labels.getValue(NuvioCOsdButton.NEXT))) /* [fork] round 48 */
         }
         Spacer(Modifier.weight(1f).widthIn(min = 16.dp))
         // right: panels, extras, gear
@@ -4342,7 +4333,7 @@ private fun NuvioCCleanControlsV2(
                     nuvioCSize = 48.dp
                 )
                 Box(Modifier.size(36.dp)) {
-                    if (showNext && zoneOf(NuvioCOsdButton.NEXT) == NuvioCCleanZone.CENTRE) icon(Icons.Default.SkipNext, labels.getValue(NuvioCOsdButton.NEXT), onPlayNextEpisode)
+                    if (showNext && zoneOf(NuvioCOsdButton.NEXT) == NuvioCCleanZone.CENTRE) icon(Icons.Default.SkipNext, labels.getValue(NuvioCOsdButton.NEXT), onPlayNextEpisode, label = nuvioCNextLabel(uiState.nextEpisode, labels.getValue(NuvioCOsdButton.NEXT))) /* [fork] round 48 */
                 }
             }
         },
@@ -4387,11 +4378,15 @@ private fun PlayerControlsProgressBarHost(
     downFocusRequester: FocusRequester? = null,
     onUpKey: (() -> Unit)? = null,
     onFocused: (() -> Unit)? = null,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    timeAbove: (@Composable () -> Unit)? = null, // [fork] round 48 clean_time_top: the time on the right of the chapter line
+    chapterJump: Boolean = false // [fork] round 48 chapter_jump
 ) {
     val playbackTimeline by viewModel.playbackTimeline.collectAsState()
 
-    if (showChapterTitle) {
+    if (timeAbove != null) {
+        NuvioCChapterTimeLine(chapters, playbackTimeline.currentPosition, showChapterTitle, timeAbove)
+    } else if (showChapterTitle) {
         ChapterTitle(chapters = chapters, positionMs = playbackTimeline.currentPosition)
     }
     ProgressBar(
@@ -4410,8 +4405,44 @@ private fun PlayerControlsProgressBarHost(
         onUpKey = onUpKey,
         onFocused = onFocused,
         onClick = onClick,
-        bufferedPosition = playbackTimeline.bufferedPosition
+        bufferedPosition = playbackTimeline.bufferedPosition,
+        onChapterJump = if (chapterJump && chapters.size > 1) { targetMs ->
+            viewModel.onEvent(PlayerEvent.OnSeekTo(targetMs))
+        } else null
     )
+}
+
+/**
+ * [fork] round 48 clean_time_top: Clean's line above the seek bar. The chapter name keeps its official behaviour
+ * (left, only when chapter names are on and the file has one); the time sits on the right, never cut, whether the
+ * chapter name shows or not.
+ */
+@Composable
+private fun NuvioCChapterTimeLine(
+    chapters: List<PlayerChapter>,
+    positionMs: Long,
+    showChapterTitle: Boolean,
+    time: @Composable () -> Unit
+) {
+    val index = if (showChapterTitle) PlayerChapters.indexAt(chapters, positionMs) else -1
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(bottom = NuvioTheme.spacing.xs),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.weight(1f)) {
+            if (index >= 0) {
+                Text(
+                    text = chapters[index].title ?: stringResource(R.string.player_chapter_number, index + 1),
+                    style = MaterialTheme.typography.bodyMedium.nuvioCOsdShadow(),
+                    color = nuvioCOsd(Color.White.copy(alpha = 0.9f)), // [fork] HDR dim
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        Spacer(Modifier.width(16.dp))
+        time()
+    }
 }
 
 @Composable
@@ -4425,7 +4456,7 @@ private fun PlayerControlsTimeTextHost(viewModel: PlayerViewModel) {
 
     Text(
         text = timeText,
-        style = MaterialTheme.typography.bodyMedium,
+        style = MaterialTheme.typography.bodyMedium.nuvioCOsdShadow(), // [fork] round 48 osd_shade
         color = nuvioCOsd(Color.White.copy(alpha = 0.9f)), // [fork] HDR dim
         modifier = Modifier.nuvioCOsdLayer() // [fork] own layer: the time changes every second
     )
@@ -4572,8 +4603,11 @@ private fun ProgressBar(
     /** Position (ms) up to which content is buffered. Pass 0 to skip the overlay. */
     bufferedPosition: Long = 0L,
     /** Each chapter after the first gets a mark where it starts. */
-    chapters: List<PlayerChapter> = emptyList()
+    chapters: List<PlayerChapter> = emptyList(),
+    /** [fork] round 48 chapter_jump: a quick second Left / Right seeks here instead (null = off). */
+    onChapterJump: ((Long) -> Unit)? = null
 ) {
+    val nuvioCTap = remember { NuvioCChapterTap() } // [fork] round 48
     val accentBrush = NuvioTheme.palette.accentBrush()
     val nuvioCShade = nuvioCOsdShade() // [fork] HDR dim for the opaque played part and thumb
     val seekBarLabel = stringResource(R.string.cd_seek_bar)
@@ -4681,21 +4715,45 @@ private fun ProgressBar(
                             }
                         }
                         KeyEvent.KEYCODE_DPAD_LEFT -> {
-                            onSeekPreview(
-                                PlayerScrubRates.deltaMsForKeyRepeat(
-                                    repeatCount = keyEvent.nativeKeyEvent.repeatCount,
-                                    forward = false
+                            // [fork] round 48 chapter_jump: a quick second press jumps a chapter
+                            val tap = if (onChapterJump != null) nuvioCTap.onDown(
+                                forward = false,
+                                repeatCount = keyEvent.nativeKeyEvent.repeatCount,
+                                eventTimeMs = keyEvent.nativeKeyEvent.eventTime,
+                                positionMs = currentPosition,
+                                chapters = chapters
+                            ) else NuvioCChapterTap.Result.Seek
+                            when (tap) {
+                                is NuvioCChapterTap.Result.Jump -> onChapterJump?.invoke(tap.targetMs)
+                                NuvioCChapterTap.Result.Swallow -> Unit
+                                NuvioCChapterTap.Result.Seek -> onSeekPreview(
+                                    PlayerScrubRates.deltaMsForKeyRepeat(
+                                        repeatCount = keyEvent.nativeKeyEvent.repeatCount,
+                                        forward = false
+                                    )
                                 )
-                            )
+                            }
                             true
                         }
                         KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                            onSeekPreview(
-                                PlayerScrubRates.deltaMsForKeyRepeat(
-                                    repeatCount = keyEvent.nativeKeyEvent.repeatCount,
-                                    forward = true
+                            // [fork] round 48 chapter_jump: a quick second press jumps a chapter
+                            val tap = if (onChapterJump != null) nuvioCTap.onDown(
+                                forward = true,
+                                repeatCount = keyEvent.nativeKeyEvent.repeatCount,
+                                eventTimeMs = keyEvent.nativeKeyEvent.eventTime,
+                                positionMs = currentPosition,
+                                chapters = chapters
+                            ) else NuvioCChapterTap.Result.Seek
+                            when (tap) {
+                                is NuvioCChapterTap.Result.Jump -> onChapterJump?.invoke(tap.targetMs)
+                                NuvioCChapterTap.Result.Swallow -> Unit
+                                NuvioCChapterTap.Result.Seek -> onSeekPreview(
+                                    PlayerScrubRates.deltaMsForKeyRepeat(
+                                        repeatCount = keyEvent.nativeKeyEvent.repeatCount,
+                                        forward = true
+                                    )
                                 )
-                            )
+                            }
                             true
                         }
                         else -> false
@@ -4790,7 +4848,7 @@ private fun ChapterTitle(chapters: List<PlayerChapter>, positionMs: Long) {
     if (index < 0) return
     Text(
         text = chapters[index].title ?: stringResource(R.string.player_chapter_number, index + 1),
-        style = MaterialTheme.typography.bodyMedium,
+        style = MaterialTheme.typography.bodyMedium.nuvioCOsdShadow(), // [fork] round 48 osd_shade
         color = nuvioCOsd(Color.White.copy(alpha = 0.9f)), // [fork] HDR dim
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,

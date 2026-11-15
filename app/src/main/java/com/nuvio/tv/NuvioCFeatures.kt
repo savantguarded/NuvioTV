@@ -794,4 +794,17 @@ object NuvioCFeatures {
     const val TASTE_WEEK_CARD = true
     /** Clean More: a page opened from More brings More back on its line when it closes. Off = back to the main controls. */
     const val MORE_RETURN = true
+    // [fork] round 48
+    /** Clean controls: the time ("elapsed / total") sits above the seek bar on the right, on the chapter line (the chapter name keeps official behaviour); the line under the bar is gone and the buttons move up. Off = round 47 (time under the bar). */
+    const val CLEAN_TIME_TOP = true
+    /** Player Episodes panel (auto source select): the clicked episode's thumbnail shows "Finding streams" while the add-ons answer; OK on that episode again is ignored until it finishes. Off = official (no sign). */
+    const val EPISODE_SEARCH_HINT = true
+    /** Player Episodes panel: the focused episode's title scrolls when it doesn't fit. Off = ellipsis only. */
+    const val EPISODE_TITLE_MARQUEE = true
+    /** Next button (both styles): focused label "Next · S1 E5 · Title". Off = "Next Episode". */
+    const val OSD_NEXT_LABEL = true
+    /** Seek bar focused (both styles): a quick second Left / Right jumps to the previous / next chapter. Needs chapters on in Settings. Off = every press seeks. */
+    const val CHAPTER_JUMP = true
+    /** OSD (both styles): eased, slightly taller top and bottom shades and a faint text shadow on title, episode line, chapter and time. Off = official two-stop shades. */
+    const val OSD_SHADE = true
 }

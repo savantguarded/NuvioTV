@@ -21,6 +21,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -633,9 +634,15 @@ private fun EpisodesListView(
                             currentEpisodeIndex >= 0 -> isCurrent
                             else -> index == 0
                         }
+                        // [fork] round 48 episode_search_hint: auto source select still asking the add-ons for this episode
+                        val nuvioCSearching = com.nuvio.tv.NuvioCFeatures.EPISODE_SEARCH_HINT &&
+                            uiState.isLoadingEpisodeStreams && !uiState.showEpisodeStreams &&
+                            uiState.episodeStreamsForVideoId == episode.id &&
+                            uiState.episodeStreamsSeason == episode.season && uiState.episodeStreamsEpisode == episode.episode
                         EpisodeItem(
                             episode = episode,
                             isCurrent = isCurrent,
+                            nuvioCSearching = nuvioCSearching,
                             isWatched = isEpisodeWatched(episode),
                             blurUnwatched = uiState.blurUnwatchedEpisodes,
                             focusRequester = episodesFocusRequester,
@@ -646,7 +653,7 @@ private fun EpisodesListView(
                             onPreviousFromFirstSeason = {
                                 runCatching { seasonTabFocusRequester.requestFocus() }.isSuccess
                             },
-                            onClick = { onEpisodeSelected(episode) },
+                            onClick = { if (!nuvioCSearching) onEpisodeSelected(episode) }, // [fork] round 48: a second OK doesn't restart the search
                             onLongClick = { detailsEpisode = episode }
                         )
                     }
@@ -785,6 +792,7 @@ private fun EpisodesSeasonTabs(
 private fun EpisodeItem(
     episode: Video,
     isCurrent: Boolean,
+    nuvioCSearching: Boolean = false, // [fork] round 48
     isWatched: Boolean = false,
     blurUnwatched: Boolean = false,
     focusRequester: FocusRequester,
@@ -956,6 +964,7 @@ private fun EpisodeItem(
                         )
                     }
                 }
+                if (nuvioCSearching) NuvioCEpisodeSearching() // [fork] round 48: inside the thumbnail, nothing shifts
             }
 
             // Episode info
@@ -963,12 +972,18 @@ private fun EpisodeItem(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
             ) {
+                val nuvioCTitleScroll = com.nuvio.tv.NuvioCFeatures.EPISODE_TITLE_MARQUEE && isFocused // [fork] round 48
                 Text(
                     text = episodeTitle,
                     style = MaterialTheme.typography.titleMedium,
                     color = NuvioTheme.colors.TextPrimary,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = if (nuvioCTitleScroll) TextOverflow.Clip else TextOverflow.Ellipsis,
+                    modifier = if (nuvioCTitleScroll) Modifier.basicMarquee(
+                        iterations = Int.MAX_VALUE,
+                        initialDelayMillis = 1_200,
+                        repeatDelayMillis = 1_200
+                    ) else Modifier
                 )
 
                 // [fork] round 31 player_episode_ratings: the episode's IMDb rating joins the date line (same height)

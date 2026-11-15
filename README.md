@@ -8,6 +8,7 @@ Nuvio C is a personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV)
 
 ### Playback
 - **Two control layouts.** Choose Nuvio C or Clean in Settings > Playback. Clean is compact: Subtitles and Audio on the left, Play always in the centre of the screen, Sources, Details and Episodes on the right, and everything else behind a More icon with current values. Each layout keeps its own button order, and Clean never lets a crowded side reach the centre.
+- **Quick chapter skips.** With the seek bar focused, press Left or Right twice quickly to jump to the previous or next chapter; the focused Next button names the episode it plays. In Clean the time sits above the seek bar, and both layouts get deeper shading behind the controls for bright scenes.
 - **Stream info on any remote.** The stream information page always offers its HUD button, so boxes without an Info key reach it too.
 - **Information-rich controls.** Title logo plus resolution, HDR / Dolby Vision, audio (Dolby Atmos spelled out), source and file-size badges, a slimmer high-contrast seek bar and a label under the focused button.
 - **Subtitles that stay readable.** Bottom subtitles lift clear of the controls and pause screen; subtitles and controls are dimmed during HDR and Dolby Vision playback.
@@ -15,6 +16,7 @@ Nuvio C is a personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV)
 - **Night mode for passthrough setups.** Lifts dialogue and quiet passages, switching a title from bitstream to decoded audio without interrupting playback, with an optional evening schedule.
 - **Stream information panel.** Source server, decoder, display mode, HDR metadata, buffering and network health in one panel that fits the screen.
 - **Cleaner track lists.** Audio and subtitle tracks are named by language, with the track's own description underneath; add-on subtitles drop their raw file ids and are numbered by add-on with the file type.
+- **Episode switching with feedback.** With auto source select on, the episode you pick shows "Finding streams" until a source is chosen, and long episode titles scroll when focused.
 - **Faster sources.** Up always reaches the first source, and the filter tabs disappear when only one source is installed.
 - **Thoughtful details.** Start over or jump to the previous episode, a pause screen with title and synopsis, details panel with director, writers and cast, an auto skip intro switch in the controls, filename on the loading screen, no countdown when you press Next (auto-play keeps a 3-second countdown you can cancel with Back), and Watch Party tucked into the extra controls.
 
