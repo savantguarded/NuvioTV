@@ -51,6 +51,7 @@ import com.nuvio.tv.ui.theme.NuvioTheme
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -129,12 +130,16 @@ class NuvioCRatingViewModel @Inject constructor(
      */
     fun openAfterFinish() {
         val s = _state.value
-        val target = s.target ?: return
-        if (!s.available || s.open || s.saved != null || s.trakt != null || s.simkl != null) return
-        if (service.askedAfterFinish(target)) return
+        val log = com.nuvio.tv.data.nuvioc.NuvioCJustFinished::log
+        val target = s.target ?: return log("skip: no rating target for this page")
+        if (!s.available) return log("skip: no tracker connected to rate on")
+        if (s.open) return log("skip: rating dialog already open")
+        if (s.saved != null || s.trakt != null || s.simkl != null) return log("skip: already rated (${s.saved ?: s.trakt ?: s.simkl})")
+        if (service.askedAfterFinish(target)) return log("skip: asked before for this title")
         service.markAskedAfterFinish(target)
         open()
         _state.update { it.copy(justFinished = true) }
+        log("asked")
     }
 
     fun open() {
@@ -191,6 +196,19 @@ internal fun rememberNuvioCRating(meta: Meta, starFocusRequester: FocusRequester
     val state by viewModel.state.collectAsState()
     // [fork] round 28 post_play_rating: back on the details page of the movie you just finished
     if (NuvioCFeatures.POST_PLAY_RATING) {
+        if (NuvioCFeatures.RATING_RELIABLE) {
+            // [fork] round 47 rating_reliable: once matched, the page stays "just finished" even when its ids fill in
+            // later (an IMDb id arriving with the full meta no longer cancels the ask); look-ups get 3 s at most.
+            var matched by remember { androidx.compose.runtime.mutableStateOf(false) }
+            LaunchedEffect(meta.id, meta.imdbId) {
+                if (!matched && com.nuvio.tv.data.nuvioc.NuvioCJustFinished.take(listOf(meta.id, meta.imdbId))) matched = true
+            }
+            if (matched) LaunchedEffect(Unit) {
+                kotlinx.coroutines.withTimeoutOrNull(3_000) { viewModel.state.first { it.checked } }
+                kotlinx.coroutines.delay(500) // let the page settle first
+                viewModel.openAfterFinish()
+            }
+        } else {
         val finished = remember(meta.id) { com.nuvio.tv.data.nuvioc.NuvioCJustFinished.take(listOf(meta.id, meta.imdbId)) }
         if (finished) {
             LaunchedEffect(state.checked) {
@@ -198,6 +216,7 @@ internal fun rememberNuvioCRating(meta: Meta, starFocusRequester: FocusRequester
                 kotlinx.coroutines.delay(500) // let the page settle first
                 viewModel.openAfterFinish()
             }
+        }
         }
     }
     if (state.open) {

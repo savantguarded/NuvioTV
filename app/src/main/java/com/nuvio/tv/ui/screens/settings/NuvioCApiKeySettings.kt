@@ -54,7 +54,6 @@ import androidx.tv.material3.Text
 import com.nuvio.tv.R
 import com.nuvio.tv.core.calendar.tvdbKeyWorks
 import com.nuvio.tv.core.nuvioc.NuvioCApiKeys
-import com.nuvio.tv.core.nuvioc.NuvioCOmdb
 import com.nuvio.tv.data.remote.api.TvdbApi
 import com.nuvio.tv.ui.components.NuvioDialog
 import com.nuvio.tv.ui.theme.NuvioTheme
@@ -66,7 +65,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class NuvioCKeyService { TVDB, OMDB }
+enum class NuvioCKeyService { TVDB } // [fork] round 47: OMDb removed
 
 @HiltViewModel
 class NuvioCApiKeysViewModel @Inject constructor(
@@ -92,7 +91,6 @@ class NuvioCApiKeysViewModel @Inject constructor(
             _saving.value = true
             val works = when (service) {
                 NuvioCKeyService.TVDB -> tvdbKeyWorks(tvdbApi, value)
-                NuvioCKeyService.OMDB -> NuvioCOmdb.keyWorks(value)
             }
             _saving.value = false
             when (works) {
@@ -105,7 +103,6 @@ class NuvioCApiKeysViewModel @Inject constructor(
 
     private fun store(service: NuvioCKeyService, value: String) = when (service) {
         NuvioCKeyService.TVDB -> NuvioCApiKeys.setTvdb(context, value)
-        NuvioCKeyService.OMDB -> NuvioCApiKeys.setOmdb(context, value)
     }
 }
 
@@ -118,15 +115,14 @@ internal fun NuvioCApiKeyContent(
     val keys by viewModel.keys.collectAsState()
     val current = when (service) {
         NuvioCKeyService.TVDB -> keys?.tvdb
-        NuvioCKeyService.OMDB -> keys?.omdb
     }.orEmpty()
     var showDialog by remember { mutableStateOf(false) }
     val tvdb = service == NuvioCKeyService.TVDB
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         SettingsDetailHeader(
-            title = stringResource(if (tvdb) R.string.nuvio_c_tvdb_title else R.string.nuvio_c_omdb_title),
-            subtitle = stringResource(if (tvdb) R.string.nuvio_c_tvdb_page_subtitle else R.string.nuvio_c_omdb_page_subtitle)
+            title = stringResource(if (tvdb) R.string.nuvio_c_tvdb_title else R.string.nuvio_c_tvdb_title),
+            subtitle = stringResource(if (tvdb) R.string.nuvio_c_tvdb_page_subtitle else R.string.nuvio_c_tvdb_page_subtitle)
         )
         SettingsGroupCard(modifier = Modifier.fillMaxWidth().weight(1f)) {
             val listState = rememberLazyListState()
@@ -140,7 +136,7 @@ internal fun NuvioCApiKeyContent(
                     item(key = "nuvio_c_key_${service.name}") {
                         SettingsActionRow(
                             title = stringResource(R.string.nuvio_c_key_row_title),
-                            subtitle = stringResource(if (tvdb) R.string.nuvio_c_tvdb_key_subtitle else R.string.nuvio_c_omdb_key_subtitle),
+                            subtitle = stringResource(if (tvdb) R.string.nuvio_c_tvdb_key_subtitle else R.string.nuvio_c_tvdb_key_subtitle),
                             value = NuvioCApiKeys.masked(current, stringResource(R.string.mdblist_not_set)),
                             onClick = { showDialog = true },
                             modifier = Modifier
@@ -186,8 +182,8 @@ private fun NuvioCApiKeyDialog(
 
     NuvioDialog(
         onDismiss = onDismiss,
-        title = stringResource(if (tvdb) R.string.nuvio_c_tvdb_dialog_title else R.string.nuvio_c_omdb_dialog_title),
-        subtitle = stringResource(if (tvdb) R.string.nuvio_c_tvdb_dialog_subtitle else R.string.nuvio_c_omdb_dialog_subtitle),
+        title = stringResource(if (tvdb) R.string.nuvio_c_tvdb_dialog_title else R.string.nuvio_c_tvdb_dialog_title),
+        subtitle = stringResource(if (tvdb) R.string.nuvio_c_tvdb_dialog_subtitle else R.string.nuvio_c_tvdb_dialog_subtitle),
         width = 700.dp
     ) {
         Card(

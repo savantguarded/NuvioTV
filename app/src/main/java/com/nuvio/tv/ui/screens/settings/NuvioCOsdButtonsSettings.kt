@@ -86,12 +86,160 @@ internal fun NuvioCOsdStyleRow() {
 internal fun NuvioCOsdButtonsRow() {
     if (!NuvioCFeatures.OSD_BUTTON_ORDER) return
     var open by remember { mutableStateOf(false) }
+    // [fork] round 47 osd_clean_v2: the list follows the controls style that's picked (each keeps its own order)
+    val context = LocalContext.current
+    LaunchedEffect(Unit) { com.nuvio.tv.ui.screens.player.NuvioCOsdStyle.load(context) }
+    val style by com.nuvio.tv.ui.screens.player.NuvioCOsdStyle.style.collectAsState()
+    val clean = NuvioCFeatures.OSD_CLEAN && NuvioCFeatures.OSD_CLEAN_V2 && style == com.nuvio.tv.ui.screens.player.NuvioCOsdStyle.CLEAN
     SettingsActionRow(
         title = stringResource(R.string.nuvio_c_osd_buttons),
-        subtitle = stringResource(R.string.nuvio_c_osd_buttons_sub),
+        subtitle = stringResource(if (clean) R.string.nuvio_c_osd_buttons_clean_sub else R.string.nuvio_c_osd_buttons_sub),
         onClick = { open = true }
     )
-    if (open) NuvioCOsdButtonsDialog(onDismiss = { open = false })
+    if (open) {
+        if (clean) NuvioCCleanButtonsDialog(onDismiss = { open = false })
+        else NuvioCOsdButtonsDialog(onDismiss = { open = false })
+    }
+}
+
+/**
+ * [fork] round 47 osd_clean_v2: Clean's own list, grouped Left, Centre, Right, More. OK on a name picks it up (Up /
+ * Down move it inside its group, OK puts it down); Right reaches its zone pill, OK there moves it to the next zone it
+ * can take (Start over and Next: Centre or More; the others: Left, Right or More). Play is fixed in the centre.
+ */
+@Composable
+private fun NuvioCCleanButtonsDialog(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val order = com.nuvio.tv.ui.screens.player.NuvioCCleanOrder
+    remember { order.load(context) }
+    val slots by order.slots.collectAsState()
+    var moving by remember { mutableStateOf<Int?>(null) }
+    val nameRequesters = remember { List(slots.size + 1) { FocusRequester() } }
+    val zoneRequesters = remember { List(slots.size) { FocusRequester() } }
+    val listState = rememberLazyListState()
+    var pendingFocus by remember { mutableStateOf<Pair<Int, Boolean>?>(0 to false) }
+    LaunchedEffect(pendingFocus) {
+        val (i, zone) = pendingFocus ?: return@LaunchedEffect
+        listState.scrollToItem(i.coerceIn(0, slots.lastIndex))
+        (if (zone) zoneRequesters.getOrNull(i) else nameRequesters.getOrNull(i))?.requestFocusAfterFrames()
+        pendingFocus = null
+    }
+    val zoneLabels = mapOf(
+        com.nuvio.tv.ui.screens.player.NuvioCCleanZone.LEFT to stringResource(R.string.nuvio_c_osd_zone_left),
+        com.nuvio.tv.ui.screens.player.NuvioCCleanZone.CENTRE to stringResource(R.string.nuvio_c_osd_zone_centre),
+        com.nuvio.tv.ui.screens.player.NuvioCCleanZone.RIGHT to stringResource(R.string.nuvio_c_osd_zone_right),
+        com.nuvio.tv.ui.screens.player.NuvioCCleanZone.MORE to stringResource(R.string.nuvio_c_osd_buttons_more)
+    )
+    NuvioDialog(
+        onDismiss = { if (moving != null) moving = null else onDismiss() },
+        title = stringResource(R.string.nuvio_c_osd_buttons),
+        subtitle = stringResource(R.string.nuvio_c_osd_buttons_clean_dialog_sub),
+        width = 600.dp
+    ) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
+            verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)
+        ) {
+            itemsIndexed(slots, key = { _, slot -> slot.button.key }) { index, slot ->
+                val isMoving = moving == index
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    val shape = RoundedCornerShape(NuvioTheme.radii.md)
+                    Card(
+                        onClick = { moving = if (isMoving) null else index },
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusRequester(nameRequesters[index])
+                            .onPreviewKeyEvent { event ->
+                                val m = moving
+                                if (m == null || m != index || event.nativeKeyEvent.action != KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
+                                val delta = when (event.nativeKeyEvent.keyCode) {
+                                    KeyEvent.KEYCODE_DPAD_UP -> -1
+                                    KeyEvent.KEYCODE_DPAD_DOWN -> 1
+                                    KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> return@onPreviewKeyEvent true
+                                    else -> return@onPreviewKeyEvent false
+                                }
+                                val next = order.moved(slots, index, delta)
+                                if (next !== slots) {
+                                    order.save(context, next)
+                                    moving = index + delta
+                                    pendingFocus = (index + delta) to false
+                                }
+                                true
+                            },
+                        colors = CardDefaults.colors(
+                            containerColor = if (isMoving) Color.White.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.06f),
+                            focusedContainerColor = if (isMoving) Color.White.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.12f)
+                        ),
+                        shape = CardDefaults.shape(shape),
+                        border = CardDefaults.border(
+                            border = Border(BorderStroke(1.dp, Color.Transparent), shape = shape),
+                            focusedBorder = Border(BorderStroke(2.dp, Color.White), shape = shape)
+                        ),
+                        scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val name = if (slot.button == com.nuvio.tv.ui.screens.player.NuvioCOsdButton.AUDIO) stringResource(R.string.nuvio_c_osd_audio)
+                                else stringResource(slot.button.nuvioCLabel())
+                            Text(
+                                text = (if (isMoving) "↕  " else "") + name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    val inMore = slot.zone == com.nuvio.tv.ui.screens.player.NuvioCCleanZone.MORE
+                    Card(
+                        onClick = {
+                            if (moving == null) {
+                                val next = order.cycled(slots, index)
+                                order.save(context, next)
+                                val sorted = order.slots.value
+                                pendingFocus = sorted.indexOfFirst { it.button == slot.button }.coerceAtLeast(0) to true
+                            }
+                        },
+                        modifier = Modifier.width(132.dp).focusRequester(zoneRequesters[index]),
+                        colors = CardDefaults.colors(
+                            containerColor = if (inMore) Color.White.copy(alpha = 0.06f) else NuvioTheme.colors.Secondary.copy(alpha = 0.85f),
+                            focusedContainerColor = if (inMore) Color.White.copy(alpha = 0.12f) else NuvioTheme.colors.Secondary
+                        ),
+                        shape = CardDefaults.shape(RoundedCornerShape(999.dp)),
+                        border = CardDefaults.border(
+                            border = Border(BorderStroke(1.dp, Color.Transparent), shape = RoundedCornerShape(999.dp)),
+                            focusedBorder = Border(BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(999.dp))
+                        ),
+                        scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
+                    ) {
+                        Text(
+                            text = zoneLabels.getValue(slot.zone),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (inMore) Color.White else NuvioTheme.colors.OnSecondary,
+                            maxLines = 1,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                        )
+                    }
+                }
+            }
+        }
+        PanelActionRow(
+            label = stringResource(R.string.nuvio_c_osd_buttons_reset),
+            onClick = {
+                moving = null
+                order.reset(context)
+                pendingFocus = 0 to false
+            },
+            focusRequester = nameRequesters.last()
+        )
+    }
 }
 
 @Composable

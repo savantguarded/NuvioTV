@@ -155,7 +155,12 @@ internal fun NuvioCFeaturedTextYield(
                 Column(Modifier.staggered(1)) {
                     if (tagline != null && !taglineText.isNullOrBlank()) {
                         Spacer(Modifier.height(12.dp))
-                        CompositionLocalProvider(com.nuvio.tv.ui.screens.detail.LocalNuvioCTaglineLines provides 1) {
+                        // [fork] round 47 featured_tagline_two: a notch smaller and up to two lines (the synopsis gives up the room)
+                        val two = com.nuvio.tv.NuvioCFeatures.FEATURED_TAGLINE_TWO
+                        CompositionLocalProvider(
+                            com.nuvio.tv.ui.screens.detail.LocalNuvioCTaglineLines provides (if (two) 2 else 1),
+                            com.nuvio.tv.ui.screens.detail.LocalNuvioCTaglineSize provides (if (two) 13f to 18f else 14f to 19f)
+                        ) {
                             tagline.Draw(taglineText, 0.92f, Modifier)
                         }
                     }

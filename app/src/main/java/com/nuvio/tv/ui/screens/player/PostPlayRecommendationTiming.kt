@@ -83,7 +83,7 @@ private fun shouldShowMovieRecommendation(
     )
 }
 
-internal fun movieRecommendationTriggerPositionMs( // [fork] round 28 post_play_rating: was private
+private fun movieRecommendationTriggerPositionMs(
     durationMs: Long,
     thresholdPercent: Int,
     skipIntervals: List<SkipInterval>,

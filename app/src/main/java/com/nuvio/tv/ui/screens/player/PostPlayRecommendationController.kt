@@ -155,29 +155,16 @@ internal class PostPlayRecommendationController(
                     }
                     lastPlaybackIdentity = snapshot.identity
                     lastSnapshot = snapshot
-                    // [fork] round 28 post_play_rating: note a finished movie (same trigger point as the movie post-play screen)
+                    // [fork] round 28 post_play_rating (round 47: read-only, no official code called): note a finished
+                    // movie at the point the saved progress flips to watched (what Nuvio sync uploads)
                     NuvioCFinishTracker.onTick(
                         contentType = snapshot.identity.contentType,
                         contentId = snapshot.identity.contentId,
+                        videoId = snapshot.identity.videoId,
                         positionMs = snapshot.positionMs,
                         durationMs = snapshot.durationMs.takeIf { it > 0L } ?: playbackController.lastKnownDuration,
                         ended = snapshot.playbackEnded
-                    ) {
-                        val duration = snapshot.durationMs.takeIf { it > 0L } ?: playbackController.lastKnownDuration
-                        // [fork] round 34 rating_at_watched: the point where the saved progress flips to watched
-                        // (WatchProgress.isCompleted, what Nuvio sync uploads), not the end-credits marker.
-                        if (com.nuvio.tv.NuvioCFeatures.RATING_AT_WATCHED) (duration * com.nuvio.tv.domain.model.WatchProgress.COMPLETED_THRESHOLD).toLong() else
-                        movieRecommendationTriggerPositionMs(
-                            duration, snapshot.postPlayMovieThresholdPercent.coerceIn(
-                                com.nuvio.tv.data.local.PlayerSettings.MIN_POST_PLAY_MOVIE_THRESHOLD_PERCENT,
-                                com.nuvio.tv.data.local.PlayerSettings.MAX_POST_PLAY_MOVIE_THRESHOLD_PERCENT
-                            ),
-                            playbackController.skipIntervals,
-                            playbackController.nextEpisodeThresholdModeSetting,
-                            playbackController.nextEpisodeThresholdPercentSetting,
-                            playbackController.nextEpisodeThresholdMinutesBeforeEndSetting
-                        )
-                    }
+                    )
                     evaluate(snapshot)
                 }
         }

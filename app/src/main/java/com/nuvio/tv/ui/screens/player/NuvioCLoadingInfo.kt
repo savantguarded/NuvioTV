@@ -74,7 +74,11 @@ internal fun NuvioCLoadingInfo(viewModel: PlayerViewModel, uiState: PlayerUiStat
             .joinToString(" · ")
     }
     if (NuvioCFeatures.LOADING_BAND) {
-        NuvioCLoadingBand(viewModel, line, episodeRating, filmRatings, ratings.order, about.synopsis, alpha)
+        // [fork] round 47 loading_status_band: official's "Show loading status" text, back in the band under the filename
+        val status = uiState.loadingMessage?.takeIf {
+            NuvioCFeatures.LOADING_STATUS_BAND && it.isNotBlank() && (uiState.showPlayerLoadingStatus || uiState.isTorrentStream)
+        }
+        NuvioCLoadingBand(viewModel, line, episodeRating, filmRatings, ratings.order, about.synopsis, alpha, status)
         return
     }
     Box(
@@ -133,7 +137,8 @@ private fun NuvioCLoadingBand(
     filmRatings: com.nuvio.tv.domain.model.MDBListRatings?,
     order: List<String>,
     synopsis: String?,
-    alpha: Animatable<Float, *>
+    alpha: Animatable<Float, *>,
+    status: String? = null
 ) {
     val controller = viewModel.controller
     val filename = remember(controller.currentFilename, controller.currentStreamDescription) {
@@ -183,6 +188,11 @@ private fun NuvioCLoadingBand(
                     )
                 }
             }
+            if (filename != null || status != null) Column(
+                modifier = Modifier.padding(start = 40.dp).widthIn(max = 330.dp),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
             if (filename != null) {
                 val (base, ext) = remember(filename) { NuvioCLoadingLaneText.splitExtension(filename) }
                 val text = remember(base, ext) {
@@ -197,9 +207,19 @@ private fun NuvioCLoadingBand(
                     color = Color.White.copy(alpha = 0.55f),
                     textAlign = TextAlign.End,
                     maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(start = 40.dp).widthIn(max = 330.dp)
+                    overflow = TextOverflow.Ellipsis
                 )
+            }
+            if (status != null) {
+                Text(
+                    text = status,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp, lineHeight = 15.sp, fontFeatureSettings = "tnum"),
+                    color = Color.White.copy(alpha = 0.45f),
+                    textAlign = TextAlign.End,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             }
         }
     }

@@ -51,6 +51,7 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var simklAnimeIdPreferenceHolder: SimklAnimeIdPreferenceHolder
     @Inject lateinit var serverUserStateProjection: ServerUserStateProjection
     @Inject lateinit var nuvioCCloudSettings: com.nuvio.tv.core.nuvioc.NuvioCCloudSettings // [fork] nuvio_c_cloud_settings
+    @Inject lateinit var nuvioCCatalogRefresh: com.nuvio.tv.core.nuvioc.NuvioCCatalogRefresh // [fork] round 47 catalog_refresh
 
     companion object {
         /**
@@ -95,6 +96,8 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
         nuvioCCloudSettings.start() // [fork] nuvio_c_cloud_settings
         com.nuvio.tv.ui.components.NuvioCProfileBg.onAppStart(this) // [fork] profile_bg_preload
         runCatching { com.nuvio.tv.core.nuvioc.NuvioCApiKeys.ensureLoaded(this) } // [fork] round 37 api_keys: one small private file
+        runCatching { com.nuvio.tv.data.nuvioc.NuvioCJustFinished.init(this) } // [fork] round 47 rating_reliable: the pending rating note
+        runCatching { nuvioCCatalogRefresh.start(this) } // [fork] round 47 catalog_refresh: re-read add-on manifests after time away
         // Load locale synchronously so it's available before Activity.attachBaseContext.
         // SharedPreferences reads are fast (cached in memory after first access).
         val tag = getSharedPreferences("app_locale", Context.MODE_PRIVATE)

@@ -3,6 +3,7 @@ package com.nuvio.tv
 import com.nuvio.tv.domain.model.Video
 import com.nuvio.tv.ui.screens.detail.NuvioCAwardBodies
 import com.nuvio.tv.ui.screens.detail.NuvioCAwardBody
+import com.nuvio.tv.ui.screens.detail.NuvioCAwards
 import com.nuvio.tv.ui.screens.detail.nuvioCBasedOn
 import com.nuvio.tv.ui.screens.detail.nuvioCFindEpisodes
 import com.nuvio.tv.ui.screens.player.NuvioCPlaybackLog
@@ -48,32 +49,28 @@ class NuvioCRound43Test {
         assertTrue(nuvioCFindEpisodes(show, "nothing like this").isEmpty())
     }
 
-    @Test fun awardsGroupByBodyWithWinsFirst() {
+    @Test fun awardsWinsOnly() { // [fork] round 47: wins only, nominations ignored, shared categories once
         val a = NuvioCAwardBodies.group(
             listOf(
                 Triple("nom", "Academy Award for Best Actress", "Q1"),
-                Triple("nom", "Academy Award for Best Director", "Q2"),
                 Triple("win", "Academy Award for Best Picture", "Q0"),
+                Triple("win", "Academy Award for Best Visual Effects", "Q5"),
+                Triple("win", "Academy Award for Best Visual Effects", "Q6"),
                 Triple("win", "Golden Globe Award for Best Actress – Motion Picture Drama", "Q1"),
                 Triple("win", "Palme d'Or", "Q0"),
                 Triple("win", "National Board of Review: Top Ten Films", "Q0")
             )
         )
         val oscars = a.bodies.getValue(NuvioCAwardBody.OSCARS)
-        assertEquals(1, oscars.wins)
-        assertEquals(3, oscars.nominations)
-        assertEquals("Best Picture", oscars.categories.first())
-        assertEquals(1, a.bodies.getValue(NuvioCAwardBody.GLOBES).wins)
-        assertEquals(1, a.bodies.getValue(NuvioCAwardBody.FESTIVALS).wins)
-        assertEquals(3, a.bodies.size) // National Board of Review is outside the five
-        assertEquals("1 win · 3 nominations", NuvioCAwardBodies.countText(oscars.wins, oscars.nominations))
-    }
-
-    @Test fun awardsOverallFromOmdbText() {
-        assertEquals("152 wins · 220 nominations", NuvioCAwardBodies.overall("Won 4 Oscars · 152 wins & 220 nominations"))
-        assertEquals("3 nominations", NuvioCAwardBodies.overall("3 nominations"))
-        assertNull(NuvioCAwardBodies.overall("Nothing here"))
-        assertNull(NuvioCAwardBodies.overall(null))
+        assertEquals(2, oscars.wins)
+        assertEquals(listOf("Best Picture", "Best Visual Effects"), oscars.categories)
+        assertEquals(3, a.bodies.size)
+        val names = mapOf(NuvioCAwardBody.OSCARS to "Academy Awards", NuvioCAwardBody.GLOBES to "Golden Globes")
+        assertEquals(
+            "Academy Awards: Best Picture, Best Visual Effects · Golden Globes: Best Actress – Motion Picture Drama · Palme d'Or",
+            NuvioCAwardBodies.winsText(a, names)
+        )
+        assertNull(NuvioCAwardBodies.winsText(NuvioCAwards(emptyMap()), names))
     }
 
     @Test fun basedOnFromCredits() {

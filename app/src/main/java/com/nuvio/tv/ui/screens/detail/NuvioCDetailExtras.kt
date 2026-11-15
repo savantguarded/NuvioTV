@@ -7,10 +7,10 @@ package com.nuvio.tv.ui.screens.detail
 // page already shows (rating, runtime, genres, seasons, director / creator) stays out.
 //
 // Round 43b layout, one full-width column: Information, then Parental guidance (rating chip and five fixed cells
-// with a 3-step bar and level, no notes), then Awards (fixed cells: films Academy Awards, Golden Globes, BAFTA,
-// Festivals, Overall; shows Primetime Emmys, Golden Globes, BAFTA, Overall; counts only). Per-body counts come from
-// Wikidata by IMDb id (title + people "for" it), 7 days on disk; Overall is OMDb's / the meta add-on's total. A dash
-// means "none found", not "none".
+// with a 3-step bar and level, no notes).
+// Round 47: inside Information, after Themes, a Keywords line (the rest of TMDB's keywords, wrapping) and an Awards
+// line: major wins only (Oscars, Emmys, Golden Globes, BAFTA, main festival prizes) from Wikidata by IMDb id (the
+// title and people "for" it), 7 days on disk. No nominations, no OMDb. A dash means "no major win found".
 //
 // The whole block is one quiet focus stop (detail_info_stop) below the last row; late data never moves anything above it.
 
@@ -80,41 +80,23 @@ internal object NuvioCAwardBodies {
         }
     }
 
+    // [fork] round 47: the main competition prizes only (no sidebars, critics' or audience awards).
     private val FESTIVAL = Regex(
-        "Palme d'Or|Palme d’Or|Cannes|Golden Lion|Silver Lion|Venice|Volpi Cup|Golden Bear|Silver Bear|Berlin",
+        "^(Palme d'Or|Palme d’Or|Grand Prix \\(Cannes Film Festival\\)|Cannes Best Director Award|Golden Lion|Silver Lion|Volpi Cup.*|Golden Bear|Silver Bear.*)$",
         RegexOption.IGNORE_CASE
     )
 
-    /** Rows of (kind "win"/"nom", award label, who) into per-body lines. A win counts as a nomination too. */
+    /** [fork] round 47: rows of (kind, award label, who) into per-body wins. Only "win" rows count; one category counts
+     *  once however many people shared it (a VFX team, a cast). */
     fun group(rows: List<Triple<String, String, String>>): NuvioCAwards {
-        val noms = HashMap<NuvioCAwardBody, MutableSet<Pair<String, String>>>()
-        val wins = HashMap<NuvioCAwardBody, MutableSet<Pair<String, String>>>()
-        val winCats = HashMap<NuvioCAwardBody, LinkedHashSet<String>>()
-        val nomCats = HashMap<NuvioCAwardBody, LinkedHashSet<String>>()
-        rows.forEach { (kind, label, who) ->
+        val winCats = LinkedHashMap<NuvioCAwardBody, LinkedHashSet<String>>()
+        rows.forEach { (kind, label, _) ->
+            if (kind != "win") return@forEach
             val (body, cat) = classify(label) ?: return@forEach
-            noms.getOrPut(body) { HashSet() }.add(label to who)
-            if (kind == "win") {
-                wins.getOrPut(body) { HashSet() }.add(label to who)
-                winCats.getOrPut(body) { LinkedHashSet() }.add(cat)
-            } else {
-                nomCats.getOrPut(body) { LinkedHashSet() }.add(cat)
-            }
+            winCats.getOrPut(body) { LinkedHashSet() }.add(cat)
         }
-        val out = noms.keys.associateWith { body ->
-            val w = winCats[body].orEmpty()
-            val n = nomCats[body].orEmpty().filter { it !in w }
-            NuvioCAwardLine(wins[body]?.size ?: 0, noms[body]?.size ?: 0, w.toList() + n)
-        }
+        val out = winCats.mapValues { (_, w) -> NuvioCAwardLine(w.size, 0, w.toList()) }
         return NuvioCAwards(out)
-    }
-
-    /** "152 wins & 220 nominations" / "4 wins" / "3 nominations" out of OMDb's or the add-on's text, else null. */
-    fun overall(text: String?): String? {
-        val t = text ?: return null
-        val w = Regex("""(\d+)\s+wins?""", RegexOption.IGNORE_CASE).find(t)?.groupValues?.get(1)?.toIntOrNull()
-        val n = Regex("""(\d+)\s+nominations?""", RegexOption.IGNORE_CASE).find(t)?.groupValues?.get(1)?.toIntOrNull()
-        return countText(w ?: 0, n ?: 0).takeIf { w != null || n != null }
     }
 
     fun countText(wins: Int, nominations: Int): String {
@@ -124,12 +106,30 @@ internal object NuvioCAwardBodies {
         }
         return parts.joinToString(" · ")
     }
+
+    /**
+     * [fork] round 47 detail_awards_wins: the major wins only, one body after another: "Academy Awards: Best Visual
+     * Effects · BAFTA: Best Film Not in the English Language". Festivals show the prize itself ("Palme d'Or").
+     * Null when Wikidata lists no major win.
+     */
+    fun winsText(awards: NuvioCAwards?, names: Map<NuvioCAwardBody, String>): String? {
+        val order = listOf(NuvioCAwardBody.OSCARS, NuvioCAwardBody.EMMYS, NuvioCAwardBody.GLOBES, NuvioCAwardBody.BAFTA, NuvioCAwardBody.FESTIVALS)
+        val parts = order.mapNotNull { body ->
+            val line = awards?.bodies?.get(body)?.takeIf { it.wins > 0 } ?: return@mapNotNull null
+            val cats = line.categories.take(line.wins.coerceAtLeast(1)).filter { it.isNotBlank() }
+            if (cats.isEmpty()) return@mapNotNull null
+            if (body == NuvioCAwardBody.FESTIVALS) cats.joinToString(", ")
+            else "${names[body]}: ${cats.joinToString(", ")}"
+        }
+        return parts.joinToString(" · ").takeIf { it.isNotBlank() }
+    }
 }
 
 /** Wikidata lookup by IMDb id, 7 days on disk (30 entries in memory). */
 internal object NuvioCWikidataAwards {
     private const val TTL_MS = 7L * 24 * 60 * 60 * 1000
-    private const val FILE = "nuvio_c_awards.json"
+    private const val FILE = "nuvio_c_award_wins.json" // round 47: wins only (old nuvio_c_awards.json is deleted)
+    private const val OLD_FILE = "nuvio_c_awards.json"
     private const val MAX = 400
     private val memory = LinkedHashMap<String, NuvioCAwards>()
 
@@ -137,6 +137,7 @@ internal object NuvioCWikidataAwards {
         if (!imdbId.matches(Regex("tt\\d+"))) return@withContext null
         synchronized(memory) { memory[imdbId] }?.let { return@withContext it }
         val file = File(context.applicationContext.filesDir, FILE)
+        runCatching { File(context.applicationContext.filesDir, OLD_FILE).takeIf { it.exists() }?.delete() }
         val store = runCatching { if (file.exists()) JSONObject(file.readText()) else JSONObject() }.getOrDefault(JSONObject())
         val now = System.currentTimeMillis()
         store.optJSONObject(imdbId)?.takeIf { now - it.optLong("at") < TTL_MS }?.let { kept ->
@@ -171,11 +172,11 @@ internal object NuvioCWikidataAwards {
             SELECT DISTINCT ?kind ?awardLabel ?who WHERE {
               ?film wdt:P345 "$imdbId" .
               {
-                { ?film p:P166 ?st . ?st ps:P166 ?award . BIND("win" AS ?kind) BIND(?film AS ?who) }
-                UNION { ?film p:P1411 ?st . ?st ps:P1411 ?award . BIND("nom" AS ?kind) BIND(?film AS ?who) }
-                UNION { ?st pq:P1686 ?film . ?who p:P166 ?st . ?st ps:P166 ?award . BIND("win" AS ?kind) }
-                UNION { ?st pq:P1686 ?film . ?who p:P1411 ?st . ?st ps:P1411 ?award . BIND("nom" AS ?kind) }
+                { ?film p:P166 ?st . ?st ps:P166 ?award . BIND(?film AS ?who) }
+                UNION { ?st pq:P1686 ?film . ?who p:P166 ?st . ?st ps:P166 ?award . }
               }
+              FILTER NOT EXISTS { ?st wikibase:rank wikibase:DeprecatedRank }
+              BIND("win" AS ?kind)
               SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
             }
         """.trimIndent()
@@ -255,6 +256,20 @@ internal fun NuvioCInfoSlots(info: NuvioCDetailInfo, margin: Dp) {
             Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
             NuvioCThemesLine(stringResource(R.string.nuvio_c_info_themes), info.themes)
         }
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_KEYWORDS) { // [fork] round 47: the rest of the keywords, wrapping
+            Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
+            NuvioCKeywordsLine(stringResource(R.string.nuvio_c_info_keywords), info.keywords)
+        }
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_AWARDS_WINS) { // [fork] round 47: major wins only, full width, wraps
+            Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
+            val names = mapOf(
+                NuvioCAwardBody.OSCARS to stringResource(R.string.nuvio_c_award_oscars),
+                NuvioCAwardBody.EMMYS to stringResource(R.string.nuvio_c_award_emmys),
+                NuvioCAwardBody.GLOBES to stringResource(R.string.nuvio_c_award_globes),
+                NuvioCAwardBody.BAFTA to stringResource(R.string.nuvio_c_award_bafta)
+            )
+            SlotLine(stringResource(R.string.nuvio_c_info_awards), NuvioCAwardBodies.winsText(info.awards, names), Modifier.fillMaxWidth(), maxLines = Int.MAX_VALUE)
+        }
         Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
 
         if (com.nuvio.tv.NuvioCFeatures.DETAIL_GUIDE) {
@@ -285,26 +300,6 @@ internal fun NuvioCInfoSlots(info: NuvioCDetailInfo, margin: Dp) {
             Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
         }
 
-        if (com.nuvio.tv.NuvioCFeatures.DETAIL_AWARDS_BODIES) {
-            Spacer(Modifier.height(BAND_GAP))
-            Heading(stringResource(R.string.nuvio_c_info_awards))
-            val bodies = if (info.show) {
-                listOf(NuvioCAwardBody.EMMYS to R.string.nuvio_c_award_emmys, NuvioCAwardBody.GLOBES to R.string.nuvio_c_award_globes, NuvioCAwardBody.BAFTA to R.string.nuvio_c_award_bafta)
-            } else {
-                listOf(NuvioCAwardBody.OSCARS to R.string.nuvio_c_award_oscars, NuvioCAwardBody.GLOBES to R.string.nuvio_c_award_globes, NuvioCAwardBody.BAFTA to R.string.nuvio_c_award_bafta, NuvioCAwardBody.FESTIVALS to R.string.nuvio_c_award_festivals)
-            }
-            Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
-            Row(horizontalArrangement = Arrangement.spacedBy(CELL_GAP), modifier = Modifier.fillMaxWidth()) {
-                bodies.forEach { (body, name) ->
-                    val line = info.awards?.bodies?.get(body)
-                    AwardCell(stringResource(name), line?.let { NuvioCAwardBodies.countText(it.wins, it.nominations) }, Modifier.weight(1f))
-                }
-                AwardCell(stringResource(R.string.nuvio_c_award_overall), NuvioCAwardBodies.overall(info.awardsText), Modifier.weight(1f))
-                // Shows have one body fewer: keep the cells the same width as a film's.
-                if (info.show) Spacer(Modifier.weight(1f))
-            }
-            Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
-        }
     }
 }
 
@@ -339,21 +334,6 @@ private fun SlotLine(label: String, value: String?, modifier: Modifier, maxLines
             maxLines = maxLines,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
-        )
-    }
-}
-
-@Composable
-private fun AwardCell(body: String, counts: String?, modifier: Modifier) {
-    Column(modifier.padding(vertical = 10.dp)) {
-        Text(body, style = MaterialTheme.typography.bodySmall, color = NuvioTheme.extendedColors.textTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.height(4.dp))
-        Text(
-            counts?.takeIf { it.isNotBlank() } ?: DASH,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (!counts.isNullOrBlank()) NuvioTheme.colors.TextPrimary else dashColor(),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -450,3 +430,37 @@ private fun NuvioCThemesLine(label: String, themes: List<String>) {
         }
     }
 }
+
+/**
+ * [fork] round 47 detail_keywords: label, then the same quiet outline chips as Themes, wrapping onto as many lines as
+ * the keywords need (nothing hidden). Not focusable. A dash when there are none.
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun NuvioCKeywordsLine(label: String, keywords: List<String>) {
+    val style = slotStyle()
+    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.Top) {
+        Text(label, style = style, color = NuvioTheme.extendedColors.textTertiary, maxLines = 1, modifier = Modifier.width(136.dp).padding(top = 3.dp))
+        if (keywords.isEmpty()) {
+            Text(DASH, style = style, color = dashColor(), modifier = Modifier.padding(top = 3.dp))
+            return@Row
+        }
+        val chipStyle = MaterialTheme.typography.labelMedium
+        val chipColor = NuvioTheme.colors.TextPrimary.copy(alpha = 0.85f)
+        val border = NuvioTheme.colors.TextPrimary.copy(alpha = 0.22f)
+        androidx.compose.foundation.layout.FlowRow(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            keywords.forEach { k ->
+                Box(
+                    Modifier
+                        .border(1.dp, border, RoundedCornerShape(50))
+                        .padding(horizontal = 10.dp, vertical = 3.dp)
+                ) { Text(k, style = chipStyle, color = chipColor, maxLines = 1) }
+            }
+        }
+    }
+}
+

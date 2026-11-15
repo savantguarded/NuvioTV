@@ -188,6 +188,13 @@
     <string name="nuvio_c_osd_about">About</string>
     <string name="nuvio_c_osd_about_cast">About &amp; cast</string>
     <string name="nuvio_c_osd_details">Details</string>
+    <!-- [fork] round 47 osd_clean_v2 -->
+    <string name="nuvio_c_osd_audio">Audio</string>
+    <string name="nuvio_c_osd_buttons_clean_sub">Clean controls: which side each button sits on, or More</string>
+    <string name="nuvio_c_osd_buttons_clean_dialog_sub">Clean controls. OK on a name picks it up: move it with Up and Down inside its group, OK to drop it. Right switches where it sits. Play is always in the centre.</string>
+    <string name="nuvio_c_osd_zone_left">Left</string>
+    <string name="nuvio_c_osd_zone_centre">Centre</string>
+    <string name="nuvio_c_osd_zone_right">Right</string>
     <string name="tvdb_metadata_credit">Metadata provided by %1$s</string>
     <string name="nuvio_c_shuffle_anime">Anime</string>
     <string name="nuvio_c_shuffle_anime_hint">Films and series from Japan</string>
@@ -299,12 +306,6 @@
     <string name="nuvio_c_tvdb_key_subtitle">Free personal key from thetvdb.com (API Information)</string>
     <string name="nuvio_c_tvdb_dialog_title">TheTVDB API key</string>
     <string name="nuvio_c_tvdb_dialog_subtitle">Type your key. Save checks it with TheTVDB first.</string>
-    <string name="nuvio_c_omdb_title">OMDb</string>
-    <string name="nuvio_c_omdb_hub_subtitle">Awards on the details page</string>
-    <string name="nuvio_c_omdb_page_subtitle">Adds an Awards line to the details Information block. Your key stays on this TV.</string>
-    <string name="nuvio_c_omdb_key_subtitle">Free key from omdbapi.com (API Key)</string>
-    <string name="nuvio_c_omdb_dialog_title">OMDb API key</string>
-    <string name="nuvio_c_omdb_dialog_subtitle">Type your key. Save checks it with OMDb first.</string>
     <string name="nuvio_c_key_row_title">API key</string>
     <string name="nuvio_c_key_placeholder">Your API key</string>
     <string name="nuvio_c_key_refused">That key wasn\'t accepted. Check it and try again.</string>
@@ -375,7 +376,6 @@
     <string name="nuvio_c_award_bafta">BAFTA</string>
     <string name="nuvio_c_award_emmys">Primetime Emmys</string>
     <string name="nuvio_c_award_festivals">Festivals</string>
-    <string name="nuvio_c_award_overall">Overall</string>
     <string name="nuvio_c_guide_title">Parental guidance</string>
     <string name="nuvio_c_guide_nudity">Sex &amp; nudity</string>
     <string name="nuvio_c_guide_violence">Violence</string>
@@ -395,6 +395,7 @@
     <!-- [fork] round 44 -->
     <string name="nuvio_c_autoplay_back_hint">Back to stay</string>
     <string name="nuvio_c_info_themes">Themes</string>
+    <string name="nuvio_c_info_keywords">Keywords</string>
     <string name="nuvio_c_outline_width">Outline width</string>
     <string name="nuvio_c_osd_crew">Crew</string>
     <string name="nuvio_c_osd_more">More</string>

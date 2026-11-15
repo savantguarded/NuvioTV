@@ -108,11 +108,12 @@ data class NuvioCDetailInfo(
     val loaded: Boolean = false,
     val rated: String? = null,
     val awards: NuvioCAwards? = null,
-    val awardsText: String? = null,
+    val awardsChecked: Boolean = false, // [fork] round 47: Wikidata answered (or gave up)
     val guide: com.nuvio.tv.data.repository.NuvioCGuide? = null,
     val guideChecked: Boolean = false,
     val imdbFromTmdb: String? = null,
-    val themes: List<String> = emptyList() // [fork] round 44 detail_themes
+    val themes: List<String> = emptyList(), // [fork] round 44 detail_themes
+    val keywords: List<String> = emptyList() // [fork] round 47 detail_keywords: the rest of TMDB's keywords
 )
 
 /** The info of the details page on screen; consumers check [NuvioCDetailInfo.metaId] against their title. */
@@ -136,7 +137,7 @@ object NuvioCDetailInfoStore {
 
 @HiltViewModel
 class NuvioCDetailInfoViewModel @Inject constructor(
-    @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: android.content.Context, // [fork] round 37 omdb_awards
+    @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: android.content.Context, // [fork] awards cache file
     @Named("tmdb") tmdbRetrofit: Retrofit,
     private val tmdbService: TmdbService,
     private val tvMaze: TvMazeApi,
@@ -165,10 +166,9 @@ class NuvioCDetailInfoViewModel @Inject constructor(
                 NuvioCDetailInfoStore.publish(info)
                 val imdb = meta.imdbId?.takeIf { it.startsWith("tt") } ?: meta.id.takeIf { it.startsWith("tt") } ?: fetched.imdbFromTmdb
                 val awardsJob = viewModelScope.async {
-                    if (!NuvioCFeatures.DETAIL_AWARDS_BODIES || imdb == null) null
+                    if (!NuvioCFeatures.DETAIL_AWARDS_WINS || imdb == null) null
                     else withTimeoutOrNull(15_000) { NuvioCWikidataAwards.awards(appContext, imdb) }
                 }
-                val totalJob = viewModelScope.async { withAwards(NuvioCDetailInfo(meta.id), meta, imdb).rows.firstOrNull()?.value }
                 val guideJob = viewModelScope.async {
                     if (!NuvioCFeatures.DETAIL_GUIDE || imdb == null) null
                     else withTimeoutOrNull(10_000) { withContext(Dispatchers.IO) { parentalGuide.nuvioCGuide(imdb) } }
@@ -176,31 +176,18 @@ class NuvioCDetailInfoViewModel @Inject constructor(
                 val guide = guideJob.await()
                 info = info.copy(guide = guide, guideChecked = true)
                 if (NuvioCDetailInfoStore.current.value?.metaId == meta.id) NuvioCDetailInfoStore.publish(info)
-                info = info.copy(awards = awardsJob.await(), awardsText = totalJob.await())
+                info = info.copy(awards = awardsJob.await(), awardsChecked = true)
                 NuvioCDetailInfoStore.put(info)
                 if (NuvioCDetailInfoStore.current.value?.metaId == meta.id) NuvioCDetailInfoStore.publish(info)
                 return@launch
             }
-            val info = withAwards(fetched, meta) // [fork] round 37 omdb_awards
+            val info = fetched // [fork] round 47: OMDb awards removed
             NuvioCDetailInfoStore.put(info)
             NuvioCDetailInfoStore.publish(info)
         }
     }
 
     private val isShow: (Meta) -> Boolean = { it.type == ContentType.SERIES || it.type == ContentType.TV }
-
-    /**
-     * [fork] round 37 omdb_awards: an Awards line last in the block. Your meta add-on's awards text when it has one,
-     * else OMDb with your key (Settings > Integrations). Nothing when neither has awards.
-     */
-    private suspend fun withAwards(info: NuvioCDetailInfo, meta: Meta, imdbFallback: String? = null): NuvioCDetailInfo {
-        if (!NuvioCFeatures.OMDB_AWARDS || info.rows.any { it.label == R.string.nuvio_c_info_awards }) return info
-        val text = com.nuvio.tv.core.nuvioc.NuvioCOmdb.tidy(meta.awards) ?: run {
-            val imdb = meta.imdbId?.takeIf { it.startsWith("tt") } ?: meta.id.takeIf { it.startsWith("tt") } ?: imdbFallback ?: return info
-            withTimeoutOrNull(8_000) { runCatching { com.nuvio.tv.core.nuvioc.NuvioCOmdb.awards(appContext, imdb) }.getOrNull() }
-        } ?: return info
-        return info.copy(rows = info.rows + NuvioCInfoRow(R.string.nuvio_c_info_awards, text))
-    }
 
     /** What the meta add-on already gives, so the block is never empty while TMDB answers (or if it can't). */
     private fun localRows(meta: Meta): List<NuvioCInfoRow> = buildList {
@@ -226,13 +213,15 @@ class NuvioCDetailInfoViewModel @Inject constructor(
                     NuvioCFeatures.DETAIL_INFO_SLOTS -> "release_dates,credits,external_ids"
                     show -> "external_ids"
                     else -> "release_dates"
-                } + if (NuvioCFeatures.DETAIL_THEMES) ",keywords" else "" // [fork] round 44: Themes in the same request
+                } + if (NuvioCFeatures.DETAIL_THEMES || NuvioCFeatures.DETAIL_KEYWORDS) ",keywords" else "" // [fork] round 44: Themes in the same request
             )
                 .takeIf { it.isSuccessful }?.body()?.use { it.string() }
         } ?: return null
         val o = json.parseToJsonElement(body).jsonObject
         val info = if (show) showInfo(meta, o) else filmInfo(meta, o)
-        return if (NuvioCFeatures.DETAIL_THEMES) info.copy(themes = nuvioCThemes(o)) else info // [fork] round 44
+        val themes = if (NuvioCFeatures.DETAIL_THEMES) nuvioCThemes(o) else emptyList() // [fork] round 44
+        val keywords = if (NuvioCFeatures.DETAIL_KEYWORDS) nuvioCKeywords(o, themes) else emptyList() // [fork] round 47
+        return info.copy(themes = themes, keywords = keywords)
     }
 
     private fun filmInfo(meta: Meta, o: JsonObject): NuvioCDetailInfo {
@@ -662,3 +651,35 @@ internal fun nuvioCCleanThemes(names: List<String>, max: Int = 8): List<String> 
         .take(max)
         .toList()
 }
+
+/**
+ * [fork] round 47 detail_keywords: every TMDB keyword not already shown as a Theme, full length (the Keywords line
+ * wraps). The credits stingers get plain names; other meta tags stay as TMDB has them. Title case, no duplicates.
+ */
+internal fun nuvioCKeywords(o: JsonObject, themes: List<String>): List<String> {
+    val k = o["keywords"] as? JsonObject ?: return emptyList()
+    val list = ((k["keywords"] ?: k["results"]) as? JsonArray).orEmpty()
+        .mapNotNull { (it as? JsonObject)?.get("name")?.let { n -> (n as? JsonPrimitive)?.contentOrNull } }
+    return nuvioCCleanKeywords(list, themes)
+}
+
+internal fun nuvioCCleanKeywords(names: List<String>, themes: List<String>): List<String> {
+    val shown = themes.map { it.lowercase() }.toSet()
+    val small = setOf("a", "an", "and", "the", "of", "in", "on", "to", "for", "vs", "vs.", "with", "at", "by", "or")
+    return names.asSequence()
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .map { raw ->
+            when (raw.lowercase().replace(" ", "")) {
+                "duringcreditsstinger", "duringcredits" -> "Mid-credits scene"
+                "aftercreditsstinger", "aftercredits" -> "After-credits scene"
+                else -> raw.split(' ').mapIndexed { i, w ->
+                    if (i > 0 && w.lowercase() in small) w.lowercase() else w.replaceFirstChar { c -> c.titlecase() }
+                }.joinToString(" ")
+            }
+        }
+        .filter { it.lowercase() !in shown }
+        .distinctBy { it.lowercase() }
+        .toList()
+}
+

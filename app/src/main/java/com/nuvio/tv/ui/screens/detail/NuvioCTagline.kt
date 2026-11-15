@@ -35,6 +35,9 @@ internal fun nuvioCTaglineText(raw: String): String? =
 /** [fork] round 33: lines the tagline may take (the Featured hero provides 1). */
 internal val LocalNuvioCTaglineLines = androidx.compose.runtime.staticCompositionLocalOf { 2 }
 
+/** [fork] round 47 featured_tagline_two: font size / line height in sp (the Featured carousel uses 13 / 18). */
+internal val LocalNuvioCTaglineSize = androidx.compose.runtime.staticCompositionLocalOf { 14f to 19f }
+
 @Composable
 internal fun NuvioCTagline(
     tagline: String,
@@ -42,9 +45,10 @@ internal fun NuvioCTagline(
     modifier: Modifier = Modifier
 ) {
     val text = remember(tagline) { nuvioCTaglineText(tagline) } ?: return
+    val size = LocalNuvioCTaglineSize.current
     val style = MaterialTheme.typography.bodyLarge.copy(
-        fontSize = 14.sp,
-        lineHeight = 19.sp,
+        fontSize = size.first.sp,
+        lineHeight = size.second.sp,
         fontStyle = FontStyle.Italic,
         fontWeight = FontWeight.Normal,
         lineBreak = LineBreak.Heading // balanced: no single word left on line two

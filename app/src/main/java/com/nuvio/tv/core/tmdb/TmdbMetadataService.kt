@@ -494,7 +494,7 @@ class TmdbMetadataService(
                     originalTitle = originalTitle,
                     alternativeTitles = altTitles,
                     trailers = trailers,
-                    tagline = details?.tagline?.trim()?.takeIf { it.isNotBlank() }, // [fork] Nuvio C details tagline
+                    tagline = nuvioCEnglishTagline(details?.tagline, normalizedLanguage), // [fork] Nuvio C details tagline (round 47: English only)
                     nuvioCReleaseDate = (details?.releaseDate ?: details?.firstAirDate)?.takeIf { it.isNotBlank() }, // [fork] Featured chips
                     nuvioCLatestSeason = details?.seasons.orEmpty() // [fork] Featured chips: latest season that has aired
                         .filter { (it.seasonNumber ?: 0) > 0 && !it.airDate.isNullOrBlank() && it.airDate <= java.time.LocalDate.now().toString() }
@@ -1870,3 +1870,29 @@ internal fun resolveDisplayLabel(
     // Otherwise fallback to whatever non-null exists
     return fallback ?: originalLabel ?: name
 }
+
+/**
+ * [fork] Nuvio C round 47 tagline_english: the tagline is shown in English only. TMDB's English record sometimes
+ * carries the original-language line (Godzilla Minus One had Japanese), and a non-English app language would give a
+ * translated one: both are dropped (no tagline) rather than shown. Off = TMDB's tagline as given.
+ */
+internal fun nuvioCEnglishTagline(raw: String?, language: String): String? {
+    val t = raw?.trim()?.takeIf { it.isNotBlank() } ?: return null
+    if (!com.nuvio.tv.NuvioCFeatures.TAGLINE_ENGLISH) return t
+    if (!language.lowercase(java.util.Locale.US).startsWith("en")) return null
+    return t.takeIf { nuvioCMostlyLatin(it) }
+}
+
+/** True when at least 80% of the letters are Latin script (accents count as Latin). */
+internal fun nuvioCMostlyLatin(text: String): Boolean {
+    var letters = 0
+    var latin = 0
+    text.forEach { c ->
+        if (Character.isLetter(c)) {
+            letters++
+            if (Character.UnicodeScript.of(c.code) == Character.UnicodeScript.LATIN) latin++
+        }
+    }
+    return letters == 0 || latin * 5 >= letters * 4
+}
+

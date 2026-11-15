@@ -184,6 +184,24 @@ class NuvioCTasteViewModel @Inject constructor(
 
     fun rowMemory(id: String): NuvioCTasteRowMemory = memories.getOrPut(id) { NuvioCTasteRowMemory() }
 
+    // ---- [fork] round 47 taste_rotate ---------------------------------------------------------------------
+    private var orderFor: Long? = null
+    private var order: List<String> = emptyList()
+
+    /** Where a section kind sits under Spotlight this visit (lower = higher up). New order each visit, per profile. */
+    fun sectionRank(kind: String): Int {
+        if (orderFor != seed) {
+            val profile = profiles.activeProfileId.value
+            val lastFirst = prefs.getString("p$profile:firstSection", null)
+            val lastOrder = prefs.getString("p$profile:sectionOrder", null)
+            order = tasteRotateOrder(TASTE_ROTATING_KINDS, seed, lastFirst, lastOrder)
+            prefs.edit().putString("p$profile:firstSection", order.first()).putString("p$profile:sectionOrder", order.joinToString(",")).apply()
+            orderFor = seed
+        }
+        val i = order.indexOf(kind)
+        return if (i >= 0) i else order.size
+    }
+
     // ---- [fork] round 41 ----------------------------------------------------------------------------------
     /** taste_smooth: the count-up has played this visit (scrolling the tiles back into view shows plain numbers). */
     fun markCounted() { countUp = false }

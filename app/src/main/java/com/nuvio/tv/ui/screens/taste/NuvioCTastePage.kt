@@ -353,7 +353,10 @@ internal fun NuvioCTastePage(
                 }
             }
             val peopleLens = if (month == null && !light) viewModel.peopleLens(state) else null
-            if (peopleLens != null) item(key = "people") {
+            // [fork] round 47 taste_rotate: everything under Spotlight is one list of sections whose order changes each visit
+            val lower = ArrayList<Pair<String, @Composable () -> Unit>>()
+            fun addSection(key: String, content: @Composable () -> Unit) { lower += key to content }
+            if (peopleLens != null) addSection("people") {
                 // [fork] round 42b taste_people_lenses: a different lens each visit
                 TasteRowFrame(peopleLens.title) { hold ->
                     TastePeopleRow(peopleLens.people, viewModel.rowMemory("people:" + peopleLens.id), hold, section("people"), { viewModel.lastArea = "people" }, onOpenPerson)
@@ -361,14 +364,14 @@ internal fun NuvioCTastePage(
             }
             if (month == null && range == NuvioCTasteRange.ALL) {
                 rows.forEach { row ->
-                    item(key = "row:" + row.id) {
+                    addSection("row:" + row.id) {
                         TasteRowFrame(row.title) { hold ->
                             TastePosterRow(row.items, viewModel.rowMemory(row.id), hold, section("row:" + row.id), { viewModel.lastArea = "row:" + row.id }, onOpenTitle)
                         }
                     }
                 }
             }
-            if (com.nuvio.tv.NuvioCFeatures.TASTE_MONTH && state.recaps.isNotEmpty() && month == null) item(key = "recaps") {
+            if (com.nuvio.tv.NuvioCFeatures.TASTE_MONTH && state.recaps.isNotEmpty() && month == null) addSection("recaps") {
                 TasteRowFrame("Recaps") { hold ->
                     TasteRecapRow(state.recaps, viewModel.rowMemory("recaps"), hold, section("recaps"), { viewModel.lastArea = "recaps" }, accent) {
                         if (com.nuvio.tv.NuvioCFeatures.TASTE_RECAP_PANEL) {
@@ -380,6 +383,10 @@ internal fun NuvioCTastePage(
                     }
                 }
             }
+            val ordered = if (com.nuvio.tv.NuvioCFeatures.TASTE_ROTATE && month == null) {
+                lower.sortedBy { viewModel.sectionRank(tasteSectionKind(it.first.removePrefix("row:"))) } // stable: ties keep their order
+            } else lower
+            ordered.forEach { (key, content) -> item(key = key) { content() } }
         }
         }
         // [fork] round 41 taste_card_titles
@@ -714,24 +721,41 @@ private fun TasteWeekTiles(live: com.nuvio.tv.data.nuvioc.NuvioCTasteLive) {
         if (size < 4) live.saved?.let { add(T(NF.format(it), "saved in your library", null)) }
     }.take(4)
     if (tiles.isEmpty()) return
+    val fit = com.nuvio.tv.NuvioCFeatures.TASTE_FIT
     Column(Modifier.fillMaxWidth().padding(horizontal = EDGE), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("This week", style = MaterialTheme.typography.titleLarge, color = NuvioTheme.colors.TextPrimary, fontWeight = FontWeight.SemiBold)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            tiles.forEach { t ->
-                Column(
-                    // [fork] 46b: every tile the same size, whatever it holds
-                    Modifier.weight(1f).height(108.dp).clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.05f))
-                        .padding(vertical = 14.dp, horizontal = 18.dp),
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    Text(t.value, style = MaterialTheme.typography.headlineSmall, color = NuvioTheme.colors.TextPrimary, fontWeight = FontWeight.SemiBold,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(t.label, style = MaterialTheme.typography.bodyMedium, color = NuvioTheme.colors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    (t.line ?: "").let {
-                        Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            color = if (t.good == true) Color(0xFF8FD3A8) else NuvioTheme.colors.TextTertiary)
+        // [fork] round 47 taste_fit: 2 x 2 on the Spotlight grid (same widths and gap as its cards), every tile the
+        // same size; the text steps down / wraps to fit and, as a last resort, scrolls by itself (tiles can't be focused).
+        val perLine = if (fit) 2 else 4
+        tiles.chunked(perLine).forEach { line ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(if (fit) 12.dp else 14.dp)) {
+                line.forEach { t ->
+                    Column(
+                        Modifier.weight(1f).height(if (fit) 132.dp else 108.dp).clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.05f))
+                            .padding(vertical = 14.dp, horizontal = 18.dp),
+                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        if (fit) {
+                            val ty = MaterialTheme.typography
+                            TasteFit(t.value, listOf(ty.headlineSmall, ty.titleLarge, ty.titleMedium), 1, null, NuvioTheme.colors.TextPrimary, fontWeight = FontWeight.SemiBold)
+                            TasteFit(t.label, listOf(ty.bodyMedium, ty.bodySmall), 1, null, NuvioTheme.colors.TextSecondary)
+                            t.line?.let {
+                                androidx.compose.foundation.layout.Box(Modifier.weight(1f).fillMaxWidth()) {
+                                    TasteFit(it, listOf(ty.bodySmall, ty.labelSmall), 2, null, if (t.good == true) Color(0xFF8FD3A8) else NuvioTheme.colors.TextTertiary)
+                                }
+                            }
+                        } else {
+                            Text(t.value, style = MaterialTheme.typography.headlineSmall, color = NuvioTheme.colors.TextPrimary, fontWeight = FontWeight.SemiBold,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(t.label, style = MaterialTheme.typography.bodyMedium, color = NuvioTheme.colors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            (t.line ?: "").let {
+                                Text(it, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    color = if (t.good == true) Color(0xFF8FD3A8) else NuvioTheme.colors.TextTertiary)
+                            }
+                        }
                     }
                 }
+                repeat(perLine - line.size) { Spacer(Modifier.weight(1f)) } // a lone tile keeps the same size
             }
         }
     }
@@ -906,8 +930,30 @@ private fun TasteInsightCardV3(card: NuvioCTasteInsight, changed: Boolean, accen
             focusedBorder = Border(BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(18.dp))
         )
     ) {
-        Row(Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Column(Modifier.weight(1f).fillMaxHeight()) {
+        val fit = com.nuvio.tv.NuvioCFeatures.TASTE_FIT
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = if (fit) 18.dp else 20.dp, vertical = if (fit) 14.dp else 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(if (fit) 12.dp else 14.dp)
+        ) {
+            if (fit) Column(Modifier.weight(1f).fillMaxHeight()) {
+                // [fork] round 47 taste_fit: the headline takes the room the card has left (up to three lines, five sizes);
+                // kicker and bottom line step down and wrap before they'd marquee on focus. The card's size never changes.
+                val ty = MaterialTheme.typography
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TasteFit(card.kicker.uppercase(Locale.US), listOf(ty.labelMedium, ty.labelSmall), 1, focused, NuvioTheme.colors.TextTertiary,
+                        Modifier.weight(1f, fill = false))
+                    if (changed) Box(Modifier.padding(start = 6.dp).size(7.dp).clip(CircleShape).background(accent))
+                }
+                Spacer(Modifier.height(6.dp))
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    TasteFit(card.value, listOf(ty.headlineSmall, ty.titleLarge, ty.titleMedium, ty.titleSmall, ty.bodyMedium), 3, focused,
+                        NuvioTheme.colors.TextPrimary, fontWeight = FontWeight.SemiBold)
+                }
+                card.visual?.let { TasteVisual(it, accent) }
+                card.line?.let { line ->
+                    TasteFit(line, listOf(ty.bodyMedium, ty.bodySmall), 2, focused, NuvioTheme.colors.TextSecondary, Modifier.padding(top = 4.dp))
+                }
+            } else Column(Modifier.weight(1f).fillMaxHeight()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     FocusMarqueeText(text = card.kicker.uppercase(Locale.US), focused = focused, style = MaterialTheme.typography.labelMedium,
                         color = NuvioTheme.colors.TextTertiary, modifier = Modifier.weight(1f, fill = false))
@@ -1132,9 +1178,10 @@ private fun TastePeopleRow(people: List<NuvioCTastePersonStat>, memory: NuvioCTa
 @Composable
 private fun TasteRecapRow(recaps: List<NuvioCTasteRecap>, memory: NuvioCTasteRowMemory, guard: Modifier, rowFocus: FocusRequester, onArea: () -> Unit, accent: Color, onOpen: (NuvioCTasteRecap) -> Unit) {
     TasteFocusRow(recaps, memory, guard, 12.dp, rowFocus, onArea) { _, r, mod ->
+        var focused by remember { mutableStateOf(false) }
         Surface(
             onClick = { onOpen(r) },
-            modifier = mod.width(196.dp).height(104.dp),
+            modifier = mod.width(196.dp).height(104.dp).onFocusChanged { focused = it.isFocused },
             shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(16.dp)),
             scale = ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
             colors = ClickableSurfaceDefaults.colors(
@@ -1149,10 +1196,18 @@ private fun TasteRecapRow(recaps: List<NuvioCTasteRecap>, memory: NuvioCTasteRow
             )
         ) {
             Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                if (com.nuvio.tv.NuvioCFeatures.TASTE_FIT) { // [fork] round 47: fit, then marquee on focus
+                    val ty = MaterialTheme.typography
+                    TasteFit(r.month.month.getDisplayName(TextStyle.FULL, Locale.US) + " " + r.month.year, listOf(ty.titleMedium, ty.titleSmall), 1, focused,
+                        NuvioTheme.colors.TextPrimary, fontWeight = FontWeight.SemiBold)
+                    TasteFit("${NF.format(r.titles)} titles · ${NF.format(r.hours)} h", listOf(ty.bodySmall, ty.labelSmall), 1, focused, NuvioTheme.colors.TextSecondary)
+                    r.topGenre?.let { TasteFit(it, listOf(ty.bodySmall, ty.labelSmall), 1, focused, accent) }
+                } else {
                 Text(r.month.month.getDisplayName(TextStyle.FULL, Locale.US) + " " + r.month.year, style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold, maxLines = 1)
                 Text("${NF.format(r.titles)} titles · ${NF.format(r.hours)} h", style = MaterialTheme.typography.bodySmall, color = NuvioTheme.colors.TextSecondary, maxLines = 1)
                 r.topGenre?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = accent, maxLines = 1) }
+                }
             }
         }
     }

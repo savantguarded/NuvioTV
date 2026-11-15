@@ -117,7 +117,7 @@ internal fun NuvioCOsdPill(
     Surface(
         onClick = { memory?.onClick(label); onClick() },
         modifier = Modifier
-            .height(38.dp)
+            .height(if (NuvioCFeatures.OSD_CLEAN_V2) 32.dp else 38.dp) // [fork] round 47: compact
             .then(if (requester != null) Modifier.focusRequester(requester) else Modifier)
             .then(if (upFocusRequester != null) Modifier.focusProperties { up = upFocusRequester } else Modifier)
             .onPreviewKeyEvent { e ->
@@ -136,7 +136,7 @@ internal fun NuvioCOsdPill(
                 focused = it.isFocused
                 if (it.isFocused) onFocused()
             },
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(if (NuvioCFeatures.OSD_CLEAN_V2) 16.dp else 19.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = nuvioCOsd(Color(0xFF3A3A3A)).copy(alpha = 0.72f),
@@ -145,14 +145,16 @@ internal fun NuvioCOsdPill(
             focusedContentColor = Color.Black
         )
     ) {
+        val compact = NuvioCFeatures.OSD_CLEAN_V2
         Row(
-            Modifier.padding(start = 11.dp, end = 14.dp).fillMaxHeight(),
+            Modifier.padding(start = if (compact) 10.dp else 11.dp, end = if (compact) 12.dp else 14.dp).fillMaxHeight(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp)
         ) {
-            if (iconPainter != null) Icon(iconPainter, contentDescription = null, modifier = Modifier.size(17.dp))
-            else Icon(icon, contentDescription = null, modifier = Modifier.size(17.dp))
-            Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium, maxLines = 1)
+            val iconSize = if (compact) 15.dp else 17.dp
+            if (iconPainter != null) Icon(iconPainter, contentDescription = null, modifier = Modifier.size(iconSize))
+            else Icon(icon, contentDescription = null, modifier = Modifier.size(iconSize))
+            Text(label, style = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium, maxLines = 1)
         }
     }
 }
@@ -167,7 +169,11 @@ internal sealed class NuvioCMoreItem {
     abstract val section: String
 
     /** Runs something that opens its own panel or acts at once; the sheet closes first. */
-    data class Action(override val key: String, override val label: String, override val section: String, val value: String? = null, val onClick: () -> Unit) : NuvioCMoreItem()
+    data class Action(
+        override val key: String, override val label: String, override val section: String, val value: String? = null, val onClick: () -> Unit,
+        /** [fork] round 47: an arrow after the line: it opens a page or panel. */
+        val arrow: Boolean = false
+    ) : NuvioCMoreItem()
     /** Opens a sub-list in the same panel; the current pick is ticked and focused. */
     data class Choice(override val key: String, override val label: String, override val section: String, val value: String, val options: List<NuvioCMoreOption>) : NuvioCMoreItem()
     /** Flips in place. */
@@ -331,7 +337,10 @@ private fun NuvioCMoreLine(state: NuvioCMoreSheetState, item: NuvioCMoreItem, re
         Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(item.label, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             when (item) {
-                is NuvioCMoreItem.Action -> item.value?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = secondary, maxLines = 1, modifier = Modifier.padding(start = 12.dp)) }
+                is NuvioCMoreItem.Action -> Row(verticalAlignment = Alignment.CenterVertically) {
+                    item.value?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = secondary, maxLines = 1, modifier = Modifier.padding(start = 12.dp)) }
+                    if (item.arrow) Text("  ›", style = MaterialTheme.typography.bodyLarge, color = secondary)
+                }
                 is NuvioCMoreItem.Choice -> Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(item.value, style = MaterialTheme.typography.bodyMedium, color = secondary, maxLines = 1, modifier = Modifier.padding(start = 12.dp))
                     Text("  ›", style = MaterialTheme.typography.bodyLarge, color = secondary)

@@ -514,7 +514,7 @@ object NuvioCFeatures {
     /** Stream info panel: more rows from the player's own data (position, rebuffers, container, HDR metadata, decoder, display mode, frame lead, underruns, load errors, back buffer, CPU clock) and the filename scrolls when cut off. Off = round 31 rows. */
     const val STATS_PANEL_FULL = true
     /** Post-play rating appears when the movie reaches the same point Nuvio sync marks it watched (90%, 80% for Simkl, or your override) instead of the end-credits marker. Off = round 28 trigger. */
-    const val RATING_AT_WATCHED = true
+    const val RATING_AT_WATCHED = true // round 47: always on (the end-credits trigger option was removed)
     /** Player Sources panel: Up on the second result jumps straight to the first and scrolls to the top (fast scrolling no longer stops one short). Off = official focus search. */
     const val SOURCES_TOP_JUMP = true
     /** HDR dim reads HDR from official's decoder-input detection (beta.10, read only) before the fork's own colour reading. Off = fork detection only. */
@@ -583,10 +583,8 @@ object NuvioCFeatures {
     const val STARTUP_OPENING = true
     /** After a profile pick: the start-up screen shows that profile's avatar, still, in the centre; once Home has settled a circle opens from the centre onto Home. Off = logo and plain fade. */
     const val PROFILE_TO_HOME = false // round 37b (Charles): back to the logo and plain fade
-    /** Settings > Integrations: TheTVDB and OMDb rows with your own keys (kept on this TV only, never in your Nuvio account). Off = rows hidden, the built-in TVDB key only. */
+    /** Settings > Integrations: a TheTVDB row with your own key (round 47: OMDb removed) (kept on this TV only, never in your Nuvio account). Off = rows hidden, the built-in TVDB key only. */
     const val API_KEYS = true
-    /** Details Information block: an Awards line, from your meta add-on or OMDb with your key. Off = no Awards line. */
-    const val OMDB_AWARDS = false // round 43c: awards removed (inaccurate); also hides the OMDb entry in Integrations
 
     // ---- Round 37b (2026-11-10) ----
     /** Start-up and opening logo 10% smaller (76 dp, was 84). Off = 84 dp. */
@@ -766,4 +764,27 @@ object NuvioCFeatures {
     const val SETTINGS_HOLD_LOG = true
     /** Details rows: a held Left stops on the row's first item instead of moving up to the row above. Single presses unchanged. */
     const val DETAIL_ROW_HOLD_STOP = true
+    // [fork] round 47
+    /** Details tagline (and the Featured carousel's): English only; a tagline in another script or language is hidden, never shown. Off = TMDB's tagline as given. */
+    const val TAGLINE_ENGLISH = true
+    /** Details Information: a Keywords line after Themes with every other TMDB keyword (same request), chips wrapping onto more lines. Needs DETAIL_INFO_SLOTS. Off = no Keywords line. */
+    const val DETAIL_KEYWORDS = true
+    /** Details Information: an Awards line (full width, wraps) with the major wins only (Oscars, Emmys, Golden Globes, BAFTA, main festival prizes) from Wikidata. No nominations, no OMDb. Needs DETAIL_INFO_SLOTS. Off = no Awards line. */
+    const val DETAIL_AWARDS_WINS = true
+    /** Featured carousel: the tagline is a notch smaller (13 sp) and may take two lines; the synopsis gives up a line when it does, so the carousel never grows. Off = one line at 14 sp. */
+    const val FEATURED_TAGLINE_TWO = true
+    /** Taste: text never cut off without a way to read it: sizes step down and wrap first, then a marquee (on focus on cards, on its own on the tiles). This week is a 2 x 2 grid on the Spotlight's columns; every card and tile keeps one fixed size. Off = round 46b. */
+    const val TASTE_FIT = true
+    /** Taste: This week and Spotlight stay on top; the sections under them (people, poster rows, Recaps) come in a new order each visit, per profile, never leading with the same kind twice running. Off = fixed order. */
+    const val TASTE_ROTATE = true
+    /** Rating after a film: the "just finished" note survives the app closing, lasts 30 min from the last moment on the film (credits included), matches any of its ids, waits 3 s at most for the tracker look-ups, and logs each decision (adb logcat -s NuvioCRate). Read-only on playback: progress, Up next and scrobbling are official's. Off = round 34. */
+    const val RATING_RELIABLE = true
+    /** Add-on catalog names refresh without a force close: every enabled add-on's manifest is read again when the app returns after 30 min away (or 6 h since the last time) and on a profile switch, through official's own fetch. Off = official (cold start only). */
+    const val CATALOG_REFRESH = true
+    /** Playback loading screen: official's "Show loading status" text shows again, small, under the filename in the bottom band. Off = round 36 (no status text). */
+    const val LOADING_STATUS_BAND = true
+    /** Clean controls v2: Left (Subtitles, Audio pills) / Centre always mid-screen (Start over, Play, Next; empty slots keep Play centred) / Right (Sources, Details, Episodes pills, then the More icon); compact (32 dp pills, 48 dp Play, 46 dp row); buttons that don't fit a side go into More; Clean has its own Player buttons list (zones); More drops subtitle style and the two delays, arrows on lines that open a page. Off = round 46b Clean. */
+    const val OSD_CLEAN_V2 = true
+    /** Stream info page: the HUD button is always offered; on a box without the Info key setting it turns that per-device setting on first. Off = official (button only once the setting is on). */
+    const val HUD_ANY_DEVICE = true
 }
