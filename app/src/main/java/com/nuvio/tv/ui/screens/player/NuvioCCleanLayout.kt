@@ -33,6 +33,8 @@ internal data class NuvioCCleanSlot(val button: NuvioCOsdButton, val zone: Nuvio
 /** Start over and Next live in the centre (or More); everything else on either side (or More). Play is fixed. */
 internal fun NuvioCOsdButton.cleanZones(): List<NuvioCCleanZone> = when (this) {
     NuvioCOsdButton.START_OVER, NuvioCOsdButton.NEXT -> listOf(NuvioCCleanZone.CENTRE, NuvioCCleanZone.MORE)
+    // [fork] 47b: Subtitles and Audio are always on a side (their panels hold everything More used to repeat)
+    NuvioCOsdButton.SUBTITLES, NuvioCOsdButton.AUDIO -> listOf(NuvioCCleanZone.LEFT, NuvioCCleanZone.RIGHT)
     else -> listOf(NuvioCCleanZone.LEFT, NuvioCCleanZone.RIGHT, NuvioCCleanZone.MORE)
 }
 
@@ -98,12 +100,26 @@ internal object NuvioCCleanOrder {
     /** Left, centre, right, More; the order inside a zone is kept. */
     fun sortedByZone(slots: List<NuvioCCleanSlot>): List<NuvioCCleanSlot> = slots.sortedBy { it.zone.ordinal }
 
-    /** Moves a button one place up or down inside its zone (it never leaves the zone this way). */
+    /**
+     * Moves a button one place up or down. Inside its zone it swaps with its neighbour; at the edge of its zone it
+     * steps into the next zone it can take in that direction (last place going up, first place going down), so a
+     * button can travel the whole list with Up / Down alone. Returns the same list when it can't move.
+     */
     fun moved(slots: List<NuvioCCleanSlot>, index: Int, delta: Int): List<NuvioCCleanSlot> {
+        if (index !in slots.indices || delta == 0) return slots
+        val s = slots[index]
         val target = index + delta
-        if (index !in slots.indices || target !in slots.indices) return slots
-        if (slots[target].zone != slots[index].zone) return slots
-        return slots.toMutableList().apply { add(target, removeAt(index)) }
+        if (target in slots.indices && slots[target].zone == s.zone) {
+            return slots.toMutableList().apply { add(target, removeAt(index)) }
+        }
+        val allowed = s.button.cleanZones().sortedBy { it.ordinal }
+        val next = if (delta < 0) allowed.lastOrNull { it.ordinal < s.zone.ordinal } else allowed.firstOrNull { it.ordinal > s.zone.ordinal }
+        next ?: return slots
+        val rest = slots.toMutableList().apply { removeAt(index) }
+        val at = if (delta < 0) rest.indexOfLast { it.zone.ordinal <= next.ordinal } + 1
+        else rest.indexOfFirst { it.zone.ordinal >= next.ordinal }.let { if (it < 0) rest.size else it }
+        rest.add(at, s.copy(zone = next))
+        return rest
     }
 
     /** The next zone this button can take (Left, Right, More / Centre, More); it goes last in its new zone. */

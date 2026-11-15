@@ -787,4 +787,11 @@ object NuvioCFeatures {
     const val OSD_CLEAN_V2 = true
     /** Stream info page: the HUD button is always offered; on a box without the Info key setting it turns that per-device setting on first. Off = official (button only once the setting is on). */
     const val HUD_ANY_DEVICE = true
+    // [fork] round 47b
+    /** Details Information: once its stop has focus the page glides on to the very end (Parental guidance in view). Off = the block's top only. */
+    const val INFO_END_SCROLL = true
+    /** Taste: This week as one compact card in the Month so far style, stats side by side. Off = round 47 2 x 2 tiles. */
+    const val TASTE_WEEK_CARD = true
+    /** Clean More: a page opened from More brings More back on its line when it closes. Off = back to the main controls. */
+    const val MORE_RETURN = true
 }

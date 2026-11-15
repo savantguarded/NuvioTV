@@ -192,6 +192,10 @@ internal class NuvioCMoreSheetState {
     var lastKey: String? = null
     /** The Choice whose sub-list is showing, or null for the main list. */
     var page by mutableStateOf<String?>(null)
+    /** [fork] 47b more_return: a line opened a page; More comes back when that page closes. */
+    var reopen by mutableStateOf(false)
+    /** The page from [reopen] has been seen open. */
+    var seenOpen by mutableStateOf(false)
 }
 
 /**
@@ -302,7 +306,11 @@ private fun NuvioCMoreLine(state: NuvioCMoreSheetState, item: NuvioCMoreItem, re
     val onClick: () -> Unit = {
         state.lastKey = item.key
         when (item) {
-            is NuvioCMoreItem.Action -> { state.open = false; state.page = null; item.onClick() }
+            is NuvioCMoreItem.Action -> {
+                state.open = false; state.page = null
+                if (NuvioCFeatures.MORE_RETURN && item.arrow && item.key != "external") { state.reopen = true; state.seenOpen = false }
+                item.onClick()
+            }
             is NuvioCMoreItem.Choice -> state.page = item.key
             is NuvioCMoreItem.Toggle -> item.onToggle()
             is NuvioCMoreItem.Stepper -> item.onReset()

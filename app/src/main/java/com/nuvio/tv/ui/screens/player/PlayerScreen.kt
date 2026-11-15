@@ -4147,7 +4147,6 @@ private fun NuvioCCleanControlsV2(
     val autoSkipLabel = stringResource(R.string.nuvio_c_auto_skip_intro)
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val secPlayback = stringResource(R.string.nuvio_c_more_playback)
-    val secTracks = stringResource(R.string.nuvio_c_more_tracks)
     val secPlayer = stringResource(R.string.nuvio_c_more_player)
     val nightActive = remember { NuvioCNight.active(context) }
     val nightLevel by NuvioCNight.level.collectAsState()
@@ -4194,12 +4193,17 @@ private fun NuvioCCleanControlsV2(
     )
 
     /** The main-row look of a side button: the four panels and Episodes as pills, the rest as round icons. */
-    fun sideButton(b: NuvioCOsdButton): (@Composable () -> Unit)? = when (b) {
-        NuvioCOsdButton.SUBTITLES -> { { NuvioCOsdPill(subtitlesLabel, subtitlePainter, Icons.Default.ClosedCaption, onShowSubtitleDialog, progressUpTarget, onHideControls, onResetHideTimer) } }
-        NuvioCOsdButton.AUDIO -> { { NuvioCOsdPill(audioLabel, audioPainter, Icons.AutoMirrored.Filled.VolumeUp, onShowAudioDialog, progressUpTarget, onHideControls, onResetHideTimer) } }
-        NuvioCOsdButton.SOURCES -> { { NuvioCOsdPill(sourcesLabel, sourcePainter, Icons.Default.SwapHoriz, onShowSourcesPanel, progressUpTarget, onHideControls, onResetHideTimer) } }
-        NuvioCOsdButton.CAST -> { { NuvioCOsdPill(detailsLabel, null, Icons.Default.Info, { castState?.open = true }, progressUpTarget, onHideControls, onResetHideTimer) } }
-        NuvioCOsdButton.EPISODES -> { { NuvioCOsdPill(episodesLabel, episodesPainter, Icons.AutoMirrored.Filled.List, onShowEpisodesPanel, progressUpTarget, onHideControls, onResetHideTimer) } }
+    // [fork] 47b: a crowded side first turns its pills into round icons (name shown on focus); only if that still
+    // doesn't fit do its last buttons move into More.
+    fun pill(label: String, painter: androidx.compose.ui.graphics.painter.Painter?, vector: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, compact: Boolean): @Composable () -> Unit =
+        if (compact) { { icon(vector, label, onClick, painter = painter, label = label) } }
+        else { { NuvioCOsdPill(label, painter, vector, onClick, progressUpTarget, onHideControls, onResetHideTimer) } }
+    fun sideButton(b: NuvioCOsdButton, compact: Boolean = false): (@Composable () -> Unit)? = when (b) {
+        NuvioCOsdButton.SUBTITLES -> pill(subtitlesLabel, subtitlePainter, Icons.Default.ClosedCaption, onShowSubtitleDialog, compact)
+        NuvioCOsdButton.AUDIO -> pill(audioLabel, audioPainter, Icons.AutoMirrored.Filled.VolumeUp, onShowAudioDialog, compact)
+        NuvioCOsdButton.SOURCES -> pill(sourcesLabel, sourcePainter, Icons.Default.SwapHoriz, onShowSourcesPanel, compact)
+        NuvioCOsdButton.CAST -> pill(detailsLabel, null, Icons.Default.Info, { castState?.open = true }, compact)
+        NuvioCOsdButton.EPISODES -> pill(episodesLabel, episodesPainter, Icons.AutoMirrored.Filled.List, onShowEpisodesPanel, compact)
         NuvioCOsdButton.CHAPTERS -> { { icon(Icons.AutoMirrored.Filled.Toc, labels.getValue(b), onShowChaptersPanel) } }
         NuvioCOsdButton.SPEED -> { { icon(Icons.Default.Speed, labels.getValue(b), onShowSpeedDialog) } }
         NuvioCOsdButton.ASPECT -> { { icon(Icons.Default.AspectRatio, labels.getValue(b), onToggleAspectRatio) } }
@@ -4227,13 +4231,19 @@ private fun NuvioCCleanControlsV2(
         listOfNotNull(NuvioCOsdButton.PARTY.takeIf { partyActive && onShowPartyPanel != null && zoneOf(it) != NuvioCCleanZone.RIGHT && zoneOf(it) != NuvioCCleanZone.LEFT }))
     var leftFit by remember { mutableStateOf(Int.MAX_VALUE) }
     var rightFit by remember { mutableStateOf(Int.MAX_VALUE) }
-    val overflow = (leftButtons.drop(leftFit) + rightButtons.drop(rightFit)).toSet()
+    var leftCompact by remember(leftButtons) { mutableStateOf(false) }
+    var rightCompact by remember(rightButtons) { mutableStateOf(false) }
+    // Subtitles and Audio never go into More: their panels are the only way in
+    val pinned = setOf(NuvioCOsdButton.SUBTITLES, NuvioCOsdButton.AUDIO)
+    val overflow = (leftButtons.drop(leftFit) + rightButtons.drop(rightFit)).filter { it !in pinned }.toSet()
     fun inMore(b: NuvioCOsdButton) = (zoneOf(b) == NuvioCCleanZone.MORE || b in overflow) &&
         !(b == NuvioCOsdButton.PARTY && partyActive && b !in overflow)
-    fun delayText(ms: Int) = if (ms == 0) "0.00 s" else String.format(java.util.Locale.US, "%+.2f s", ms / 1000f)
 
     val moreItems = buildList<NuvioCMoreItem> {
-        // Playback
+        // [fork] 47b: Watch party first, in its own section
+        if (inMore(NuvioCOsdButton.PARTY) && onShowPartyPanel != null) add(NuvioCMoreItem.Action("party", partyLabel, partyLabel, arrow = true, onClick = onShowPartyPanel))
+        // Playback (Chapters first)
+        if (uiState.chapters.isNotEmpty() && inMore(NuvioCOsdButton.CHAPTERS)) add(NuvioCMoreItem.Action("chapters", labels.getValue(NuvioCOsdButton.CHAPTERS), secPlayback, arrow = true, onClick = onShowChaptersPanel))
         if (startOverAvailable && inMore(NuvioCOsdButton.START_OVER)) add(NuvioCMoreItem.Action("start_over", labels.getValue(NuvioCOsdButton.START_OVER), secPlayback, onClick = startOver))
         if (showNext && inMore(NuvioCOsdButton.NEXT)) add(NuvioCMoreItem.Action("next", labels.getValue(NuvioCOsdButton.NEXT), secPlayback, onClick = onPlayNextEpisode))
         if (inMore(NuvioCOsdButton.SPEED)) add(NuvioCMoreItem.Choice(
@@ -4251,15 +4261,12 @@ private fun NuvioCCleanControlsV2(
                 AspectMode.entries.map { m -> NuvioCMoreOption(aspectLabels.getValue(m), m == uiState.aspectMode) { viewModel.onEvent(PlayerEvent.OnNuvioCSetAspectMode(m)) } }
             ))
         }
-        if (uiState.chapters.isNotEmpty() && inMore(NuvioCOsdButton.CHAPTERS)) add(NuvioCMoreItem.Action("chapters", labels.getValue(NuvioCOsdButton.CHAPTERS), secPlayback, arrow = true, onClick = onShowChaptersPanel))
-        if (inMore(NuvioCOsdButton.AUTO_SKIP)) autoSkip?.let { s -> add(NuvioCMoreItem.Toggle("auto_skip", autoSkipLabel, secPlayback, s.on, s.toggle)) }
-        // Subtitles and audio: only the buttons that moved here (style and delays live in their own panels)
-        if (hasSubtitles && inMore(NuvioCOsdButton.SUBTITLES)) add(NuvioCMoreItem.Action("subtitles", subtitlesLabel, secTracks, arrow = true, onClick = onShowSubtitleDialog))
-        if (hasAudio && inMore(NuvioCOsdButton.AUDIO)) add(NuvioCMoreItem.Action("audio", audioLabel, secTracks, arrow = true, onClick = onShowAudioDialog))
         if (com.nuvio.tv.NuvioCFeatures.NIGHT_MODE && nightActive) add(NuvioCMoreItem.Choice(
-            "night", nightLabel, secTracks, nightLabels.getValue(nightLevel),
+            "night", nightLabel, secPlayback, nightLabels.getValue(nightLevel),
             com.nuvio.tv.data.local.NightModeLevel.entries.map { l -> NuvioCMoreOption(nightLabels.getValue(l), l == nightLevel) { viewModel.controller.nuvioCApplyNightMode(l) } }
         ))
+        if (inMore(NuvioCOsdButton.AUTO_SKIP)) autoSkip?.let { s -> add(NuvioCMoreItem.Toggle("auto_skip", autoSkipLabel, secPlayback, s.on, s.toggle)) }
+        // (no Subtitles / Audio lines: those buttons always sit on a side and their panels hold style and delays)
         // Player
         if (inMore(NuvioCOsdButton.SOURCES)) add(NuvioCMoreItem.Action("sources", sourcesLabel, secPlayer, arrow = true, onClick = onShowSourcesPanel))
         if (detailsAvailable && inMore(NuvioCOsdButton.CAST)) add(NuvioCMoreItem.Action("details", detailsLabel, secPlayer, onClick = { castState?.open = true }, arrow = true))
@@ -4273,9 +4280,30 @@ private fun NuvioCCleanControlsV2(
                 NuvioCMoreOption(mpvText, isMpv, closes = !isMpv) { if (!isMpv) onSwitchEngine() }
             )
         ))
-        if (inMore(NuvioCOsdButton.PARTY) && onShowPartyPanel != null) add(NuvioCMoreItem.Action("party", partyLabel, secPlayer, arrow = true, onClick = onShowPartyPanel))
         if (inMore(NuvioCOsdButton.REPORT) && reportEnabled) add(NuvioCMoreItem.Action("report", labels.getValue(NuvioCOsdButton.REPORT), secPlayer,
             if (reportCodeVisible) uiState.playbackIssueReportId else null, onClick = onReportPlaybackIssue))
+    }
+    // [fork] 47b more_return: a page opened from More (Chapters, Sources, Details, Episodes, Stream info, Watch party)
+    // brings More back on its line when it closes, instead of the main controls.
+    val pageOpen = uiState.showChaptersPanel || uiState.showEpisodesPanel || uiState.showSourcesPanel || uiState.showPartyPanel ||
+        uiState.showStreamInfoOverlay || uiState.showSpeedDialog || uiState.showSubtitleOverlay || uiState.showAudioOverlay ||
+        castState?.open == true
+    if (com.nuvio.tv.NuvioCFeatures.MORE_RETURN) {
+        LaunchedEffect(sheet.reopen) {
+            if (!sheet.reopen) return@LaunchedEffect
+            delay(1_500) // the page never opened (an action that acts at once): forget it
+            if (!sheet.seenOpen) sheet.reopen = false
+        }
+        LaunchedEffect(pageOpen) {
+            if (pageOpen) {
+                if (sheet.reopen) sheet.seenOpen = true
+            } else if (sheet.reopen && sheet.seenOpen) {
+                sheet.reopen = false
+                sheet.seenOpen = false
+                delay(120) // after the page hands focus back
+                sheet.open = true
+            }
+        }
     }
     // Stream info closing lands on the More icon unless Stream info is a side button (then it holds the requester).
     val infoOnSide = !inMore(NuvioCOsdButton.INFO)
@@ -4284,8 +4312,11 @@ private fun NuvioCCleanControlsV2(
         gap = 20.dp,
         modifier = Modifier.fillMaxWidth().height(46.dp),
         left = {
-            val items = leftButtons.mapNotNull { sideButton(it) }
-            NuvioCCleanFitRow(keys = leftButtons.map { it.key }, gap = 8.dp, onFit = { if (it != leftFit) leftFit = it }, items = items)
+            val items = leftButtons.mapNotNull { sideButton(it, leftCompact) }
+            NuvioCCleanFitRow(
+                keys = leftButtons.map { it.key } + "compact=$leftCompact", gap = 8.dp,
+                onFit = { n -> if (n < items.size && !leftCompact) leftCompact = true else if (n != leftFit) leftFit = n }, items = items
+            )
         },
         centre = {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -4317,10 +4348,10 @@ private fun NuvioCCleanControlsV2(
         },
         right = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
-                val items = rightButtons.mapNotNull { sideButton(it) }
+                val items = rightButtons.mapNotNull { sideButton(it, rightCompact) }
                 NuvioCCleanFitRow(
-                    keys = rightButtons.map { it.key }, gap = 8.dp, modifier = Modifier.weight(1f, fill = false),
-                    onFit = { if (it != rightFit) rightFit = it }, items = items
+                    keys = rightButtons.map { it.key } + "compact=$rightCompact", gap = 8.dp, modifier = Modifier.weight(1f, fill = false),
+                    onFit = { n -> if (n < items.size && !rightCompact) rightCompact = true else if (n != rightFit) rightFit = n }, items = items
                 )
                 if (moreItems.isNotEmpty()) icon(
                     Icons.Default.Settings, moreLabel, { sheet.open = true },

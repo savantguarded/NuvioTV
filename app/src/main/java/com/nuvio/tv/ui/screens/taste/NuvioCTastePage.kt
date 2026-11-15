@@ -48,6 +48,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
@@ -322,7 +323,7 @@ internal fun NuvioCTastePage(
             }
             item(key = "tiles") {
                 if (month != null) TasteMonthTiles(s)
-                else if (com.nuvio.tv.NuvioCFeatures.TASTE_V3 && live != null) live?.let { TasteWeekTiles(it) } // [fork] round 46
+                else if (com.nuvio.tv.NuvioCFeatures.TASTE_V3 && live != null) live?.let { TasteWeekTiles(it, accent) } // [fork] round 46
                 else TasteLiveTiles(live, viewModel.countUp, onCounted = { if (smooth) viewModel.markCounted() })
             }
             if (com.nuvio.tv.NuvioCFeatures.TASTE_MONTH_TITLES && month != null && monthTitles.isNotEmpty()) item(key = "monthTitles") {
@@ -695,7 +696,7 @@ private fun TasteMonthTiles(s: NuvioCTasteStats) {
 
 /** [fork] round 46 taste_v3: This week. Each tile shows only when its number is known; up to four. */
 @Composable
-private fun TasteWeekTiles(live: com.nuvio.tv.data.nuvioc.NuvioCTasteLive) {
+private fun TasteWeekTiles(live: com.nuvio.tv.data.nuvioc.NuvioCTasteLive, accent: Color) {
     data class T(val value: String, val label: String, val line: String?, val good: Boolean? = null)
     val zone = java.time.ZoneId.systemDefault()
     val now = System.currentTimeMillis()
@@ -721,6 +722,38 @@ private fun TasteWeekTiles(live: com.nuvio.tv.data.nuvioc.NuvioCTasteLive) {
         if (size < 4) live.saved?.let { add(T(NF.format(it), "saved in your library", null)) }
     }.take(4)
     if (tiles.isEmpty()) return
+    if (com.nuvio.tv.NuvioCFeatures.TASTE_WEEK_CARD) {
+        // [fork] 47b taste_week_card: one compact card in the Month so far style, the stats side by side, so This week and
+        // the first Spotlight line share a screen. Not focusable: text fits, wraps, then scrolls by itself as a last resort.
+        val shape = RoundedCornerShape(16.dp)
+        val ty = MaterialTheme.typography
+        Column(
+            Modifier.padding(horizontal = EDGE).fillMaxWidth().height(126.dp).clip(shape).background(Color(0xFF15161D))
+                .border(1.dp, Color.White.copy(alpha = 0.07f), shape)
+                .padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(5.dp).clip(CircleShape).background(accent))
+                Text("THIS WEEK", style = ty.labelSmall, color = NuvioTheme.colors.TextTertiary, maxLines = 1, modifier = Modifier.padding(start = 8.dp))
+            }
+            Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                tiles.forEachIndexed { i, t ->
+                    if (i > 0) Box(Modifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = 0.07f)))
+                    Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        TasteFit(t.value, listOf(ty.titleLarge, ty.titleMedium, ty.titleSmall), 1, null, NuvioTheme.colors.TextPrimary, fontWeight = FontWeight.SemiBold)
+                        TasteFit(t.label, listOf(ty.bodySmall, ty.labelSmall), 1, null, NuvioTheme.colors.TextSecondary)
+                        t.line?.let {
+                            Box(Modifier.weight(1f).fillMaxWidth()) {
+                                TasteFit(it, listOf(ty.labelMedium, ty.labelSmall), 2, null, if (t.good == true) Color(0xFF8FD3A8) else NuvioTheme.colors.TextTertiary)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return
+    }
     val fit = com.nuvio.tv.NuvioCFeatures.TASTE_FIT
     Column(Modifier.fillMaxWidth().padding(horizontal = EDGE), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("This week", style = MaterialTheme.typography.titleLarge, color = NuvioTheme.colors.TextPrimary, fontWeight = FontWeight.SemiBold)

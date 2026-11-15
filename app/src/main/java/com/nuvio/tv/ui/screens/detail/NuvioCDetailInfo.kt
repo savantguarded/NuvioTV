@@ -53,6 +53,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.ui.focus.onFocusChanged
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
@@ -411,15 +413,25 @@ internal fun NuvioCDetailInfoBlock(metaId: String) {
     val info by NuvioCDetailInfoStore.current.collectAsState()
     if (NuvioCFeatures.DETAIL_INFO_SLOTS) { // [fork] round 43 detail_info_slots: fixed places, Awards, Parental guidance
         val current = info?.takeIf { it.metaId == metaId && it.loaded } ?: return
+        // [fork] 47b info_end_scroll: once the stop has focus, the page glides on to its very end (Parental guidance
+        // included), however tall the block is; the page's own scroll spec animates it.
+        val end = androidx.compose.runtime.remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+        val scope = androidx.compose.runtime.rememberCoroutineScope()
         Column(
             Modifier
                 .fillMaxWidth()
+                .then(if (NuvioCFeatures.DETAIL_INFO_STOP && NuvioCFeatures.INFO_END_SCROLL) Modifier.onFocusChanged { f ->
+                    if (f.isFocused) scope.launch { kotlinx.coroutines.delay(60); end.bringIntoView() }
+                } else Modifier)
                 // [fork] round 43b detail_info_stop: one quiet stop after the last row. Down from the logos lands here and
                 // the page brings the whole block into view like any row; Up goes back to the logos the normal way.
                 .then(if (NuvioCFeatures.DETAIL_INFO_STOP) Modifier.focusable() else Modifier)
                 .padding(top = 20.dp, bottom = 36.dp)
         ) {
             NuvioCInfoSlots(current, com.nuvio.tv.ui.components.nuvioCDetailMargin)
+            androidx.compose.foundation.layout.Spacer(
+                Modifier.fillMaxWidth().height(1.dp).bringIntoViewRequester(end)
+            )
         }
         return
     }

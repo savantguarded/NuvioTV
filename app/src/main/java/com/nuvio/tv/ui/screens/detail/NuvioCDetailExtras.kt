@@ -258,7 +258,7 @@ internal fun NuvioCInfoSlots(info: NuvioCDetailInfo, margin: Dp) {
         }
         if (com.nuvio.tv.NuvioCFeatures.DETAIL_KEYWORDS) { // [fork] round 47: the rest of the keywords, wrapping
             Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
-            NuvioCKeywordsLine(stringResource(R.string.nuvio_c_info_keywords), info.keywords)
+            NuvioCThemesLine(stringResource(R.string.nuvio_c_info_keywords), info.keywords) // [fork] 47b: one line and "+N", like Themes
         }
         if (com.nuvio.tv.NuvioCFeatures.DETAIL_AWARDS_WINS) { // [fork] round 47: major wins only, full width, wraps
             Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
@@ -430,37 +430,3 @@ private fun NuvioCThemesLine(label: String, themes: List<String>) {
         }
     }
 }
-
-/**
- * [fork] round 47 detail_keywords: label, then the same quiet outline chips as Themes, wrapping onto as many lines as
- * the keywords need (nothing hidden). Not focusable. A dash when there are none.
- */
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-@Composable
-private fun NuvioCKeywordsLine(label: String, keywords: List<String>) {
-    val style = slotStyle()
-    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.Top) {
-        Text(label, style = style, color = NuvioTheme.extendedColors.textTertiary, maxLines = 1, modifier = Modifier.width(136.dp).padding(top = 3.dp))
-        if (keywords.isEmpty()) {
-            Text(DASH, style = style, color = dashColor(), modifier = Modifier.padding(top = 3.dp))
-            return@Row
-        }
-        val chipStyle = MaterialTheme.typography.labelMedium
-        val chipColor = NuvioTheme.colors.TextPrimary.copy(alpha = 0.85f)
-        val border = NuvioTheme.colors.TextPrimary.copy(alpha = 0.22f)
-        androidx.compose.foundation.layout.FlowRow(
-            modifier = Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            keywords.forEach { k ->
-                Box(
-                    Modifier
-                        .border(1.dp, border, RoundedCornerShape(50))
-                        .padding(horizontal = 10.dp, vertical = 3.dp)
-                ) { Text(k, style = chipStyle, color = chipColor, maxLines = 1) }
-            }
-        }
-    }
-}
-

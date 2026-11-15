@@ -118,9 +118,13 @@ private fun NuvioCCleanButtonsDialog(onDismiss: () -> Unit) {
     val zoneRequesters = remember { List(slots.size) { FocusRequester() } }
     val listState = rememberLazyListState()
     var pendingFocus by remember { mutableStateOf<Pair<Int, Boolean>?>(0 to false) }
+    var firstFocus by remember { mutableStateOf(true) }
     LaunchedEffect(pendingFocus) {
         val (i, zone) = pendingFocus ?: return@LaunchedEffect
-        listState.scrollToItem(i.coerceIn(0, slots.lastIndex))
+        // [fork] 47b: no jump of the whole list on every move (it felt stiff); only the first focus scrolls
+        val visible = listState.layoutInfo.visibleItemsInfo.any { it.index == i }
+        if (firstFocus || !visible) listState.scrollToItem((if (firstFocus) i else i - 2).coerceIn(0, slots.lastIndex))
+        firstFocus = false
         (if (zone) zoneRequesters.getOrNull(i) else nameRequesters.getOrNull(i))?.requestFocusAfterFrames()
         pendingFocus = null
     }
@@ -166,8 +170,10 @@ private fun NuvioCCleanButtonsDialog(onDismiss: () -> Unit) {
                                 val next = order.moved(slots, index, delta)
                                 if (next !== slots) {
                                     order.save(context, next)
-                                    moving = index + delta
-                                    pendingFocus = (index + delta) to false
+                                    // [fork] 47b: it may have stepped into another zone; follow it wherever it landed
+                                    val at = order.slots.value.indexOfFirst { it.button == slot.button }.coerceAtLeast(0)
+                                    moving = at
+                                    pendingFocus = at to false
                                 }
                                 true
                             },

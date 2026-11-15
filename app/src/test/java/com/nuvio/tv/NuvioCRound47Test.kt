@@ -51,8 +51,27 @@ class NuvioCRound47Test {
         val bad = NuvioCCleanOrder.parse("next:l,subtitles:c")
         assertEquals(NuvioCCleanZone.CENTRE, bad.first { it.button == NuvioCOsdButton.NEXT }.zone)
         assertEquals(NuvioCCleanZone.LEFT, bad.first { it.button == NuvioCOsdButton.SUBTITLES }.zone)
-        // moving never crosses into another zone
+        // 47b: Up from the first right-side button steps over the centre into the end of the left side
         val first = d.indexOfFirst { it.zone == NuvioCCleanZone.RIGHT }
-        assertTrue(NuvioCCleanOrder.moved(d, first, -1) === d)
+        val b = d[first].button
+        val up = NuvioCCleanOrder.moved(d, first, -1)
+        val moved = up.first { it.button == b }
+        assertEquals(NuvioCCleanZone.LEFT, moved.zone)
+        assertEquals(up.indexOfLast { it.zone == NuvioCCleanZone.LEFT }, up.indexOf(moved))
+        assertEquals(up.map { it.zone.ordinal }.sorted(), up.map { it.zone.ordinal })
+        // and Down from the last Left button goes to the start of the right side
+        val lastLeft = d.indexOfLast { it.zone == NuvioCCleanZone.LEFT }
+        val down = NuvioCCleanOrder.moved(d, lastLeft, 1)
+        val audio = down.first { it.button == d[lastLeft].button }
+        assertEquals(NuvioCCleanZone.RIGHT, audio.zone)
+        assertEquals(down.indexOfFirst { it.zone == NuvioCCleanZone.RIGHT }, down.indexOf(audio))
+        // Audio can't go further than Right (never More); Start over can't leave Centre except into More
+        val audioIdx = down.indexOfLast { it.zone == NuvioCCleanZone.RIGHT }.let { down.indexOf(audio) }
+        var list = down
+        repeat(10) { list = NuvioCCleanOrder.moved(list, list.indexOfFirst { it.button == audio.button }, 1) }
+        assertEquals(NuvioCCleanZone.RIGHT, list.first { it.button == audio.button }.zone)
+        assertTrue(audioIdx >= 0)
+        // a saved "More" for Subtitles falls back to its default side
+        assertEquals(NuvioCCleanZone.LEFT, NuvioCCleanOrder.parse("subtitles:x").first { it.button == NuvioCOsdButton.SUBTITLES }.zone)
     }
 }
