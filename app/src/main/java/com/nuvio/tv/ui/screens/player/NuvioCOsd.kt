@@ -791,9 +791,10 @@ internal class NuvioCOsdAnchor {
 
 internal val LocalNuvioCOsdAnchor = staticCompositionLocalOf<NuvioCOsdAnchor?> { null }
 
-internal fun Modifier.nuvioCSeekBarAnchor(anchor: NuvioCOsdAnchor?): Modifier =
+internal fun Modifier.nuvioCSeekBarAnchor(anchor: NuvioCOsdAnchor?, overhang: Boolean = false): Modifier =
     if (anchor == null || !NuvioCFeatures.SKIP_ABOVE_SEEK) this
-    else onGloballyPositioned { anchor.seekBarTop = it.positionInWindow().y }
+    // [fork] round 48b: Clean's time may hang above the bar without a row of its own; things anchored above the bar clear it too
+    else onGloballyPositioned { anchor.seekBarTop = it.positionInWindow().y - (if (overhang) NuvioCTimeOverhang.px else 0f) }
 
 /** Forgets the seek bar position when the controls leave. */
 @Composable

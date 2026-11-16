@@ -80,4 +80,11 @@ class NuvioCRound48Test {
         val clipped = nuvioCClipText(long, NEXT_TITLE_MAX)
         assertEquals(true, clipped.length <= NEXT_TITLE_MAX && clipped.endsWith("…"))
     }
+
+    @Test
+    fun chapterLine_onlyWithNamesOnAndChapters() {
+        assertEquals(true, nuvioCChapterLineShown(chapters, true))
+        assertEquals(false, nuvioCChapterLineShown(chapters, false))
+        assertEquals(false, nuvioCChapterLineShown(emptyList(), true))
+    }
 }

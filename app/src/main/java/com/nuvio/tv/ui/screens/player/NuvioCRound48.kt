@@ -26,7 +26,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
@@ -34,19 +33,21 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.nuvio.tv.NuvioCFeatures
 import com.nuvio.tv.R
-import com.nuvio.tv.ui.util.localizeEpisodeTitle
 
-/** Focused Next button label: "Next · S1 E5 · Title" (title cut at [NEXT_TITLE_MAX] characters). */
+/** Focused Next button label: "Next · S1 E5" (round 48b: no episode name). */
 @Composable
 internal fun nuvioCNextLabel(next: NextEpisodeInfo?, fallback: String): String {
     if (!NuvioCFeatures.OSD_NEXT_LABEL || next == null) return fallback
-    val context = LocalContext.current
-    val title = next.title.takeIf { it.isNotBlank() }?.localizeEpisodeTitle(context)?.takeIf { it.isNotBlank() }
-    return if (title != null) {
-        stringResource(R.string.nuvio_c_next_label_title, next.season, next.episode, nuvioCClipText(title, NEXT_TITLE_MAX))
-    } else {
-        stringResource(R.string.nuvio_c_next_label, next.season, next.episode)
-    }
+    return stringResource(R.string.nuvio_c_next_label, next.season, next.episode)
+}
+
+/** Clean: whether the chapter name has its own line above the bar (names on and the file has chapters). */
+internal fun nuvioCChapterLineShown(chapters: List<PlayerChapter>, showChapterTitle: Boolean): Boolean =
+    showChapterTitle && chapters.isNotEmpty()
+
+/** Height (px) Clean's time hangs above the seek bar when it has no row of its own; 0 when it sits on the chapter line. */
+internal object NuvioCTimeOverhang {
+    @Volatile var px = 0f
 }
 
 internal const val NEXT_TITLE_MAX = 32

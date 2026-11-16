@@ -99,6 +99,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.drawBehind
@@ -3124,7 +3125,7 @@ private fun PlayerControlsOverlay(
                 enter = fadeIn(animationSpec = tween(NuvioMotion.tokens.durations.fast)),
                 exit = fadeOut(animationSpec = tween(NuvioMotion.tokens.durations.fast))
             ) {
-                Column(modifier = Modifier.fillMaxWidth().nuvioCOsdTitleBlock(nuvioCOsd)) { // [fork]
+                Column(modifier = Modifier.fillMaxWidth().then(if (nuvioCCleanTimeTop && !nuvioCChapterLineShown(uiState.chapters, uiState.showChapterTitle)) Modifier.padding(end = 180.dp) else Modifier).nuvioCOsdTitleBlock(nuvioCOsd)) { // [fork]; round 48b: room for the time on the right
                     val displayName = if (uiState.currentSeason != null && uiState.currentEpisode != null) {
                         uiState.contentName ?: uiState.title
                     } else {
@@ -3256,7 +3257,7 @@ private fun PlayerControlsOverlay(
                             }
                     ) {
                         // [fork] a Column, not a Box: official's host stacks the chapter title over the bar (a Box drew it behind the bar)
-                        Column(modifier = Modifier.nuvioCSeekBarAnchor(LocalNuvioCOsdAnchor.current).nuvioCOsdLayer()) { // [fork] Skip Intro sits above this
+                        Column(modifier = Modifier.nuvioCSeekBarAnchor(LocalNuvioCOsdAnchor.current, overhang = nuvioCCleanTimeTop).nuvioCOsdLayer()) { // [fork] Skip Intro sits above this
                         PlayerControlsProgressBarHost(
                             viewModel = viewModel,
                             chapters = uiState.chapters,
@@ -4424,6 +4425,21 @@ private fun NuvioCChapterTimeLine(
     showChapterTitle: Boolean,
     time: @Composable () -> Unit
 ) {
+    // [fork] round 48b: no chapter name line (names off or no chapters) -> the time takes no row of its own; it sits on
+    // the right just above the bar, level with the title block's last line, so nothing is reserved on the left.
+    if (!nuvioCChapterLineShown(chapters, showChapterTitle)) {
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val gapPx = with(density) { NuvioTheme.spacing.md.roundToPx() } // bottom level with the title block's last line (it ends md above the bar)
+        Box(
+            Modifier.fillMaxWidth().layout { measurable, constraints ->
+                val p = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0))
+                NuvioCTimeOverhang.px = (p.height + gapPx).toFloat()
+                layout(constraints.maxWidth, 0) { p.place(constraints.maxWidth - p.width, -p.height - gapPx) }
+            }
+        ) { time() }
+        return
+    }
+    NuvioCTimeOverhang.px = 0f
     val index = if (showChapterTitle) PlayerChapters.indexAt(chapters, positionMs) else -1
     Row(
         modifier = Modifier.fillMaxWidth().padding(bottom = NuvioTheme.spacing.xs),
