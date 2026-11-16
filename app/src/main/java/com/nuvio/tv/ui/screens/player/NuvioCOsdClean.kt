@@ -151,7 +151,7 @@ internal fun NuvioCOsdPill(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp)
         ) {
-            val iconSize = if (compact) 15.dp else 17.dp
+            val iconSize = if (compact && !NuvioCFeatures.CLEAN_ICONS) 15.dp else 17.dp // [fork] round 49: 17 dp with the new icons
             if (iconPainter != null) Icon(iconPainter, contentDescription = null, modifier = Modifier.size(iconSize))
             else Icon(icon, contentDescription = null, modifier = Modifier.size(iconSize))
             Text(label, style = if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium, maxLines = 1)

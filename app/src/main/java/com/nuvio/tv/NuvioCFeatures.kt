@@ -807,4 +807,11 @@ object NuvioCFeatures {
     const val CHAPTER_JUMP = true
     /** OSD (both styles): eased, slightly taller top and bottom shades and a faint text shadow on title, episode line, chapter and time. Off = official two-stop shades. */
     const val OSD_SHADE = true
+    // [fork] round 49
+    /** Clean controls: Material Symbols Rounded icons for the whole row (nuvio_c_ic_clean_*), Details (article) and Stream info (monitoring) no longer share the "i"; icon buttons 36 -> 40 dp (24 dp glyph), Play 48 -> 52 dp (30 dp glyph), pill glyph 15 -> 17 dp. Nuvio C style untouched. Off = round 48 icons and sizes. */
+    const val CLEAN_ICONS = true
+    /** Clean controls: everything on the right side is a round icon (name under it on focus); Subtitles and Audio stay pills on the left. Off = Sources / Details / Episodes as pills until the side gets crowded. */
+    const val CLEAN_RIGHT_ICONS = true
+    /** Clean More sheet: no Night mode line (it stays in the Audio panel and Settings). Off = round 46b line. */
+    const val CLEAN_MORE_NO_NIGHT = true
 }

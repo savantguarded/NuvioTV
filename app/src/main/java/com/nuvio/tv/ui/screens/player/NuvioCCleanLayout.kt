@@ -185,13 +185,19 @@ internal fun NuvioCCleanThreeZones(
         val w = constraints.maxWidth
         val gapPx = gap.roundToPx()
         val loose = Constraints(maxWidth = w, maxHeight = constraints.maxHeight)
-        val cp = c.firstOrNull()?.measure(loose)
+        // [fork] round 49 clean_icons: the 52 dp Play may stand taller than the row; the row keeps its height (nothing
+        // above or below moves) and Play is centred on it, overhanging evenly like the focus zoom already does.
+        val cp = c.firstOrNull()?.measure(
+            if (NuvioCFeatures.CLEAN_ICONS) loose.copy(maxHeight = Constraints.Infinity) else loose
+        )
         val cw = cp?.width ?: 0
         val side = ((w - cw) / 2 - gapPx).coerceAtLeast(0)
         val sideC = Constraints(maxWidth = side, maxHeight = constraints.maxHeight)
         val lp = l.firstOrNull()?.measure(sideC)
         val rp = r.firstOrNull()?.measure(sideC)
-        val h = listOfNotNull(cp?.height, lp?.height, rp?.height).maxOrNull() ?: 0
+        val h = (listOfNotNull(cp?.height, lp?.height, rp?.height).maxOrNull() ?: 0).let {
+            if (NuvioCFeatures.CLEAN_ICONS && constraints.hasBoundedHeight) it.coerceAtMost(constraints.maxHeight) else it
+        }
         layout(w, h) {
             lp?.place(0, (h - lp.height) / 2)
             cp?.place((w - cw) / 2, (h - cp.height) / 2)

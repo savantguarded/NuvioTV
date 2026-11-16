@@ -4041,12 +4041,12 @@ private fun NuvioCCleanControlsV2(
     playPauseFocusRequester: FocusRequester,
     streamInfoFocusRequester: FocusRequester,
     progressUpTarget: FocusRequester,
-    playPainter: androidx.compose.ui.graphics.painter.Painter?,
-    pausePainter: androidx.compose.ui.graphics.painter.Painter?,
-    subtitlePainter: androidx.compose.ui.graphics.painter.Painter?,
-    audioPainter: androidx.compose.ui.graphics.painter.Painter?,
-    sourcePainter: androidx.compose.ui.graphics.painter.Painter?,
-    episodesPainter: androidx.compose.ui.graphics.painter.Painter?,
+    playPainterIn: androidx.compose.ui.graphics.painter.Painter?,
+    pausePainterIn: androidx.compose.ui.graphics.painter.Painter?,
+    subtitlePainterIn: androidx.compose.ui.graphics.painter.Painter?,
+    audioPainterIn: androidx.compose.ui.graphics.painter.Painter?,
+    sourcePainterIn: androidx.compose.ui.graphics.painter.Painter?,
+    episodesPainterIn: androidx.compose.ui.graphics.painter.Painter?,
     onPlayPause: () -> Unit,
     onPlayNextEpisode: () -> Unit,
     onSeekTo: (Long) -> Unit,
@@ -4069,6 +4069,27 @@ private fun NuvioCCleanControlsV2(
 ) {
     val context = LocalContext.current
     LaunchedEffect(Unit) { NuvioCCleanOrder.load(context) }
+    // [fork] round 49 clean_icons: one Material Symbols Rounded set for the whole Clean row (null = round 48 icons)
+    val cleanIcons = com.nuvio.tv.NuvioCFeatures.CLEAN_ICONS
+    val playPainter = nuvioCCleanIcon(R.drawable.nuvio_c_ic_clean_play) ?: playPainterIn
+    val pausePainter = nuvioCCleanIcon(R.drawable.nuvio_c_ic_clean_pause) ?: pausePainterIn
+    val subtitlePainter = nuvioCCleanIcon(R.drawable.nuvio_c_ic_clean_subtitles) ?: subtitlePainterIn
+    val audioPainter = nuvioCCleanIcon(R.drawable.nuvio_c_ic_clean_audio) ?: audioPainterIn
+    val sourcePainter = nuvioCCleanIcon(R.drawable.nuvio_c_ic_clean_sources) ?: sourcePainterIn
+    val episodesPainter = nuvioCCleanIcon(R.drawable.nuvio_c_ic_clean_episodes) ?: episodesPainterIn
+    val startOverPainter = nuvioCCleanIcon(R.drawable.nuvio_c_ic_clean_start_over)
+    val nextPainter = nuvioCCleanIcon(R.drawable.nuvio_c_ic_clean_next)
+    val detailsPainter = nuvioCCleanIcon(R.drawable.nuvio_c_ic_clean_details)
+    val streamInfoPainter = nuvioCCleanIcon(R.drawable.nuvio_c_ic_clean_stream_info)
+    val chaptersPainter = nuvioCCleanIcon(R.drawable.nuvio_c_ic_clean_chapters)
+    val morePainter = nuvioCCleanIcon(R.drawable.nuvio_c_ic_clean_more)
+    val speedPainter = nuvioCCleanIcon(R.drawable.nuvio_c_ic_clean_speed)
+    val aspectPainter = nuvioCCleanIcon(R.drawable.nuvio_c_ic_clean_aspect)
+    val enginePainter = nuvioCCleanIcon(R.drawable.nuvio_c_ic_clean_engine)
+    val externalPainter = nuvioCCleanIcon(R.drawable.nuvio_c_ic_clean_external)
+    val autoSkipPainter = nuvioCCleanIcon(R.drawable.nuvio_c_ic_clean_auto_skip)
+    val partyPainter = nuvioCCleanIcon(R.drawable.nuvio_c_ic_clean_party)
+    val iconButtonSize = if (cleanIcons) 40.dp else 36.dp
     val slots by NuvioCCleanOrder.slots.collectAsState()
     fun zoneOf(b: NuvioCOsdButton) = slots.firstOrNull { it.button == b }?.zone ?: NuvioCCleanZone.MORE
 
@@ -4181,7 +4202,8 @@ private fun NuvioCCleanControlsV2(
     ) = ControlButton(
         icon = vector, iconPainter = painter, contentDescription = description, onClick = onClick,
         focusRequester = focusRequester, upFocusRequester = progressUpTarget, onDownKey = onHideControls,
-        onFocused = onResetHideTimer, contentColor = tint, nuvioCLabel = label, nuvioCSize = 36.dp
+        onFocused = onResetHideTimer, contentColor = tint, nuvioCLabel = label, nuvioCSize = iconButtonSize,
+        nuvioCGlyph = if (cleanIcons) 24.dp else null // [fork] round 49
     )
 
     /** The main-row look of a side button: the four panels and Episodes as pills, the rest as round icons. */
@@ -4194,20 +4216,20 @@ private fun NuvioCCleanControlsV2(
         NuvioCOsdButton.SUBTITLES -> pill(subtitlesLabel, subtitlePainter, Icons.Default.ClosedCaption, onShowSubtitleDialog, compact)
         NuvioCOsdButton.AUDIO -> pill(audioLabel, audioPainter, Icons.AutoMirrored.Filled.VolumeUp, onShowAudioDialog, compact)
         NuvioCOsdButton.SOURCES -> pill(sourcesLabel, sourcePainter, Icons.Default.SwapHoriz, onShowSourcesPanel, compact)
-        NuvioCOsdButton.CAST -> pill(detailsLabel, null, Icons.Default.Info, { castState?.open = true }, compact)
+        NuvioCOsdButton.CAST -> pill(detailsLabel, detailsPainter, Icons.Default.Info, { castState?.open = true }, compact)
         NuvioCOsdButton.EPISODES -> pill(episodesLabel, episodesPainter, Icons.AutoMirrored.Filled.List, onShowEpisodesPanel, compact)
-        NuvioCOsdButton.CHAPTERS -> { { icon(Icons.AutoMirrored.Filled.Toc, labels.getValue(b), onShowChaptersPanel) } }
-        NuvioCOsdButton.SPEED -> { { icon(Icons.Default.Speed, labels.getValue(b), onShowSpeedDialog) } }
-        NuvioCOsdButton.ASPECT -> { { icon(Icons.Default.AspectRatio, labels.getValue(b), onToggleAspectRatio) } }
-        NuvioCOsdButton.ENGINE -> { { icon(Icons.Default.SwapHoriz, labels.getValue(b), onSwitchEngine) } }
-        NuvioCOsdButton.EXTERNAL -> if (onOpenInExternalPlayer != null) { { icon(Icons.AutoMirrored.Filled.OpenInNew, labels.getValue(b), onOpenInExternalPlayer) } } else null
-        NuvioCOsdButton.INFO -> { { icon(Icons.Default.Info, labels.getValue(b), onShowStreamInfo, focusRequester = streamInfoFocusRequester) } }
+        NuvioCOsdButton.CHAPTERS -> { { icon(Icons.AutoMirrored.Filled.Toc, labels.getValue(b), onShowChaptersPanel, painter = chaptersPainter) } }
+        NuvioCOsdButton.SPEED -> { { icon(Icons.Default.Speed, labels.getValue(b), onShowSpeedDialog, painter = speedPainter) } }
+        NuvioCOsdButton.ASPECT -> { { icon(Icons.Default.AspectRatio, labels.getValue(b), onToggleAspectRatio, painter = aspectPainter) } }
+        NuvioCOsdButton.ENGINE -> { { icon(Icons.Default.SwapHoriz, labels.getValue(b), onSwitchEngine, painter = enginePainter) } }
+        NuvioCOsdButton.EXTERNAL -> if (onOpenInExternalPlayer != null) { { icon(Icons.AutoMirrored.Filled.OpenInNew, labels.getValue(b), onOpenInExternalPlayer, painter = externalPainter) } } else null
+        NuvioCOsdButton.INFO -> { { icon(Icons.Default.Info, labels.getValue(b), onShowStreamInfo, painter = streamInfoPainter, focusRequester = streamInfoFocusRequester) } }
         NuvioCOsdButton.AUTO_SKIP -> if (autoSkip != null) { {
-            icon(Icons.Default.FastForward, autoSkipLabel, autoSkip.toggle,
+            icon(Icons.Default.FastForward, autoSkipLabel, autoSkip.toggle, painter = autoSkipPainter,
                 label = stringResource(if (autoSkip.on) R.string.nuvio_c_auto_skip_intro_on else R.string.nuvio_c_auto_skip_intro_off),
                 tint = if (autoSkip.on) NuvioTheme.colors.Secondary else Color.White)
         } } else null
-        NuvioCOsdButton.PARTY -> if (onShowPartyPanel != null) { { icon(Icons.Rounded.Groups, partyLabel, onShowPartyPanel, tint = if (partyActive) NuvioTheme.colors.Secondary else Color.White) } } else null
+        NuvioCOsdButton.PARTY -> if (onShowPartyPanel != null) { { icon(Icons.Rounded.Groups, partyLabel, onShowPartyPanel, painter = partyPainter, tint = if (partyActive) NuvioTheme.colors.Secondary else Color.White) } } else null
         NuvioCOsdButton.REPORT -> { {
             ReportControlButton(
                 reportId = uiState.playbackIssueReportId, showReportId = reportCodeVisible, onClick = onReportPlaybackIssue,
@@ -4253,7 +4275,7 @@ private fun NuvioCCleanControlsV2(
                 AspectMode.entries.map { m -> NuvioCMoreOption(aspectLabels.getValue(m), m == uiState.aspectMode) { viewModel.onEvent(PlayerEvent.OnNuvioCSetAspectMode(m)) } }
             ))
         }
-        if (com.nuvio.tv.NuvioCFeatures.NIGHT_MODE && nightActive) add(NuvioCMoreItem.Choice(
+        if (com.nuvio.tv.NuvioCFeatures.NIGHT_MODE && nightActive && !com.nuvio.tv.NuvioCFeatures.CLEAN_MORE_NO_NIGHT) add(NuvioCMoreItem.Choice( // [fork] round 49: Audio panel only
             "night", nightLabel, secPlayback, nightLabels.getValue(nightLevel),
             com.nuvio.tv.data.local.NightModeLevel.entries.map { l -> NuvioCMoreOption(nightLabels.getValue(l), l == nightLevel) { viewModel.controller.nuvioCApplyNightMode(l) } }
         ))
@@ -4312,12 +4334,12 @@ private fun NuvioCCleanControlsV2(
         },
         centre = {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(36.dp)) {
+                Box(Modifier.size(iconButtonSize)) {
                     if (startOverAvailable && zoneOf(NuvioCOsdButton.START_OVER) == NuvioCCleanZone.CENTRE) {
                         val prev = previous
                         icon(
                             androidx.compose.material.icons.Icons.Default.RestartAlt, labels.getValue(NuvioCOsdButton.START_OVER), startOver,
-                            painter = if (com.nuvio.tv.NuvioCFeatures.START_OVER_ICON) androidx.compose.ui.res.painterResource(R.drawable.nuvio_c_ic_start_over) else null,
+                            painter = startOverPainter ?: if (com.nuvio.tv.NuvioCFeatures.START_OVER_ICON) androidx.compose.ui.res.painterResource(R.drawable.nuvio_c_ic_start_over) else null,
                             label = if (prevArmed && prev != null) stringResource(R.string.nuvio_c_previous_episode, prev.season ?: 0, prev.episode ?: 0) else null
                         )
                     }
@@ -4331,22 +4353,24 @@ private fun NuvioCCleanControlsV2(
                     upFocusRequester = progressUpTarget,
                     onDownKey = onHideControls,
                     onFocused = onResetHideTimer,
-                    nuvioCSize = 48.dp
+                    nuvioCSize = if (cleanIcons) 52.dp else 48.dp,
+                    nuvioCGlyph = if (cleanIcons) 30.dp else null // [fork] round 49
                 )
-                Box(Modifier.size(36.dp)) {
-                    if (showNext && zoneOf(NuvioCOsdButton.NEXT) == NuvioCCleanZone.CENTRE) icon(Icons.Default.SkipNext, labels.getValue(NuvioCOsdButton.NEXT), onPlayNextEpisode, label = nuvioCNextLabel(uiState.nextEpisode, labels.getValue(NuvioCOsdButton.NEXT))) /* [fork] round 48 */
+                Box(Modifier.size(iconButtonSize)) {
+                    if (showNext && zoneOf(NuvioCOsdButton.NEXT) == NuvioCCleanZone.CENTRE) icon(Icons.Default.SkipNext, labels.getValue(NuvioCOsdButton.NEXT), onPlayNextEpisode, painter = nextPainter, label = nuvioCNextLabel(uiState.nextEpisode, labels.getValue(NuvioCOsdButton.NEXT))) /* [fork] round 48 */
                 }
             }
         },
         right = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
-                val items = rightButtons.mapNotNull { sideButton(it, rightCompact) }
+                val rightIcons = rightCompact || com.nuvio.tv.NuvioCFeatures.CLEAN_RIGHT_ICONS // [fork] round 49: icons only on the right
+                val items = rightButtons.mapNotNull { sideButton(it, rightIcons) }
                 NuvioCCleanFitRow(
-                    keys = rightButtons.map { it.key } + "compact=$rightCompact", gap = 8.dp, modifier = Modifier.weight(1f, fill = false),
-                    onFit = { n -> if (n < items.size && !rightCompact) rightCompact = true else if (n != rightFit) rightFit = n }, items = items
+                    keys = rightButtons.map { it.key } + "compact=$rightIcons", gap = 8.dp, modifier = Modifier.weight(1f, fill = false),
+                    onFit = { n -> if (n < items.size && !rightIcons) rightCompact = true else if (n != rightFit) rightFit = n }, items = items
                 )
                 if (moreItems.isNotEmpty()) icon(
-                    Icons.Default.Settings, moreLabel, { sheet.open = true },
+                    Icons.Default.Settings, moreLabel, { sheet.open = true }, painter = morePainter,
                     focusRequester = if (infoOnSide) gearFocus else streamInfoFocusRequester
                 )
             }
@@ -4532,7 +4556,8 @@ private fun ControlButton(
     onFocused: (() -> Unit)? = null,
     contentColor: Color = Color.White,
     nuvioCLabel: String? = null, // [fork] name shown under the button while focused (default: contentDescription)
-    nuvioCSize: androidx.compose.ui.unit.Dp? = null // [fork] round 46 osd_clean: the larger Play / Pause
+    nuvioCSize: androidx.compose.ui.unit.Dp? = null, // [fork] round 46 osd_clean: the larger Play / Pause
+    nuvioCGlyph: androidx.compose.ui.unit.Dp? = null // [fork] round 49 clean_icons: icon size inside the button (default: scales with nuvioCSize)
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val nuvioCFocus = LocalNuvioCFocusMemory.current // [fork] focus returns here after its panel closes
@@ -4592,13 +4617,13 @@ private fun ControlButton(
             Icon(
                 painter = iconPainter,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(nuvioCSize?.let { it * 0.5f } ?: NuvioTheme.spacing.xl) // [fork] 46b: scales with a set size
+                modifier = Modifier.size(nuvioCGlyph ?: nuvioCSize?.let { it * 0.5f } ?: NuvioTheme.spacing.xl) // [fork] 46b: scales with a set size; round 49: or set
             )
         } else {
             Icon(
                 imageVector = icon,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(nuvioCSize?.let { it * 0.55f } ?: 28.dp) // [fork] 46b
+                modifier = Modifier.size(nuvioCGlyph ?: nuvioCSize?.let { it * 0.55f } ?: 28.dp) // [fork] 46b; round 49
             )
         }
     }
@@ -5872,3 +5897,8 @@ private fun PlayerBufferingIndicator(
 }
 
 private const val OSD_LOGO_START_DELAY_MS = 6_000L // [fork]
+
+/** [fork] round 49 clean_icons: a Clean row icon from the Material Symbols Rounded set, or null when the switch is off. */
+@Composable
+private fun nuvioCCleanIcon(@androidx.annotation.DrawableRes id: Int): androidx.compose.ui.graphics.painter.Painter? =
+    if (com.nuvio.tv.NuvioCFeatures.CLEAN_ICONS) androidx.compose.ui.res.painterResource(id) else null

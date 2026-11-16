@@ -7,7 +7,7 @@ Nuvio C is a personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV)
 ## Highlights
 
 ### Playback
-- **Two control layouts.** Choose Nuvio C or Clean in Settings > Playback. Clean is compact: Subtitles and Audio on the left, Play always in the centre of the screen, Sources, Details and Episodes on the right, and everything else behind a More icon with current values. Each layout keeps its own button order, and Clean never lets a crowded side reach the centre.
+- **Two control layouts.** Choose Nuvio C or Clean in Settings > Playback. Clean is compact, with one set of rounded icons: Subtitles and Audio pills on the left, Play always in the centre of the screen, icon-only Sources, Details and Episodes on the right (each named under it on focus), and everything else behind a More icon with current values. Each layout keeps its own button order, and Clean never lets a crowded side reach the centre.
 - **Quick chapter skips.** With the seek bar focused, press Left or Right twice quickly to jump to the previous or next chapter; the focused Next button names the episode it plays. In Clean the time sits above the seek bar, and both layouts get deeper shading behind the controls for bright scenes.
 - **Stream info on any remote.** The stream information page always offers its HUD button, so boxes without an Info key reach it too.
 - **Information-rich controls.** Title logo plus resolution, HDR / Dolby Vision, audio (Dolby Atmos spelled out), source and file-size badges, a slimmer high-contrast seek bar and a label under the focused button.
