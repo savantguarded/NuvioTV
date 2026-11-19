@@ -894,4 +894,6 @@ object NuvioCFeatures {
     const val DECODED_SURROUND = true
     /** Featured carousel tags v2: films get Up next (minutes left), New on digital / On digital soon, In cinemas, Your rating, collection progress, a director you watch, In your library, round anniversaries; shows add 3 new episodes since you stopped, Up next S/E, Your rating, Complete. A film with nothing special has no tag. Per profile, no new requests except a film's collection (cached). Off = round 51 tags. */
     const val FEATURED_TAGS_V2 = true
+    /** Home: Down from the Featured carousel into Continue Watching is one 300 ms crossfade (the carousel lifts a little and fades while the rows rise and the CW hero fades in); Up reverses it. Off = round 51 slide. */
+    const val CAROUSEL_CW_FADE = true
 }

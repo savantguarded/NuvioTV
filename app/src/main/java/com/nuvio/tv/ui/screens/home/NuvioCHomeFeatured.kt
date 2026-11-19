@@ -317,7 +317,10 @@ internal fun NuvioCFeaturedGate(
     }
 }
 
-private val SLIDE_MS = if (com.nuvio.tv.NuvioCFeatures.FEATURED_FAST_FOCUS) 260 else 380
+private val SLIDE_MS = if (com.nuvio.tv.NuvioCFeatures.CAROUSEL_CW_FADE) 300 else if (com.nuvio.tv.NuvioCFeatures.FEATURED_FAST_FOCUS) 260 else 380
+
+/** [fork] round 52 carousel_cw_fade: how far (share of its height) the carousel rises while it fades. */
+private const val CAROUSEL_FADE_LIFT = 0.18f
 private val PEEK = 76.dp
 private val FEATURED_TOP_SAFE = 40.dp // [fork] featured_synopsis_six: the text block never rises above this
 internal const val FEATURED_SYNOPSIS_LINES = 6
@@ -586,7 +589,9 @@ private fun NuvioCFeaturedHome(
                 .graphicsLayer { translationY = (1f - progress.value) * rowsDropPx }
                 .drawWithContent {
                     val p = progress.value
-                    if (p >= 1f) {
+                    if (p >= 1f || (com.nuvio.tv.NuvioCFeatures.CAROUSEL_CW_FADE && p > 0f)) {
+                        // [fork] round 52 carousel_cw_fade: while moving, the rows are drawn whole under the fading
+                        // carousel, so the Continue Watching hero fades in where the carousel fades out (no black gap)
                         drawContent()
                     } else {
                         // Carousel bottom edge, in Modern's own (dropped) coordinates.
@@ -634,8 +639,16 @@ private fun NuvioCFeaturedHome(
                     .fillMaxWidth()
                     .height(carouselHeight)
                     .graphicsLayer {
-                        translationY = -progress.value * carouselHeightPx
-                        alpha = reveal.value // [fork] featured_cold_start: 1 except during the one first fade-in
+                        if (com.nuvio.tv.NuvioCFeatures.CAROUSEL_CW_FADE) {
+                            // [fork] round 52 carousel_cw_fade: a short lift and a fade instead of sliding the whole
+                            // carousel off the top; gone at 70 % of the move so the two never sit at half strength
+                            val p = progress.value
+                            translationY = -p * carouselHeightPx * CAROUSEL_FADE_LIFT
+                            alpha = reveal.value * (1f - p / 0.7f).coerceIn(0f, 1f)
+                        } else {
+                            translationY = -progress.value * carouselHeightPx
+                            alpha = reveal.value // [fork] featured_cold_start: 1 except during the one first fade-in
+                        }
                     }
                     .drawWithContent { if (progress.value < 1f) drawContent() }
                     .background(NuvioTheme.colors.Background)
