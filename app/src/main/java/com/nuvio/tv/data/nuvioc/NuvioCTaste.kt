@@ -542,6 +542,30 @@ class NuvioCTasteRepository @Inject constructor(
         computeTasteWrapped(i.history, titles(), year, ZoneId.systemDefault())
     }
 
+    // ---- [fork] round 53 taste_tabs_v2: Overview, Stats strip and the year view (active profile only) ----------
+
+    private fun windowFor(range: NuvioCTasteRange, month: java.time.YearMonth?, now: Long, zone: ZoneId): LongRange =
+        month?.let { tasteMonthWindow(it, zone) } ?: rangeWindow(range, now, zone)
+
+    suspend fun overview(range: NuvioCTasteRange, month: java.time.YearMonth?): NuvioCTasteOverview? = withContext(Dispatchers.Default) {
+        val i = inputs?.takeIf { it.profile == profiles.activeProfileId.value } ?: return@withContext null
+        val zone = ZoneId.systemDefault()
+        val now = System.currentTimeMillis()
+        computeTasteOverview(i.history, titles(), windowFor(range, month, now, zone), now, zone)
+    }
+
+    suspend fun statsStrip(range: NuvioCTasteRange, month: java.time.YearMonth?): NuvioCTasteStatsStrip? = withContext(Dispatchers.Default) {
+        val i = inputs?.takeIf { it.profile == profiles.activeProfileId.value } ?: return@withContext null
+        val zone = ZoneId.systemDefault()
+        computeTasteStatsStrip(i.history, titles(), windowFor(range, month, System.currentTimeMillis(), zone))
+    }
+
+    suspend fun year(year: Int): NuvioCTasteYear? = withContext(Dispatchers.Default) {
+        val i = inputs?.takeIf { it.profile == profiles.activeProfileId.value } ?: return@withContext null
+        val zone = ZoneId.systemDefault()
+        computeTasteYear(i.history, titles(), i.scores, year, zone, tasteWrappedYears(i.history, zone))
+    }
+
     // ---- [fork] round 41 ------------------------------------------------------------------------------------
 
     /**

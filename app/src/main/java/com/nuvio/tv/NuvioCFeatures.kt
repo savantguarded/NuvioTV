@@ -920,4 +920,38 @@ object NuvioCFeatures {
     const val CALENDAR_RULES = true
     /** More settings travel with the Nuvio profile: the night mode schedule (on, from, until, level) and the profile's Roulette choices (mood, kind, watched filter, Refine). A profile whose entry lacks a key keeps this TV's value, which is then saved into that profile (the one-time copy). Off = round 51 list. */
     const val CLOUD_SETTINGS_MORE = true
+
+    // [fork] round 53
+    /** Taste: one header row (avatar + large profile name, tabs Overview / Discover / Stats / Wrapped, range All time / This year / Month on every tab but Wrapped, which gets a Year dropdown); compact Overview cards (no rewatches); Stats = patterns only; Discover with Spin on its own card and round faces, focus kept after Back; Wrapped with aligned ranks and no gaps. Pages with nothing to press have no hidden focus stop. Off = round 52 tabs. */
+    const val TASTE_TABS_V2 = true
+    /** Modern sidebar: Up from the first item goes straight to the profile, so a held Up never crosses the gap into a page's top row (Calendar, Roulette, Taste) and closes the sidebar. Off = plain focus move. */
+    const val SIDEBAR_UP_PROFILE = true
+    /** Sidebar: a held Left (key repeat) stops at a page's left edge on every page; a fresh Left press opens the sidebar. Off = Roulette only. */
+    const val SIDEBAR_HOLD_LEFT_STOPS = true
+    /** Modern track panels: 372 dp, 55% see-through with a text shadow, Subtitles = Tracks / Style (no Language tab), every track two lines (language; type · format · source), Style labels named in full (Background opacity, Drop shadow opacity, Drop shadow size...), Up to the tabs keeps focus on the active tab. Off = round 52 panels. */
+    const val TRACK_PANELS_V3 = true
+    /** Modern OSD and More: the Info button opens the HUD panel only; the remote's INFO key still opens official stream info. Off = Info opens stream info. */
+    const val MODERN_INFO_HUD = true
+    /** Modern OSD: button glow drawn once and only on the focused button (no blur redrawn on every button every frame). Off = round 51 glow. */
+    const val OSD_GLOW_LEAN = true
+    /** Profile picker: with the built-in background on, official's background link is never loaded (no flash before ours); the saved picture shows at once, black if none; a custom link is used only when the pool is empty. Off = round 52. */
+    const val PROFILE_BG_NO_URL_FLASH = true
+    /** Profile picker pool: TMDB trending (day + week) plus popular US films and shows, about 60 to 80 titles, a shuffled deck per profile (no repeat until the deck is used up). Off = trending day top 16. */
+    const val PROFILE_BG_POOL_WIDE = true
+    /** Profile picker: title block shows logo / title then year · genres (no rank), tight; a darker left side and bottom fade so the profiles always read. Off = round 52 block. */
+    const val PROFILE_BG_TEXT_V2 = true
+    /** Calendar List: tags (New show, Premiere...) sit on line two before the episode, so every row is two lines; line two scrolls on focus. Off = tag on its own line. */
+    const val CALENDAR_TAG_LINE2 = true
+    /** Audio, while some formats are switched off (decoded on the TV): a larger PCM output buffer (0.5 to 1 s instead of 0.25 to 0.75 s; passthrough untouched), the lift's state kept through a flush with the same format (no dip after a seek), a 25 ms fade-in after a flush, and an `NuvioCAudio` log line per AudioTrack underrun. "Surround channels" stays the user's choice (Charles's tests showed no link to the dropouts). Off = round 52. */
+    const val DECODED_AUDIO_STEADY = true
+    /** Audio: "Formats sent to the soundbar" switches are kept per profile on this TV (never synced); today's values are copied once into each profile; the player reads the active profile's at playback start. Off = one set for the TV. */
+    const val PASSTHROUGH_PER_PROFILE = true
+    /** Poster glow on every poster in the app, including Roulette shuffle and Library shuffle; inside a Nuvio Collection the collection's own glow setting wins. Off = round 51 places. */
+    const val POSTER_GLOW_EVERYWHERE = true
+    /** Details: "Trakt" and "Comments" in the comments heading share one baseline. Off = centred. */
+    const val TRAKT_COMMENTS_BASELINE = true
+    /** Featured carousel: your rating tag reads "YOUR RATING 8/10" with no star. Off = star + number. */
+    const val FEATURED_RATING_PLAIN = true
+    /** Details Information: every slot always in the same place, a dash when empty; only the Parental guidance band is left out when it has no data. Off = round 52 (empty slots hidden). */
+    const val DETAIL_INFO_DASHES = true
 }

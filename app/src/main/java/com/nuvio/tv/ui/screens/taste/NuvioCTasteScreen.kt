@@ -135,6 +135,37 @@ class NuvioCTasteViewModel @Inject constructor(
         }
     }
 
+    // ---- [fork] round 53 taste_tabs_v2 -----------------------------------------------------------------------
+    private val _overview = MutableStateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteOverview?>(null)
+    val overview: StateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteOverview?> = _overview.asStateFlow()
+    private val _strip = MutableStateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteStatsStrip?>(null)
+    val strip: StateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteStatsStrip?> = _strip.asStateFlow()
+    private val _year = MutableStateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteYear?>(null)
+    val year: StateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteYear?> = _year.asStateFlow()
+    /** The range picked on Overview / Discover / Stats, kept for the whole visit (all three tabs share it). */
+    var tasteRange by mutableStateOf(NuvioCTasteRange.ALL)
+    var tasteMonth by mutableStateOf<java.time.YearMonth?>(null)
+    var tasteYear by mutableStateOf<Int?>(null)
+    /** The Discover item last opened, so Back lands on it again. */
+    var discoverFocusKey: String? = null
+    var discoverListState = androidx.compose.foundation.lazy.LazyListState()
+
+    fun loadRound53(range: NuvioCTasteRange, month: java.time.YearMonth?) {
+        viewModelScope.launch {
+            _overview.value = repository.overview(range, month)
+            _strip.value = repository.statsStrip(range, month)
+        }
+    }
+
+    fun loadYear(year: Int?) {
+        viewModelScope.launch {
+            val years = repository.wrappedYears()
+            _wrappedYears.value = years
+            val y = year?.takeIf { it in years } ?: years.firstOrNull()
+            _year.value = y?.let { repository.year(it) }
+        }
+    }
+
     fun open(force: Boolean = false) {
         // [fork] round 42 taste_profile_strict: nothing from another profile's visit is reused on this page
         val profileNow = profiles.activeProfileId.value
@@ -143,6 +174,7 @@ class NuvioCTasteViewModel @Inject constructor(
                 opened = false
                 _rows.value = emptyList(); _review.value = null; _panel.value = null; _monthData.value = null; _live.value = null
                 _facts.value = null; _wrapped.value = null; _wrappedYears.value = emptyList(); tasteTab = 0 // [fork] round 52
+                _overview.value = null; _strip.value = null; _year.value = null; tasteRange = NuvioCTasteRange.ALL; tasteMonth = null; tasteYear = null; discoverFocusKey = null; discoverListState = androidx.compose.foundation.lazy.LazyListState() // [fork] round 53
                 memories.clear(); spotlightCache.clear(); changedIds = emptySet(); lastArea = null; monthFrom = null; panelFrom = null
                 lensFor = null; lens = null; _monthTitles.value = emptyList()
                 countUp = true
@@ -458,6 +490,10 @@ fun NuvioCTasteScreen(
     onOpenRoulette: () -> Unit,
     viewModel: NuvioCTasteViewModel = hiltViewModel()
 ) {
+    if (com.nuvio.tv.NuvioCFeatures.TASTE_TABS_V2) { // [fork] round 53: header row, Overview / Discover / Stats / Wrapped
+        NuvioCTasteTabsV2(viewModel, onOpenTitle, onOpenPerson, onOpenRoulette)
+        return
+    }
     if (com.nuvio.tv.NuvioCFeatures.TASTE_TABS) { // [fork] round 52: four tabs, each one screen
         NuvioCTasteTabs(viewModel, onOpenTitle, onOpenPerson, onOpenRoulette)
         return
