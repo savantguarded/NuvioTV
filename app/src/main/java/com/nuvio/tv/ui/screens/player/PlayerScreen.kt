@@ -8,6 +8,7 @@ package com.nuvio.tv.ui.screens.player
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.layout.boundsInWindow
 import android.graphics.RectF
+import com.nuvio.tv.ui.screens.home.NuvioCPlayerOfflineChip
 import com.nuvio.tv.ui.screens.detail.formatPlaybackTime
 // Nuvio C imports
 import androidx.compose.runtime.derivedStateOf
@@ -1876,6 +1877,7 @@ fun PlayerScreen(
             AspectRatioIndicator(text = uiState.aspectRatioIndicatorText)
         }
 
+        NuvioCPlayerOfflineChip() // [fork] round 52 offline_everywhere
         NuvioCNightToast( // [fork] round 34 night_schedule
             ready = !uiState.showLoadingOverlay,
             hdrDim = nuvioCHdr,

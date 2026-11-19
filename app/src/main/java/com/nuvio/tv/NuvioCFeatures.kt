@@ -902,4 +902,6 @@ object NuvioCFeatures {
     const val TRACK_PANELS_V2 = true
     /** Taste: four tabs, each one screen that never scrolls: Overview (totals, split, streak, facts; All time / This year / a month), Charts (when you watch, ratings, genres, decades, studios), Discover (Spin my taste, two rows from your taste, faces you watch most) and Wrapped (any year with 10+ titles). Per profile; a new profile sees Overview only, a light one what it has data for. Off = round 47 page. */
     const val TASTE_TABS = true
+    /** Offline outside Home: a small "No internet" chip in the player's top corner ("Back online" for 2 s after), and on a cold start with no internet and nothing saved a full-screen message with Network settings and Try again that carries on by itself. Off = Home notice only. */
+    const val OFFLINE_EVERYWHERE = true
 }

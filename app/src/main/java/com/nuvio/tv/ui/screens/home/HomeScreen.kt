@@ -277,6 +277,12 @@ fun HomeScreen(
         modifier = Modifier.fillMaxSize()
     ) {
         NuvioCOfflineNotice(onBackOnline = { viewModel.onEvent(HomeEvent.OnRetry) }) // [fork] offline_home
+        // [fork] round 52 offline_everywhere: cold start with no internet and nothing saved = one clear message
+        val nuvioCOnline by rememberNuvioCOnline()
+        if (com.nuvio.tv.NuvioCFeatures.OFFLINE_EVERYWHERE && !nuvioCOnline && !hasAnyContent && uiState.layoutPreferencesReady) {
+            NuvioCOfflineColdStart(onRetry = { viewModel.onEvent(HomeEvent.OnRetry) })
+            return@Box
+        }
         when {
             !uiState.layoutPreferencesReady -> {
                 Unit

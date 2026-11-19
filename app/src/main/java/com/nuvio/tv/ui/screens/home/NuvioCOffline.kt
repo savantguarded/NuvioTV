@@ -10,7 +10,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -37,7 +39,7 @@ import com.nuvio.tv.R
 // back Home reloads by itself. The Featured carousel letting the rows take focus when it has no titles is in
 // NuvioCHomeFeatured.kt.
 
-private fun Context.nuvioCOnline(): Boolean {
+internal fun Context.nuvioCOnline(): Boolean {
     val cm = getSystemService(ConnectivityManager::class.java) ?: return true
     val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
     return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
@@ -96,3 +98,96 @@ internal fun BoxScope.NuvioCOfflineNotice(onBackOnline: () -> Unit) {
         }
     }
 }
+
+
+// ---- [fork] Nuvio C round 52 offline_everywhere ---------------------------------------------------------------
+
+/** Live "has internet" state for any screen; follows the default network. */
+@Composable
+internal fun rememberNuvioCOnline(): androidx.compose.runtime.State<Boolean> {
+    val context = LocalContext.current
+    val online = remember { mutableStateOf(context.nuvioCOnline()) }
+    DisposableEffect(context) {
+        val cm = context.getSystemService(ConnectivityManager::class.java)
+        val main = android.os.Handler(android.os.Looper.getMainLooper())
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onAvailable(network: Network) { main.post { online.value = true } }
+            override fun onLost(network: Network) { main.post { online.value = context.nuvioCOnline() } }
+        }
+        runCatching { cm?.registerDefaultNetworkCallback(callback) }
+        onDispose { runCatching { cm?.unregisterNetworkCallback(callback) } }
+    }
+    return online
+}
+
+/**
+ * Player: a small chip in the top corner while the connection is gone ("No internet"), "Back online" for 2 s when it
+ * returns. Never focusable. The stream itself keeps retrying its buffering on its own as before.
+ */
+@Composable
+fun BoxScope.NuvioCPlayerOfflineChip() {
+    if (!NuvioCFeatures.OFFLINE_EVERYWHERE) return
+    val online by rememberNuvioCOnline()
+    var showBack by remember { mutableStateOf(false) }
+    var wasOffline by remember { mutableStateOf(!online) }
+    androidx.compose.runtime.LaunchedEffect(online) {
+        if (!online) { wasOffline = true; showBack = false }
+        else if (wasOffline) { wasOffline = false; showBack = true; kotlinx.coroutines.delay(2_000); showBack = false }
+    }
+    AnimatedVisibility(
+        visible = !online || showBack,
+        enter = fadeIn(),
+        exit = fadeOut(),
+        modifier = Modifier.align(Alignment.TopEnd).padding(top = 24.dp, end = 32.dp).zIndex(20f)
+    ) {
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(Color.Black.copy(alpha = 0.72f)).padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(Modifier.padding(end = 8.dp).clip(RoundedCornerShape(4.dp)).background(if (online) Color(0xFF3ECF8E) else Color(0xFFFFB27A)).padding(4.dp))
+            Text(
+                text = stringResource(if (online) R.string.nuvio_c_back_online else R.string.nuvio_c_offline_chip),
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White.copy(alpha = 0.9f)
+            )
+        }
+    }
+}
+
+/**
+ * Home on a cold start with no internet and nothing saved on this TV: one full-screen message with Network settings
+ * and Try again. When the connection comes back Home carries on by itself (no press needed).
+ */
+@Composable
+internal fun NuvioCOfflineColdStart(onRetry: () -> Unit) {
+    val context = LocalContext.current
+    val first = remember { androidx.compose.ui.focus.FocusRequester() }
+    androidx.compose.runtime.LaunchedEffect(Unit) { runCatching { first.requestFocus() } }
+    androidx.compose.foundation.layout.Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center
+    ) {
+        Text(stringResource(R.string.nuvio_c_offline_cold_title), style = MaterialTheme.typography.headlineSmall, color = Color.White)
+        Text(
+            stringResource(R.string.nuvio_c_offline_cold_sub),
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.White.copy(alpha = 0.65f),
+            modifier = Modifier.padding(top = 8.dp, bottom = 20.dp)
+        )
+        androidx.compose.foundation.layout.Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)) {
+            androidx.tv.material3.Button(
+                onClick = {
+                    runCatching {
+                        context.startActivity(android.content.Intent(android.provider.Settings.ACTION_WIFI_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                    }.onFailure {
+                        runCatching { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                    }
+                },
+                modifier = Modifier.focusRequester(first)
+            ) { Text(stringResource(R.string.nuvio_c_offline_settings)) }
+            androidx.tv.material3.Button(onClick = onRetry) { Text(stringResource(R.string.nuvio_c_offline_retry)) }
+        }
+    }
+}
+
