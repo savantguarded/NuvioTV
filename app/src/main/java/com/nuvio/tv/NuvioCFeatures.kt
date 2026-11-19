@@ -882,4 +882,6 @@ object NuvioCFeatures {
     const val FEATURED_ARROWS_SPLIT = true
     /** Modern OSD right pill: painted, not clipped, 3 dp around 40 dp buttons and no zoom inside it, so the focused button, its glow and its name under the row are never cut. Off = round 51 clipped pill. */
     const val CLEAN_PILL_FOCUS_FIT = true
+    /** Cast page: All / Movies (count) / Shows (count) chips sit on the right of the "Filmography" line, so posters and titles are never cut; a new filter starts the row at its first poster and the chip keeps focus. Off = round 51 chip row above the posters. */
+    const val FILMOGRAPHY_CHIPS_INLINE = true
 }

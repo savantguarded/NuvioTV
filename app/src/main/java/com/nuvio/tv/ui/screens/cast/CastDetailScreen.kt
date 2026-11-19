@@ -288,15 +288,28 @@ private fun CastDetailContent(
                     Column {
                         var nuvioCFilter by rememberSaveable { mutableStateOf(NuvioCFilmographyFilter.ALL) } // [fork] round 51 filmography_filter
                         val shownCredits = if (com.nuvio.tv.NuvioCFeatures.FILMOGRAPHY_FILTER) nuvioCFilterCredits(allCredits, nuvioCFilter) else allCredits
+                        val nuvioCHasBoth = com.nuvio.tv.NuvioCFeatures.FILMOGRAPHY_FILTER && allCredits.any { it.apiType == "movie" } && allCredits.any { it.apiType != "movie" }
+                        val nuvioCInline = nuvioCHasBoth && com.nuvio.tv.NuvioCFeatures.FILMOGRAPHY_CHIPS_INLINE // [fork] round 52
+                        var nuvioCUserFiltered by remember { mutableStateOf(false) } // [fork] round 52: no auto-focus jump after a filter change
                         SectionHeader(
                             title = stringResource(R.string.cast_detail_filmography),
                             count = shownCredits.size,
-                            nuvioCCompact = nuvioCLayout // [fork]
+                            nuvioCCompact = nuvioCLayout, // [fork]
+                            trailing = if (nuvioCInline) { // [fork] round 52 filmography_chips_inline: chips on the header line, right side
+                                {
+                                    NuvioCFilmographyFilterRow(
+                                        nuvioCFilter, { nuvioCUserFiltered = true; nuvioCFilter = it }, firstPosterFocusRequester,
+                                        counts = nuvioCFilmographyCounts(allCredits), inline = true
+                                    )
+                                }
+                            } else null
                         )
-                        if (com.nuvio.tv.NuvioCFeatures.FILMOGRAPHY_FILTER && allCredits.any { it.apiType == "movie" } && allCredits.any { it.apiType != "movie" }) {
+                        if (nuvioCHasBoth && !nuvioCInline) {
                             NuvioCFilmographyFilterRow(nuvioCFilter, { nuvioCFilter = it }, firstPosterFocusRequester)
                         }
+                        androidx.compose.runtime.key(if (com.nuvio.tv.NuvioCFeatures.FILMOGRAPHY_CHIPS_INLINE) nuvioCFilter else Unit) { // [fork] round 52: a new filter starts the row at its first poster
                         FilmographyRow(
+                            nuvioCAutoFocus = !nuvioCUserFiltered, // [fork] round 52
                             credits = shownCredits,
                             nuvioCRoleLines = person.nuvioCRoleLines, // [fork] role / job under each title
                             posterCardStyle = filmographyPosterStyle,
@@ -313,6 +326,7 @@ private fun CastDetailContent(
                             },
                             isItemWatched = isItemWatched
                         )
+                        } // [fork] round 52 key(filter)
                     }
                 }
             }
@@ -554,7 +568,7 @@ private fun HeroSection(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun SectionHeader(title: String, count: Int, nuvioCCompact: Boolean = false) { // [fork] nuvioCCompact
+private fun SectionHeader(title: String, count: Int, nuvioCCompact: Boolean = false, trailing: (@Composable () -> Unit)? = null) { // [fork] nuvioCCompact; round 52 trailing
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -584,6 +598,10 @@ private fun SectionHeader(title: String, count: Int, nuvioCCompact: Boolean = fa
                 )
                 .padding(horizontal = NuvioTheme.spacing.sm, vertical = NuvioTheme.spacing.xxs)
         )
+        if (trailing != null) { // [fork] round 52
+            Spacer(modifier = Modifier.weight(1f))
+            trailing()
+        }
     }
 }
 
@@ -599,9 +617,10 @@ private fun FilmographyRow(
     onItemClick: (MetaPreview) -> Unit,
     onItemLongPress: (MetaPreview) -> Unit = {},
     isItemWatched: (MetaPreview) -> Boolean = { false },
-    nuvioCRoleLines: Map<String, String> = emptyMap() // [fork]
+    nuvioCRoleLines: Map<String, String> = emptyMap(), // [fork]
+    nuvioCAutoFocus: Boolean = true // [fork] round 52: false after the viewer changed the filter (focus stays on the chip)
 ) {
-    val hasRequestedInitialFocus = remember(credits) { mutableStateOf(false) }
+    val hasRequestedInitialFocus = remember(credits) { mutableStateOf(!nuvioCAutoFocus) }
     // [fork] Nuvio C: own title + role lines under the poster (not in landscape-poster mode)
     val nuvioCLines = com.nuvio.tv.NuvioCFeatures.CAST_ACTING_ONLY && nuvioCRoleLines.isNotEmpty() &&
         !com.nuvio.tv.ui.components.LocalLandscapePosterMode.current
