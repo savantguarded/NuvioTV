@@ -31,7 +31,9 @@ data class NuvioCFeaturedInfo(
     val tagline: String? = null,
     val releaseDate: String? = null,
     val latestSeason: Int? = null,
-    val latestSeasonAirDate: String? = null
+    val latestSeasonAirDate: String? = null,
+    /** [fork] round 51 featured_context_tags: the one contextual line above the logo ("NEW EPISODE TODAY · 9:00 PM"), or null. */
+    val contextTag: String? = null
 )
 
 @Module

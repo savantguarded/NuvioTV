@@ -12,4 +12,5 @@
     <string name="nuvio_c_featured_rank">#%1$d in %2$s</string>
     <string name="nuvio_c_featured_new">New</string>
     <string name="nuvio_c_featured_new_season">New season</string>
+    <string name="nuvio_c_featured_previous">Previous title</string>
 </resources>

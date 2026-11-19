@@ -289,7 +289,7 @@ private fun FolderCard(
             )
         ),
         scale = CardDefaults.scale(focusedScale = posterCardStyle.focusedScale),
-        glow = cardGlow
+        glow = nuvioCPosterCardGlow(fallback = cardGlow) // [fork] round 51 poster_glow: accent halo on collections too
     ) {
         Box(
             modifier = Modifier

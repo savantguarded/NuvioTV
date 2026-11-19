@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Info
@@ -338,11 +339,12 @@ private fun NuvioCFeaturedHome(
     val playRequester = remember { FocusRequester() }
     val detailsRequester = remember { FocusRequester() }
     val nextRequester = remember { FocusRequester() }
+    val previousRequester = remember { FocusRequester() } // [fork] round 51 featured_buttons
 
     var shown by rememberSaveable { mutableStateOf(true) }
     var index by rememberSaveable { mutableIntStateOf(0) }
     var activeId by rememberSaveable { mutableStateOf<String?>(null) }
-    var lastButton by rememberSaveable { mutableIntStateOf(0) } // 0 Play, 1 Details, 2 next arrow
+    var lastButton by rememberSaveable { mutableIntStateOf(0) } // 0 Play, 1 Details, 2 next arrow, 3 previous arrow (round 51)
     var rowsFocused by remember { mutableStateOf(false) }
     // [fork] round 39 home_open_carousel: only a key you pressed in the rows counts as "you moved into the rows".
     // At start-up Modern can hand its first row focus by itself (Continue Watching loads first), which used to make
@@ -362,7 +364,7 @@ private fun NuvioCFeaturedHome(
     if (coldStart) LaunchedEffect(Unit) { kotlinx.coroutines.delay(6_000); awaitExpired = true }
     val progress = remember { Animatable(if (carouselOn || awaiting) 0f else 1f) } // 0 = carousel, 1 = rows
 
-    fun buttonRequester(i: Int) = when (i) { 1 -> detailsRequester; 2 -> nextRequester; else -> playRequester }
+    fun buttonRequester(i: Int) = when (i) { 1 -> detailsRequester; 2 -> nextRequester; 3 -> previousRequester; else -> playRequester }
 
     // Same title kept when the list is rebuilt (enrichment, catalogs arriving, refresh).
     LaunchedEffect(items) {
@@ -662,6 +664,7 @@ private fun NuvioCFeaturedHome(
                     playRequester = playRequester,
                     detailsRequester = detailsRequester,
                     nextRequester = nextRequester,
+                    previousRequester = previousRequester,
                     onPlay = { play(manual = false) },
                     onPlayLongPress = playLongPress,
                     onDetails = {
@@ -682,8 +685,9 @@ private fun NuvioCFeaturedHome(
                     },
                     onPrevious = {
                         index = NuvioCFeaturedRules.previousIndex(index, items.size)
-                        lastButton = 2
-                        runCatching { nextRequester.requestFocus() }
+                        // [fork] round 51 featured_buttons: focus stays on the arrow you used
+                        lastButton = if (com.nuvio.tv.NuvioCFeatures.FEATURED_BUTTONS) 3 else 2
+                        runCatching { (if (com.nuvio.tv.NuvioCFeatures.FEATURED_BUTTONS) previousRequester else nextRequester).requestFocus() }
                     },
                     ratingsPending = { id -> coldStart && wantRatings && id !in ratingsDone }
                 )
@@ -745,6 +749,7 @@ private fun NuvioCFeaturedSlide(
     playRequester: FocusRequester,
     detailsRequester: FocusRequester,
     nextRequester: FocusRequester,
+    previousRequester: FocusRequester,
     onPlay: () -> Unit,
     onPlayLongPress: (() -> Unit)?,
     onDetails: () -> Unit,
@@ -832,7 +837,7 @@ private fun NuvioCFeaturedSlide(
             ) { slide ->
                 NuvioCFeaturedText(slide, ratings[slide.id], ratingOrder, taglines[slide.id], tagline, infos[slide.id], ratingsPending(slide.id))
             }
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(if (com.nuvio.tv.NuvioCFeatures.FEATURED_BUTTONS) 12.dp else 18.dp)) // featured_buttons: the buttons' own 6 dp of room above and below
             val label = NuvioCFeaturedRules.labelFor(cw)
             val playText = when {
                 label.season != null && label.episode != null -> stringResource(
@@ -845,10 +850,12 @@ private fun NuvioCFeaturedSlide(
             val latestNext by rememberUpdatedState(onNext)
             val latestPrevious by rememberUpdatedState(onPrevious)
             var focusedButton by remember { mutableIntStateOf(-1) }
+            val nuvioCButtons = com.nuvio.tv.NuvioCFeatures.FEATURED_BUTTONS // [fork] round 51 featured_buttons
             Row(
                 horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
+                    .then(if (nuvioCButtons) Modifier.padding(vertical = 6.dp) else Modifier) // room for the focus ring and zoom: nothing clips
                     .focusProperties { canFocus = focusable }
                     .onPreviewKeyEvent { event ->
                         if (event.type != KeyEventType.KeyDown || items.size < 2) return@onPreviewKeyEvent false
@@ -869,29 +876,59 @@ private fun NuvioCFeaturedSlide(
                         if (it.isFocused) { focusedButton = 0; onButtonFocused(0) } else if (focusedButton == 0) focusedButton = -1
                     }
                 )
-                NuvioCFeaturedDetailsButton(
-                    enabled = focusable,
-                    onClick = onDetails,
-                    modifier = Modifier
-                        .focusRequester(detailsRequester)
-                        .onFocusChanged {
-                            if (it.isFocused) { focusedButton = 1; onButtonFocused(1) } else if (focusedButton == 1) focusedButton = -1
-                        }
-                )
-                if (items.size > 1) {
-                    NuvioCFeaturedNextButton(
+                if (nuvioCButtons) {
+                    NuvioCFeaturedDetailsIcon(
                         enabled = focusable,
-                        onClick = { latestNext(false) },
+                        onClick = onDetails,
                         modifier = Modifier
-                            .focusRequester(nextRequester)
+                            .focusRequester(detailsRequester)
                             .onFocusChanged {
-                                if (it.isFocused) { focusedButton = 2; onButtonFocused(2) } else if (focusedButton == 2) focusedButton = -1
+                                if (it.isFocused) { focusedButton = 1; onButtonFocused(1) } else if (focusedButton == 1) focusedButton = -1
                             }
                     )
+                    if (items.size > 1) {
+                        Box(Modifier.width(1.dp).height(24.dp).background(Color.White.copy(alpha = 0.22f)))
+                        NuvioCFeaturedArrowPill(
+                            enabled = focusable,
+                            onPrevious = { latestPrevious() },
+                            onNext = { latestNext(false) },
+                            previousModifier = Modifier
+                                .focusRequester(previousRequester)
+                                .onFocusChanged {
+                                    if (it.isFocused) { focusedButton = 3; onButtonFocused(3) } else if (focusedButton == 3) focusedButton = -1
+                                },
+                            nextModifier = Modifier
+                                .focusRequester(nextRequester)
+                                .onFocusChanged {
+                                    if (it.isFocused) { focusedButton = 2; onButtonFocused(2) } else if (focusedButton == 2) focusedButton = -1
+                                }
+                        )
+                    }
+                } else {
+                    NuvioCFeaturedDetailsButton(
+                        enabled = focusable,
+                        onClick = onDetails,
+                        modifier = Modifier
+                            .focusRequester(detailsRequester)
+                            .onFocusChanged {
+                                if (it.isFocused) { focusedButton = 1; onButtonFocused(1) } else if (focusedButton == 1) focusedButton = -1
+                            }
+                    )
+                    if (items.size > 1) {
+                        NuvioCFeaturedNextButton(
+                            enabled = focusable,
+                            onClick = { latestNext(false) },
+                            modifier = Modifier
+                                .focusRequester(nextRequester)
+                                .onFocusChanged {
+                                    if (it.isFocused) { focusedButton = 2; onButtonFocused(2) } else if (focusedButton == 2) focusedButton = -1
+                                }
+                        )
+                    }
                 }
             }
             if (items.size > 1) {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(if (nuvioCButtons) 10.dp else 16.dp))
                 NuvioCFeaturedDots(count = items.size, active = index, timer = timer)
             }
         }
@@ -962,7 +999,13 @@ private fun NuvioCFeaturedText(
     }
     val context = LocalContext.current
     Column(verticalArrangement = Arrangement.Bottom) {
-        if (com.nuvio.tv.NuvioCFeatures.FEATURED_BADGES && NuvioCFeaturedBadgeRules.rank(NuvioCHeroSource.of(item.id)) != null) {
+        val nuvioCContextTag = if (com.nuvio.tv.NuvioCFeatures.FEATURED_CONTEXT_TAGS) info?.contextTag?.takeIf { it.isNotBlank() } else null // [fork] round 51
+        if (com.nuvio.tv.NuvioCFeatures.FEATURED_CONTEXT_TAGS) {
+            if (nuvioCContextTag != null) {
+                NuvioCFeaturedContextLine(nuvioCContextTag)
+                Spacer(Modifier.height(10.dp))
+            }
+        } else if (com.nuvio.tv.NuvioCFeatures.FEATURED_BADGES && NuvioCFeaturedBadgeRules.rank(NuvioCHeroSource.of(item.id)) != null) {
             NuvioCFeaturedRankLine(item) // featured_badges A
             Spacer(Modifier.height(10.dp))
         }
@@ -1104,6 +1147,92 @@ private fun NuvioCFeaturedDetailsButton(enabled: Boolean, onClick: () -> Unit, m
             Icon(imageVector = Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(18.dp))
             Text(text = stringResource(R.string.nuvio_c_featured_details), style = MaterialTheme.typography.labelLarge)
         }
+    }
+}
+
+/** [fork] round 51 featured_buttons: Details as a round icon button next to the Play pill. */
+@Composable
+private fun NuvioCFeaturedDetailsIcon(enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+            .size(NuvioTheme.spacing.xxxl)
+            .focusProperties { up = FocusRequester.Cancel },
+        colors = IconButtonDefaults.colors(
+            containerColor = NuvioTheme.colors.BackgroundCard,
+            focusedContainerColor = NuvioTheme.colors.Secondary,
+            contentColor = NuvioTheme.colors.TextPrimary,
+            focusedContentColor = NuvioTheme.colors.OnSecondary,
+            disabledContainerColor = NuvioTheme.colors.BackgroundCard,
+            disabledContentColor = NuvioTheme.colors.TextPrimary
+        ),
+        border = IconButtonDefaults.border(
+            border = Border.None,
+            disabledBorder = Border.None,
+            focusedDisabledBorder = Border.None,
+            focusedBorder = Border(border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs), shape = CircleShape)
+        ),
+        shape = IconButtonDefaults.shape(shape = CircleShape)
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Info,
+            contentDescription = stringResource(R.string.nuvio_c_featured_details),
+            modifier = Modifier.size(22.dp)
+        )
+    }
+}
+
+/** [fork] round 51 featured_buttons: Previous and Next in one rounded pill; the focused arrow becomes the filled circle with the ring. */
+@Composable
+private fun NuvioCFeaturedArrowPill(
+    enabled: Boolean,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    previousModifier: Modifier,
+    nextModifier: Modifier
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = Modifier
+            .background(NuvioTheme.colors.BackgroundCard, RoundedCornerShape(50))
+            .padding(horizontal = 3.dp)
+    ) {
+        NuvioCFeaturedArrow(enabled, onPrevious, previous = true, modifier = previousModifier)
+        NuvioCFeaturedArrow(enabled, onNext, previous = false, modifier = nextModifier)
+    }
+}
+
+@Composable
+private fun NuvioCFeaturedArrow(enabled: Boolean, onClick: () -> Unit, previous: Boolean, modifier: Modifier) {
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+            .size(NuvioTheme.spacing.xxxl)
+            .focusProperties { up = FocusRequester.Cancel },
+        colors = IconButtonDefaults.colors(
+            containerColor = Color.Transparent,
+            focusedContainerColor = NuvioTheme.colors.Secondary,
+            contentColor = NuvioTheme.colors.TextPrimary,
+            focusedContentColor = NuvioTheme.colors.OnSecondary,
+            disabledContainerColor = Color.Transparent,
+            disabledContentColor = NuvioTheme.colors.TextPrimary
+        ),
+        border = IconButtonDefaults.border(
+            border = Border.None,
+            disabledBorder = Border.None,
+            focusedDisabledBorder = Border.None,
+            focusedBorder = Border(border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs), shape = CircleShape)
+        ),
+        shape = IconButtonDefaults.shape(shape = CircleShape)
+    ) {
+        Icon(
+            imageVector = if (previous) Icons.AutoMirrored.Filled.KeyboardArrowLeft else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = stringResource(if (previous) R.string.nuvio_c_featured_previous else R.string.nuvio_c_featured_next),
+            modifier = Modifier.size(24.dp)
+        )
     }
 }
 

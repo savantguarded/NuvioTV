@@ -499,7 +499,10 @@ class TmdbMetadataService(
                     nuvioCLatestSeason = details?.seasons.orEmpty() // [fork] Featured chips: latest season that has aired
                         .filter { (it.seasonNumber ?: 0) > 0 && !it.airDate.isNullOrBlank() && it.airDate <= java.time.LocalDate.now().toString() }
                         .maxByOrNull { it.seasonNumber ?: 0 }
-                        ?.let { (it.seasonNumber ?: 0) to it.airDate!! }
+                        ?.let { (it.seasonNumber ?: 0) to it.airDate!! },
+                    nuvioCNextEp = details?.nextEpisodeToAir?.toNuvioCFact(), // [fork] round 51 featured_context_tags
+                    nuvioCLastEp = details?.lastEpisodeToAir?.toNuvioCFact(),
+                    nuvioCSeasonEpisodes = details?.seasons.orEmpty().associate { (it.seasonNumber ?: 0) to (it.episodeCount ?: 0) }
                 )
                 enrichmentCache[cacheKey] = enrichment
                 requestDeferred.complete(enrichment)
@@ -1690,8 +1693,20 @@ data class TmdbEnrichment(
     val trailers: List<MetaTrailer> = emptyList(),
     val tagline: String? = null, // [fork] Nuvio C details tagline
     val nuvioCReleaseDate: String? = null, // [fork] Featured chips: movie release / series first air date
-    val nuvioCLatestSeason: Pair<Int, String>? = null // [fork] Featured chips: (season number, air date) of the latest aired season
+    val nuvioCLatestSeason: Pair<Int, String>? = null, // [fork] Featured chips: (season number, air date) of the latest aired season
+    val nuvioCNextEp: NuvioCEpisodeFact? = null, // [fork] round 51 featured_context_tags
+    val nuvioCLastEp: NuvioCEpisodeFact? = null,
+    val nuvioCSeasonEpisodes: Map<Int, Int> = emptyMap() // season number -> episode count
 )
+
+/** [fork] round 51 featured_context_tags: one episode of a show with its air date and TMDB's episode type (standard / finale / mid_season). */
+data class NuvioCEpisodeFact(val season: Int, val episode: Int, val airDate: String?, val type: String?)
+
+private fun com.nuvio.tv.data.remote.api.TmdbEpisodeToAir.toNuvioCFact(): NuvioCEpisodeFact? {
+    val s = seasonNumber ?: return null
+    val e = episodeNumber ?: return null
+    return NuvioCEpisodeFact(s, e, airDate?.takeIf { it.isNotBlank() }, episodeType)
+}
 
 data class TmdbEpisodeEnrichment(
     val title: String?,

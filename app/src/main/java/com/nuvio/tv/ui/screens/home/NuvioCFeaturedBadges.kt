@@ -106,6 +106,18 @@ internal fun NuvioCFeaturedRankLine(item: MetaPreview) {
     }
 }
 
+/** [fork] round 51 featured_context_tags: the one contextual line above the logo, in the accent colour, one line, ellipsized. */
+@Composable
+internal fun NuvioCFeaturedContextLine(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.2.sp, fontWeight = FontWeight.Bold),
+        color = com.nuvio.tv.ui.theme.NuvioTheme.colors.Secondary,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+    )
+}
+
 /** B: white NEW / NEW SEASON chip. */
 @Composable
 internal fun NuvioCFeaturedStatusChip(status: NuvioCFeaturedBadgeRules.Status) {

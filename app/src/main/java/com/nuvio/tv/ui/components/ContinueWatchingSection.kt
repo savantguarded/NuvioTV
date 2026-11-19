@@ -665,6 +665,7 @@ fun ContinueWatchingCard(
             },
         shape = cwCardShape,
         containerColor = Color.Transparent,
+        focusedGlow = nuvioCPosterGlow(), // [fork] round 51 poster_glow
         // With text under the artwork the card border would ring the text too, so the artwork draws its own.
         focusedBorder = if (textBelowArtwork) {
             Border.None

@@ -105,7 +105,10 @@ internal fun NuvioCFeaturedTextYield(
     val synopsisStyle = NuvioCHeroSpec.detailSynopsisStyle(MaterialTheme.typography.bodyMedium)
     val density = LocalDensity.current
     val linePx = with(density) { synopsisStyle.lineHeight.toPx() }.toInt().coerceAtLeast(1)
-    val hasRank = com.nuvio.tv.NuvioCFeatures.FEATURED_BADGES && NuvioCFeaturedBadgeRules.rank(NuvioCHeroSource.of(item.id)) != null
+    // [fork] round 51 featured_context_tags: a contextual line replaces the catalog rank (no rank numbers at all)
+    val contextTag = if (com.nuvio.tv.NuvioCFeatures.FEATURED_CONTEXT_TAGS) info?.contextTag?.takeIf { it.isNotBlank() } else null
+    val hasRank = if (com.nuvio.tv.NuvioCFeatures.FEATURED_CONTEXT_TAGS) contextTag != null
+        else com.nuvio.tv.NuvioCFeatures.FEATURED_BADGES && NuvioCFeaturedBadgeRules.rank(NuvioCHeroSource.of(item.id)) != null
     // the top slot holds the rank line too (about 24 dp + 10 dp gap), so its floor includes it
     val logoMinPx = with(density) { (LOGO_MIN + if (hasRank) 34.dp else 0.dp).roundToPx() }
     val gapSynPx = if (synopsis != null) with(density) { GAP_SYN.roundToPx() } else 0
@@ -116,7 +119,7 @@ internal fun NuvioCFeaturedTextYield(
             {
                 Column(Modifier.staggered(0)) {
                     if (hasRank) {
-                        NuvioCFeaturedRankLine(item)
+                        if (contextTag != null) NuvioCFeaturedContextLine(contextTag) else NuvioCFeaturedRankLine(item)
                         Spacer(Modifier.height(10.dp))
                     }
                     var aspect by remember(item.logo) { mutableStateOf(NuvioCLogoSize.known(item.logo)) }

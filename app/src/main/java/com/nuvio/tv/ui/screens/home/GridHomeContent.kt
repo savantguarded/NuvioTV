@@ -1070,7 +1070,7 @@ private fun GridCollectionFolderCard(
             )
         ),
         scale = CardDefaults.scale(focusedScale = posterCardStyle.focusedScale),
-        glow = cardGlow
+        glow = com.nuvio.tv.ui.components.nuvioCPosterCardGlow(fallback = cardGlow) // [fork] round 51 poster_glow
     ) {
         Box(
             modifier = Modifier

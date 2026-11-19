@@ -831,4 +831,11 @@ object NuvioCFeatures {
     const val IDLE_QUIET = true
     /** Release builds: Nuvio C's own debug lines are raised to info so they stay in logcat, official's debug and verbose lines are stripped. Off = as round 49. */
     const val RELEASE_LOG_STRIP = true
+    // [fork] round 51
+    /** Every focused poster / card (Home rows, Continue Watching, grids, collections, See all) gets a light halo in the accent colour, outside the card; no size, spacing or neighbour change. Off = official focus ring only (collections keep their artwork glow). */
+    const val POSTER_GLOW = true
+    /** Featured carousel: no rank numbers (TOP 10 tile, "#3 IN ...") anywhere. One contextual tag above the logo instead (airs today with its time, finale / premiere / return dates, whole season out, new film, in your library); no match = no tag. Needs FEATURED_BADGES. Off = round 49 rank line. */
+    const val FEATURED_CONTEXT_TAGS = true
+    /** Featured carousel buttons: Play pill, Details as a round icon, then Previous and Next arrows in one pill; every focus ring and zoom has reserved room (no clipping). Off = round 49 (Details pill, one Next arrow). */
+    const val FEATURED_BUTTONS = true
 }

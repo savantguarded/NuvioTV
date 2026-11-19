@@ -1312,7 +1312,7 @@ private fun ModernCarouselCard(
         )
         else -> Glow.None
     }
-    val effectiveFocusGlow = if (isFastScrolling) Glow.None else cardFocusGlow
+    val effectiveFocusGlow = if (isFastScrolling) Glow.None else com.nuvio.tv.ui.components.nuvioCPosterGlow(fallback = cardFocusGlow) // [fork] round 51 poster_glow
     val titleStyle = remember(titleMedium) {
         titleMedium.copy(fontWeight = FontWeight.Medium)
     }

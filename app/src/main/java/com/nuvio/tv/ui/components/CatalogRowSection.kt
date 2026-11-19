@@ -515,7 +515,8 @@ fun CatalogRowSection(
                                 shape = seeAllCardShape
                             )
                         ),
-                        scale = CardDefaults.scale(focusedScale = posterCardStyle.focusedScale)
+                        scale = CardDefaults.scale(focusedScale = posterCardStyle.focusedScale),
+                        glow = nuvioCPosterCardGlow() // [fork] round 51 poster_glow
                     ) {
                         Box(
                             modifier = Modifier
