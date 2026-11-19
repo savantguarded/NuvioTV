@@ -204,7 +204,8 @@ class CalendarReminderCenterTest {
     @Test fun refreshTwentySecondsAfterHomeOncePerStart() = runTest {
         val (data, center) = setUp()
         openHome(center)
-        wait(Duration.ofSeconds(19))
+        // [fork] round 34 calendar_cold_refresh: the first refresh after a cold start comes at 6 s (was 20 s)
+        wait(Duration.ofSeconds(if (com.nuvio.tv.NuvioCFeatures.CALENDAR_COLD_REFRESH) 5 else 19))
         assertEquals(0, data.settledRequests)
         wait(Duration.ofSeconds(2))
         assertEquals(1, data.settledRequests)

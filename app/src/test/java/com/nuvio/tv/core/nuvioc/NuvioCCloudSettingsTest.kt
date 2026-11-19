@@ -29,6 +29,7 @@ class NuvioCCloudSettingsTest {
     @Test
     fun defaultsCoverEveryTravellingSetting() {
         val keys = NuvioCCloudSettings.decode(NuvioCCloudSettings.DEFAULTS)!!.keys
-        assertEquals(15, keys.size) // 14 settings + version (round 30: calendar_tmdb_soon)
+        // 14 settings + version (round 30: calendar_tmdb_soon), + 6 (round 51 cloud_settings_all), + 8 (round 52 cloud_settings_more)
+        assertEquals(29, keys.size)
     }
 }
