@@ -69,6 +69,9 @@ class NuvioCCloudSettings @Inject constructor(
     private val mutex = Mutex()
     private val prefs: SharedPreferences by lazy { context.getSharedPreferences(PREFS, Context.MODE_PRIVATE) }
     private val viewPrefs: SharedPreferences by lazy { context.getSharedPreferences(VIEW_PREFS, Context.MODE_PRIVATE) }
+    private val osdPrefs: SharedPreferences by lazy { context.getSharedPreferences("nuvio_c_osd", Context.MODE_PRIVATE) } // [fork] round 51 cloud_settings_all
+    private val audioPrefs: SharedPreferences by lazy { context.getSharedPreferences("nuvio_c_audio", Context.MODE_PRIVATE) }
+    private val keyPrefs: SharedPreferences by lazy { context.getSharedPreferences("nuvio_c_api_keys", Context.MODE_PRIVATE) }
     private var started = false
 
     fun start() {
@@ -81,8 +84,9 @@ class NuvioCCloudSettings @Inject constructor(
                         factory.get(profile, LAYOUT).data.map { it[ENTRY] },
                         calendar.settings,
                         prefsTicks(prefs),
-                        prefsTicks(viewPrefs)
-                    ) { remote, _, _, _ -> profile to remote }
+                        prefsTicks(viewPrefs),
+                        combine(prefsTicks(osdPrefs), prefsTicks(audioPrefs), prefsTicks(keyPrefs)) { _, _, _ -> }
+                    ) { remote, _, _, _, _ -> profile to remote }
                 }.debounce(400).collect { (profile, remote) -> reconcile(profile, remote) }
             }.onFailure { Log.w(TAG, "stopped", it) }
         }
@@ -136,6 +140,16 @@ class NuvioCCloudSettings @Inject constructor(
         "calendar_coming_up_row" to JsonPrimitive(cal.comingUpRow),
         "calendar_mdblist" to JsonPrimitive(cal.useMdbListCalendar),
         "calendar_tmdb_soon" to JsonPrimitive(cal.useTmdbSoonCalendar)
+    ) + (if (NuvioCFeatures.CLOUD_SETTINGS_ALL) extraLocal() else emptyMap())
+
+    /** [fork] round 51 cloud_settings_all: controls style and button orders, night mode switches, the TheTVDB key. Never the passthrough switches (this TV only). */
+    private fun extraLocal(): Map<String, JsonPrimitive> = mapOf(
+        "osd_style" to JsonPrimitive(osdPrefs.getString("controls_style", "nuvio_c") ?: "nuvio_c"),
+        "osd_order" to JsonPrimitive(osdPrefs.getString("button_order", "") ?: ""),
+        "clean_order" to JsonPrimitive(osdPrefs.getString("clean_order", "") ?: ""),
+        "night_enabled" to JsonPrimitive(audioPrefs.getBoolean("night_enabled", true)),
+        "night_persist" to JsonPrimitive(audioPrefs.getBoolean("night_persist", false)),
+        "tvdb_key" to JsonPrimitive(keyPrefs.getString("tvdb", "") ?: "")
     )
 
     private suspend fun apply(v: Map<String, JsonPrimitive>) {
@@ -161,6 +175,18 @@ class NuvioCCloudSettings @Inject constructor(
         v["calendar_coming_up_row"]?.booleanOrNull?.let { if (it != cal.comingUpRow) calendar.setComingUpRow(it) }
         v["calendar_mdblist"]?.booleanOrNull?.let { if (it != cal.useMdbListCalendar) calendar.setUseMdbListCalendar(it) }
         v["calendar_tmdb_soon"]?.booleanOrNull?.let { if (it != cal.useTmdbSoonCalendar) calendar.setUseTmdbSoonCalendar(it) }
+        if (NuvioCFeatures.CLOUD_SETTINGS_ALL) {
+            osdPrefs.edit {
+                v["osd_style"]?.contentOrNull?.takeIf { it == "nuvio_c" || it == "clean" }?.let { putString("controls_style", it) }
+                v["osd_order"]?.contentOrNull?.let { if (it.isBlank()) remove("button_order") else putString("button_order", it) }
+                v["clean_order"]?.contentOrNull?.let { if (it.isBlank()) remove("clean_order") else putString("clean_order", it) }
+            }
+            audioPrefs.edit {
+                v["night_enabled"]?.booleanOrNull?.let { putBoolean("night_enabled", it) }
+                v["night_persist"]?.booleanOrNull?.let { putBoolean("night_persist", it) }
+            }
+            v["tvdb_key"]?.contentOrNull?.let { com.nuvio.tv.core.nuvioc.NuvioCApiKeys.setTvdb(context, it) }
+        }
     }
 
     companion object {
@@ -195,7 +221,14 @@ class NuvioCCloudSettings @Inject constructor(
                 "calendar_coming_up_row" to JsonPrimitive(CalendarSettings().comingUpRow),
                 "calendar_mdblist" to JsonPrimitive(CalendarSettings().useMdbListCalendar),
                 "calendar_tmdb_soon" to JsonPrimitive(CalendarSettings().useTmdbSoonCalendar)
-            )
+            ) + (if (NuvioCFeatures.CLOUD_SETTINGS_ALL) mapOf(
+                "osd_style" to JsonPrimitive("nuvio_c"),
+                "osd_order" to JsonPrimitive(""),
+                "clean_order" to JsonPrimitive(""),
+                "night_enabled" to JsonPrimitive(true),
+                "night_persist" to JsonPrimitive(false),
+                "tvdb_key" to JsonPrimitive("")
+            ) else emptyMap())
         )
 
         private fun prefsTicks(p: SharedPreferences) = callbackFlow {

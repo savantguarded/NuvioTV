@@ -870,4 +870,7 @@ object NuvioCFeatures {
 
     /** Details: loading comment placeholders take no focus; the comments section hides after 8 s or on an error. */
     const val DETAILS_COMMENTS_SCROLL = true
+
+    /** More Nuvio C settings travel with the Nuvio profile: controls style and button orders, night mode switches, TheTVDB key. Passthrough switches stay on this TV. */
+    const val CLOUD_SETTINGS_ALL = true
 }
