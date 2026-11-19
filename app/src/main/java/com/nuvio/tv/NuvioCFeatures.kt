@@ -918,4 +918,6 @@ object NuvioCFeatures {
     const val CALENDAR_SOURCES = true
     /** Calendar rules: shows left for six months (not saved in a library) stop being followed (was a year); no specials (season 0); talk / news shows left out unless belled. Ended shows with nothing new, cinema-only films, re-releases and duplicates were already handled. Off = round 51 rules. */
     const val CALENDAR_RULES = true
+    /** More settings travel with the Nuvio profile: the night mode schedule (on, from, until, level) and the profile's Roulette choices (mood, kind, watched filter, Refine). A profile whose entry lacks a key keeps this TV's value, which is then saved into that profile (the one-time copy). Off = round 51 list. */
+    const val CLOUD_SETTINGS_MORE = true
 }

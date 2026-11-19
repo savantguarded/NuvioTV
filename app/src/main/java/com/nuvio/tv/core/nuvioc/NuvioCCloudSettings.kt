@@ -85,7 +85,7 @@ class NuvioCCloudSettings @Inject constructor(
                         calendar.settings,
                         prefsTicks(prefs),
                         prefsTicks(viewPrefs),
-                        combine(prefsTicks(osdPrefs), prefsTicks(audioPrefs), prefsTicks(keyPrefs)) { _, _, _ -> }
+                        combine(prefsTicks(osdPrefs), prefsTicks(audioPrefs), prefsTicks(keyPrefs), prefsTicks(shufflePrefs)) { _, _, _, _ -> } // [fork] round 52: + Roulette
                     ) { remote, _, _, _, _ -> profile to remote }
                 }.debounce(400).collect { (profile, remote) -> reconcile(profile, remote) }
             }.onFailure { Log.w(TAG, "stopped", it) }
@@ -150,6 +150,20 @@ class NuvioCCloudSettings @Inject constructor(
         "night_enabled" to JsonPrimitive(audioPrefs.getBoolean("night_enabled", true)),
         "night_persist" to JsonPrimitive(audioPrefs.getBoolean("night_persist", false)),
         "tvdb_key" to JsonPrimitive(keyPrefs.getString("tvdb", "") ?: "")
+    ) + (if (NuvioCFeatures.CLOUD_SETTINGS_MORE) moreLocal() else emptyMap())
+
+    // [fork] round 52 cloud_settings_more: the night mode schedule and this profile's Roulette choices travel too
+    private val shufflePrefs: SharedPreferences by lazy { context.getSharedPreferences("nuvio_c_shuffle", Context.MODE_PRIVATE) }
+    private fun rk(key: String) = "p${profiles.activeProfileId.value}:$key"
+    private fun moreLocal(): Map<String, JsonPrimitive> = mapOf(
+        "night_auto" to JsonPrimitive(audioPrefs.getBoolean("night_auto", false)),
+        "night_from_min" to JsonPrimitive(audioPrefs.getInt("night_from_min", 18 * 60)),
+        "night_until_min" to JsonPrimitive(audioPrefs.getInt("night_until_min", 8 * 60)),
+        "night_auto_level" to JsonPrimitive(audioPrefs.getString("night_auto_level", "medium") ?: "medium"),
+        "roulette_mood" to JsonPrimitive(shufflePrefs.getString(rk("mood"), "") ?: ""),
+        "roulette_kind" to JsonPrimitive(shufflePrefs.getString(rk("kind"), "") ?: ""),
+        "roulette_watch_filter" to JsonPrimitive(shufflePrefs.getString(rk("watch_filter"), "") ?: ""),
+        "roulette_refine" to JsonPrimitive(shufflePrefs.getString(rk("refine"), "") ?: "")
     )
 
     private suspend fun apply(v: Map<String, JsonPrimitive>) {
@@ -186,6 +200,19 @@ class NuvioCCloudSettings @Inject constructor(
                 v["night_persist"]?.booleanOrNull?.let { putBoolean("night_persist", it) }
             }
             v["tvdb_key"]?.contentOrNull?.let { com.nuvio.tv.core.nuvioc.NuvioCApiKeys.setTvdb(context, it) }
+        }
+        if (NuvioCFeatures.CLOUD_SETTINGS_MORE) { // [fork] round 52: a key the entry doesn't have keeps this TV's value
+            audioPrefs.edit {
+                v["night_auto"]?.booleanOrNull?.let { putBoolean("night_auto", it) }
+                v["night_from_min"]?.intOrNull?.let { putInt("night_from_min", it.coerceIn(0, 24 * 60 - 1)) }
+                v["night_until_min"]?.intOrNull?.let { putInt("night_until_min", it.coerceIn(0, 24 * 60 - 1)) }
+                v["night_auto_level"]?.contentOrNull?.takeIf { it in setOf("light", "medium", "strong") }?.let { putString("night_auto_level", it) }
+            }
+            shufflePrefs.edit {
+                listOf("mood", "kind", "watch_filter", "refine").forEach { key ->
+                    v["roulette_$key"]?.contentOrNull?.let { if (it.isBlank()) remove(rk(key)) else putString(rk(key), it) }
+                }
+            }
         }
     }
 
@@ -228,6 +255,15 @@ class NuvioCCloudSettings @Inject constructor(
                 "night_enabled" to JsonPrimitive(true),
                 "night_persist" to JsonPrimitive(false),
                 "tvdb_key" to JsonPrimitive("")
+            ) else emptyMap()) + (if (NuvioCFeatures.CLOUD_SETTINGS_MORE) mapOf(
+                "night_auto" to JsonPrimitive(false),
+                "night_from_min" to JsonPrimitive(18 * 60),
+                "night_until_min" to JsonPrimitive(8 * 60),
+                "night_auto_level" to JsonPrimitive("medium"),
+                "roulette_mood" to JsonPrimitive(""),
+                "roulette_kind" to JsonPrimitive(""),
+                "roulette_watch_filter" to JsonPrimitive(""),
+                "roulette_refine" to JsonPrimitive("")
             ) else emptyMap())
         )
 
