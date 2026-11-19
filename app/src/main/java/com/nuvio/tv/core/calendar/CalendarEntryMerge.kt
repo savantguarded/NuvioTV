@@ -24,9 +24,15 @@ fun mergeCalendarEntries(
 private fun mergeSameRelease(candidates: List<CalendarEntry>, fetchedAtMs: Map<CalendarSource, Long>): CalendarEntry {
     if (candidates.size == 1) return candidates.single()
     val byPriority = candidates.sortedBy { it.source.priority }
-    val base = byPriority.filter { it.timeKnown }.maxWithOrNull(
-        compareBy<CalendarEntry> { fetchedAtMs[it.source] ?: 0L }.thenByDescending { it.source.priority }
-    ) ?: byPriority.firstOrNull { it.airDate != null } ?: byPriority.first()
+    // [fork] round 52 calendar_sources: TheTVDB's time wins when it has one (key set), then Trakt's; a plain date comes
+    // from TMDB before TVmaze's
+    val sources = com.nuvio.tv.NuvioCFeatures.CALENDAR_SOURCES
+    val base = (if (sources) byPriority.firstOrNull { it.timeKnown && it.source == CalendarSource.TVDB } else null)
+        ?: byPriority.filter { it.timeKnown }.maxWithOrNull(
+            compareBy<CalendarEntry> { fetchedAtMs[it.source] ?: 0L }.thenByDescending { it.source.priority }
+        )
+        ?: (if (sources) byPriority.firstOrNull { it.airDate != null && it.source == CalendarSource.TMDB && byPriority.none { o -> o.source.isTrakt && o.airDate != null } } else null)
+        ?: byPriority.firstOrNull { it.airDate != null } ?: byPriority.first()
     val label = byPriority.firstOrNull { it.source.isTrakt }?.label
         ?: byPriority.firstOrNull { it.label != CalendarEpisodeLabel.NONE }?.label
         ?: CalendarEpisodeLabel.NONE

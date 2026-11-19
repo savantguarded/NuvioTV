@@ -41,6 +41,8 @@ data class CalendarRow(
     val episodeTitle: String? = null,
     val date: LocalDate? = null,
     val time: LocalTime? = null,
+    /** [fork] round 52 calendar_streaming_estimates: [time] is the service's usual hour, not a published time. */
+    val timeEstimated: Boolean = false,
     val label: CalendarEpisodeLabel = CalendarEpisodeLabel.NONE,
     val status: CalendarRowStatus = CalendarRowStatus.NONE,
     val showStatus: CalendarShowStatus = CalendarShowStatus.UNKNOWN,
@@ -138,9 +140,16 @@ fun calendarRow(
     now: Instant,
     today: LocalDate,
     bells: Set<String>,
-    watched: CalendarWatchedIndex?
+    watched: CalendarWatchedIndex?,
+    zone: java.time.ZoneId? = null // [fork] round 52 calendar_streaming_estimates
 ): CalendarRow {
     val kind = rowKind(title, entry)
+    // [fork] round 52 calendar_streaming_estimates: a dated episode with no time on Hulu / Peacock / Paramount+ gets the
+    // service's usual hour, shown as an estimate ("~")
+    val airDay = entry?.takeIf { !it.timeKnown }?.airDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+    val usual = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_STREAMING_ESTIMATES && time == null && kind == CalendarRowKind.EPISODE &&
+        airDay != null && airDay == date && zone != null
+    ) com.nuvio.tv.core.calendar.calendarUsualStreamingTime(calendarNetworkName(title.network), airDay, zone) else null
     return CalendarRow(
         key = "${title.key}|${entry?.slot ?: "next"}",
         titleKey = title.key,
@@ -153,7 +162,8 @@ fun calendarRow(
         episode = entry?.episode.takeIf { kind == CalendarRowKind.EPISODE },
         episodeTitle = entry?.shownTitle?.takeIf { kind == CalendarRowKind.EPISODE },
         date = date,
-        time = time,
+        time = time ?: usual,
+        timeEstimated = usual != null && time == null,
         label = entry?.label ?: CalendarEpisodeLabel.NONE,
         status = calendarRowStatus(title, entry, now, bells, watched),
         showStatus = title.status,
@@ -182,7 +192,7 @@ fun buildCalendarList(
     sections.forEach { section ->
         if (section.items.isEmpty()) return@forEach
         entries += CalendarHeaderEntry(section.kind, section.date)
-        val built = section.items.map { item -> calendarRow(item.title, item.entry, item.date, item.time, section.kind, now, today, bells, watched) }
+        val built = section.items.map { item -> calendarRow(item.title, item.entry, item.date, item.time, section.kind, now, today, bells, watched, zone) }
         val grouped = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_SEASON_DROP) calendarGroupSeasons(built) else built
         grouped.forEach { base ->
             var key = base.key
@@ -215,7 +225,7 @@ fun buildCalendarDays(
             val date = entry.localDate(zone) ?: return@forEach
             val time = entry.airInstantMs?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalTime() }
             byDay.getOrPut(date) { mutableListOf() } +=
-                calendarRow(title, entry, date, time, CalendarSectionKind.DAY, now, today, bells, watched)
+                calendarRow(title, entry, date, time, CalendarSectionKind.DAY, now, today, bells, watched, zone)
         }
     }
     return byDay.mapValues { (_, rows0) ->

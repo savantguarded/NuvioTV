@@ -753,7 +753,7 @@ internal fun CalendarRowItem(
 /** The time and, where it helps, the date for the right of a row; nothing for shows without a date. */
 @Composable
 internal fun calendarTimeTexts(row: CalendarRow, formats: CalendarFormats, showDate: Boolean): Pair<String?, String?> {
-    val timeText = row.time?.let(formats::time)
+    val timeText = row.time?.let(formats::time)?.let { if (row.timeEstimated) "~$it" else it } // [fork] round 52: estimate marked
     val notAnnounced = stringResource(R.string.calendar_time_not_announced)
     return when {
         row.kind == CalendarRowKind.SHOW -> null to null
@@ -919,7 +919,7 @@ internal fun calendarWhenLine(row: CalendarRow, formats: CalendarFormats, today:
         else -> if (today != null && date.year != today.year) formats.yearDate(date) else formats.longDate(date)
     }
     val aired = row.status == CalendarRowStatus.WATCHED || row.status == CalendarRowStatus.NOT_WATCHED
-    val withTime = row.time?.let { stringResource(R.string.calendar_line_join, day, formats.time(it)) } ?: day
+    val withTime = row.time?.let { stringResource(R.string.calendar_line_join, day, (if (row.timeEstimated) "~" else "") + formats.time(it)) } ?: day // [fork] round 52
     return when {
         aired && date != today -> stringResource(if (row.isFilm) R.string.calendar_out_on else R.string.calendar_aired_on, withTime)
         else -> withTime

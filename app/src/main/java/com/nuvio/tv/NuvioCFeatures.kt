@@ -910,4 +910,10 @@ object NuvioCFeatures {
     const val DETAILS_FOCUS_FIX = true
     /** Details: the trailer's letterbox check also waits while the page is still gliding after a key press (it already waited during key presses). Images there were already decoded at their drawn size. Off = round 51. */
     const val DETAILS_SMOOTH = true
+    /** Calendar (ysosrs123 243c909): Trakt's real times for every coming episode that only has a date (season lists, two seasons at most), not just the next one. Off = next episode only. */
+    const val CALENDAR_TRAKT_TIMES = true
+    /** Calendar (ysosrs123 243c909): a dated Hulu / Peacock / Paramount+ episode with no time shows the service's usual hour, marked "~". Off = no time. */
+    const val CALENDAR_STREAMING_ESTIMATES = true
+    /** Calendar sources: TheTVDB's air time first when the key is set, then Trakt's; plain dates from TMDB before TVmaze. Off = newest timed source wins. */
+    const val CALENDAR_SOURCES = true
 }

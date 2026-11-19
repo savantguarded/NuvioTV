@@ -15,6 +15,8 @@ interface CalendarRemoteSources {
     suspend fun tvMazeShow(id: Int, now: Instant): CalendarShowDates
     /** Null when Trakt does not know the show or cannot be reached. */
     suspend fun traktNextEpisode(ids: CalendarIds): CalendarShowDates?
+    /** [fork] round 52 calendar_trakt_times: null when Trakt does not know the season or can't be reached. */
+    suspend fun traktSeason(ids: CalendarIds, season: Int): CalendarShowDates? = null
     suspend fun tmdbFind(imdb: String, type: CalendarTitleType): Long?
     suspend fun tmdbShow(tmdbId: Long): CalendarShowDates
     suspend fun tmdbSeason(tmdbId: Long, season: Int): List<CalendarEntry>
@@ -33,6 +35,7 @@ class DefaultCalendarRemoteSources @Inject constructor(
     override suspend fun tvMazeLookup(ids: CalendarIds) = tvMaze.lookup(ids)
     override suspend fun tvMazeShow(id: Int, now: Instant) = tvMaze.show(id, now)
     override suspend fun traktNextEpisode(ids: CalendarIds) = trakt.nextEpisode(ids)
+    override suspend fun traktSeason(ids: CalendarIds, season: Int) = trakt.seasonEpisodes(ids, season) // [fork] round 52
     override suspend fun tmdbFind(imdb: String, type: CalendarTitleType) = tmdb.findTmdbId(imdb, type)
     override suspend fun tmdbShow(tmdbId: Long) = tmdb.show(tmdbId)
     override suspend fun tmdbSeason(tmdbId: Long, season: Int) = tmdb.season(tmdbId, season)
@@ -147,6 +150,27 @@ class CalendarTitleFetcher(
         val kept = record.sources[CalendarSource.TRAKT_NEXT].orEmpty()
         if (askedAt != null && now.toEpochMilli() - askedAt < TRAKT_TIME_RECHECK.toMillis() && kept.any { it.slot == next.slot }) {
             return record
+        }
+        if (com.nuvio.tv.NuvioCFeatures.CALENDAR_TRAKT_TIMES) {
+            // [fork] round 52 calendar_trakt_times (ysosrs123 243c909): Trakt's times for every coming episode that only
+            // has a date (its season lists, two seasons at most, no specials), then the next episode when that gives
+            // the first one no time
+            val dateOnly = record.sources[CalendarSource.TVMAZE].orEmpty()
+                .filter { it.kind == CalendarEntryKind.EPISODE && !it.isOut(now) && !it.timeKnown && it.airDate != null }
+                .filter { e -> record.sources[CalendarSource.TVDB].orEmpty().none { it.slot == e.slot } }
+                .sortedBy { it.sortInstant() ?: Instant.MAX }
+            val timed = try {
+                val seasons = dateOnly.mapNotNull { it.season }.filter { it > 0 }.distinct().take(2)
+                val listed = seasons.mapNotNull { remote.traktSeason(record.ids, it) }.flatMap { it.entries }
+                val fromSeasons = dateOnly.mapNotNull { calendarTraktTimeFor(it, listed) }
+                if (fromSeasons.any { it.slot == next.slot }) fromSeasons
+                else listOfNotNull(remote.traktNextEpisode(record.ids)?.entries?.let { calendarTraktTimeFor(next, it) }) + fromSeasons
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                return record
+            }
+            return if (timed.isEmpty()) record.withoutSources(CalendarSource.TRAKT_NEXT) else record.withSource(CalendarSource.TRAKT_NEXT, timed.distinctBy { it.slot }, now)
         }
         val trakt = try {
             remote.traktNextEpisode(record.ids)

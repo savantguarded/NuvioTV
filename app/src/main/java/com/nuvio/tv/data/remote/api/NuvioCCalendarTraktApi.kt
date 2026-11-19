@@ -24,4 +24,12 @@ interface NuvioCCalendarTraktApi {
         @Path("id") id: String,
         @Query("extended") extended: String = "full"
     ): Response<TraktCalendarEpisodeDto>
+
+    /** [fork] round 52 calendar_trakt_times (ysosrs123 243c909): a season's episodes with Trakt's air times. */
+    @GET("shows/{id}/seasons/{season}")
+    suspend fun getShowSeasonEpisodes(
+        @Path("id") id: String,
+        @Path("season") season: Int,
+        @Query("extended") extended: String = "full"
+    ): Response<List<TraktCalendarEpisodeDto>>
 }

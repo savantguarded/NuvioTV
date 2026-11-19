@@ -464,7 +464,7 @@ private fun CalendarDayPanelItem(
     val cardModifier = Modifier
         .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
         .calendarOptionsKeys(press) { onOptions(row) }
-    val details = listOfNotNull(row.time?.let(formats::time), row.network)
+    val details = listOfNotNull(row.time?.let(formats::time)?.let { if (row.timeEstimated) "~$it" else it }, row.network) // [fork] round 52: estimate marked
     val marquee = com.nuvio.tv.NuvioCFeatures.CALENDAR_DAY_MARQUEE // [fork] round 33
     var bigFocused by remember { mutableStateOf(false) }
     if (big) {

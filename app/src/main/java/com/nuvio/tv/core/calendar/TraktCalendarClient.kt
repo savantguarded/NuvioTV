@@ -45,6 +45,14 @@ class TraktCalendarClient @Inject constructor(
             entries = listOfNotNull(response.body()?.let { traktEpisodeEntry(it, null, CalendarSource.TRAKT_NEXT) })
         )
     }
+
+    /** [fork] round 52 calendar_trakt_times: a season's episodes with Trakt's times; null when unknown or unreachable. */
+    suspend fun seasonEpisodes(ids: CalendarIds, season: Int): CalendarShowDates? {
+        val id = ids.trakt?.toString() ?: ids.imdb ?: return null
+        val response = traktAuthService.executePublicRequest { traktApi.getShowSeasonEpisodes(id, season) } ?: return null
+        if (!response.isSuccessful) return null
+        return CalendarShowDates(entries = response.body().orEmpty().mapNotNull { traktEpisodeEntry(it, null, CalendarSource.TRAKT_NEXT) })
+    }
 }
 
 fun traktCalendarRanges(today: LocalDate): List<Pair<LocalDate, Int>> =
