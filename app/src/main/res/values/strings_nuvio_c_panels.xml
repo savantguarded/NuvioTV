@@ -15,4 +15,6 @@
     <string name="nuvio_c_sub_shadow_opacity">Drop shadow opacity</string>
     <string name="nuvio_c_sub_shadow_size">Drop shadow size</string>
     <string name="nuvio_c_sub_outline_width">Outline width</string>
+    <string name="nuvio_c_panel_pill_off">Off</string>
+    <string name="nuvio_c_panel_subtitle_track">Subtitle track</string>
 </resources>

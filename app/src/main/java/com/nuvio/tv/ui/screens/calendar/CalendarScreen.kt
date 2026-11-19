@@ -690,6 +690,25 @@ internal fun CalendarRowItem(
                 )
                 Spacer(Modifier.width(NuvioTheme.spacing.md))
                 Column(Modifier.weight(1f).alpha(contentAlpha)) {
+                    if (com.nuvio.tv.NuvioCFeatures.CALENDAR_TAG_LINE2) {
+                        // [fork] round 53b: title and line two take turns scrolling (title first), tag fixed in front
+                        val line = calendarRowLine(row)
+                        val label = calendarLabelText(row.label)
+                        com.nuvio.tv.ui.components.NuvioCTurnMarqueeLead(
+                            top = row.name ?: stringResource(R.string.calendar_unknown_title),
+                            topStyle = MaterialTheme.typography.titleMedium,
+                            topColor = NuvioTheme.colors.TextPrimary,
+                            topWeight = FontWeight.SemiBold,
+                            bottom = line.ifEmpty { null },
+                            bottomStyle = MaterialTheme.typography.bodySmall,
+                            bottomColor = NuvioTheme.colors.TextSecondary,
+                            focused = focused,
+                            bottomLead = label?.let { l -> {
+                                Text(text = l, style = MaterialTheme.typography.labelMedium, color = NuvioTheme.colors.Secondary, maxLines = 1, softWrap = false)
+                                Spacer(Modifier.width(NuvioTheme.spacing.sm))
+                            } }
+                        )
+                    } else {
                     Text(
                         text = row.name ?: stringResource(R.string.calendar_unknown_title),
                         style = MaterialTheme.typography.titleMedium,
@@ -699,8 +718,8 @@ internal fun CalendarRowItem(
                         overflow = TextOverflow.Ellipsis,
                         modifier = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_ROWS_TWO && focused) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier // [fork] round 51 calendar_rows_two
                     )
-                    if (com.nuvio.tv.NuvioCFeatures.CALENDAR_TAG_LINE2) {
-                        // [fork] round 53 calendar_tag_line2: the label leads line two, the episode line follows and scrolls on
+                    if (false) {
+                        // [fork] round 53 calendar_tag_line2 (replaced by the turn-taking marquee above): the label leads line two, the episode line follows and scrolls on
                         // focus, so a row never grows to three lines
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             calendarLabelText(row.label)?.let { label ->
@@ -749,6 +768,7 @@ internal fun CalendarRowItem(
                             )
                         }
                     }
+                    } // [fork] round 53b: end of the classic title + line two
                     if (compact && timePrimary != null) {
                         val quiet = timePrimary == notAnnounced
                         Text(

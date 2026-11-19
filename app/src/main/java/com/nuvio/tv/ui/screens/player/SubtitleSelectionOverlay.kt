@@ -2392,17 +2392,19 @@ private fun NuvioCSubtitleTabsPanel(
                         selected = off,
                         focusRequester = if (off || allOptions.none { it.second.id == selectedId }) trackEntry else null,
                         onClick = { off = true; selectedId = null; onDisableSubtitles() },
-                        modifier = Modifier.nuvioCUpToTab(true, tabRequesters[0])
+                        modifier = Modifier.nuvioCUpToTab(true, tabRequesters[0]),
+                        pill = stringResource(R.string.nuvio_c_panel_pill_off)
                     )
                 }
                 items(allOptions.size, key = { allOptions[it].second.id }) { i ->
                     val (language, item) = allOptions[i]
+                    // three lines on every track: source pill, language, description
                     val detail = listOfNotNull(
                         item.title.takeIf { it.isNotBlank() && !it.equals(language, true) },
-                        item.meta?.takeIf { it.isNotBlank() },
-                        item.sourceLabel.takeIf { it.isNotBlank() }
-                    ).distinct().joinToString(" · ")
+                        item.meta?.takeIf { it.isNotBlank() }
+                    ).distinct().joinToString(" · ").ifBlank { stringResource(R.string.nuvio_c_panel_subtitle_track) }
                     NuvioCPanelRow(
+                        pill = item.sourceLabel.ifBlank { null },
                         title = language,
                         detail = detail,
                         selected = !off && item.id == selectedId,
@@ -2554,7 +2556,8 @@ internal fun NuvioCPanelRow(
     focusRequester: FocusRequester?,
     onClick: () -> Unit,
     trailing: (@Composable () -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    pill: String? = null // [fork] round 53b: a source pill (Built-in / add-on) as the first of three lines
 ) {
     var focused by remember { mutableStateOf(false) }
     val v3 = NuvioCPanelLook.v3
@@ -2580,6 +2583,13 @@ internal fun NuvioCPanelRow(
         ) {
             val fg = if (v3 && focused) Color.Black else Color.White
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (v3) 1.dp else 2.dp)) {
+                if (v3 && pill != null) Box(
+                    Modifier.padding(bottom = 2.dp)
+                        .background(if (focused) Color.Black.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.14f), RoundedCornerShape(50))
+                        .padding(horizontal = 8.dp, vertical = 1.dp)
+                ) {
+                    Text(pill, style = MaterialTheme.typography.labelSmall, color = if (focused) Color.Black.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.9f), maxLines = 1)
+                }
                 Text(
                     title,
                     style = if (v3) MaterialTheme.typography.titleSmall.copy(shadow = if (focused) null else NuvioCPanelLook.textShadow) else MaterialTheme.typography.titleMedium,

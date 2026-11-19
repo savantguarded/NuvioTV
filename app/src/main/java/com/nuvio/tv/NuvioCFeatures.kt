@@ -845,7 +845,7 @@ object NuvioCFeatures {
     /** Modern OSD: right-side icons share one large rounded pill (More stays separate). */
     const val CLEAN_RIGHT_PILL = true
     /** Modern OSD: focused round buttons glow softly. */
-    const val CLEAN_BUTTON_GLOW = true
+    const val CLEAN_BUTTON_GLOW = false // round 53b: off, Charles wants the OSD light and responsive
     /** Modern OSD: Play / Pause shows no name label under it on focus. */
     const val CLEAN_PLAY_RING = true
 
@@ -954,4 +954,7 @@ object NuvioCFeatures {
     const val FEATURED_RATING_PLAIN = true
     /** Details Information: every slot always in the same place, a dash when empty; only the Parental guidance band is left out when it has no data. Off = round 52 (empty slots hidden). */
     const val DETAIL_INFO_DASHES = true
+    // [fork] round 53b
+    /** Modern OSD: the left pills (Subtitles, Audio...) are as tall as the right-hand group pill (46 dp). Off = 32 dp pills. */
+    const val CLEAN_PILL_HEIGHT_MATCH = true
 }
