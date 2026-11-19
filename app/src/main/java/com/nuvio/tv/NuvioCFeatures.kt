@@ -851,4 +851,17 @@ object NuvioCFeatures {
 
     /** Pause screen shows titles only: no year under a film (episodes keep their S/E line). */
     const val PAUSE_TITLES_ONLY = true
+
+    /** Settings > Playback > Audio: choose which formats (DD, DD+, TrueHD, DTS, DTS-HD) are sent to the soundbar; the rest decode to PCM. Audio path only. (Convert to Dolby Digital 5.1 is not in this build.) */
+    const val PASSTHROUGH_FORMATS = true
+
+    /** Calendar settings: the MDBList switch is gone; the MDBList calendar counts whenever MDBList is connected. Off = switch back. */
+    const val CALENDAR_NO_MDBLIST_SWITCH = true
+
+    /** Calendar: a whole season released on one day is one row ("S5 E1-6"). */
+    const val CALENDAR_SEASON_DROP = true
+    /** Calendar List: room around rows so the focus ring and zoom are never clipped. */
+    const val CALENDAR_LIST_NO_CLIP = true
+    /** Calendar rows: title and episode line each one line; the focused row scrolls what is cut. */
+    const val CALENDAR_ROWS_TWO = true
 }

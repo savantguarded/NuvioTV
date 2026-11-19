@@ -405,7 +405,7 @@ class CalendarRefresher internal constructor(
                 }
             }
             // [fork] calendar_mdblist: MDBList's own calendar, every 6 hours or at once after a Library or settings change.
-            val mdbListOn = com.nuvio.tv.NuvioCFeatures.CALENDAR_MDBLIST && settings.useMdbListCalendar && inputs.mdbListSignedIn()
+            val mdbListOn = com.nuvio.tv.NuvioCFeatures.CALENDAR_MDBLIST && (settings.useMdbListCalendar || com.nuvio.tv.NuvioCFeatures.CALENDAR_NO_MDBLIST_SWITCH) && inputs.mdbListSignedIn()
             val mdbListDue = reason == CalendarRefreshReason.SETTINGS_CHANGED || reason == CalendarRefreshReason.LIBRARY_CHANGED ||
                 reason == CalendarRefreshReason.MANUAL || // [fork] calendar_refresh_button
                 now.toEpochMilli() - snapshot.mdbListCalendarFetchedAtMs >= CALENDAR_MDBLIST_REFRESH.toMillis()

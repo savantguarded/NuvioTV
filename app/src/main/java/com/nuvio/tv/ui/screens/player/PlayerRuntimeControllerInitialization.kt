@@ -888,6 +888,7 @@ internal fun PlayerRuntimeController.initializePlayer(
             val effectiveDecoderPriority = if (
                 hasTriedAudioPcmFallback ||
                 isForcePassthroughActive ||
+                NuvioCPassthrough.restricts(context) || // [fork] round 51: a switched-off format needs a decoder
                 isBluetoothAudioOutput
             ) {
                 DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
@@ -2283,6 +2284,11 @@ private class SubtitleOffsetRenderersFactory(
                 DefaultAudioSink.Builder()
                     .setAudioCapabilities(buildStableAudioCapabilities(context, true))
             }
+            NuvioCPassthrough.restricts(context) -> { // [fork] round 51 passthrough_formats
+                @Suppress("DEPRECATION")
+                DefaultAudioSink.Builder()
+                    .setAudioCapabilities(buildStableAudioCapabilities(context, false))
+            }
             else -> DefaultAudioSink.Builder(context)
         }
             .setEnableFloatOutput(enableFloatOutput)
@@ -2724,6 +2730,13 @@ private fun buildStableAudioCapabilities(context: Context, forceOpticalPassthrou
         maxOf(detected.maxChannelCount, 8)
     } else {
         detected.maxChannelCount
+    }
+    // [fork] round 51 passthrough_formats: formats switched off in Settings are dropped, so they decode to PCM
+    if (NuvioCPassthrough.restricts(context)) {
+        for (extra in intArrayOf(C.ENCODING_DTS_HD, C.ENCODING_DTS_UHD_P2)) {
+            if (detected.supportsEncoding(extra) && extra !in supportedEncodings) supportedEncodings += extra
+        }
+        return AudioCapabilities(NuvioCPassthrough.filter(context, supportedEncodings).toIntArray(), maxChannelCount)
     }
     return AudioCapabilities(supportedEncodings.toIntArray(), maxChannelCount)
 }

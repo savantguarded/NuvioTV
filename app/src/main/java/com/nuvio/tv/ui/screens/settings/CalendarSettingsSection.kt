@@ -259,7 +259,7 @@ internal fun LayoutCalendarSection(viewModel: CalendarSettingsViewModel = hiltVi
         checked = current.followOtherServices,
         onToggle = { viewModel.setFollowOtherServices(!current.followOtherServices) }
     )
-    if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MDBLIST && viewModel.mdbListSignedIn()) { // [fork] calendar_mdblist: only on profiles connected to MDBList
+    if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MDBLIST && !com.nuvio.tv.NuvioCFeatures.CALENDAR_NO_MDBLIST_SWITCH && viewModel.mdbListSignedIn()) { // [fork] round 51: no switch, always on when connected // [fork] calendar_mdblist: only on profiles connected to MDBList
         SettingsToggleRow(
             title = stringResource(R.string.nuvio_c_calendar_mdblist),
             subtitle = stringResource(R.string.nuvio_c_calendar_mdblist_sub),

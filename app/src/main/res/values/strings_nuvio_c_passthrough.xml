@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nuvio_c_pt_title">Formats sent to the soundbar</string>
+    <string name="nuvio_c_pt_sub">Auto keeps the app\'s normal choice. Choose lets you switch formats off so they play as PCM. Applies to this TV, from the next video.</string>
+    <string name="nuvio_c_pt_auto">Auto</string>
+    <string name="nuvio_c_pt_choose">Choose</string>
+    <string name="nuvio_c_pt_dd">Dolby Digital</string>
+    <string name="nuvio_c_pt_ddp">Dolby Digital Plus (Atmos)</string>
+    <string name="nuvio_c_pt_truehd">Dolby TrueHD</string>
+    <string name="nuvio_c_pt_dts">DTS</string>
+    <string name="nuvio_c_pt_dtshd">DTS-HD</string>
+    <string name="nuvio_c_pt_on_sub">Sent as it is</string>
+    <string name="nuvio_c_pt_off_sub">Played as PCM</string>
+</resources>

@@ -49,7 +49,9 @@ data class CalendarRow(
     val backdrop: String? = null,
     val logo: String? = null,
     val rating: Double? = null,
-    val genre: String? = null
+    val genre: String? = null,
+    /** [fork] round 51 calendar_season_drop: last episode of a whole season landing on one day ("S5 E1-6"). */
+    val episodeEnd: Int? = null
 ) {
     val dimmed: Boolean get() = status == CalendarRowStatus.WATCHED
     val isFilm: Boolean get() = type == CalendarTitleType.MOVIE
@@ -180,8 +182,9 @@ fun buildCalendarList(
     sections.forEach { section ->
         if (section.items.isEmpty()) return@forEach
         entries += CalendarHeaderEntry(section.kind, section.date)
-        section.items.forEach { item ->
-            val base = calendarRow(item.title, item.entry, item.date, item.time, section.kind, now, today, bells, watched)
+        val built = section.items.map { item -> calendarRow(item.title, item.entry, item.date, item.time, section.kind, now, today, bells, watched) }
+        val grouped = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_SEASON_DROP) calendarGroupSeasons(built) else built
+        grouped.forEach { base ->
             var key = base.key
             var n = 1
             while (!used.add(key)) key = "${base.key}#${n++}"
@@ -215,7 +218,8 @@ fun buildCalendarDays(
                 calendarRow(title, entry, date, time, CalendarSectionKind.DAY, now, today, bells, watched)
         }
     }
-    return byDay.mapValues { (_, rows) ->
+    return byDay.mapValues { (_, rows0) ->
+        val rows = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_SEASON_DROP) calendarGroupSeasons(rows0) else rows0
         rows.sortedWith(compareBy<CalendarRow> { it.time == null }.thenBy { it.time }.thenBy { it.name.orEmpty().lowercase() })
             .distinctBy { it.key }
     }
@@ -275,3 +279,34 @@ fun calendarMonthMove(focused: LocalDate, month: YearMonth, firstDay: DayOfWeek,
 
 /** Calendar sits in the menu unless it is switched off; until the settings are read the default (shown) holds. */
 fun calendarMenuVisible(settings: CalendarSettings?): Boolean = settings?.menuVisible ?: true
+
+
+/**
+ * [fork] round 51 calendar_season_drop: three or more consecutive episodes of one season of one title on the same day
+ * (a whole season released at once) become one row, "S5 E1-6". The first episode's row stands for the run.
+ */
+fun calendarGroupSeasons(rows: List<CalendarRow>): List<CalendarRow> {
+    val out = ArrayList<CalendarRow>(rows.size)
+    val used = HashSet<Int>()
+    rows.forEachIndexed { i, r ->
+        if (i in used) return@forEachIndexed
+        if (r.kind != CalendarRowKind.EPISODE || r.season == null || r.episode == null || r.episodeEnd != null) { out += r; return@forEachIndexed }
+        val run = rows.withIndex().filter { (j, o) ->
+            j !in used && o.kind == CalendarRowKind.EPISODE && o.titleKey == r.titleKey && o.date == r.date && o.season == r.season && o.episode != null
+        }.sortedBy { it.value.episode }
+        // longest consecutive run that contains r's episode
+        var lo = r.episode; var hi = r.episode
+        val eps = run.map { it.value.episode!! }.toSet()
+        while ((lo - 1) in eps) lo--
+        while ((hi + 1) in eps) hi++
+        if (hi - lo + 1 >= 3) {
+            val members = run.filter { it.value.episode!! in lo..hi }
+            members.forEach { used += it.index }
+            val first = members.minBy { it.value.episode!! }.value
+            out += first.copy(episodeEnd = hi, episodeTitle = null)
+        } else {
+            out += r
+        }
+    }
+    return out
+}

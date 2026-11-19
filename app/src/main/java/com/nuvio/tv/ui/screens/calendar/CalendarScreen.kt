@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -521,8 +522,10 @@ private fun CalendarList(
                 }
                 false
             },
-        contentPadding = PaddingValues(top = NuvioTheme.spacing.xxs, bottom = NuvioTheme.spacing.xxxl),
-        verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xxs)
+        contentPadding = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_LIST_NO_CLIP) {
+            PaddingValues(start = NuvioTheme.spacing.sm, end = NuvioTheme.spacing.sm, top = NuvioTheme.spacing.sm, bottom = NuvioTheme.spacing.xxxl) // [fork] round 51: room for the focus ring and zoom
+        } else PaddingValues(top = NuvioTheme.spacing.xxs, bottom = NuvioTheme.spacing.xxxl),
+        verticalArrangement = Arrangement.spacedBy(if (com.nuvio.tv.NuvioCFeatures.CALENDAR_LIST_NO_CLIP) NuvioTheme.spacing.xs else NuvioTheme.spacing.xxs)
     ) {
         items(list.entries, key = { it.key }, contentType = { if (it is CalendarHeaderEntry) 0 else 1 }) { entry ->
             when (entry) {
@@ -692,8 +695,9 @@ internal fun CalendarRowItem(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = NuvioTheme.colors.TextPrimary,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        maxLines = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_ROWS_TWO) 1 else 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_ROWS_TWO && focused) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier // [fork] round 51 calendar_rows_two
                     )
                     // The label sits beside the episode line when both fit, otherwise on its own line under it.
                     FlowRow(
@@ -706,8 +710,9 @@ internal fun CalendarRowItem(
                                 text = line,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = NuvioTheme.colors.TextSecondary,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
+                                maxLines = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_ROWS_TWO) 1 else 2,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_ROWS_TWO && focused) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier
                             )
                         }
                         calendarLabelText(row.label)?.let { label ->
@@ -874,7 +879,9 @@ internal fun CalendarPoster(url: String?, width: Dp, height: Dp, modifier: Modif
 @Composable
 internal fun calendarRowLine(row: CalendarRow): String = when (row.kind) {
     CalendarRowKind.EPISODE -> {
-        val code = if (row.season != null && row.episode != null) {
+        val code = if (row.season != null && row.episode != null && row.episodeEnd != null) {
+            "S${row.season} E${row.episode}-${row.episodeEnd}" // [fork] round 51 calendar_season_drop
+        } else if (row.season != null && row.episode != null) {
             stringResource(R.string.calendar_episode_code, row.season, row.episode)
         } else null
         when {

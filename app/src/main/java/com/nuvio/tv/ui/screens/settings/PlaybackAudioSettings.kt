@@ -25,6 +25,38 @@ internal fun PlaybackAudioSection(
     val isExoEngine = settings.usesExoPlayerEngine
 
     SettingsNote(text = stringResource(R.string.audio_passthrough_info))
+    // [fork] round 51 passthrough_formats: which formats go to the soundbar as they are
+    if (com.nuvio.tv.NuvioCFeatures.PASSTHROUGH_FORMATS && isExoEngine) {
+        val ptContext = androidx.compose.ui.platform.LocalContext.current
+        androidx.compose.runtime.remember { com.nuvio.tv.ui.screens.player.NuvioCPassthrough.load(ptContext); true }
+        val choose = com.nuvio.tv.ui.screens.player.NuvioCPassthrough.choose.value
+        SettingsActionRow(
+            title = stringResource(R.string.nuvio_c_pt_title),
+            subtitle = stringResource(R.string.nuvio_c_pt_sub),
+            value = stringResource(if (choose) R.string.nuvio_c_pt_choose else R.string.nuvio_c_pt_auto),
+            enabled = enabled,
+            onClick = { com.nuvio.tv.ui.screens.player.NuvioCPassthrough.setChoose(ptContext, !choose) }
+        )
+        if (choose) {
+            val rows = listOf(
+                com.nuvio.tv.ui.screens.player.NuvioCPassthrough.Format.DD to R.string.nuvio_c_pt_dd,
+                com.nuvio.tv.ui.screens.player.NuvioCPassthrough.Format.DDP to R.string.nuvio_c_pt_ddp,
+                com.nuvio.tv.ui.screens.player.NuvioCPassthrough.Format.TRUEHD to R.string.nuvio_c_pt_truehd,
+                com.nuvio.tv.ui.screens.player.NuvioCPassthrough.Format.DTS to R.string.nuvio_c_pt_dts,
+                com.nuvio.tv.ui.screens.player.NuvioCPassthrough.Format.DTSHD to R.string.nuvio_c_pt_dtshd
+            )
+            rows.forEach { (f, label) ->
+                val checked = com.nuvio.tv.ui.screens.player.NuvioCPassthrough.state(f).value
+                SettingsToggleRow(
+                    title = stringResource(label),
+                    subtitle = stringResource(if (checked) R.string.nuvio_c_pt_on_sub else R.string.nuvio_c_pt_off_sub),
+                    checked = checked,
+                    onToggle = { com.nuvio.tv.ui.screens.player.NuvioCPassthrough.set(ptContext, f, !checked) },
+                    enabled = enabled
+                )
+            }
+        }
+    }
 
     SettingsActionRow(
         title = stringResource(R.string.audio_preferred_lang),
