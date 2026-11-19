@@ -10,15 +10,18 @@ A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Androi
 - Two control layouts in Settings > Playback: Default and Modern. Modern is compact: Subtitles and Audio pills on the left, Play in the centre, icons in one rounded pill on the right, the rest under More. The chapter name sits above the elapsed time.
 - Press Left or Right twice on the seek bar to jump chapters; Start over then Previous episode.
 - Subtitles lift clear of the controls; subtitles and controls dim during HDR and Dolby Vision.
+- Subtitles and Audio open as one card on the left with tabs (Tracks / Style / Language, Tracks / Sound).
 - Subtitle styling (fonts, background, outline width, shadow), night mode for passthrough setups, a stream information panel, cleaner track names, a pause screen with titles only.
+- Choose which formats go to the soundbar; switched-off formats (e.g. DTS) are decoded on the TV with clearer dialogue and multichannel output. A small chip shows when the connection drops.
 
 **Home**
-- Featured carousel: Play, Details icon and Previous / Next arrows, with one context tag (airs today, finale, season out, new film, in your library). Soft glow on focused posters.
+- Featured carousel: Play, Details icon and separate Previous / Next arrows, with one context tag (airs today, new on digital, in cinemas, up next, your rating, collection progress...). A crossfade into Continue Watching. Soft glow on focused posters.
+- A profile screen background made from what is trending today, different for each profile.
 - Upcoming row fed by the Calendar, slim sidebar, a smooth start-up, and a start-up queue that keeps background work off the first seconds.
 
 **Calendar, details, taste**
-- List and Month views, library and TMDB "coming soon" sources, bell on any title, exact air times with your TheTVDB key.
-- Half-star ratings to Trakt, Simkl and MDBList, richer details pages, trailers, Roulette and Shuffle, and a per-profile Taste page.
+- List and Month views, library and TMDB "coming soon" sources, bell on any title, exact air times from TheTVDB (with your key) and Trakt, usual-hour estimates for Hulu, Peacock and Paramount+, no old-film re-releases.
+- Half-star ratings to Trakt, Simkl and MDBList, richer details pages, trailers, Roulette and Shuffle, and a per-profile Taste page in four tabs (Overview, Charts, Discover, Wrapped).
 
 ## Switches and builds
 
