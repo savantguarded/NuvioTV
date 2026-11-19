@@ -213,13 +213,15 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
     // [fork] round 35 hud_fit: tighter rows, and the whole panel shrinks to fit when it's still taller than the
     // screen space left, so it always ends with SYSTEM on screen (it used to run off the bottom).
     val fit = com.nuvio.tv.NuvioCFeatures.HUD_FIT
-    val lineH = if (fit) 12.sp else 13.sp
-    val labelStyle = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp, lineHeight = lineH, fontWeight = FontWeight.Medium)
-    val valueStyle = MaterialTheme.typography.labelSmall.copy(fontSize = 10.5.sp, lineHeight = lineH)
+    val big = com.nuvio.tv.NuvioCFeatures.HUD_TEXT_LARGER // [fork] round 53e: easier to read from the sofa
+    val lineH = if (big) 15.sp else if (fit) 12.sp else 13.sp
+    val textSize = if (big) 12.5.sp else 10.5.sp
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(fontSize = textSize, lineHeight = lineH, fontWeight = FontWeight.Medium)
+    val valueStyle = MaterialTheme.typography.labelSmall.copy(fontSize = textSize, lineHeight = lineH)
     Column(
         modifier = modifier
             .then(if (fit) Modifier.nuvioCScaleToFitHeight() else Modifier)
-            .width(380.dp)
+            .width(if (big) 460.dp else 380.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(Color(0xB8000000))
             .padding(horizontal = 16.dp, vertical = if (fit) 10.dp else 12.dp),
@@ -228,7 +230,7 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
         sections.forEachIndexed { i, section ->
             Text(
                 text = section.header,
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold),
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = if (big) 10.5.sp else 9.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold),
                 color = Color.White.copy(alpha = 0.5f),
                 modifier = Modifier.padding(top = if (i == 0) 0.dp else if (fit) 4.dp else 5.dp)
             )
@@ -240,7 +242,7 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
                         style = labelStyle,
                         color = Color.White.copy(alpha = 0.55f),
                         maxLines = 1,
-                        modifier = Modifier.width(88.dp)
+                        modifier = Modifier.width(if (big) 104.dp else 88.dp)
                     )
                     Text(
                         text = row.value,

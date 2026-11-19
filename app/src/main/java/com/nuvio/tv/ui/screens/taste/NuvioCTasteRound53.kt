@@ -579,10 +579,11 @@ private fun Bars53(counts: List<Int>, highlight: Int?, labels: List<String>?, mo
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(if (counts.size > 12) 3.dp else 5.dp), verticalAlignment = Alignment.Bottom) {
         counts.forEachIndexed { i, c ->
             Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
-                if (values && c > 0) Text(if (c >= 1000) "${c / 1000}k" else "$c", style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, softWrap = false, fontSize = 9.sp)
+                // bars stand on the baseline: empty space first, then the value, then the bar
+                if (c < max) Spacer(Modifier.weight((1f - c.toFloat() / max).coerceAtLeast(0.0001f)))
+                if (values && c > 0) Text(if (c >= 1000) "${c / 1000}k" else "$c", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = C_MUTE, maxLines = 1, softWrap = false, fontSize = 9.sp)
                 Box(Modifier.fillMaxWidth().weight((c.toFloat() / max).coerceAtLeast(0.02f), fill = true)
                     .background(if (i == highlight) color else color.copy(alpha = 0.32f), RoundedCornerShape(3.dp)))
-                if (c < max) Spacer(Modifier.weight((1f - c.toFloat() / max).coerceAtLeast(0.0001f)))
                 if (labels != null) Text(labels[i], style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, softWrap = false, fontSize = 10.sp)
             }
         }
@@ -845,13 +846,14 @@ private fun Ranked53(modifier: Modifier, title: String, lines: List<NuvioCTasteL
                 Column(Modifier.fillMaxWidth()) {
                     // the number sits on the title's first baseline; the note lines up under the title
                     Row(Modifier.fillMaxWidth()) {
-                        Text("${i + 1}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = color,
-                            textAlign = TextAlign.End, maxLines = 1, softWrap = false, modifier = Modifier.width(22.dp).alignByBaseline())
-                        Spacer(Modifier.width(12.dp))
+                        // same size as the title, fixed-width digits, left aligned: number and title read as one line
+                        Text("${i + 1}", style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.ExtraBold, color = color,
+                            maxLines = 1, softWrap = false, modifier = Modifier.width(18.dp).alignByBaseline())
+                        Spacer(Modifier.width(8.dp))
                         Text(l.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, lineHeight = 18.sp,
                             modifier = Modifier.weight(1f).alignByBaseline())
                     }
-                    Text(l.sub, style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 34.dp))
+                    Text(l.sub, style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 26.dp))
                 }
             }
         }

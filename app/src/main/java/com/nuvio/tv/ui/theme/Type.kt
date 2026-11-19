@@ -233,3 +233,38 @@ private val nuvioCRound27Families = java.util.concurrent.ConcurrentHashMap<Int, 
 private fun nuvioCRound27(res: Int): FontFamily =
     if (!com.nuvio.tv.NuvioCFeatures.MORE_FONTS) InterFamily
     else nuvioCRound27Families.getOrPut(res) { nuvioCVariableFamily(res) }
+
+// [fork] Nuvio C round 53e `taste_bold`: the app fonts are variable fonts declared without a weight axis setting, so
+// every weight draws as Regular on the TV. This family takes the same font file and sets the wght axis for each
+// weight (400 to 800), so Bold and ExtraBold really draw bold. Used where a screen asks for it (Taste).
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
+internal fun nuvioCWeighted(family: androidx.compose.ui.text.font.FontFamily?): androidx.compose.ui.text.font.FontFamily? {
+    val res = ((family as? androidx.compose.ui.text.font.FontListFontFamily)?.fonts?.firstOrNull() as? androidx.compose.ui.text.font.ResourceFont)?.resId
+        ?: return null
+    return nuvioCWeightedCache.getOrPut(res) {
+        FontFamily(listOf(400, 500, 600, 700, 800).map { w ->
+            Font(res, FontWeight(w), androidx.compose.ui.text.font.FontStyle.Normal,
+                variationSettings = androidx.compose.ui.text.font.FontVariation.Settings(androidx.compose.ui.text.font.FontVariation.weight(w)))
+        })
+    }
+}
+private val nuvioCWeightedCache = HashMap<Int, FontFamily>()
+
+/** Runs [content] with the theme's typography switched to the weighted family of the same font. */
+@androidx.compose.runtime.Composable
+fun NuvioCWeightedFont(content: @androidx.compose.runtime.Composable () -> Unit) {
+    val t = androidx.tv.material3.MaterialTheme.typography
+    val fam = androidx.compose.runtime.remember(t.bodyMedium.fontFamily) { nuvioCWeighted(t.bodyMedium.fontFamily) }
+    if (fam == null) { content(); return }
+    val typo = androidx.compose.runtime.remember(t, fam) {
+        fun androidx.compose.ui.text.TextStyle.w() = copy(fontFamily = fam)
+        t.copy(
+            displayLarge = t.displayLarge.w(), displayMedium = t.displayMedium.w(), displaySmall = t.displaySmall.w(),
+            headlineLarge = t.headlineLarge.w(), headlineMedium = t.headlineMedium.w(), headlineSmall = t.headlineSmall.w(),
+            titleLarge = t.titleLarge.w(), titleMedium = t.titleMedium.w(), titleSmall = t.titleSmall.w(),
+            bodyLarge = t.bodyLarge.w(), bodyMedium = t.bodyMedium.w(), bodySmall = t.bodySmall.w(),
+            labelLarge = t.labelLarge.w(), labelMedium = t.labelMedium.w(), labelSmall = t.labelSmall.w()
+        )
+    }
+    androidx.tv.material3.MaterialTheme(colorScheme = androidx.tv.material3.MaterialTheme.colorScheme, shapes = androidx.tv.material3.MaterialTheme.shapes, typography = typo, content = content)
+}

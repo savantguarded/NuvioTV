@@ -71,7 +71,7 @@ internal fun NuvioCProfileBgSettingsCard() {
 
     SettingsGroupCard(
         modifier = Modifier.fillMaxWidth(),
-        title = "Profile background",
+        title = "Profile Background",
         subtitle = "Pictures behind the profiles when the app starts"
     ) {
         SettingsToggleRow(
@@ -94,7 +94,7 @@ internal fun NuvioCProfileBgSettingsCard() {
 
     if (showCatalogs) {
         SettingsMultiChoiceDialog(
-            title = "Profile background catalogs",
+            title = "Profile Background Catalogs",
             subtitle = "Pick up to ${AmbientModeSettings.MAX_CATALOGS}",
             options = catalogs.map { c -> SettingsPickerOption(c.key, c.title, description = c.source) },
             selectedValues = selected,

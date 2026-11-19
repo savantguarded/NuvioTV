@@ -513,7 +513,9 @@ fun NuvioCTasteScreen(
     viewModel: NuvioCTasteViewModel = hiltViewModel()
 ) {
     if (com.nuvio.tv.NuvioCFeatures.TASTE_TABS_V2) { // [fork] round 53: header row, Overview / Discover / Stats / Wrapped
-        NuvioCTasteTabsV2(viewModel, onOpenTitle, onOpenPerson, onOpenRoulette)
+        // [fork] round 53e taste_bold: weights that really draw bold (the app font is variable)
+        if (com.nuvio.tv.NuvioCFeatures.TASTE_BOLD) com.nuvio.tv.ui.theme.NuvioCWeightedFont { NuvioCTasteTabsV2(viewModel, onOpenTitle, onOpenPerson, onOpenRoulette) }
+        else NuvioCTasteTabsV2(viewModel, onOpenTitle, onOpenPerson, onOpenRoulette)
         return
     }
     if (com.nuvio.tv.NuvioCFeatures.TASTE_TABS) { // [fork] round 52: four tabs, each one screen

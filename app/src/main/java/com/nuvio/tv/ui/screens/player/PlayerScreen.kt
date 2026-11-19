@@ -634,6 +634,47 @@ fun PlayerScreen(
         }
     }
 
+    // [fork] round 53e afr_loop_guard: on this TV the panel can sit in a film mode (48 Hz) that no window asked for;
+    // SurfaceFlinger then retries its own 60 Hz default about 60 times a second and the hardware refuses every time
+    // (seen over adb, alongside the decoded-DTS dropouts). While the player is open and Nuvio has not picked a mode
+    // itself, ask for the mode the panel is already in, so there is nothing left to retry. Follows later mode changes
+    // and lets go when the player closes.
+    if (com.nuvio.tv.NuvioCFeatures.AFR_LOOP_GUARD && activity != null) {
+        DisposableEffect(activity) {
+            val window = activity.window
+            val dm = activity.getSystemService(android.content.Context.DISPLAY_SERVICE) as? android.hardware.display.DisplayManager
+            var pinned = 0
+            fun pin() {
+                val display = window?.decorView?.display ?: return
+                val attrs = window.attributes
+                val current = attrs.preferredDisplayModeId
+                if (current != 0 && current != pinned) return // Nuvio's own frame-rate matching owns it
+                val active = display.mode.modeId
+                if (current == active) return
+                attrs.preferredDisplayModeId = active
+                window.attributes = attrs
+                pinned = active
+            }
+            val listener = object : android.hardware.display.DisplayManager.DisplayListener {
+                override fun onDisplayAdded(displayId: Int) {}
+                override fun onDisplayRemoved(displayId: Int) {}
+                override fun onDisplayChanged(displayId: Int) { runCatching { pin() } }
+            }
+            runCatching { pin() }
+            runCatching { dm?.registerDisplayListener(listener, android.os.Handler(android.os.Looper.getMainLooper())) }
+            onDispose {
+                runCatching { dm?.unregisterDisplayListener(listener) }
+                runCatching {
+                    val attrs = window.attributes
+                    if (pinned != 0 && attrs.preferredDisplayModeId == pinned) {
+                        attrs.preferredDisplayModeId = 0
+                        window.attributes = attrs
+                    }
+                }
+            }
+        }
+    }
+
     // Request focus for key events when controls visibility or panel state changes
     LaunchedEffect(
         uiState.showControls,

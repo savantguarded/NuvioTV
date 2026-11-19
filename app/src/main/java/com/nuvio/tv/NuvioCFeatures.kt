@@ -962,4 +962,13 @@ object NuvioCFeatures {
     const val PROFILE_BG_CATALOGS = true
     /** Player HUD (stats on the right): while the controls show it ends above the seek bar, so the Info button that turns it off is never covered. Off = down to 20 dp from the bottom. */
     const val HUD_ABOVE_CONTROLS = true
+    // [fork] round 53e
+    /** Taste: text drawn with the app font's weight axis set (the variable fonts drew every weight as Regular), so titles and numbers are really bold. Off = theme font. */
+    const val TASTE_BOLD = true
+    /** HUD (stats on the right): bigger text (12.5 sp, was 10.5) and a wider panel; still ends above the seek bar while the controls show. Off = round 53d size. */
+    const val HUD_TEXT_LARGER = true
+    /** Details page: smoother scrolling and no stuck focus (see round 53e notes: Info stop, seasons / episodes after Find). Off = round 52. */
+    const val DETAILS_FLUID = true
+    // round 53e: player asks for the display mode already active so SurfaceFlinger stops retrying 60 Hz
+    const val AFR_LOOP_GUARD = true
 }

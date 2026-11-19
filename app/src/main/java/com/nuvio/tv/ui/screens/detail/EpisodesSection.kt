@@ -501,8 +501,15 @@ fun EpisodesRow(
         episodeFocusRequesters.keys.retainAll(episodeIds)
     }
 
+    // [fork] round 53e details_fluid: the other cards are locked only while a restore is actually running (and never
+    // for more than 2 s). A restore id left behind with no token (after Find, or a tab switch) used to keep every other
+    // card unfocusable, which is how the episode row got stuck.
+    var restoreLock by remember { mutableStateOf(false) }
+    LaunchedEffect(restoreLock) { if (restoreLock) { delay(2_000); restoreLock = false } }
     LaunchedEffect(restoreFocusToken, restoreEpisodeId, dedupedEpisodes) {
-        if (restoreFocusToken <= 0 || restoreEpisodeId.isNullOrBlank()) return@LaunchedEffect
+        if (restoreFocusToken <= 0 || restoreEpisodeId.isNullOrBlank()) { restoreLock = false; return@LaunchedEffect }
+        restoreLock = true
+        try {
         if (dedupedEpisodes.none { it.id == restoreEpisodeId }) {
             if (dedupedEpisodes.isEmpty()) {
                 // [fork] round 52 details_focus_fix: a restore that can never land (the episode list is empty, e.g.
@@ -544,6 +551,7 @@ fun EpisodesRow(
         // [fork] round 52 details_focus_fix: every attempt failed; clear the pending restore so the cards are
         // focusable again (it used to stay set, which is how focus was lost after Find / the Ratings tab)
         if (com.nuvio.tv.NuvioCFeatures.DETAILS_FOCUS_FIX) onRestoreFocusHandled()
+        } finally { restoreLock = false }
     }
 
     LaunchedEffect(scrollToEpisodeId, dedupedEpisodes) {
@@ -633,7 +641,7 @@ fun EpisodesRow(
                 upFocusRequester = upFocusRequester,
                 downFocusRequester = downFocusRequester,
                 focusRequester = episodeFocusRequester,
-                isFocusEnabled = restoreEpisodeId.isNullOrBlank() || isRestoreTarget,
+                isFocusEnabled = if (com.nuvio.tv.NuvioCFeatures.DETAILS_FLUID) !restoreLock || isRestoreTarget else restoreEpisodeId.isNullOrBlank() || isRestoreTarget,
                 onFocused = episodeOnFocused,
                 onFocusRestored = episodeOnFocusRestored
             )
