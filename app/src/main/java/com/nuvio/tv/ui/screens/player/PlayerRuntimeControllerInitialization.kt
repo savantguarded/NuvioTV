@@ -1457,6 +1457,14 @@ internal fun PlayerRuntimeController.initializePlayer(
 
                     override fun onTracksChanged(tracks: Tracks) {
                         updateAvailableTracks(tracks)
+                        // [fork] round 52 decoded_dialogue_lift: raise dialogue only while a switched-off format plays
+                        if (com.nuvio.tv.NuvioCFeatures.DECODED_DIALOGUE_LIFT) {
+                            val mime = tracks.groups.firstOrNull { it.type == androidx.media3.common.C.TRACK_TYPE_AUDIO && it.isSelected }
+                                ?.let { g -> (0 until g.length).firstOrNull { g.isTrackSelected(it) }?.let { g.getTrackFormat(it).sampleMimeType } }
+                            val lift = NuvioCPassthrough.liftFor(context, mime)
+                            gainAudioProcessor.nuvioCSetDecodedLift(lift)
+                            NuvioCPassthrough.playingLift.value = lift
+                        }
                     }
 
                     override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
@@ -2303,6 +2311,7 @@ private class SubtitleOffsetRenderersFactory(
         playbackSpeedAwareAudioSink.setInitialPlaybackSpeed(playbackSpeedProvider())
         // [fork] night_mode: a new player starts with the saved night mode (decoded to PCM while it's on).
         val nuvioCNight = NuvioCNight.load(context)
+        gainAudioProcessor.nuvioCArmLift(NuvioCPassthrough.liftArmed(context)) // [fork] round 52 decoded_dialogue_lift
         gainAudioProcessor.setNightMode(nuvioCNight)
         playbackSpeedAwareAudioSink.nuvioCSetNightForcePcm(nuvioCNight != com.nuvio.tv.data.local.NightModeLevel.OFF)
         onPlaybackSpeedAwareAudioSinkCreated(playbackSpeedAwareAudioSink)
@@ -2736,7 +2745,9 @@ private fun buildStableAudioCapabilities(context: Context, forceOpticalPassthrou
         for (extra in intArrayOf(C.ENCODING_DTS_HD, C.ENCODING_DTS_UHD_P2)) {
             if (detected.supportsEncoding(extra) && extra !in supportedEncodings) supportedEncodings += extra
         }
-        return AudioCapabilities(NuvioCPassthrough.filter(context, supportedEncodings).toIntArray(), maxChannelCount)
+        // [fork] round 52 decoded_surround: decoded formats open a multichannel output instead of the TV's "2 channels"
+        val nuvioCChannels = if (NuvioCPassthrough.wantsSurround(context)) maxOf(maxChannelCount, 8) else maxChannelCount
+        return AudioCapabilities(NuvioCPassthrough.filter(context, supportedEncodings).toIntArray(), nuvioCChannels)
     }
     return AudioCapabilities(supportedEncodings.toIntArray(), maxChannelCount)
 }

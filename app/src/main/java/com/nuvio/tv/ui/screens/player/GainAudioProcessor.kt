@@ -36,13 +36,33 @@ internal class GainAudioProcessor : BaseAudioProcessor() {
 
     fun setNightMode(level: com.nuvio.tv.data.local.NightModeLevel) {
         nuvioCNight = level
-        nuvioCDynamics.setNightMode(level)
+        nuvioCDynamics.setNightMode(nuvioCEffectiveLevel())
     }
 
     fun isNightModeEnabled(): Boolean = nuvioCNight != com.nuvio.tv.data.local.NightModeLevel.OFF
 
+    // [fork] Nuvio C round 52 decoded_dialogue_lift: a format switched off in "Formats sent to the soundbar" is decoded
+    // on the TV and its dialogue raised with the same dynamics. Night mode and this lift are one level, never stacked:
+    // while night mode (manual or scheduled) is on, its level is used; otherwise the lift, and only while the playing
+    // track is a switched-off format. [nuvioCLiftArmed] keeps this processor in the chain from the start (gain 0 dB
+    // passes samples through unchanged), so the lift can switch on and off with a track change without rebuilding.
+    @Volatile private var nuvioCLift: com.nuvio.tv.data.local.NightModeLevel = com.nuvio.tv.data.local.NightModeLevel.OFF
+    @Volatile private var nuvioCLiftArmed = false
+
+    fun nuvioCArmLift(armed: Boolean) { nuvioCLiftArmed = armed }
+
+    fun nuvioCSetDecodedLift(level: com.nuvio.tv.data.local.NightModeLevel) {
+        nuvioCLift = level
+        nuvioCDynamics.setNightMode(nuvioCEffectiveLevel())
+    }
+
+    fun nuvioCEffectiveLevel(): com.nuvio.tv.data.local.NightModeLevel =
+        if (nuvioCNight != com.nuvio.tv.data.local.NightModeLevel.OFF) nuvioCNight else nuvioCLift
+
+    private fun nuvioCDynamicsOn(): Boolean = nuvioCEffectiveLevel() != com.nuvio.tv.data.local.NightModeLevel.OFF
+
     override fun isActive(): Boolean {
-        return super.isActive() && (isGainEnabled() || isNightModeEnabled())
+        return super.isActive() && (isGainEnabled() || isNightModeEnabled() || nuvioCLiftArmed)
     }
 
     override fun onFlush() {
@@ -71,7 +91,7 @@ internal class GainAudioProcessor : BaseAudioProcessor() {
 
         val inputSize = inputBuffer.remaining()
         val outputBuffer = replaceOutputBuffer(inputSize)
-        if (isNightModeEnabled() && nuvioCFrame.isNotEmpty()) { // [fork] night_mode
+        if (nuvioCDynamicsOn() && nuvioCFrame.isNotEmpty()) { // [fork] night_mode; round 52: or the decoded-format lift
             nuvioCProcess(inputBuffer, outputBuffer)
             return
         }

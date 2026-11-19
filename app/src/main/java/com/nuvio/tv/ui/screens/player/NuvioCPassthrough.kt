@@ -33,6 +33,7 @@ object NuvioCPassthrough {
         val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         choose.value = p.getBoolean("pt_choose", false)
         Format.entries.forEach { state(it).value = p.getBoolean(it.key, it != Format.DTS && it != Format.DTSHD) }
+        ensureExtras(context) // [fork] round 52
     }
 
     fun setChoose(context: Context, value: Boolean) {
@@ -60,4 +61,72 @@ object NuvioCPassthrough {
         val off = Format.entries.filter { !state(it).value }.flatMap { it.encodings.toList() }.toSet()
         return supported.filter { it !in off }
     }
+
+    // ---- [fork] round 52 decoded_dialogue_lift / decoded_surround -------------------------------------------------
+    /** How much dialogue is raised on a switched-off format decoded on the TV (Off / Light / Medium / Strong). */
+    val lift = mutableStateOf(com.nuvio.tv.data.local.NightModeLevel.MEDIUM)
+    /** Ask the TV for 6 / 8 channel PCM when decoding, instead of the channel count it reports (often 2). */
+    val surround = mutableStateOf(true)
+
+    private fun loadExtras(context: Context) {
+        val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        lift.value = com.nuvio.tv.data.local.NightModeLevel.fromKey(p.getString("pt_lift", com.nuvio.tv.data.local.NightModeLevel.MEDIUM.key))
+        surround.value = p.getBoolean("pt_surround", true)
+    }
+
+    fun setLift(context: Context, level: com.nuvio.tv.data.local.NightModeLevel) {
+        load(context)
+        lift.value = level
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("pt_lift", level.key).apply()
+    }
+
+    fun setSurround(context: Context, value: Boolean) {
+        load(context)
+        surround.value = value
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("pt_surround", value).apply()
+    }
+
+    @Volatile private var extrasLoaded = false
+    private fun ensureExtras(context: Context) {
+        if (extrasLoaded) return
+        extrasLoaded = true
+        loadExtras(context)
+    }
+
+    /** True when the gain processor must stay in the chain so the lift can follow track changes. */
+    fun liftArmed(context: Context): Boolean {
+        if (!NuvioCFeatures.DECODED_DIALOGUE_LIFT || !restricts(context)) return false
+        ensureExtras(context)
+        return lift.value != com.nuvio.tv.data.local.NightModeLevel.OFF
+    }
+
+    /** True when decoding should open a multichannel output. */
+    fun wantsSurround(context: Context): Boolean {
+        if (!NuvioCFeatures.DECODED_SURROUND || !restricts(context)) return false
+        ensureExtras(context)
+        return surround.value
+    }
+
+    /** The format a track's MIME type belongs to, or null for PCM / AAC and the rest (never passed through). */
+    fun formatOf(mime: String?): Format? {
+        val m = mime?.lowercase() ?: return null
+        return when {
+            m == "audio/ac3" -> Format.DD
+            m == "audio/eac3" || m == "audio/eac3-joc" -> Format.DDP
+            m == "audio/true-hd" -> Format.TRUEHD
+            m == "audio/vnd.dts" -> Format.DTS
+            m.startsWith("audio/vnd.dts.hd") || m.startsWith("audio/vnd.dts.uhd") -> Format.DTSHD
+            else -> null
+        }
+    }
+
+    /** The lift for the playing track: the chosen level when its format is switched off, else Off. */
+    fun liftFor(context: Context, mime: String?): com.nuvio.tv.data.local.NightModeLevel {
+        if (!liftArmed(context)) return com.nuvio.tv.data.local.NightModeLevel.OFF
+        val f = formatOf(mime) ?: return com.nuvio.tv.data.local.NightModeLevel.OFF
+        return if (state(f).value) com.nuvio.tv.data.local.NightModeLevel.OFF else lift.value
+    }
+
+    /** The lift on the playing track (Off when it isn't a decoded switched-off format); read by Stream info. */
+    val playingLift = mutableStateOf(com.nuvio.tv.data.local.NightModeLevel.OFF)
 }

@@ -167,6 +167,16 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
                         append(if (passthrough) "Passthrough" else "Decoded in app")
                         val night = NuvioCNight.level.value
                         if (night != NightModeLevel.OFF) append(" · Night ${night.name.lowercase(Locale.US).replaceFirstChar { it.uppercase() }}")
+                        // [fork] round 52 decoded_dialogue_lift: the lift only counts when night mode is off (never both)
+                        else NuvioCPassthrough.playingLift.value.takeIf { it != NightModeLevel.OFF }?.let {
+                            append(" · Dialogue lift ${it.name.lowercase(Locale.US).replaceFirstChar { c -> c.uppercase() }}")
+                        }
+                    }),
+                    // [fork] round 52 decoded_surround: what the TV says its output takes, to tell a TV downmix from the app's
+                    if (player == null || passthrough || !com.nuvio.tv.NuvioCFeatures.DECODED_SURROUND) null else NuvioCStatsRow("Output", buildString {
+                        val reported = runCatching { androidx.media3.exoplayer.audio.AudioCapabilities.getCapabilities(context, androidx.media3.common.AudioAttributes.DEFAULT, null).maxChannelCount }.getOrNull()
+                        append(if (NuvioCPassthrough.wantsSurround(context)) "PCM up to 8 ch" else "PCM")
+                        if (reported != null) append(" · TV reports $reported ch")
                     }),
                     counters?.audioDecoder?.takeIf { !passthrough }?.let { NuvioCStatsRow("Decoder", it) },
                     counters?.let { NuvioCStatsRow("Underruns", it.underruns.toString(), if (it.underruns > 0) DebugStatSeverity.WARNING else DebugStatSeverity.NORMAL) }

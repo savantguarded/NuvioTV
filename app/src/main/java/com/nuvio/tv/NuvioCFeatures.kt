@@ -888,4 +888,8 @@ object NuvioCFeatures {
     const val DETAIL_INFO_HIDE_EMPTY = true
     /** Calendar: a film shows for its own first release only; dates more than a year after the earliest known one (4K, Blu-ray, anniversary or new digital dates of old films, e.g. from MDBList) are dropped unless belled. Off = every dated release shows. */
     const val CALENDAR_NO_REREALEASES = true
+    /** Audio: a format switched off in "Formats sent to the soundbar" is decoded on this TV with its dialogue raised (Settings > Playback > Audio > Dialogue clarity, default Medium). Same dynamics as night mode but one level only: night mode's level wins while it is on (manual or scheduled), never both. ExoPlayer only. Off = plain decode. */
+    const val DECODED_DIALOGUE_LIFT = true
+    /** Audio: decoded formats open a 6 / 8 channel PCM output instead of the channel count the TV reports (often 2); Stream info shows what the TV reports. Off = TV's count. */
+    const val DECODED_SURROUND = true
 }

@@ -55,6 +55,38 @@ internal fun PlaybackAudioSection(
                     enabled = enabled
                 )
             }
+            // [fork] round 52: what happens to the formats switched off above
+            val anyOff = rows.any { (f, _) -> !com.nuvio.tv.ui.screens.player.NuvioCPassthrough.state(f).value }
+            if (anyOff && com.nuvio.tv.NuvioCFeatures.DECODED_DIALOGUE_LIFT) {
+                androidx.compose.runtime.remember { com.nuvio.tv.ui.screens.player.NuvioCPassthrough.liftArmed(ptContext); true }
+                val lift = com.nuvio.tv.ui.screens.player.NuvioCPassthrough.lift.value
+                val levels = com.nuvio.tv.data.local.NightModeLevel.entries
+                SettingsActionRow(
+                    title = stringResource(R.string.nuvio_c_pt_lift_title),
+                    subtitle = stringResource(R.string.nuvio_c_pt_lift_sub),
+                    value = stringResource(
+                        when (lift) {
+                            com.nuvio.tv.data.local.NightModeLevel.OFF -> R.string.nuvio_c_pt_lift_off
+                            com.nuvio.tv.data.local.NightModeLevel.LIGHT -> R.string.nuvio_c_pt_lift_light
+                            com.nuvio.tv.data.local.NightModeLevel.MEDIUM -> R.string.nuvio_c_pt_lift_medium
+                            else -> R.string.nuvio_c_pt_lift_strong
+                        }
+                    ),
+                    enabled = enabled,
+                    onClick = { com.nuvio.tv.ui.screens.player.NuvioCPassthrough.setLift(ptContext, levels[(levels.indexOf(lift) + 1) % levels.size]) }
+                )
+            }
+            if (anyOff && com.nuvio.tv.NuvioCFeatures.DECODED_SURROUND) {
+                androidx.compose.runtime.remember { com.nuvio.tv.ui.screens.player.NuvioCPassthrough.wantsSurround(ptContext); true }
+                val surround = com.nuvio.tv.ui.screens.player.NuvioCPassthrough.surround.value
+                SettingsToggleRow(
+                    title = stringResource(R.string.nuvio_c_pt_surround_title),
+                    subtitle = stringResource(R.string.nuvio_c_pt_surround_sub),
+                    checked = surround,
+                    onToggle = { com.nuvio.tv.ui.screens.player.NuvioCPassthrough.setSurround(ptContext, !surround) },
+                    enabled = enabled
+                )
+            }
         }
     }
 

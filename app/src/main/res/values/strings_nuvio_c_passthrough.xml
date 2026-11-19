@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="nuvio_c_pt_title">Formats sent to the soundbar</string>
-    <string name="nuvio_c_pt_sub">Auto keeps the app\'s normal choice. Choose lets you switch formats off so they play as PCM. Applies to this TV, from the next video.</string>
+    <string name="nuvio_c_pt_sub">Auto keeps the app\'s normal choice. Choose lets you switch formats off so they are decoded on this TV instead. Applies to this TV, from the next video.</string>
     <string name="nuvio_c_pt_auto">Auto</string>
     <string name="nuvio_c_pt_choose">Choose</string>
     <string name="nuvio_c_pt_dd">Dolby Digital</string>
@@ -10,5 +10,14 @@
     <string name="nuvio_c_pt_dts">DTS</string>
     <string name="nuvio_c_pt_dtshd">DTS-HD</string>
     <string name="nuvio_c_pt_on_sub">Sent as it is</string>
-    <string name="nuvio_c_pt_off_sub">Played as PCM</string>
+    <string name="nuvio_c_pt_off_sub">Decoded on this TV</string>
+    <!-- [fork] round 52 decoded_dialogue_lift / decoded_surround -->
+    <string name="nuvio_c_pt_lift_title">Dialogue clarity for decoded formats</string>
+    <string name="nuvio_c_pt_lift_sub">Formats switched off above are decoded on this TV. Raises dialogue and quieter passages while loud scenes stay as mixed.</string>
+    <string name="nuvio_c_pt_lift_off">Off</string>
+    <string name="nuvio_c_pt_lift_light">Light</string>
+    <string name="nuvio_c_pt_lift_medium">Medium</string>
+    <string name="nuvio_c_pt_lift_strong">Strong</string>
+    <string name="nuvio_c_pt_surround_title">Multichannel output</string>
+    <string name="nuvio_c_pt_surround_sub">Sends decoded formats as 5.1 or 7.1 PCM when the TV accepts it, instead of stereo.</string>
 </resources>
