@@ -47,7 +47,7 @@ class NuvioCRound53TasteTest {
         assertEquals("Old Film" to 1972, o.oldest)
         // binge: three episodes of one show in a day; a single episode is no binge
         assertEquals(1, o.binges.size)
-        assertEquals("3 episodes", o.binges.first().sub)
+        assertEquals("3 eps", o.binges.first().sub)
         // biggest day: the film plus three episodes on the 10th
         assertEquals(d, o.biggestDay?.date)
         assertEquals(120 + 90, o.biggestDay?.minutes)

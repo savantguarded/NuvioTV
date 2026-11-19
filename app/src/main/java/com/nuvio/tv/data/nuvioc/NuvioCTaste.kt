@@ -560,6 +560,25 @@ class NuvioCTasteRepository @Inject constructor(
         computeTasteStatsStrip(i.history, titles(), windowFor(range, month, System.currentTimeMillis(), zone))
     }
 
+    /**
+     * [fork] round 53b taste_scope: every number the Overview / Discover / Stats tabs show for one window (all time,
+     * a year or a month), in one pass off the main thread. Null before a build or for another profile.
+     */
+    suspend fun scope(window: LongRange?): NuvioCTasteScopeData? = withContext(Dispatchers.Default) {
+        val i = inputs?.takeIf { it.profile == profiles.activeProfileId.value } ?: return@withContext null
+        val zone = ZoneId.systemDefault()
+        val now = System.currentTimeMillis()
+        val w = window ?: (Long.MIN_VALUE..now)
+        val cache = titles()
+        NuvioCTasteScopeData(
+            window = w,
+            stats = computeTasteStats(i.history, cache, i.scores, NuvioCTasteRange.ALL, now, zone, i.localOnly, if (window == null) null else w),
+            overview = computeTasteOverview(i.history, cache, w, now, zone),
+            facts = computeTasteFacts(i.history, cache, w, now, zone),
+            strip = computeTasteStatsStrip(i.history, cache, w)
+        )
+    }
+
     suspend fun year(year: Int): NuvioCTasteYear? = withContext(Dispatchers.Default) {
         val i = inputs?.takeIf { it.profile == profiles.activeProfileId.value } ?: return@withContext null
         val zone = ZoneId.systemDefault()

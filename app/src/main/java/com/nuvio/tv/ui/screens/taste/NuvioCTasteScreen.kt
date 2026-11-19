@@ -150,6 +150,28 @@ class NuvioCTasteViewModel @Inject constructor(
     var discoverFocusKey: String? = null
     var discoverListState = androidx.compose.foundation.lazy.LazyListState()
 
+    // ---- [fork] round 53b taste_scope: "all", "y:2026" or "m:2026-11", shared by Overview / Discover / Stats ----
+    var tasteScopeKey by mutableStateOf("all")
+    private val _scope = MutableStateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteScopeData?>(null)
+    val scope: StateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteScopeData?> = _scope.asStateFlow()
+    private var scopeJob: kotlinx.coroutines.Job? = null
+
+    fun loadScope(key: String) {
+        scopeJob?.cancel()
+        scopeJob = viewModelScope.launch {
+            val zone = java.time.ZoneId.systemDefault()
+            val window = when {
+                key.startsWith("y:") -> key.drop(2).toIntOrNull()?.let { y ->
+                    java.time.LocalDate.of(y, 1, 1).atStartOfDay(zone).toInstant().toEpochMilli()..
+                        (java.time.LocalDate.of(y + 1, 1, 1).atStartOfDay(zone).toInstant().toEpochMilli() - 1)
+                }
+                key.startsWith("m:") -> runCatching { java.time.YearMonth.parse(key.drop(2)) }.getOrNull()?.let { com.nuvio.tv.data.nuvioc.tasteMonthWindow(it, zone) }
+                else -> null
+            }
+            _scope.value = repository.scope(window)
+        }
+    }
+
     fun loadRound53(range: NuvioCTasteRange, month: java.time.YearMonth?) {
         viewModelScope.launch {
             _overview.value = repository.overview(range, month)
@@ -174,7 +196,7 @@ class NuvioCTasteViewModel @Inject constructor(
                 opened = false
                 _rows.value = emptyList(); _review.value = null; _panel.value = null; _monthData.value = null; _live.value = null
                 _facts.value = null; _wrapped.value = null; _wrappedYears.value = emptyList(); tasteTab = 0 // [fork] round 52
-                _overview.value = null; _strip.value = null; _year.value = null; tasteRange = NuvioCTasteRange.ALL; tasteMonth = null; tasteYear = null; discoverFocusKey = null; discoverListState = androidx.compose.foundation.lazy.LazyListState() // [fork] round 53
+                _overview.value = null; _strip.value = null; _year.value = null; _scope.value = null; tasteScopeKey = "all"; tasteRange = NuvioCTasteRange.ALL; tasteMonth = null; tasteYear = null; discoverFocusKey = null; discoverListState = androidx.compose.foundation.lazy.LazyListState() // [fork] round 53
                 memories.clear(); spotlightCache.clear(); changedIds = emptySet(); lastArea = null; monthFrom = null; panelFrom = null
                 lensFor = null; lens = null; _monthTitles.value = emptyList()
                 countUp = true
