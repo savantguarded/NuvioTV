@@ -876,4 +876,8 @@ object NuvioCFeatures {
 
     /** Offline notice on Home reads "No internet · Showing what's saved on this TV" and shows "Back online" for 2 s. */
     const val OFFLINE_NOTICE_V2 = true
+
+    // [fork] round 52
+    /** Featured carousel: Previous and Next are two separate 38 dp round buttons, ring drawn inside, no zoom; focus stays on the arrow you pressed. Off = round 51 arrow pill. */
+    const val FEATURED_ARROWS_SPLIT = true
 }

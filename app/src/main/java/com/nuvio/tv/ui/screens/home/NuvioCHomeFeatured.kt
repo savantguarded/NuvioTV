@@ -7,6 +7,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -681,6 +682,10 @@ private fun NuvioCFeaturedHome(
                         if (focusFirst) {
                             lastButton = 0
                             runCatching { playRequester.requestFocus() }
+                        } else if (com.nuvio.tv.NuvioCFeatures.FEATURED_ARROWS_SPLIT) {
+                            // [fork] round 52 featured_arrows_split: focus stays on Next while the slide changes
+                            lastButton = 2
+                            runCatching { nextRequester.requestFocus() }
                         }
                     },
                     onPrevious = {
@@ -1183,7 +1188,11 @@ private fun NuvioCFeaturedDetailsIcon(enabled: Boolean, onClick: () -> Unit, mod
     }
 }
 
-/** [fork] round 51 featured_buttons: Previous and Next in one rounded pill; the focused arrow becomes the filled circle with the ring. */
+/**
+ * [fork] round 52 featured_arrows_split: Previous and Next are two separate round buttons (38 dp, 10 dp apart).
+ * No zoom on focus and the focus ring is drawn inside the circle, so a focused arrow is exactly as tall as a resting
+ * one and nothing can reach past the button row. Off = round 51 pill holding both arrows.
+ */
 @Composable
 private fun NuvioCFeaturedArrowPill(
     enabled: Boolean,
@@ -1192,6 +1201,16 @@ private fun NuvioCFeaturedArrowPill(
     previousModifier: Modifier,
     nextModifier: Modifier
 ) {
+    if (com.nuvio.tv.NuvioCFeatures.FEATURED_ARROWS_SPLIT) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            NuvioCFeaturedArrowSplit(enabled, onPrevious, previous = true, modifier = previousModifier)
+            NuvioCFeaturedArrowSplit(enabled, onNext, previous = false, modifier = nextModifier)
+        }
+        return
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -1201,6 +1220,44 @@ private fun NuvioCFeaturedArrowPill(
     ) {
         NuvioCFeaturedArrow(enabled, onPrevious, previous = true, modifier = previousModifier)
         NuvioCFeaturedArrow(enabled, onNext, previous = false, modifier = nextModifier)
+    }
+}
+
+/** [fork] round 52 featured_arrows_split: one arrow; ring inside the circle, no zoom. */
+@Composable
+private fun NuvioCFeaturedArrowSplit(enabled: Boolean, onClick: () -> Unit, previous: Boolean, modifier: Modifier) {
+    var focused by remember { mutableStateOf(false) }
+    val ring = NuvioTheme.focusRing.border(2.dp)
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier
+            .size(38.dp)
+            .onFocusChanged { focused = it.isFocused }
+            .focusProperties { up = FocusRequester.Cancel }
+            .then(if (focused) Modifier.border(ring, CircleShape) else Modifier),
+        scale = IconButtonDefaults.scale(focusedScale = 1f, pressedScale = 0.96f),
+        colors = IconButtonDefaults.colors(
+            containerColor = Color.White.copy(alpha = 0.12f),
+            focusedContainerColor = NuvioTheme.colors.Secondary,
+            contentColor = NuvioTheme.colors.TextPrimary,
+            focusedContentColor = NuvioTheme.colors.OnSecondary,
+            disabledContainerColor = Color.White.copy(alpha = 0.12f),
+            disabledContentColor = NuvioTheme.colors.TextPrimary
+        ),
+        border = IconButtonDefaults.border(
+            border = Border.None,
+            focusedBorder = Border.None,
+            disabledBorder = Border.None,
+            focusedDisabledBorder = Border.None
+        ),
+        shape = IconButtonDefaults.shape(shape = CircleShape)
+    ) {
+        Icon(
+            imageVector = if (previous) Icons.AutoMirrored.Filled.KeyboardArrowLeft else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = stringResource(if (previous) R.string.nuvio_c_featured_previous else R.string.nuvio_c_featured_next),
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 
