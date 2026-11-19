@@ -236,7 +236,9 @@ internal fun NuvioCInfoSlots(info: NuvioCDetailInfo, margin: Dp) {
         val full = com.nuvio.tv.NuvioCFeatures.INFO_FULL_ROWS // [fork] round 44: Based on (and Themes) get the full width
         val slots = (if (info.show) NUVIO_C_SHOW_SLOTS else NUVIO_C_FILM_SLOTS).let { if (full) it - R.string.nuvio_c_info_based_on else it }
         val byLabel = info.rows.associateBy { it.label }
-        slots.chunked(2).forEach { pair ->
+        val hideEmpty = com.nuvio.tv.NuvioCFeatures.DETAIL_INFO_HIDE_EMPTY // [fork] round 52: empty slots are left out, not dashed
+        val shownSlots = if (hideEmpty) slots.filter { l -> !byLabel[l]?.value.isNullOrBlank() } else slots
+        shownSlots.chunked(2).forEach { pair ->
             Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
             Row(horizontalArrangement = Arrangement.spacedBy(48.dp), modifier = Modifier.fillMaxWidth()) {
                 pair.forEach { label ->
@@ -248,19 +250,26 @@ internal fun NuvioCInfoSlots(info: NuvioCDetailInfo, margin: Dp) {
                 if (pair.size == 1) Spacer(Modifier.weight(1f)) // a lone slot keeps half the width
             }
         }
-        if (full) {
+        if (full && (!hideEmpty || !byLabel[R.string.nuvio_c_info_based_on]?.value.isNullOrBlank())) {
             Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
             SlotLine(stringResource(R.string.nuvio_c_info_based_on), byLabel[R.string.nuvio_c_info_based_on]?.value?.takeIf { it.isNotBlank() }, Modifier.fillMaxWidth(), maxLines = 2)
         }
-        if (com.nuvio.tv.NuvioCFeatures.DETAIL_THEMES) {
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_THEMES && (!hideEmpty || info.themes.isNotEmpty())) {
             Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
             NuvioCThemesLine(stringResource(R.string.nuvio_c_info_themes), info.themes)
         }
-        if (com.nuvio.tv.NuvioCFeatures.DETAIL_KEYWORDS) { // [fork] round 47: the rest of the keywords, wrapping
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_KEYWORDS && (!hideEmpty || info.keywords.isNotEmpty())) { // [fork] round 47: the rest of the keywords, wrapping
             Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
             NuvioCThemesLine(stringResource(R.string.nuvio_c_info_keywords), info.keywords) // [fork] 47b: one line and "+N", like Themes
         }
-        if (com.nuvio.tv.NuvioCFeatures.DETAIL_AWARDS_WINS) { // [fork] round 47: major wins only, full width, wraps
+        val nuvioCAwardNames = mapOf(
+                NuvioCAwardBody.OSCARS to stringResource(R.string.nuvio_c_award_oscars),
+                NuvioCAwardBody.EMMYS to stringResource(R.string.nuvio_c_award_emmys),
+                NuvioCAwardBody.GLOBES to stringResource(R.string.nuvio_c_award_globes),
+                NuvioCAwardBody.BAFTA to stringResource(R.string.nuvio_c_award_bafta)
+            )
+        val nuvioCWins = NuvioCAwardBodies.winsText(info.awards, nuvioCAwardNames)
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_AWARDS_WINS && (!hideEmpty || !nuvioCWins.isNullOrBlank())) { // [fork] round 47: major wins only, full width, wraps
             Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
             val names = mapOf(
                 NuvioCAwardBody.OSCARS to stringResource(R.string.nuvio_c_award_oscars),
@@ -272,7 +281,10 @@ internal fun NuvioCInfoSlots(info: NuvioCDetailInfo, margin: Dp) {
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
 
-        if (com.nuvio.tv.NuvioCFeatures.DETAIL_GUIDE) {
+        // [fork] round 52 detail_info_hide_empty: Parental guidance only once it has at least one level (never while
+        // loading, never as a row of dashes). It is the last band, so arriving late moves nothing below it.
+        val nuvioCGuideHas = info.guide?.let { g -> listOf(g.nudity, g.violence, g.profanity, g.alcohol, g.frightening).any { it?.level != null } } == true
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_GUIDE && (!hideEmpty || nuvioCGuideHas)) {
             Spacer(Modifier.height(BAND_GAP))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Heading(stringResource(R.string.nuvio_c_guide_title))

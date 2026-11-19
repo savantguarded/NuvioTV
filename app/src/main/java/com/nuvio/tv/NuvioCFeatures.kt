@@ -884,4 +884,6 @@ object NuvioCFeatures {
     const val CLEAN_PILL_FOCUS_FIT = true
     /** Cast page: All / Movies (count) / Shows (count) chips sit on the right of the "Filmography" line, so posters and titles are never cut; a new filter starts the row at its first poster and the chip keeps focus. Off = round 51 chip row above the posters. */
     const val FILMOGRAPHY_CHIPS_INLINE = true
+    /** Details Information: Parental guidance shows only when it has data (not while loading, never a row of dashes); other empty slots (budget, box office, themes, keywords, awards...) are left out instead of showing a dash. Off = fixed slots with dashes. */
+    const val DETAIL_INFO_HIDE_EMPTY = true
 }
