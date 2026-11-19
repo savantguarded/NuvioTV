@@ -109,7 +109,7 @@ internal object NuvioCFeaturedTagRules {
             // [fork] round 52: this profile's own place in the show
             f.newSinceStopped?.takeIf { it >= 2 }?.let { return "$it NEW EPISODES SINCE YOU STOPPED" }
             f.upNext?.let { (s, e) -> return "UP NEXT · S$s E$e" }
-            f.userRating?.let { return "YOUR RATING ★ $it" }
+            f.userRating?.let { return nuvioCYourRating(it) }
             if (f.ended && !f.started && (f.seasons ?: 0) > 0) return "COMPLETE · ${f.seasons} SEASON" + (if (f.seasons == 1) "" else "S")
         }
         return null
@@ -140,7 +140,7 @@ internal object NuvioCFeaturedTagRules {
             if (ago in 0..CINEMA_NOW_DAYS) return "IN CINEMAS NOW"
             if (-ago in 1..DIGITAL_SOON_DAYS) return "IN CINEMAS " + dayWord(cinema, today, locale)
         }
-        f.userRating?.let { r -> return "YOUR RATING ★ $r" + (f.watchedYear?.let { " · WATCHED $it" } ?: "") }
+        f.userRating?.let { r -> return nuvioCYourRating(r) + (f.watchedYear?.let { " · WATCHED $it" } ?: "") }
         f.collectionSeen?.let { (seen, total, name) ->
             if (seen in 1 until total) return "YOU'VE SEEN $seen OF $total · ${name.uppercase(locale)}"
         }
@@ -181,3 +181,8 @@ internal object NuvioCFeaturedTagRules {
         return " · " + DateTimeFormatter.ofPattern("h:mm a", locale).format(time).uppercase(locale)
     }
 }
+
+
+/** [fork] round 53 featured_rating_plain: "YOUR RATING 8/10" (no star, which sat off the text line). */
+internal fun nuvioCYourRating(r: Any): String =
+    if (com.nuvio.tv.NuvioCFeatures.FEATURED_RATING_PLAIN) "YOUR RATING $r/10" else "YOUR RATING ★ $r"

@@ -253,14 +253,16 @@ fun CommentsSection(
     ) {
         Row(
             modifier = Modifier.padding(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin), // [fork] page margin
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment = if (com.nuvio.tv.NuvioCFeatures.TRAKT_COMMENTS_BASELINE) Alignment.Bottom else Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)
         ) {
             Image(
                 painter = painterResource(id = R.drawable.trakt_logo_wordmark),
                 contentDescription = stringResource(R.string.cd_trakt_logo),
                 modifier = Modifier
-                    .offset(y = (-1).dp)
+                    // [fork] round 53 trakt_comments_baseline: the wordmark's letters sit on the text's baseline. The
+                    // word "Comments" is titleLarge (22 sp, 28 sp line): its baseline is ~6 dp above the line bottom.
+                    .offset(y = if (com.nuvio.tv.NuvioCFeatures.TRAKT_COMMENTS_BASELINE) (-6).dp else (-1).dp)
                     .width(47.dp)
                     .height(20.dp),
                 colorFilter = ColorFilter.tint(NuvioTheme.colors.TextPrimary)

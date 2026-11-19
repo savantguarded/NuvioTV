@@ -699,6 +699,31 @@ internal fun CalendarRowItem(
                         overflow = TextOverflow.Ellipsis,
                         modifier = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_ROWS_TWO && focused) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier // [fork] round 51 calendar_rows_two
                     )
+                    if (com.nuvio.tv.NuvioCFeatures.CALENDAR_TAG_LINE2) {
+                        // [fork] round 53 calendar_tag_line2: the label leads line two, the episode line follows and scrolls on
+                        // focus, so a row never grows to three lines
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            calendarLabelText(row.label)?.let { label ->
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = NuvioTheme.colors.Secondary,
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                                Spacer(Modifier.width(NuvioTheme.spacing.sm))
+                            }
+                            val line = calendarRowLine(row)
+                            if (line.isNotEmpty()) Text(
+                                text = line,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = NuvioTheme.colors.TextSecondary,
+                                maxLines = 1,
+                                overflow = if (focused) TextOverflow.Clip else TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false).then(if (focused) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier)
+                            )
+                        }
+                    } else
                     // The label sits beside the episode line when both fit, otherwise on its own line under it.
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm),

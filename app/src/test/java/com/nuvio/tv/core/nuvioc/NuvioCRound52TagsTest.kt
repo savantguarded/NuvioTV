@@ -26,7 +26,7 @@ class NuvioCRound52TagsTest {
         assertEquals("IN CINEMAS NOW", tag(NuvioCTagFacts(false, cinemaDate = today.minusDays(20), digitalDate = today.plusDays(40))))
 
     @Test fun filmPersonal() {
-        assertEquals("YOUR RATING ★ 9 · WATCHED 2023", tag(NuvioCTagFacts(false, userRating = 9, watchedYear = 2023)))
+        assertEquals("YOUR RATING 9/10 · WATCHED 2023", tag(NuvioCTagFacts(false, userRating = 9, watchedYear = 2023)))
         assertEquals("YOU'VE SEEN 2 OF 3 · DUNE COLLECTION", tag(NuvioCTagFacts(false, collectionSeen = Triple(2, 3, "Dune Collection"))))
         assertEquals("FROM DENIS VILLENEUVE · 5 WATCHED", tag(NuvioCTagFacts(false, director = "Denis Villeneuve" to 5)))
         assertNull(tag(NuvioCTagFacts(false, director = "Someone" to 2)))
@@ -41,7 +41,7 @@ class NuvioCRound52TagsTest {
     @Test fun showsPersonal() {
         assertEquals("3 NEW EPISODES SINCE YOU STOPPED", tag(NuvioCTagFacts(true, newSinceStopped = 3, upNext = 2 to 5)))
         assertEquals("UP NEXT · S2 E4", tag(NuvioCTagFacts(true, upNext = 2 to 4)))
-        assertEquals("YOUR RATING ★ 8", tag(NuvioCTagFacts(true, userRating = 8)))
+        assertEquals("YOUR RATING 8/10", tag(NuvioCTagFacts(true, userRating = 8)))
         assertEquals("COMPLETE · 4 SEASONS", tag(NuvioCTagFacts(true, ended = true, seasons = 4)))
         assertNull(tag(NuvioCTagFacts(true, ended = true, started = true, seasons = 4)))
     }

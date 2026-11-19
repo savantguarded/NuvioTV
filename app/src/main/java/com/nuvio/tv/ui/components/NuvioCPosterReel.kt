@@ -11,6 +11,9 @@ package com.nuvio.tv.ui.components
 //  - the slow-down is one exponential ease-out curve, so speed falls without steps.
 // The pick is decided before the reel starts; the reel only shows it.
 
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.tween
@@ -168,10 +171,26 @@ internal fun NuvioCPosterReel(
             Box(Modifier.align(Alignment.CenterStart).width(edgeFade).fillMaxHeight().background(Brush.horizontalGradient(listOf(edgeColor, edgeColor.copy(alpha = 0f)))))
             Box(Modifier.align(Alignment.CenterEnd).width(edgeFade).fillMaxHeight().background(Brush.horizontalGradient(listOf(edgeColor.copy(alpha = 0f), edgeColor))))
         }
+        val glowColor = NuvioTheme.colors.FocusRing
         Box(
             Modifier
                 .align(Alignment.Center)
                 .size(cardWidth + frameRoom, cardHeight + frameRoom)
+                .then(
+                    // [fork] round 53 poster_glow_everywhere: the frame glows in the accent colour like a focused poster
+                    if (com.nuvio.tv.NuvioCFeatures.POSTER_GLOW_EVERYWHERE && com.nuvio.tv.NuvioCFeatures.POSTER_GLOW) Modifier.drawBehind {
+                        val r = 14.dp.toPx()
+                        drawIntoCanvas { canvas ->
+                            val paint = androidx.compose.ui.graphics.Paint().apply {
+                                color = Color.Transparent
+                                asFrameworkPaint().setShadowLayer(14.dp.toPx(), 0f, 0f, glowColor.copy(alpha = 0.5f).toArgb())
+                                style = androidx.compose.ui.graphics.PaintingStyle.Stroke
+                                strokeWidth = 3.dp.toPx()
+                            }
+                            canvas.drawRoundRect(0f, 0f, size.width, size.height, r, r, paint)
+                        }
+                    } else Modifier
+                )
                 .border(2.dp, Color.White.copy(alpha = 0.85f), RoundedCornerShape(14.dp))
         )
     }

@@ -236,7 +236,10 @@ internal fun NuvioCInfoSlots(info: NuvioCDetailInfo, margin: Dp) {
         val full = com.nuvio.tv.NuvioCFeatures.INFO_FULL_ROWS // [fork] round 44: Based on (and Themes) get the full width
         val slots = (if (info.show) NUVIO_C_SHOW_SLOTS else NUVIO_C_FILM_SLOTS).let { if (full) it - R.string.nuvio_c_info_based_on else it }
         val byLabel = info.rows.associateBy { it.label }
-        val hideEmpty = com.nuvio.tv.NuvioCFeatures.DETAIL_INFO_HIDE_EMPTY // [fork] round 52: empty slots are left out, not dashed
+        // [fork] round 52: empty slots were left out; round 53 detail_info_slots: every slot back in its fixed place with a
+        // dash, and only the Parental guidance band (below) still waits for data
+        val hideEmpty = com.nuvio.tv.NuvioCFeatures.DETAIL_INFO_HIDE_EMPTY && !com.nuvio.tv.NuvioCFeatures.DETAIL_INFO_DASHES
+        val hideEmptyGuide = com.nuvio.tv.NuvioCFeatures.DETAIL_INFO_HIDE_EMPTY
         val shownSlots = if (hideEmpty) slots.filter { l -> !byLabel[l]?.value.isNullOrBlank() } else slots
         shownSlots.chunked(2).forEach { pair ->
             Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
@@ -284,7 +287,7 @@ internal fun NuvioCInfoSlots(info: NuvioCDetailInfo, margin: Dp) {
         // [fork] round 52 detail_info_hide_empty: Parental guidance only once it has at least one level (never while
         // loading, never as a row of dashes). It is the last band, so arriving late moves nothing below it.
         val nuvioCGuideHas = info.guide?.let { g -> listOf(g.nudity, g.violence, g.profanity, g.alcohol, g.frightening).any { it?.level != null } } == true
-        if (com.nuvio.tv.NuvioCFeatures.DETAIL_GUIDE && (!hideEmpty || nuvioCGuideHas)) {
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_GUIDE && (!hideEmptyGuide || nuvioCGuideHas)) {
             Spacer(Modifier.height(BAND_GAP))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Heading(stringResource(R.string.nuvio_c_guide_title))
