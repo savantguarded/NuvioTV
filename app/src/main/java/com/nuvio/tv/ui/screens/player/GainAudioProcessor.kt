@@ -65,17 +65,42 @@ internal class GainAudioProcessor : BaseAudioProcessor() {
         return super.isActive() && (isGainEnabled() || isNightModeEnabled() || nuvioCLiftArmed)
     }
 
+    // [fork] round 53 decoded_audio_steady: the lift's state survives a flush with the same format (seek, resume),
+    // so the level doesn't sink and climb back after each one; a 25 ms fade-in after a flush avoids a click.
+    private var nuvioCConfiguredRate = 0
+    private var nuvioCConfiguredChannels = 0
+    private var nuvioCFadeFrames = 0
+    private var nuvioCFadePos = 0
+
     override fun onFlush() {
         val format = inputAudioFormat
         if (format.channelCount > 0 && format.sampleRate > 0) {
             if (nuvioCFrame.size != format.channelCount) nuvioCFrame = FloatArray(format.channelCount)
             nuvioCDynamics.setGainDb(gainDb.toFloat())
-            nuvioCDynamics.configure(format.sampleRate, format.channelCount)
+            val steady = com.nuvio.tv.NuvioCFeatures.DECODED_AUDIO_STEADY
+            if (!steady || format.sampleRate != nuvioCConfiguredRate || format.channelCount != nuvioCConfiguredChannels) {
+                nuvioCDynamics.configure(format.sampleRate, format.channelCount)
+                nuvioCConfiguredRate = format.sampleRate
+                nuvioCConfiguredChannels = format.channelCount
+            }
+            if (steady) {
+                nuvioCFadeFrames = (format.sampleRate * 0.025f).toInt()
+                nuvioCFadePos = 0
+            }
         }
     }
 
     override fun onReset() {
         nuvioCFrame = FloatArray(0)
+        nuvioCConfiguredRate = 0
+        nuvioCConfiguredChannels = 0
+    }
+
+    /** [fork] round 53: the fade-in factor for the next frame (1 once the fade is done). */
+    private fun nuvioCFade(): Float {
+        if (nuvioCFadePos >= nuvioCFadeFrames) return 1f
+        nuvioCFadePos++
+        return nuvioCFadePos.toFloat() / nuvioCFadeFrames
     }
 
     override fun onConfigure(inputAudioFormat: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
@@ -161,6 +186,8 @@ internal class GainAudioProcessor : BaseAudioProcessor() {
                 while (inputBuffer.remaining() >= frameBytes) {
                     for (c in samples.indices) samples[c] = inputBuffer.short / 32768f
                     nuvioCDynamics.processFrame(samples)
+                    val fade = nuvioCFade()
+                    if (fade < 1f) for (c in samples.indices) samples[c] *= fade
                     for (c in samples.indices) {
                         outputBuffer.putShort((samples[c] * 32768f).roundToInt()
                             .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort())
@@ -172,6 +199,8 @@ internal class GainAudioProcessor : BaseAudioProcessor() {
                 while (inputBuffer.remaining() >= frameBytes) {
                     for (c in samples.indices) samples[c] = inputBuffer.float
                     nuvioCDynamics.processFrame(samples)
+                    val fade = nuvioCFade()
+                    if (fade < 1f) for (c in samples.indices) samples[c] *= fade
                     for (c in samples.indices) outputBuffer.putFloat(samples[c])
                 }
             }

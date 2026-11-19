@@ -25,27 +25,57 @@ object NuvioCPassthrough {
     private val on = mutableMapOf<Format, androidx.compose.runtime.MutableState<Boolean>>()
     @Volatile private var loaded = false
 
+    // [fork] round 53 passthrough_per_profile: every value is kept per profile on this TV (never synced). The active
+    // profile comes from ProfileManager; a profile switch reloads that profile's values the next time they are read.
+    @Volatile var profileIdProvider: () -> Int = { 1 }
+    @Volatile private var loadedFor: Int? = null
+    private const val PROFILE_KEYS = "pt_choose|pt_dd|pt_ddp|pt_truehd|pt_dts|pt_dtshd|pt_lift|pt_surround"
+
+    /** The stored key for [key] in the active profile (or the TV-wide key with the switch off). */
+    internal fun key(key: String): String =
+        if (NuvioCFeatures.PASSTHROUGH_PER_PROFILE) "p${profileIdProvider()}_$key" else key
+
+    /**
+     * One-time copy: a profile with no saved values of its own starts from what this TV had before round 53, so
+     * nothing changes for anyone on the first launch; from then on each profile keeps its own.
+     */
+    internal fun migrate(p: android.content.SharedPreferences, profile: Int) {
+        if (!NuvioCFeatures.PASSTHROUGH_PER_PROFILE || p.getBoolean("p${profile}_migrated", false)) return
+        val e = p.edit()
+        PROFILE_KEYS.split('|').forEach { k ->
+            when (val v = p.all[k]) {
+                is Boolean -> if (!p.contains("p${profile}_$k")) e.putBoolean("p${profile}_$k", v)
+                is String -> if (!p.contains("p${profile}_$k")) e.putString("p${profile}_$k", v)
+            }
+        }
+        e.putBoolean("p${profile}_migrated", true).apply()
+    }
+
     fun state(f: Format) = on.getOrPut(f) { mutableStateOf(f != Format.DTS && f != Format.DTSHD) }
 
     fun load(context: Context) {
-        if (loaded) return
+        val profile = profileIdProvider()
+        if (loaded && (!NuvioCFeatures.PASSTHROUGH_PER_PROFILE || loadedFor == profile)) return
         loaded = true
+        loadedFor = profile
+        extrasLoaded = false
         val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        choose.value = p.getBoolean("pt_choose", false)
-        Format.entries.forEach { state(it).value = p.getBoolean(it.key, it != Format.DTS && it != Format.DTSHD) }
+        migrate(p, profile)
+        choose.value = p.getBoolean(key("pt_choose"), false)
+        Format.entries.forEach { state(it).value = p.getBoolean(key(it.key), it != Format.DTS && it != Format.DTSHD) }
         ensureExtras(context) // [fork] round 52
     }
 
     fun setChoose(context: Context, value: Boolean) {
         load(context)
         choose.value = value
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("pt_choose", value).apply()
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(key("pt_choose"), value).apply()
     }
 
     fun set(context: Context, f: Format, value: Boolean) {
         load(context)
         state(f).value = value
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(f.key, value).apply()
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(key(f.key), value).apply()
     }
 
     /** Whether the player must drop some formats from the TV's list. */
@@ -70,24 +100,25 @@ object NuvioCPassthrough {
 
     private fun loadExtras(context: Context) {
         val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        lift.value = com.nuvio.tv.data.local.NightModeLevel.fromKey(p.getString("pt_lift", com.nuvio.tv.data.local.NightModeLevel.MEDIUM.key))
-        surround.value = p.getBoolean("pt_surround", true)
+        lift.value = com.nuvio.tv.data.local.NightModeLevel.fromKey(p.getString(key("pt_lift"), com.nuvio.tv.data.local.NightModeLevel.MEDIUM.key))
+        surround.value = p.getBoolean(key("pt_surround"), true)
     }
 
     fun setLift(context: Context, level: com.nuvio.tv.data.local.NightModeLevel) {
         load(context)
         lift.value = level
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("pt_lift", level.key).apply()
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(key("pt_lift"), level.key).apply()
     }
 
     fun setSurround(context: Context, value: Boolean) {
         load(context)
         surround.value = value
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("pt_surround", value).apply()
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(key("pt_surround"), value).apply()
     }
 
     @Volatile private var extrasLoaded = false
     private fun ensureExtras(context: Context) {
+        if (NuvioCFeatures.PASSTHROUGH_PER_PROFILE && loadedFor != profileIdProvider()) { load(context); return }
         if (extrasLoaded) return
         extrasLoaded = true
         loadExtras(context)

@@ -1744,6 +1744,13 @@ internal fun PlayerRuntimeController.initializePlayer(
                     }
                 })
 
+                // [fork] round 53 decoded_audio_steady: one log line per AudioTrack underrun (adb logcat -s NuvioCAudio)
+                if (com.nuvio.tv.NuvioCFeatures.DECODED_AUDIO_STEADY) addAnalyticsListener(object : AnalyticsListener {
+                    override fun onAudioUnderrun(eventTime: AnalyticsListener.EventTime, bufferSize: Int, bufferSizeMs: Long, elapsedSinceLastFeedMs: Long) {
+                        android.util.Log.w("NuvioCAudio", "underrun at ${eventTime.currentPlaybackPositionMs} ms: buffer ${bufferSizeMs} ms, ${elapsedSinceLastFeedMs} ms since last feed, decoded lift ${NuvioCPassthrough.playingLift.value}")
+                    }
+                })
+
                 addAnalyticsListener(object : AnalyticsListener {
                     override fun onPlaybackStateChanged(eventTime: AnalyticsListener.EventTime, state: Int) {
                         playbackAnalyticsDiagnostics.onPlaybackStateChanged(eventTime, state)
@@ -2302,6 +2309,18 @@ private class SubtitleOffsetRenderersFactory(
             .setEnableFloatOutput(enableFloatOutput)
             .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
             .setAudioProcessors(arrayOf(gainAudioProcessor, nightModeAudioProcessor))
+            .apply {
+                // [fork] round 53 decoded_audio_steady: switched-off formats are decoded on the TV, so give the PCM output
+                // more room (0.5 to 1 s instead of 0.25 to 0.75 s) to ride out a busy moment; passthrough is untouched
+                if (com.nuvio.tv.NuvioCFeatures.DECODED_AUDIO_STEADY && !bluetoothForcePcm && !forceOpticalPassthrough && NuvioCPassthrough.restricts(context)) {
+                    setAudioTrackBufferSizeProvider(
+                        androidx.media3.exoplayer.audio.DefaultAudioTrackBufferSizeProvider.Builder()
+                            .setMinPcmBufferDurationUs(500_000)
+                            .setMaxPcmBufferDurationUs(1_000_000)
+                            .build()
+                    )
+                }
+            }
         val baseAudioSink = builder.build()
         val playbackSpeedAwareAudioSink = PlaybackSpeedAwareAudioSink(
             sink = baseAudioSink,

@@ -35,6 +35,11 @@ class ProfileManager @Inject constructor(
     val activeProfileId: StateFlow<Int> = profileDataStore.activeProfileId
         .stateIn(scope, SharingStarted.Eagerly, 1)
 
+    init {
+        // [fork] round 53 passthrough_per_profile: the soundbar format switches follow the active profile
+        com.nuvio.tv.ui.screens.player.NuvioCPassthrough.profileIdProvider = { activeProfileId.value }
+    }
+
     val activeProfileReady: StateFlow<Boolean> = profileDataStore.activeProfileId
         .map { true }
         .stateIn(scope, SharingStarted.Eagerly, false)
