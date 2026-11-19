@@ -131,6 +131,14 @@ fun CommentsSection(
     modifier: Modifier = Modifier,
     windowResetKey: String? = null
 ) {
+    // [fork] round 51 details_comments_scroll: the section hides if comments take over 8 s or fail, so Down never stops on it
+    var nuvioCTimedOut by remember { mutableStateOf(false) }
+    if (com.nuvio.tv.NuvioCFeatures.DETAILS_COMMENTS_SCROLL) {
+        LaunchedEffect(isLoading) {
+            if (isLoading) { kotlinx.coroutines.delay(8_000); nuvioCTimedOut = true } else nuvioCTimedOut = false
+        }
+        if ((nuvioCTimedOut && isLoading) || (comments.isEmpty() && !isLoading && !error.isNullOrBlank())) return
+    }
     val cardShape = RoundedCornerShape(NuvioTheme.radii.xl)
     val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val firstItemFocusRequester = remember { FocusRequester() }
@@ -157,7 +165,7 @@ fun CommentsSection(
     )
     val visibleFirstCommentId = anchoredCommentId?.toLongOrNull()
         ?: comments.getOrNull(max(listState.firstVisibleItemIndex, 0))?.id
-    val hasFocusableCommentContent = isLoading || !error.isNullOrBlank() || comments.isNotEmpty()
+    val hasFocusableCommentContent = (isLoading && !com.nuvio.tv.NuvioCFeatures.DETAILS_COMMENTS_SCROLL) || !error.isNullOrBlank() || comments.isNotEmpty() // [fork] round 51: loading placeholders take no focus
     val commentsFocusTargetId = if (!hasFocusableCommentContent) {
         null
     } else {

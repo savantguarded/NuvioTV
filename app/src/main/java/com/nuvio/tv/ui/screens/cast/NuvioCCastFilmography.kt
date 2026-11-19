@@ -30,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -235,3 +236,59 @@ private fun NuvioCMarqueeLine(
         }
     }
 }
+
+/** [fork] round 51 filmography_filter: which credits the Filmography row shows. */
+internal enum class NuvioCFilmographyFilter { ALL, MOVIES, SHOWS }
+
+internal fun nuvioCFilterCredits(credits: List<MetaPreview>, filter: NuvioCFilmographyFilter): List<MetaPreview> = when (filter) {
+    NuvioCFilmographyFilter.ALL -> credits
+    NuvioCFilmographyFilter.MOVIES -> credits.filter { it.apiType == "movie" }
+    NuvioCFilmographyFilter.SHOWS -> credits.filter { it.apiType != "movie" }
+}
+
+/** All / Movies / Shows chips above the row. Left / Right move between them, Down enters the posters; focus is never taken from the row. */
+@androidx.compose.runtime.Composable
+internal fun NuvioCFilmographyFilterRow(
+    selected: NuvioCFilmographyFilter,
+    onSelect: (NuvioCFilmographyFilter) -> Unit,
+    downTarget: androidx.compose.ui.focus.FocusRequester
+) {
+    val labels = listOf(
+        NuvioCFilmographyFilter.ALL to androidx.compose.ui.res.stringResource(com.nuvio.tv.R.string.nuvio_c_film_all),
+        NuvioCFilmographyFilter.MOVIES to androidx.compose.ui.res.stringResource(com.nuvio.tv.R.string.nuvio_c_film_movies),
+        NuvioCFilmographyFilter.SHOWS to androidx.compose.ui.res.stringResource(com.nuvio.tv.R.string.nuvio_c_film_shows)
+    )
+    Row(
+        Modifier.padding(horizontal = NuvioTheme.spacing.xxxl, vertical = NuvioTheme.spacing.xs),
+        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(NuvioTheme.spacing.sm)
+    ) {
+        labels.forEach { (f, label) ->
+            var focused by remember { mutableStateOf(false) }
+            val on = f == selected
+            androidx.tv.material3.Surface(
+                onClick = { onSelect(f) },
+                modifier = Modifier
+                    .onFocusChanged { focused = it.isFocused }
+                    .androidx_focusProps(downTarget),
+                shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.RoundedCornerShape(50)),
+                scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.04f),
+                colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+                    containerColor = if (on) NuvioTheme.colors.Secondary.copy(alpha = 0.32f) else Color.White.copy(alpha = 0.10f),
+                    contentColor = Color.White,
+                    focusedContainerColor = Color.White,
+                    focusedContentColor = Color.Black
+                )
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                )
+            }
+        }
+    }
+}
+
+private fun Modifier.androidx_focusProps(down: androidx.compose.ui.focus.FocusRequester): Modifier =
+    this.then(Modifier.focusProperties { this.down = down })

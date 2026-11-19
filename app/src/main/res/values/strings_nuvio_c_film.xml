@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nuvio_c_film_all">All</string>
+    <string name="nuvio_c_film_movies">Movies</string>
+    <string name="nuvio_c_film_shows">Shows</string>
+</resources>

@@ -864,4 +864,10 @@ object NuvioCFeatures {
     const val CALENDAR_LIST_NO_CLIP = true
     /** Calendar rows: title and episode line each one line; the focused row scrolls what is cut. */
     const val CALENDAR_ROWS_TWO = true
+
+    /** Cast page: All / Movies / Shows chips above the filmography row (only when the person has both). */
+    const val FILMOGRAPHY_FILTER = true
+
+    /** Details: loading comment placeholders take no focus; the comments section hides after 8 s or on an error. */
+    const val DETAILS_COMMENTS_SCROLL = true
 }

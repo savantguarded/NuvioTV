@@ -286,13 +286,18 @@ private fun CastDetailContent(
                         slideOutVertically(targetOffsetY = { it })
                 ) {
                     Column {
+                        var nuvioCFilter by rememberSaveable { mutableStateOf(NuvioCFilmographyFilter.ALL) } // [fork] round 51 filmography_filter
+                        val shownCredits = if (com.nuvio.tv.NuvioCFeatures.FILMOGRAPHY_FILTER) nuvioCFilterCredits(allCredits, nuvioCFilter) else allCredits
                         SectionHeader(
                             title = stringResource(R.string.cast_detail_filmography),
-                            count = allCredits.size,
+                            count = shownCredits.size,
                             nuvioCCompact = nuvioCLayout // [fork]
                         )
+                        if (com.nuvio.tv.NuvioCFeatures.FILMOGRAPHY_FILTER && allCredits.any { it.apiType == "movie" } && allCredits.any { it.apiType != "movie" }) {
+                            NuvioCFilmographyFilterRow(nuvioCFilter, { nuvioCFilter = it }, firstPosterFocusRequester)
+                        }
                         FilmographyRow(
-                            credits = allCredits,
+                            credits = shownCredits,
                             nuvioCRoleLines = person.nuvioCRoleLines, // [fork] role / job under each title
                             posterCardStyle = filmographyPosterStyle,
                             firstItemFocusRequester = firstPosterFocusRequester,
