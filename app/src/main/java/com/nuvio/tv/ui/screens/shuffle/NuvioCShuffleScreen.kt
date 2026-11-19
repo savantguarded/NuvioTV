@@ -311,7 +311,8 @@ private fun ShuffleTile(
         border = CardDefaults.border(
             border = Border(androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.07f)), shape = shape),
             focusedBorder = Border(androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)), shape = shape)
-        )
+        ),
+        glow = if (com.nuvio.tv.NuvioCFeatures.POSTER_GLOW_EVERYWHERE) com.nuvio.tv.ui.components.nuvioCPosterCardGlow() else CardDefaults.glow() // [fork] round 53d: Roulette cards glow like posters
     ) {
         Column(
             Modifier

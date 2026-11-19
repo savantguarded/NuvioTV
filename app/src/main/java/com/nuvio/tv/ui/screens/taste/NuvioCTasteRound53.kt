@@ -45,7 +45,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.ContentScale
+import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -161,13 +163,6 @@ internal fun NuvioCTasteTabsV2(
         }
         Column(Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 18.dp, bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(42.dp).background(accent, CircleShape), contentAlignment = Alignment.Center) {
-                    Text(viewModel.profileName.trim().take(1).uppercase(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = Color(0xFF0B0B0D))
-                }
-                Column(Modifier.padding(start = 12.dp, end = 22.dp)) {
-                    Text("TASTE", style = MaterialTheme.typography.labelSmall, color = accent, letterSpacing = 1.5.sp, maxLines = 1)
-                    Text(viewModel.profileName, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1)
-                }
                 tabs.forEachIndexed { i, tab ->
                     // OK picks a tab; passing over it only moves focus, so Right reaches the scope pills
                     Pill53(
@@ -466,12 +461,13 @@ private fun List53(modifier: Modifier, title: String, sub: String, lines: List<N
         // whole titles (two lines when needed); only the rows that fit are shown
         FitColumn53(Modifier.fillMaxWidth().weight(1f), gap = 8.dp) {
             lines.forEach { l ->
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                    Text(l.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 2, lineHeight = 18.sp, modifier = Modifier.weight(1f))
-                    Column(Modifier.padding(start = 12.dp), horizontalAlignment = Alignment.End) {
-                        Text(l.sub, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = color, maxLines = 1, softWrap = false)
-                        Text(day53(l.date), style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, softWrap = false)
-                    }
+                Row(Modifier.fillMaxWidth()) {
+                    Text(l.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 2, lineHeight = 18.sp,
+                        modifier = Modifier.weight(1f).alignByBaseline())
+                    Text(l.sub, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = color, maxLines = 1, softWrap = false,
+                        modifier = Modifier.padding(start = 12.dp).alignByBaseline())
+                    Text(day53(l.date), style = MaterialTheme.typography.labelMedium, color = C_MUTE, maxLines = 1, softWrap = false, textAlign = TextAlign.End,
+                        modifier = Modifier.width(50.dp).alignByBaseline())
                 }
             }
         }
@@ -557,9 +553,10 @@ private fun RowScope.StripFact53(label: String, value: String?, sub: String?, co
         if (!first) Box(Modifier.width(1.dp).fillMaxHeight().background(C_TRACK))
         Column(Modifier.padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Label53(label, color)
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(value ?: "–", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, softWrap = false)
-                if (sub != null) Text("  $sub", style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            // value and note share one baseline
+            Row {
+                Text(value ?: "–", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, softWrap = false, modifier = Modifier.alignByBaseline())
+                if (sub != null) Text("  $sub", style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.alignByBaseline())
             }
         }
     }
@@ -596,8 +593,8 @@ private fun Bars53(counts: List<Int>, highlight: Int?, labels: List<String>?, mo
 private fun HBar53(name: String, value: String, share: Float, color: Color) {
     Column(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
         Row(Modifier.fillMaxWidth()) {
-            Text(name, style = MaterialTheme.typography.bodySmall, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            Text(value, style = MaterialTheme.typography.bodySmall, color = C_MUTE, maxLines = 1, softWrap = false)
+            Text(name, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).alignByBaseline())
+            Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.8f), maxLines = 1, softWrap = false, modifier = Modifier.alignByBaseline())
         }
         Box(Modifier.fillMaxWidth().padding(top = 3.dp).height(4.dp).background(C_TRACK, RoundedCornerShape(2.dp))) {
             Box(Modifier.fillMaxWidth(share.coerceIn(0.02f, 1f)).height(4.dp).background(color, RoundedCornerShape(2.dp)))
@@ -622,6 +619,7 @@ private fun Discover53(
 ) {
     val context = LocalContext.current
     val row = rows.firstOrNull { it.items.isNotEmpty() }
+    val leftScope = androidx.compose.runtime.rememberCoroutineScope()
     val requesters = remember { HashMap<String, FocusRequester>() }
     fun req(key: String) = requesters.getOrPut(key) { if (key == "spin") spinFocus else FocusRequester() }
     LaunchedEffect(row?.id, people.size) {
@@ -672,7 +670,22 @@ private fun Discover53(
                             val key = "t:" + item.id
                             val last = i == row.items.lastIndex
                             // a held Right stops on the last poster
-                            Poster53(item, Modifier.focusRequester(req(key)).focusProperties { up = upTarget; if (last) right = FocusRequester.Cancel }) {
+                            Poster53(item, Modifier.focusRequester(req(key)).focusProperties { up = upTarget; if (last) right = FocusRequester.Cancel }
+                                .onPreviewKeyEvent { e ->
+                                    // held Left walks the posters one by one (scrolling first) and stops on Spin my taste,
+                                    // never on a face below or the sidebar
+                                    if (e.nativeKeyEvent.keyCode != android.view.KeyEvent.KEYCODE_DPAD_LEFT) return@onPreviewKeyEvent false
+                                    if (e.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent true
+                                    if (i == 0) runCatching { spinFocus.requestFocus() }
+                                    else {
+                                        val prev = req("t:" + row.items[i - 1].id)
+                                        leftScope.launch {
+                                            if (viewModel.discoverListState.layoutInfo.visibleItemsInfo.none { it.index == i - 1 }) viewModel.discoverListState.scrollToItem(i - 1)
+                                            prev.requestFocusAfterFrames(1)
+                                        }
+                                    }
+                                    true
+                                }) {
                                 viewModel.discoverFocusKey = key
                                 onOpenTitle(item.id, item.type)
                             }
@@ -829,14 +842,16 @@ private fun Ranked53(modifier: Modifier, title: String, lines: List<NuvioCTasteL
         // rank and title share one baseline; rows stack from the top; whole titles (two lines when needed); only rows that fit
         FitColumn53(Modifier.fillMaxWidth().weight(1f, fill = false), gap = 8.dp) {
             lines.forEachIndexed { i, l ->
-                Row(Modifier.fillMaxWidth()) {
-                    Text("${i + 1}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = color,
-                        textAlign = TextAlign.End, modifier = Modifier.width(22.dp).alignByBaseline())
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f).alignByBaseline()) {
-                        Text(l.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, lineHeight = 18.sp)
-                        Text(l.sub, style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, softWrap = false)
+                Column(Modifier.fillMaxWidth()) {
+                    // the number sits on the title's first baseline; the note lines up under the title
+                    Row(Modifier.fillMaxWidth()) {
+                        Text("${i + 1}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = color,
+                            textAlign = TextAlign.End, maxLines = 1, softWrap = false, modifier = Modifier.width(22.dp).alignByBaseline())
+                        Spacer(Modifier.width(12.dp))
+                        Text(l.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, lineHeight = 18.sp,
+                            modifier = Modifier.weight(1f).alignByBaseline())
                     }
+                    Text(l.sub, style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 34.dp))
                 }
             }
         }
@@ -845,11 +860,11 @@ private fun Ranked53(modifier: Modifier, title: String, lines: List<NuvioCTasteL
 
 @Composable
 private fun Line53(label: String, value: String?) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = MaterialTheme.typography.labelMedium, color = C_MUTE, maxLines = 1, softWrap = false)
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = C_MUTE, maxLines = 1, softWrap = false, modifier = Modifier.alignByBaseline())
         Spacer(Modifier.width(10.dp))
-        Text(value ?: "–", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1,
-            overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+        Text(value ?: "–", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1,
+            overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End, modifier = Modifier.weight(1f).alignByBaseline())
     }
 }
 

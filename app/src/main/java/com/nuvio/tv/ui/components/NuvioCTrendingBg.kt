@@ -43,11 +43,66 @@ object NuvioCTrendingBg {
     private val picks = java.util.concurrent.ConcurrentHashMap<Int, Int>()
     @Volatile private var started = false
 
+    // ---- [fork] round 53d profile_bg_catalogs: up to three catalogs from the app, as in Ambient mode ---------------
+    private const val CATALOG_POOL = "pool_catalogs.json"
+    private const val KEY_CATALOG_ON = "catalogs_on"
+    private const val KEY_CATALOG_KEYS = "catalog_keys"
+    val catalogOn = androidx.compose.runtime.mutableStateOf(false)
+    val catalogKeys = androidx.compose.runtime.mutableStateOf<List<String>>(emptyList())
+
+    fun loadSettings(context: Context) {
+        val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        catalogOn.value = NuvioCFeatures.PROFILE_BG_CATALOGS && p.getBoolean(KEY_CATALOG_ON, false)
+        catalogKeys.value = p.getString(KEY_CATALOG_KEYS, "").orEmpty().split('|').filter { it.isNotBlank() }
+    }
+
+    fun setCatalogOn(context: Context, on: Boolean) {
+        catalogOn.value = on
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_CATALOG_ON, on).apply()
+        switchPool(context.applicationContext)
+    }
+
+    fun setCatalogKeys(context: Context, keys: List<String>) {
+        catalogKeys.value = keys
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_CATALOG_KEYS, keys.joinToString("|")).apply()
+    }
+
+    /**
+     * New pictures from the chosen catalogs (logo, genres). Saved for the next cold start; used at once when this
+     * launch has nothing from the catalogs yet. The next picture of every profile is downloaded in the background.
+     */
+    fun setCatalogPool(context: Context, entries: List<Entry>) {
+        if (entries.isEmpty()) return
+        val app = context.applicationContext
+        thread(name = TAG, isDaemon = true, priority = Thread.MIN_PRIORITY) {
+            runCatching {
+                File(dir(app), CATALOG_POOL).writeText(JSONArray(entries.map { it.toJson() }).toString())
+                if (catalogOn.value && (pool.isEmpty() || poolIsTrending)) { pool = entries; poolIsTrending = false; picks.clear() }
+                val keep = (entries + parse(runCatching { File(dir(app), POOL).readText() }.getOrDefault("[]"))).map { fileFor(app, it).name }.toSet()
+                dir(app).listFiles()?.filter { it.name.endsWith(".jpg") && it.name !in keep }?.forEach { it.delete() }
+                val heads = nextIds(app).toSet()
+                val missing = entries.filter { fileFor(app, it).length() == 0L }
+                (missing.filter { it.id in heads } + missing.filter { it.id !in heads }.take(8)).forEach { e -> download(e.backdrop, fileFor(app, e)) }
+            }.onFailure { Log.w(TAG, "catalog pool failed: ${it.message}") }
+        }
+    }
+
+    @Volatile private var poolIsTrending = true
+
+    private fun switchPool(app: Context) {
+        val catalogs = if (catalogOn.value) parse(runCatching { File(dir(app), CATALOG_POOL).readText() }.getOrDefault("[]")) else emptyList()
+        if (catalogs.isNotEmpty()) { pool = catalogs; poolIsTrending = false }
+        else { pool = parse(runCatching { File(dir(app), POOL).readText() }.getOrDefault("[]")); poolIsTrending = true }
+        picks.clear()
+    }
+
     fun onAppStart(context: Context) {
         if (!NuvioCFeatures.PROFILE_BG_BUILTIN || started) return
         started = true
         val app = context.applicationContext
+        loadSettings(app)
         pool = runCatching { parse(File(dir(app), POOL).readText()) }.getOrDefault(emptyList())
+        if (catalogOn.value) switchPool(app)
         thread(name = TAG, isDaemon = true, priority = Thread.MIN_PRIORITY) {
             runCatching {
                 val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -56,14 +111,14 @@ object NuvioCTrendingBg {
                     if (fresh.isNotEmpty()) {
                         File(dir(app), POOL).writeText(JSONArray(fresh.map { it.toJson() }).toString())
                         prefs.edit().putLong(KEY_FETCHED, System.currentTimeMillis()).apply()
-                        if (pool.isEmpty()) pool = fresh // next launch uses the new pool; this one keeps what is on screen
+                        if (pool.isEmpty() && !catalogOn.value) pool = fresh // next launch uses the new pool; this one keeps what is on screen
                     }
                 }
                 // download every picture of the pool once, so the next cold start has them on disk
                 val saved = parse(runCatching { File(dir(app), POOL).readText() }.getOrDefault("[]"))
                 if (NuvioCFeatures.PROFILE_BG_POOL_WIDE) {
                     // [fork] round 53: keep the folder to the pool, fetch what profiles show next, then up to 8 more a launch
-                    val keep = saved.map { fileFor(app, it).name }.toSet()
+                    val keep = (saved + parse(runCatching { File(dir(app), CATALOG_POOL).readText() }.getOrDefault("[]"))).map { fileFor(app, it).name }.toSet()
                     dir(app).listFiles()?.filter { it.name.endsWith(".jpg") && it.name !in keep }?.forEach { it.delete() }
                     val heads = nextIds(app).toSet()
                     val missing = saved.filter { fileFor(app, it).length() == 0L }

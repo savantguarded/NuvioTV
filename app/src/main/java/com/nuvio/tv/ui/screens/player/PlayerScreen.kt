@@ -1536,7 +1536,13 @@ fun PlayerScreen(
                 viewModel = viewModel,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(end = NuvioTheme.spacing.xl, top = 76.dp, bottom = if (com.nuvio.tv.NuvioCFeatures.HUD_FIT) 20.dp else 0.dp) // under the OSD clock
+                    .padding(end = NuvioTheme.spacing.xl, top = 76.dp, bottom = when { // under the OSD clock
+                        // [fork] round 53d hud_above_controls: while the controls show, the HUD ends above the seek bar so the
+                        // Info button that turns it off is never covered
+                        com.nuvio.tv.NuvioCFeatures.HUD_ABOVE_CONTROLS && uiState.showControls -> 150.dp
+                        com.nuvio.tv.NuvioCFeatures.HUD_FIT -> 20.dp
+                        else -> 0.dp
+                    })
                     .zIndex(2.75f)
                     .nuvioCHdrDim(nuvioCHdr, isolated = com.nuvio.tv.NuvioCFeatures.HUD_FIT) // [fork] round 35: dims only its own pixels
             )
@@ -4392,8 +4398,8 @@ private fun NuvioCCleanControlsV2(
                         if (com.nuvio.tv.NuvioCFeatures.CLEAN_RIGHT_PILL && items.isNotEmpty() && nuvioCPillFix) Modifier
                             // [fork] round 52 clean_pill_focus_fit: the pill is only painted, never clipped, so the focused
                             // button, its glow and its name under the row are drawn whole; 3 dp above and below the 40 dp buttons.
-                            .background(nuvioCOsd(Color(0xFF3A3A3A)).copy(alpha = 0.6f), androidx.compose.foundation.shape.RoundedCornerShape(if (com.nuvio.tv.NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH) 16.dp else 23.dp))
-                            // [fork] round 53c: 2 dp around 28 dp buttons = 32 dp, the height of the left pills; the focused
+                            .background(nuvioCOsd(Color(0xFF3A3A3A)).copy(alpha = 0.6f), androidx.compose.foundation.shape.RoundedCornerShape(if (com.nuvio.tv.NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH) 18.dp else 23.dp))
+                            // [fork] round 53c/d: 2 dp around 32 dp buttons = 36 dp, the height of the left pills; the focused
                             // white circle (no zoom, no glow) stays inside the pill
                             .padding(horizontal = if (com.nuvio.tv.NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH) 2.dp else 3.dp, vertical = if (com.nuvio.tv.NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH) 2.dp else 3.dp)
                         else if (com.nuvio.tv.NuvioCFeatures.CLEAN_RIGHT_PILL && items.isNotEmpty()) Modifier
@@ -4405,7 +4411,7 @@ private fun NuvioCCleanControlsV2(
                 ) {
                     androidx.compose.runtime.CompositionLocalProvider(
                         LocalNuvioCNoZoom provides (nuvioCPillFix && com.nuvio.tv.NuvioCFeatures.CLEAN_RIGHT_PILL),
-                        LocalNuvioCPillButton provides (if (com.nuvio.tv.NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH && nuvioCPillFix && com.nuvio.tv.NuvioCFeatures.CLEAN_RIGHT_PILL) 28.dp else null)
+                        LocalNuvioCPillButton provides (if (com.nuvio.tv.NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH && nuvioCPillFix && com.nuvio.tv.NuvioCFeatures.CLEAN_RIGHT_PILL) 32.dp else null) // [fork] round 53d: 32 + 2 + 2 = 36 dp
                     ) {
                         NuvioCCleanFitRow(
                             keys = rightButtons.map { it.key } + "compact=$rightIcons", gap = if (nuvioCPillFix) 4.dp else 8.dp,

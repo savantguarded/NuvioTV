@@ -957,4 +957,9 @@ object NuvioCFeatures {
     // [fork] round 53b
     /** Modern OSD: the right-hand group pill is as tall as the left pills (32 dp): 28 dp buttons, 2 dp around them, the focused circle inside the pill. Off = 46 dp group pill. */
     const val CLEAN_PILL_HEIGHT_MATCH = true
+    // [fork] round 53d
+    /** Settings > Appearance > Profile background: "Use catalogs" (toggle) and up to three catalogs from the app, as in Ambient mode; the profile picker then shows their backdrops with logo and genres bottom right over the dark overlay. Off = TMDB trending pool. */
+    const val PROFILE_BG_CATALOGS = true
+    /** Player HUD (stats on the right): while the controls show it ends above the seek bar, so the Info button that turns it off is never covered. Off = down to 20 dp from the bottom. */
+    const val HUD_ABOVE_CONTROLS = true
 }

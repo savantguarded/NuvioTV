@@ -350,6 +350,8 @@ fun ProfileSelectionScreen(
         }.let { own ->
             // [fork] round 52 profile_bg_builtin: each profile's trending picture; its own background is the backup
             val nuvioCContext = androidx.compose.ui.platform.LocalContext.current
+            // [fork] round 53d profile_bg_catalogs: refresh the catalog pictures for the next start (and this one if empty)
+            LaunchedEffect(Unit) { com.nuvio.tv.ui.screens.settings.nuvioCRefreshProfileBgCatalogs(nuvioCContext) }
             val trending = backgroundProfile?.let { bp ->
                 remember(bp.id) { com.nuvio.tv.ui.components.NuvioCTrendingBg.entryFor(nuvioCContext, bp.id, profiles.indexOfFirst { it.id == bp.id }.coerceAtLeast(0)) }
             }

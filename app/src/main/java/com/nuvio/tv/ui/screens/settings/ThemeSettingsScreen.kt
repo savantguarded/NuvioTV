@@ -310,6 +310,8 @@ fun ThemeSettingsContent(
 
             AmbientModeSettingsCard()
 
+            NuvioCProfileBgSettingsCard() // [fork] round 53d profile_bg_catalogs
+
             SettingsGroupCard(
                 modifier = Modifier.fillMaxWidth(),
                 title = stringResource(R.string.appearance_font_and_language),
