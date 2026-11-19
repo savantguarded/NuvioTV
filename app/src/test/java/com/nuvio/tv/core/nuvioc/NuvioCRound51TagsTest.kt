@@ -66,7 +66,8 @@ class NuvioCRound51TagsTest {
     }
 
     @Test fun filmNew_andLibraryFallback_andNothing() {
-        assertEquals("NEW RELEASE", tag(NuvioCTagFacts(false, releaseDate = today.minusDays(10))))
+        // round 52 featured_tags_v2: a film out 10 days with no digital date is in cinemas (was NEW RELEASE)
+        assertEquals("IN CINEMAS NOW", tag(NuvioCTagFacts(false, releaseDate = today.minusDays(10))))
         assertEquals("IN YOUR LIBRARY", tag(NuvioCTagFacts(false, releaseDate = today.minusDays(400), inLibrary = true)))
         assertNull(tag(NuvioCTagFacts(false, releaseDate = today.minusDays(400))))
     }

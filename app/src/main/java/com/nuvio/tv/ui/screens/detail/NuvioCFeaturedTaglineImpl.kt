@@ -37,7 +37,11 @@ class NuvioCFeaturedTaglineImpl @Inject constructor(
     private val tmdbMetadataService: TmdbMetadataService,
     private val tmdbSettings: TmdbSettingsDataStore,
     private val calendarRefresher: CalendarRefresher, // [fork] round 51 featured_context_tags: air times and labels
-    private val libraryRepository: LibraryRepository
+    private val libraryRepository: LibraryRepository,
+    // [fork] round 52 featured_tags_v2: this profile's progress, ratings and Taste (lazy: built on first use)
+    private val watchProgress: dagger.Lazy<com.nuvio.tv.domain.repository.WatchProgressRepository>,
+    private val ratings: dagger.Lazy<com.nuvio.tv.data.nuvioc.NuvioCRatingService>,
+    private val taste: dagger.Lazy<com.nuvio.tv.data.nuvioc.NuvioCTasteRepository>
 ) : NuvioCFeaturedTagline {
 
     override suspend fun infoFor(item: MetaPreview): com.nuvio.tv.core.di.NuvioCFeaturedInfo? {
@@ -91,6 +95,7 @@ class NuvioCFeaturedTaglineImpl @Inject constructor(
             }
         }
         val inLibrary = withTimeoutOrNull(800) { libraryRepository.isInLibrary(item.id, item.apiType).first() } ?: false
+        val v2 = if (NuvioCFeatures.FEATURED_TAGS_V2) runCatching { v2Facts(item, tmdbId, e, isSeries, last, today, zone) }.getOrNull() else null
         val facts = NuvioCTagFacts(
             isSeries = isSeries,
             returning = e.status.equals("Returning Series", true),
@@ -100,9 +105,103 @@ class NuvioCFeaturedTaglineImpl @Inject constructor(
             seasonEpisodes = e.nuvioCSeasonEpisodes,
             next = next,
             last = last,
-            inLibrary = inLibrary
+            inLibrary = inLibrary,
+            digitalDate = v2?.digitalDate,
+            cinemaDate = v2?.cinemaDate,
+            resumeMinutesLeft = v2?.resumeMinutesLeft,
+            upNext = v2?.upNext,
+            newSinceStopped = v2?.newSinceStopped,
+            userRating = v2?.userRating,
+            watchedYear = v2?.watchedYear,
+            collectionSeen = v2?.collectionSeen,
+            director = v2?.director,
+            ended = v2?.ended ?: false,
+            started = v2?.started ?: false,
+            seasons = v2?.seasons
         )
         return NuvioCFeaturedTagRules.tag(facts, today, zone)
+    }
+
+    /** [fork] round 52 featured_tags_v2: the extra facts, each with a short time limit so the tag is never late. */
+    private suspend fun v2Facts(
+        item: MetaPreview,
+        tmdbId: String,
+        e: com.nuvio.tv.core.tmdb.TmdbEnrichment,
+        isSeries: Boolean,
+        last: NuvioCTagEpisode?,
+        today: LocalDate,
+        zone: ZoneId
+    ): NuvioCTagFacts {
+        val tmdbLong = tmdbId.toLongOrNull()
+        val record = calendarRefresher.state.value.titles.firstOrNull { it.matchesKey(item.id) || (tmdbLong != null && it.ids.tmdb == tmdbLong) }
+        val filmEntries = record?.entries.orEmpty().filter { it.kind != CalendarEntryKind.EPISODE }
+        val digital = filmEntries.firstOrNull { it.kind == CalendarEntryKind.MOVIE_DIGITAL }?.localDate(zone)
+        val cinema = filmEntries.firstOrNull { it.kind == CalendarEntryKind.MOVIE_THEATRICAL }?.localDate(zone)
+        val progress = withTimeoutOrNull(600) { watchProgress.get().getProgress(item.id).first() }
+        val scoreKeys = buildList {
+            val kind = if (isSeries) "show" else "movie"
+            if (item.id.startsWith("tt")) add("$kind:${item.id}")
+            add("$kind:tmdb$tmdbId")
+        }
+        val score = withTimeoutOrNull(600) {
+            val r = ratings.get()
+            val local = r.localScores()
+            scoreKeys.firstNotNullOfOrNull { local[it] } ?: r.traktScores().let { t -> scoreKeys.firstNotNullOfOrNull { t[it] } }
+        }
+        val watched = withTimeoutOrNull(600) { watchProgress.get().watchedItems.first() }.orEmpty()
+        val watchedYear = watched.filter { it.contentId == item.id }.maxOfOrNull { it.watchedAt }
+            ?.let { java.time.Instant.ofEpochMilli(it).atZone(zone).year }
+        var resume: Int? = null
+        var upNext: Pair<Int, Int>? = null
+        var newSince: Int? = null
+        if (progress != null && progress.duration > 0) {
+            val pct = progress.position.toDouble() / progress.duration
+            if (!isSeries) {
+                if (pct in 0.02..0.92) resume = ((progress.duration - progress.position) / 60_000L).toInt().coerceAtLeast(1)
+            } else {
+                val s = progress.season
+                val ep = progress.episode
+                if (s != null && ep != null) {
+                    val finished = pct >= 0.9
+                    val candidate = when {
+                        !finished -> s to ep
+                        ep < (e.nuvioCSeasonEpisodes[s] ?: Int.MAX_VALUE) -> s to ep + 1
+                        e.nuvioCSeasonEpisodes.containsKey(s + 1) -> (s + 1) to 1
+                        else -> null
+                    }
+                    // only an episode that has aired
+                    val aired = candidate?.let { c -> last == null || c.first < last.season || (c.first == last.season && c.second <= last.episode) } == true
+                    if (aired) upNext = candidate
+                    if (last != null && last.season == s) newSince = (last.episode - ep).takeIf { finished && it >= 2 }
+                }
+            }
+        }
+        // the film's collection (TMDB, cached after the first ask) and how many parts this profile has watched
+        val collection = if (!isSeries && e.collectionId != null) withTimeoutOrNull(1_500) {
+            val c = tmdbMetadataService.fetchMovieCollection(e.collectionId!!, tmdbSettings.settings.value.language)
+            val ids = c.items.map { it.id }.toSet()
+            val seen = watched.count { it.contentId in ids && it.season == null }
+            if (c.items.size >= 2) Triple(seen, c.items.size, e.collectionName ?: c.name.orEmpty()).takeIf { it.third.isNotBlank() } else null
+        } else null
+        val director = if (!isSeries) e.director.firstOrNull()?.let { name ->
+            val stats = taste.get().state.value.all[com.nuvio.tv.data.nuvioc.NuvioCTasteRange.ALL]
+            stats?.people?.firstOrNull { it.director && it.person.name.equals(name, true) }?.let { name to it.count }
+        } else null
+        return NuvioCTagFacts(
+            isSeries = isSeries,
+            digitalDate = digital,
+            cinemaDate = cinema,
+            resumeMinutesLeft = resume,
+            upNext = upNext,
+            newSinceStopped = newSince,
+            userRating = score?.takeIf { it in 1..10 },
+            watchedYear = watchedYear,
+            collectionSeen = collection,
+            director = director,
+            ended = e.status.equals("Ended", true) || e.status.equals("Canceled", true),
+            started = progress != null || watched.any { it.contentId == item.id },
+            seasons = e.nuvioCSeasonEpisodes.keys.count { it > 0 }.takeIf { it > 0 }
+        )
     }
 
     override suspend fun taglineFor(item: MetaPreview): String? {

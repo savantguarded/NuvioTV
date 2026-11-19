@@ -892,4 +892,6 @@ object NuvioCFeatures {
     const val DECODED_DIALOGUE_LIFT = true
     /** Audio: decoded formats open a 6 / 8 channel PCM output instead of the channel count the TV reports (often 2); Stream info shows what the TV reports. Off = TV's count. */
     const val DECODED_SURROUND = true
+    /** Featured carousel tags v2: films get Up next (minutes left), New on digital / On digital soon, In cinemas, Your rating, collection progress, a director you watch, In your library, round anniversaries; shows add 3 new episodes since you stopped, Up next S/E, Your rating, Complete. A film with nothing special has no tag. Per profile, no new requests except a film's collection (cached). Off = round 51 tags. */
+    const val FEATURED_TAGS_V2 = true
 }

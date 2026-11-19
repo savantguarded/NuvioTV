@@ -34,7 +34,20 @@ internal data class NuvioCTagFacts(
     val seasonEpisodes: Map<Int, Int> = emptyMap(),
     val next: NuvioCTagEpisode? = null,
     val last: NuvioCTagEpisode? = null,
-    val inLibrary: Boolean = false
+    val inLibrary: Boolean = false,
+    // [fork] round 52 featured_tags_v2: this profile's own facts and the film's dated releases (all already on the TV)
+    val digitalDate: LocalDate? = null,
+    val cinemaDate: LocalDate? = null,
+    val resumeMinutesLeft: Int? = null,
+    val upNext: Pair<Int, Int>? = null,
+    val newSinceStopped: Int? = null,
+    val userRating: Int? = null,
+    val watchedYear: Int? = null,
+    val collectionSeen: Triple<Int, Int, String>? = null,
+    val director: Pair<String, Int>? = null,
+    val ended: Boolean = false,
+    val started: Boolean = false,
+    val seasons: Int? = null
 )
 
 internal object NuvioCFeaturedTagRules {
@@ -92,14 +105,61 @@ internal object NuvioCFeaturedTagRules {
         if (next != null && f.returning && daysUntil(next.date, today) in (SOON_DAYS + 1)..RETURN_MAX_DAYS) {
             return (if (next.episode == 1 && next.season > 1) "SEASON ${next.season} RETURNS " else "RETURNS ") + dayWord(next.date, today, locale)
         }
+        if (com.nuvio.tv.NuvioCFeatures.FEATURED_TAGS_V2) {
+            // [fork] round 52: this profile's own place in the show
+            f.newSinceStopped?.takeIf { it >= 2 }?.let { return "$it NEW EPISODES SINCE YOU STOPPED" }
+            f.upNext?.let { (s, e) -> return "UP NEXT · S$s E$e" }
+            f.userRating?.let { return "YOUR RATING ★ $it" }
+            if (f.ended && !f.started && (f.seasons ?: 0) > 0) return "COMPLETE · ${f.seasons} SEASON" + (if (f.seasons == 1) "" else "S")
+        }
         return null
     }
 
     private fun filmTag(f: NuvioCTagFacts, today: LocalDate): String? {
+        if (com.nuvio.tv.NuvioCFeatures.FEATURED_TAGS_V2) return filmTagV2(f, today, Locale.getDefault())
         val d = f.releaseDate ?: return null
         val days = ChronoUnit.DAYS.between(d, today)
         return if (days in 0..FILM_NEW_DAYS) "NEW RELEASE" else null
     }
+
+    /**
+     * [fork] round 52 featured_tags_v2: films get a tag only when something is true about them today; a film with
+     * nothing special gets none (the logo moves up as before).
+     */
+    internal fun filmTagV2(f: NuvioCTagFacts, today: LocalDate, locale: Locale): String? {
+        f.resumeMinutesLeft?.takeIf { it > 0 }?.let { return "UP NEXT · $it MIN LEFT" }
+        val digital = f.digitalDate
+        if (digital != null) {
+            val ago = ChronoUnit.DAYS.between(digital, today)
+            if (ago in 0..FILM_NEW_DAYS) return "NEW ON DIGITAL · " + when (ago) { 0L -> "TODAY"; 1L -> "YESTERDAY"; else -> "$ago DAYS AGO" }
+            if (-ago in 1..DIGITAL_SOON_DAYS) return "ON DIGITAL " + dayWord(digital, today, locale)
+        }
+        val cinema = f.cinemaDate ?: f.releaseDate.takeIf { digital == null }
+        if (cinema != null && (digital == null || digital.isAfter(today))) {
+            val ago = ChronoUnit.DAYS.between(cinema, today)
+            if (ago in 0..CINEMA_NOW_DAYS) return "IN CINEMAS NOW"
+            if (-ago in 1..DIGITAL_SOON_DAYS) return "IN CINEMAS " + dayWord(cinema, today, locale)
+        }
+        f.userRating?.let { r -> return "YOUR RATING ★ $r" + (f.watchedYear?.let { " · WATCHED $it" } ?: "") }
+        f.collectionSeen?.let { (seen, total, name) ->
+            if (seen in 1 until total) return "YOU'VE SEEN $seen OF $total · ${name.uppercase(locale)}"
+        }
+        f.director?.let { (name, count) -> if (count >= DIRECTOR_MIN) return "FROM ${name.uppercase(locale)} · $count WATCHED" }
+        if (f.inLibrary) return "IN YOUR LIBRARY"
+        val release = f.releaseDate
+        if (release != null) {
+            val years = today.year - release.year
+            val shifted = runCatching { release.withYear(today.year) }.getOrNull()
+            if (years >= 10 && years % 5 == 0 && shifted != null && kotlin.math.abs(ChronoUnit.DAYS.between(shifted, today)) <= 3) {
+                return "$years YEARS AGO THIS WEEK"
+            }
+        }
+        return null
+    }
+
+    const val DIGITAL_SOON_DAYS = 14L
+    const val CINEMA_NOW_DAYS = 45L
+    const val DIRECTOR_MIN = 3
 
     private fun daysUntil(date: LocalDate, today: LocalDate): Long = ChronoUnit.DAYS.between(today, date)
 
