@@ -904,4 +904,6 @@ object NuvioCFeatures {
     const val TASTE_TABS = true
     /** Offline outside Home: a small "No internet" chip in the player's top corner ("Back online" for 2 s after), and on a cold start with no internet and nothing saved a full-screen message with Network settings and Try again that carries on by itself. Off = Home notice only. */
     const val OFFLINE_EVERYWHERE = true
+    /** Profile screen background made in the app from TMDB's trending films and shows (textless picture, logo, tag and meta line), pool refreshed at most daily, a different picture per profile with a crossfade as focus moves, saved for an instant cold start, never the same twice running. A profile's own background is the backup. Off = the profile's own background only. */
+    const val PROFILE_BG_BUILTIN = true
 }

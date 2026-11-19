@@ -175,6 +175,7 @@ private object ProfileSelectionSpacing {
 private sealed interface ProfileBackgroundArtwork {
     data class Catalog(val background: ProfileBackgroundCatalogItem) : ProfileBackgroundArtwork
     data class Custom(val url: String) : ProfileBackgroundArtwork
+    data class Trending(val entry: com.nuvio.tv.ui.components.NuvioCTrendingBg.Entry) : ProfileBackgroundArtwork // [fork] round 52
 }
 
 private val ProfileCardFocusEasing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
@@ -346,19 +347,31 @@ fun ProfileSelectionScreen(
             }
             is ProfileBackgroundSelection.Custom -> ProfileBackgroundArtwork.Custom(backgroundSelection.url)
             null -> null
+        }.let { own ->
+            // [fork] round 52 profile_bg_builtin: each profile's trending picture; its own background is the backup
+            val nuvioCContext = androidx.compose.ui.platform.LocalContext.current
+            val trending = backgroundProfile?.let { bp ->
+                remember(bp.id) { com.nuvio.tv.ui.components.NuvioCTrendingBg.entryFor(nuvioCContext, bp.id, profiles.indexOfFirst { it.id == bp.id }.coerceAtLeast(0)) }
+            }
+            trending?.let { ProfileBackgroundArtwork.Trending(it) } ?: own
         }
 
         // Keep splash background in sync with whichever profile is focused
         // so the splash matches after the user clicks.
+        val nuvioCSplashContext = androidx.compose.ui.platform.LocalContext.current // [fork] round 52
         LaunchedEffect(profileBackground, backgroundProfile) {
             val bgUrl = when (profileBackground) {
                 is ProfileBackgroundArtwork.Custom -> profileBackground.url
                 is ProfileBackgroundArtwork.Catalog -> profileBackground.background.imageFile?.toURI()?.toString()
+                // [fork] round 52: the saved file (a file: link the splash reads directly), else the picture's link
+                is ProfileBackgroundArtwork.Trending -> (com.nuvio.tv.ui.components.NuvioCTrendingBg.model(nuvioCSplashContext, profileBackground.entry) as? java.io.File)?.toURI()?.toString()
+                    ?: profileBackground.entry.backdrop
                 null -> null
             }
             val cacheKey = when (profileBackground) {
                 is ProfileBackgroundArtwork.Catalog -> "profile-background-${profileBackground.background.id}-v${profileBackground.background.assetVersion}"
                 is ProfileBackgroundArtwork.Custom -> "custom-profile-background-${profileBackground.url}"
+                is ProfileBackgroundArtwork.Trending -> "trending-${profileBackground.entry.id}" // [fork] round 52
                 null -> null
             }
             onProfileFocusChanged?.invoke(
@@ -874,6 +887,7 @@ private fun ProfileSelectionBackground(
             when (background) {
                 is ProfileBackgroundArtwork.Catalog -> "catalog:${background.background.id}"
                 is ProfileBackgroundArtwork.Custom -> "custom:${background.url}"
+                is ProfileBackgroundArtwork.Trending -> "trending:${background.entry.id}" // [fork] round 52
                 null -> null
             }
         },
@@ -891,6 +905,7 @@ private fun ProfileSelectionBackground(
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize()
             )
+            is ProfileBackgroundArtwork.Trending -> NuvioCTrendingBackground(background.entry) // [fork] round 52 profile_bg_builtin
             null -> {
                 Box(
                     modifier = Modifier
@@ -2872,5 +2887,47 @@ private fun OverlayButton(
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center
         )
+    }
+}
+
+
+/** [fork] round 52 profile_bg_builtin: the trending picture with its logo, tag and meta line at the bottom right. */
+@Composable
+private fun NuvioCTrendingBackground(entry: com.nuvio.tv.ui.components.NuvioCTrendingBg.Entry) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val config = androidx.compose.ui.platform.LocalConfiguration.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val w = with(density) { config.screenWidthDp.dp.roundToPx() }
+    val h = with(density) { config.screenHeightDp.dp.roundToPx() }
+    Box(Modifier.fillMaxSize()) {
+        coil3.compose.AsyncImage(
+            model = coil3.request.ImageRequest.Builder(context)
+                .data(com.nuvio.tv.ui.components.NuvioCTrendingBg.model(context, entry))
+                .size(w, h)
+                .memoryCacheKey("trending-${entry.id}")
+                .build(),
+            contentDescription = null,
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+        )
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.7f))))
+        androidx.compose.foundation.layout.Column(
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 48.dp, bottom = 36.dp),
+            horizontalAlignment = Alignment.End
+        ) {
+            if (entry.logo != null) {
+                coil3.compose.AsyncImage(
+                    model = coil3.request.ImageRequest.Builder(context).data(entry.logo).size(500, 200).build(),
+                    contentDescription = entry.title,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    alignment = Alignment.BottomEnd,
+                    modifier = Modifier.width(220.dp).height(80.dp)
+                )
+            } else {
+                Text(entry.title, style = MaterialTheme.typography.headlineSmall, color = Color.White, maxLines = 1)
+            }
+            Text(entry.tag, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.85f), modifier = Modifier.padding(top = 8.dp))
+            Text(entry.meta, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.65f))
+        }
     }
 }

@@ -95,6 +95,7 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
         serverUserStateProjection.start()
         nuvioCCloudSettings.start() // [fork] nuvio_c_cloud_settings
         com.nuvio.tv.ui.components.NuvioCProfileBg.onAppStart(this) // [fork] profile_bg_preload
+        com.nuvio.tv.ui.components.NuvioCTrendingBg.onAppStart(this) // [fork] round 52 profile_bg_builtin
         runCatching { com.nuvio.tv.core.nuvioc.NuvioCApiKeys.ensureLoaded(this) } // [fork] round 37 api_keys: one small private file
         runCatching { com.nuvio.tv.data.nuvioc.NuvioCJustFinished.init(this) } // [fork] round 47 rating_reliable: the pending rating note
         runCatching { nuvioCCatalogRefresh.start(this) } // [fork] round 47 catalog_refresh: re-read add-on manifests after time away
