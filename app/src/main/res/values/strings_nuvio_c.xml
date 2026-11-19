@@ -190,8 +190,8 @@
     <string name="nuvio_c_osd_details">Details</string>
     <!-- [fork] round 47 osd_clean_v2 -->
     <string name="nuvio_c_osd_audio">Audio</string>
-    <string name="nuvio_c_osd_buttons_clean_sub">Clean controls: which side each button sits on, or More</string>
-    <string name="nuvio_c_osd_buttons_clean_dialog_sub">Clean controls. OK on a name picks it up: move it with Up and Down inside its group, OK to drop it. Right switches where it sits. Play is always in the centre.</string>
+    <string name="nuvio_c_osd_buttons_clean_sub">Modern controls: which side each button sits on, or More</string>
+    <string name="nuvio_c_osd_buttons_clean_dialog_sub">Modern controls. OK on a name picks it up: move it with Up and Down inside its group, OK to drop it. Right switches where it sits. Play is always in the centre.</string>
     <string name="nuvio_c_osd_zone_left">Left</string>
     <string name="nuvio_c_osd_zone_centre">Centre</string>
     <string name="nuvio_c_osd_zone_right">Right</string>
@@ -403,8 +403,8 @@
     <string name="nuvio_c_osd_style_sub">How the controls look while a title plays.</string>
     <string name="nuvio_c_osd_style_nuvio_c_desc">Round buttons in one row, extras behind the More arrow.</string>
     <string name="nuvio_c_osd_style_clean_desc">Subtitles and Audio left, playback in the middle, Sources and Details right, everything else behind the gear.</string>
-    <string name="nuvio_c_osd_style_nuvio_c">Nuvio C</string>
-    <string name="nuvio_c_osd_style_clean">Clean</string>
+    <string name="nuvio_c_osd_style_nuvio_c">Default</string>
+    <string name="nuvio_c_osd_style_clean">Modern</string>
     <string name="nuvio_c_osd_info_key">Info button</string>
     <string name="nuvio_c_more_playback">Playback</string>
     <string name="nuvio_c_more_tracks">Subtitles and audio</string>

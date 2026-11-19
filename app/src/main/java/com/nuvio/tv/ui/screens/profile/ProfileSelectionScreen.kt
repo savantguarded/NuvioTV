@@ -1074,6 +1074,7 @@ internal fun ProfileGrid(
                         avatarImageUrl = profile.avatarUrl?.takeIf { it.isNotBlank() }
                             ?: profile.avatarId?.let(avatarImageUrlsById::get),
                         focusRequester = focusRequesters[index],
+                        enabled = enabled,
                         compact = false,
                         profileTheme = profileThemes[profile.id],
                         onFocused = { onProfileFocused(profile) },
@@ -1087,6 +1088,7 @@ internal fun ProfileGrid(
                     Box(modifier = Modifier.nuvioCProfileIntroItem(nuvioCIntro, profiles.size)) { // [fork] profile_intro
                     AddProfileCard(
                         focusRequester = focusRequesters[profiles.size],
+                        enabled = enabled,
                         compact = false,
                         onFocused = { onProfileFocused(null) },
                         onClick = onAddProfileClick

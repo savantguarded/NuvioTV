@@ -3132,7 +3132,11 @@ private fun PlayerControlsOverlay(
                 enter = fadeIn(animationSpec = tween(NuvioMotion.tokens.durations.fast)),
                 exit = fadeOut(animationSpec = tween(NuvioMotion.tokens.durations.fast))
             ) {
-                Column(modifier = Modifier.fillMaxWidth().then(if (nuvioCCleanTimeTop && !nuvioCChapterLineShown(uiState.chapters, uiState.showChapterTitle)) Modifier.padding(end = 180.dp) else Modifier).nuvioCOsdTitleBlock(nuvioCOsd)) { // [fork]; round 48b: room for the time on the right
+                Column(modifier = Modifier.fillMaxWidth().then(
+                    if (nuvioCCleanTimeTop && !nuvioCChapterLineShown(uiState.chapters, uiState.showChapterTitle)) Modifier.padding(end = 180.dp)
+                    else if (nuvioCCleanTimeTop && com.nuvio.tv.NuvioCFeatures.CLEAN_CHAPTER_RIGHT) Modifier.padding(end = 250.dp) // [fork] round 51: the chapter name stacks above the time on the right
+                    else Modifier
+                ).nuvioCOsdTitleBlock(nuvioCOsd)) { // [fork]; round 48b: room for the time on the right
                     val displayName = if (uiState.currentSeason != null && uiState.currentEpisode != null) {
                         uiState.contentName ?: uiState.title
                     } else {
@@ -4470,8 +4474,36 @@ private fun NuvioCChapterTimeLine(
         ) { time() }
         return
     }
-    NuvioCTimeOverhang.px = 0f
     val index = if (showChapterTitle) PlayerChapters.indexAt(chapters, positionMs) else -1
+    if (com.nuvio.tv.NuvioCFeatures.CLEAN_CHAPTER_RIGHT) {
+        // [fork] round 51 clean_chapter_right: the chapter name sits above the time on the right (small, accent colour),
+        // both hanging above the bar without a row of their own, so the title block on the left is never lifted or squeezed.
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val gapPx = with(density) { NuvioTheme.spacing.md.roundToPx() }
+        Box(
+            Modifier.fillMaxWidth().layout { measurable, constraints ->
+                val p = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0))
+                NuvioCTimeOverhang.px = (p.height + gapPx).toFloat()
+                layout(constraints.maxWidth, 0) { p.place(constraints.maxWidth - p.width, -p.height - gapPx) }
+            }
+        ) {
+            Column(horizontalAlignment = Alignment.End) {
+                if (index >= 0) {
+                    Text(
+                        text = chapters[index].title ?: stringResource(R.string.player_chapter_number, index + 1),
+                        style = MaterialTheme.typography.labelMedium.nuvioCOsdShadow(),
+                        color = nuvioCOsd(NuvioTheme.colors.Secondary), // [fork] accent, dimmed in HDR like the rest
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = 240.dp)
+                    )
+                }
+                time()
+            }
+        }
+        return
+    }
+    NuvioCTimeOverhang.px = 0f
     Row(
         modifier = Modifier.fillMaxWidth().padding(bottom = NuvioTheme.spacing.xs),
         verticalAlignment = Alignment.CenterVertically

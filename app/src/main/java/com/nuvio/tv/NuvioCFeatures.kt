@@ -838,4 +838,7 @@ object NuvioCFeatures {
     const val FEATURED_CONTEXT_TAGS = true
     /** Featured carousel buttons: Play pill, Details as a round icon, then Previous and Next arrows in one pill; every focus ring and zoom has reserved room (no clipping). Off = round 49 (Details pill, one Next arrow). */
     const val FEATURED_BUTTONS = true
+
+    /** Modern OSD: the chapter name sits above the elapsed time on the right (small, accent colour); the title block on the left is never lifted. Off = chapter name on the left of the time line. */
+    const val CLEAN_CHAPTER_RIGHT = true
 }

@@ -357,15 +357,6 @@ data class TmdbDetailsResponse(
     @Json(name = "last_episode_to_air") val lastEpisodeToAir: TmdbEpisodeToAir? = null // [fork] round 51 featured_context_tags
 )
 
-/** [fork] round 51 featured_context_tags: TMDB's next / last aired episode of a show (already in the details answer). */
-@JsonClass(generateAdapter = true)
-data class TmdbEpisodeToAir(
-    @Json(name = "season_number") val seasonNumber: Int? = null,
-    @Json(name = "episode_number") val episodeNumber: Int? = null,
-    @Json(name = "air_date") val airDate: String? = null,
-    @Json(name = "episode_type") val episodeType: String? = null
-)
-
 @JsonClass(generateAdapter = true)
 data class TmdbSeasonSummary(
     @Json(name = "season_number") val seasonNumber: Int? = null,
