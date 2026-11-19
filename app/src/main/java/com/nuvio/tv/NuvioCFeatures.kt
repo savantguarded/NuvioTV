@@ -829,7 +829,7 @@ object NuvioCFeatures {
     const val IMAGE_CACHE_CAP = true
     /** Home: nothing animates or ticks while the app is in the background or the screen is off. Off = as round 49. */
     const val IDLE_QUIET = true
-    /** Release builds: Nuvio C's own debug lines are raised to info so they stay in logcat, official's debug and verbose lines are stripped. Off = as round 49. */
+    /** Release builds: Nuvio C's own debug lines are raised to info so they stay in logcat, official's debug and verbose lines are stripped (done in source and in proguard-rules.pro; this switch only documents it). Off = as round 49. */
     const val RELEASE_LOG_STRIP = true
     // [fork] round 51
     /** Every focused poster / card (Home rows, Continue Watching, grids, collections, See all) gets a light halo in the accent colour, outside the card; no size, spacing or neighbour change. Off = official focus ring only (collections keep their artwork glow). */

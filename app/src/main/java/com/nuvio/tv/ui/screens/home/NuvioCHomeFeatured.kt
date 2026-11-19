@@ -34,6 +34,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -493,7 +494,11 @@ private fun NuvioCFeaturedHome(
     val taglines by viewModel.taglines.collectAsStateWithLifecycle()
     val infos by viewModel.infos.collectAsStateWithLifecycle()
 
-    val atRest by remember { derivedStateOf { progress.value == 0f } }
+    val atRest0 by remember { derivedStateOf { progress.value == 0f } }
+    // [fork] round 50 idle_quiet: no slide changes or timers while the app is in the background or the screen is off
+    val nuvioCLifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    val nuvioCResumed by nuvioCLifecycle.currentStateFlow.collectAsState()
+    val atRest = atRest0 && (!com.nuvio.tv.NuvioCFeatures.IDLE_QUIET || nuvioCResumed.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED))
     if (com.nuvio.tv.NuvioCFeatures.IDLE_TIMER_LIGHT) {
         com.nuvio.tv.ui.components.NuvioCHeroAutoAdvanceEffect(
             count = if (carouselOn && atRest && !showPlayOptions) items.size else 0,

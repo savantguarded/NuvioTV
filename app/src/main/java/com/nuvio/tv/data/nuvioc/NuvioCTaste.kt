@@ -342,6 +342,8 @@ class NuvioCTasteRepository @Inject constructor(
         val now = System.currentTimeMillis()
         val zone = ZoneId.systemDefault()
         val all = NuvioCTasteRange.entries.associateWith {
+            // [fork] round 50 taste_compute_lean: one range at a time, letting other work run in between
+            if (quiet && com.nuvio.tv.NuvioCFeatures.TASTE_COMPUTE_LEAN) kotlinx.coroutines.yield()
             computeTasteStats(history, cache, scores, it, now, zone, localOnly)
         }
         // [fork] round 40: inputs kept in memory for month views, rows and live tiles (nothing re-read per press)
@@ -373,7 +375,8 @@ class NuvioCTasteRepository @Inject constructor(
         /** [fork] round 40 taste_build_anim: the profile's titles, so the first build can show its genres forming. */
         wantedKeys: List<String>? = null
     ) = coroutineScope {
-        val gate = Semaphore(4)
+        // [fork] round 50 taste_compute_lean: the quiet daily refresh reads titles one at a time
+        val gate = Semaphore(if (quiet && com.nuvio.tv.NuvioCFeatures.TASTE_COMPUTE_LEAN) 1 else 4)
         var left = refs.size
         refs.chunked(40).forEach { batch ->
             batch.map { (key, show) ->
