@@ -896,4 +896,6 @@ object NuvioCFeatures {
     const val FEATURED_TAGS_V2 = true
     /** Home: Down from the Featured carousel into Continue Watching is one 300 ms crossfade (the carousel lifts a little and fades while the rows rise and the CW hero fades in); Up reverses it. Off = round 51 slide. */
     const val CAROUSEL_CW_FADE = true
+    /** Modern OSD Play: focus zoom 1.04 (was 1.1) and a 6 dp halo (was 10), so its focus sits tight and clear of the seek bar; still the largest button. Off = round 51. */
+    const val CLEAN_PLAY_RING_TUNE = true
 }

@@ -4366,6 +4366,7 @@ private fun NuvioCCleanControlsV2(
                     onFocused = onResetHideTimer,
                     nuvioCSize = if (cleanIcons) 52.dp else 48.dp,
                     nuvioCLabel = if (com.nuvio.tv.NuvioCFeatures.CLEAN_PLAY_RING) "" else null, // [fork] round 51 clean_play_ring: no Play label
+                    nuvioCFocusScale = if (com.nuvio.tv.NuvioCFeatures.CLEAN_PLAY_RING_TUNE) 1.04f else null, // [fork] round 52: tighter, clear of the seek bar
                     nuvioCGlyph = if (cleanIcons) 30.dp else null // [fork] round 49
                 )
                 Box(Modifier.size(iconButtonSize)) {
@@ -4615,7 +4616,8 @@ private fun ControlButton(
     contentColor: Color = Color.White,
     nuvioCLabel: String? = null, // [fork] name shown under the button while focused (default: contentDescription)
     nuvioCSize: androidx.compose.ui.unit.Dp? = null, // [fork] round 46 osd_clean: the larger Play / Pause
-    nuvioCGlyph: androidx.compose.ui.unit.Dp? = null // [fork] round 49 clean_icons: icon size inside the button (default: scales with nuvioCSize)
+    nuvioCGlyph: androidx.compose.ui.unit.Dp? = null, // [fork] round 49 clean_icons: icon size inside the button (default: scales with nuvioCSize)
+    nuvioCFocusScale: Float? = null // [fork] round 52 clean_play_ring_tune: Play's own, smaller zoom
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val nuvioCFocus = LocalNuvioCFocusMemory.current // [fork] focus returns here after its panel closes
@@ -4670,9 +4672,13 @@ private fun ControlButton(
             focusedContentColor = Color.Black
         ),
         shape = IconButtonDefaults.shape(shape = CircleShape),
-        scale = if (LocalNuvioCNoZoom.current) IconButtonDefaults.scale(focusedScale = 1f) else IconButtonDefaults.scale(), // [fork] round 52: no zoom inside the right pill
+        scale = when { // [fork] round 52: no zoom inside the right pill; Play's tighter zoom
+            LocalNuvioCNoZoom.current -> IconButtonDefaults.scale(focusedScale = 1f)
+            nuvioCFocusScale != null -> IconButtonDefaults.scale(focusedScale = nuvioCFocusScale)
+            else -> IconButtonDefaults.scale()
+        },
         glow = if (com.nuvio.tv.NuvioCFeatures.CLEAN_BUTTON_GLOW) IconButtonDefaults.glow(
-            focusedGlow = androidx.tv.material3.Glow(nuvioCOsd(Color.White).copy(alpha = 0.28f), 10.dp) // [fork] round 51 clean_button_glow
+            focusedGlow = androidx.tv.material3.Glow(nuvioCOsd(Color.White).copy(alpha = 0.28f), if (nuvioCFocusScale != null) 6.dp else 10.dp) // [fork] round 51 clean_button_glow; round 52: Play's tighter halo
         ) else IconButtonDefaults.glow()
     ) {
         if (iconPainter != null) {
