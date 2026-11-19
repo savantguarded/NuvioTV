@@ -2047,6 +2047,15 @@ private fun LegacySidebarScaffold(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .then(
+                    // [fork] round 53c sidebar_up_profile (classic sidebar): the drawer closes as soon as focus leaves it, and
+                    // on Calendar, Roulette and Taste a held Up from the profile found the page's top row. While the drawer
+                    // is open nothing can move focus into the page, so Up stops on the profile; Right still closes it.
+                    if (com.nuvio.tv.NuvioCFeatures.SIDEBAR_UP_PROFILE) Modifier
+                        .focusProperties { onEnter = { if (drawerState.currentValue == DrawerValue.Open) cancelFocusChange() } }
+                        .focusGroup()
+                    else Modifier
+                )
                 .onPreviewKeyEvent { keyEvent ->
                     // Long-press Back on a root route directly opens the sidebar,
                     // bypassing the "scroll row to start" BackHandler in home content.

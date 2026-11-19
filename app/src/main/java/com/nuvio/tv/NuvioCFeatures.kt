@@ -955,6 +955,6 @@ object NuvioCFeatures {
     /** Details Information: every slot always in the same place, a dash when empty; only the Parental guidance band is left out when it has no data. Off = round 52 (empty slots hidden). */
     const val DETAIL_INFO_DASHES = true
     // [fork] round 53b
-    /** Modern OSD: the left pills (Subtitles, Audio...) are as tall as the right-hand group pill (46 dp). Off = 32 dp pills. */
+    /** Modern OSD: the right-hand group pill is as tall as the left pills (32 dp): 28 dp buttons, 2 dp around them, the focused circle inside the pill. Off = 46 dp group pill. */
     const val CLEAN_PILL_HEIGHT_MATCH = true
 }

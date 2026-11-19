@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.focusGroup
 import com.nuvio.tv.ui.components.nuvioCFocusRoom // [fork] focus room
 import com.nuvio.tv.ui.components.nuvioCSwatchRing // [fork] focus ring shape
 
@@ -2337,6 +2338,8 @@ private fun NuvioCSubtitleTabsPanel(
         else languageItems.filter { it.key != SubtitleOffLanguageKey }.flatMap { lang -> buildOptions(lang.key, selectedId).map { lang.label to it } }
     }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val rowFocus = remember(visible) { HashMap<Int, FocusRequester>() } // [fork] round 53c: one per Tracks row
+    fun rowReq(i: Int) = rowFocus.getOrPut(i) { FocusRequester() }
 
     LaunchedEffect(visible) {
         if (!visible) return@LaunchedEffect
@@ -2357,7 +2360,7 @@ private fun NuvioCSubtitleTabsPanel(
                 else listOfNotNull(labelOf[languageKey], options.size.takeIf { it > 0 }?.toString()).joinToString(" · ")
             Text(summary, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.6f), maxLines = 1)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.nuvioCTabRow { tabRequesters[tab] }) {
             listOfNotNull(
                 stringResource(R.string.nuvio_c_panel_tracks),
                 stringResource(R.string.subtitle_style_title),
@@ -2392,7 +2395,7 @@ private fun NuvioCSubtitleTabsPanel(
                         selected = off,
                         focusRequester = if (off || allOptions.none { it.second.id == selectedId }) trackEntry else null,
                         onClick = { off = true; selectedId = null; onDisableSubtitles() },
-                        modifier = Modifier.nuvioCUpToTab(true, tabRequesters[0]),
+                        modifier = Modifier.focusRequester(rowReq(0)).nuvioCRowUp(0, rowFocus, tracksState, tabRequesters[0], scope),
                         pill = stringResource(R.string.nuvio_c_panel_pill_off)
                     )
                 }
@@ -2404,6 +2407,7 @@ private fun NuvioCSubtitleTabsPanel(
                         item.meta?.takeIf { it.isNotBlank() }
                     ).distinct().joinToString(" · ").ifBlank { stringResource(R.string.nuvio_c_panel_subtitle_track) }
                     NuvioCPanelRow(
+                        modifier = Modifier.focusRequester(rowReq(i + 1)).nuvioCRowUp(i + 1, rowFocus, tracksState, tabRequesters[0], scope),
                         pill = item.sourceLabel.ifBlank { null },
                         title = language,
                         detail = detail,
@@ -2651,3 +2655,36 @@ internal fun Modifier.nuvioCUpToTab(isFirst: Boolean, tab: FocusRequester): Modi
             true
         } else false
     }
+
+
+/**
+ * [fork] round 53c: Up inside a panel list moves one row at a time and scrolls the row above into view first, so a held
+ * Up never skips out of the list early (and lands on a tab) or stalls on a row that isn't laid out yet. Row 0 goes to
+ * the active tab.
+ */
+internal fun Modifier.nuvioCRowUp(
+    index: Int,
+    rows: Map<Int, FocusRequester>,
+    listState: LazyListState,
+    tab: FocusRequester,
+    scope: kotlinx.coroutines.CoroutineScope
+): Modifier = if (!NuvioCPanelLook.v3) this else this.onPreviewKeyEvent { e ->
+    if (e.nativeKeyEvent.keyCode != android.view.KeyEvent.KEYCODE_DPAD_UP) return@onPreviewKeyEvent false
+    if (e.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent true
+    if (index <= 0) { runCatching { tab.requestFocus() }; return@onPreviewKeyEvent true }
+    val target = rows[index - 1]
+    scope.launch {
+        if (listState.layoutInfo.visibleItemsInfo.none { it.index == index - 1 } ||
+            (listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == index - 1 }?.offset ?: 0) < 0) {
+            listState.scrollToItem((index - 1).coerceAtLeast(0))
+        }
+        target?.requestFocusAfterFrames(1)
+    }
+    true
+}
+
+/** [fork] round 53c: focus coming into a panel's tab row from the list always lands on the active tab. */
+@Suppress("DEPRECATION")
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+internal fun Modifier.nuvioCTabRow(active: () -> FocusRequester): Modifier =
+    if (!NuvioCPanelLook.v3) this else this.focusProperties { enter = { active() } }.focusGroup()

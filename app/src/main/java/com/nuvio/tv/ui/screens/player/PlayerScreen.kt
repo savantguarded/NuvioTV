@@ -4392,8 +4392,10 @@ private fun NuvioCCleanControlsV2(
                         if (com.nuvio.tv.NuvioCFeatures.CLEAN_RIGHT_PILL && items.isNotEmpty() && nuvioCPillFix) Modifier
                             // [fork] round 52 clean_pill_focus_fit: the pill is only painted, never clipped, so the focused
                             // button, its glow and its name under the row are drawn whole; 3 dp above and below the 40 dp buttons.
-                            .background(nuvioCOsd(Color(0xFF3A3A3A)).copy(alpha = 0.6f), androidx.compose.foundation.shape.RoundedCornerShape(23.dp))
-                            .padding(horizontal = 3.dp, vertical = 3.dp)
+                            .background(nuvioCOsd(Color(0xFF3A3A3A)).copy(alpha = 0.6f), androidx.compose.foundation.shape.RoundedCornerShape(if (com.nuvio.tv.NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH) 16.dp else 23.dp))
+                            // [fork] round 53c: 2 dp around 28 dp buttons = 32 dp, the height of the left pills; the focused
+                            // white circle (no zoom, no glow) stays inside the pill
+                            .padding(horizontal = if (com.nuvio.tv.NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH) 2.dp else 3.dp, vertical = if (com.nuvio.tv.NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH) 2.dp else 3.dp)
                         else if (com.nuvio.tv.NuvioCFeatures.CLEAN_RIGHT_PILL && items.isNotEmpty()) Modifier
                             .clip(androidx.compose.foundation.shape.RoundedCornerShape(26.dp))
                             .background(nuvioCOsd(Color(0xFF3A3A3A)).copy(alpha = 0.6f)) // [fork] round 51 clean_right_pill: the icons share one large pill
@@ -4401,7 +4403,10 @@ private fun NuvioCCleanControlsV2(
                         else Modifier
                     )
                 ) {
-                    androidx.compose.runtime.CompositionLocalProvider(LocalNuvioCNoZoom provides (nuvioCPillFix && com.nuvio.tv.NuvioCFeatures.CLEAN_RIGHT_PILL)) {
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        LocalNuvioCNoZoom provides (nuvioCPillFix && com.nuvio.tv.NuvioCFeatures.CLEAN_RIGHT_PILL),
+                        LocalNuvioCPillButton provides (if (com.nuvio.tv.NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH && nuvioCPillFix && com.nuvio.tv.NuvioCFeatures.CLEAN_RIGHT_PILL) 28.dp else null)
+                    ) {
                         NuvioCCleanFitRow(
                             keys = rightButtons.map { it.key } + "compact=$rightIcons", gap = if (nuvioCPillFix) 4.dp else 8.dp,
                             onFit = { n -> if (n < items.size && !rightIcons) rightCompact = true else if (n != rightFit) rightFit = n }, items = items
@@ -4635,7 +4640,7 @@ private fun ControlButton(
         onClick = { nuvioCFocus?.onClick(contentDescription); onClick() }, // [fork] was onClick
         enabled = enabled,
         modifier = Modifier
-            .size(nuvioCSize ?: NuvioTheme.spacing.xxxl)
+            .size(LocalNuvioCPillButton.current ?: nuvioCSize ?: NuvioTheme.spacing.xxxl) // [fork] round 53c: smaller inside the group pill
             .nuvioCFocusLabel(isFocused, nuvioCLabel ?: contentDescription) // [fork]
             .then(if (com.nuvio.tv.NuvioCFeatures.OSD_GLOW_LEAN && com.nuvio.tv.NuvioCFeatures.CLEAN_BUTTON_GLOW) nuvioCLeanGlow({ isFocused }, nuvioCOsd(Color.White), if (nuvioCFocusScale != null) 6.dp else 10.dp) else Modifier) // [fork] round 53 osd_glow_lean
             .then(
@@ -4694,13 +4699,13 @@ private fun ControlButton(
             Icon(
                 painter = iconPainter,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(nuvioCGlyph ?: nuvioCSize?.let { it * 0.5f } ?: NuvioTheme.spacing.xl) // [fork] 46b: scales with a set size; round 49: or set
+                modifier = Modifier.size(LocalNuvioCPillButton.current?.let { it * 0.6f } ?: nuvioCGlyph ?: nuvioCSize?.let { it * 0.5f } ?: NuvioTheme.spacing.xl) // [fork] 46b: scales with a set size; round 49: or set
             )
         } else {
             Icon(
                 imageVector = icon,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(nuvioCGlyph ?: nuvioCSize?.let { it * 0.55f } ?: 28.dp) // [fork] 46b; round 49
+                modifier = Modifier.size(LocalNuvioCPillButton.current?.let { it * 0.6f } ?: nuvioCGlyph ?: nuvioCSize?.let { it * 0.55f } ?: 28.dp) // [fork] 46b; round 49
             )
         }
     }
@@ -5983,6 +5988,8 @@ private fun nuvioCCleanIcon(@androidx.annotation.DrawableRes id: Int): androidx.
 
 /** [fork] round 52 clean_pill_focus_fit: true inside the Modern right pill, where buttons don't zoom so they stay inside it. */
 internal val LocalNuvioCNoZoom = androidx.compose.runtime.staticCompositionLocalOf { false }
+/** [fork] round 53c clean_pill_height_match: buttons inside the right group pill take this size (null = their own). */
+internal val LocalNuvioCPillButton = androidx.compose.runtime.staticCompositionLocalOf<androidx.compose.ui.unit.Dp?> { null }
 
 
 /**

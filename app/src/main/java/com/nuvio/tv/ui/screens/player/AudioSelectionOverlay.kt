@@ -2,6 +2,8 @@
 
 package com.nuvio.tv.ui.screens.player
 
+import androidx.compose.foundation.lazy.itemsIndexed
+
 import kotlinx.coroutines.launch
 
 import androidx.compose.foundation.layout.Spacer
@@ -188,6 +190,7 @@ internal fun AudioSelectionOverlay(
             val selectedTrack = tracks.firstOrNull { it.index == selectedIndex }
             LaunchedEffect(visible) { if (visible) tab = 0 }
             val audioScope = androidx.compose.runtime.rememberCoroutineScope()
+            val audioRowFocus = remember(visible) { HashMap<Int, FocusRequester>() } // [fork] round 53c
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
@@ -205,7 +208,7 @@ internal fun AudioSelectionOverlay(
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(start = 16.dp)
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.nuvioCTabRow { tabRequesters[tab] }) {
                     NuvioCPanelTab(stringResource(R.string.nuvio_c_panel_tracks), tab == 0, tabRequesters[0], tracksFocusRequester,
                         onDown = if (NuvioCPanelLook.v3 && tracks.isNotEmpty()) ({
                             val idx = tracks.indexOfFirst { it.index == selectedIndex }.coerceAtLeast(0)
@@ -223,7 +226,7 @@ internal fun AudioSelectionOverlay(
                         contentPadding = PaddingValues(vertical = 4.dp),
                         modifier = Modifier.fillMaxWidth().heightIn(max = NuvioCPanelLook.listMax)
                     ) {
-                        items(items = tracks, key = { track -> track.index }) { track ->
+                        itemsIndexed(items = tracks, key = { _, track -> track.index }) { rowIndex, track ->
                             val title = NuvioCTrackNames.audioTitle(track.name, track.language)
                                 ?: track.language?.takeIf { it.isNotBlank() && it != "und" }?.let { languageCodeToName(it) }
                                 ?: track.name
@@ -233,7 +236,8 @@ internal fun AudioSelectionOverlay(
                                 selected = track.index == selectedIndex,
                                 focusRequester = if (track.index == selectedIndex || (selectedIndex < 0 && track == tracks.firstOrNull())) tracksFocusRequester else null,
                                 onClick = { onTrackSelected(track.index) },
-                                modifier = Modifier.nuvioCUpToTab(track == tracks.firstOrNull(), tabRequesters[0])
+                                modifier = Modifier.focusRequester(audioRowFocus.getOrPut(rowIndex) { FocusRequester() })
+                                    .nuvioCRowUp(rowIndex, audioRowFocus, listState, tabRequesters[0], audioScope)
                             )
                         }
                     }

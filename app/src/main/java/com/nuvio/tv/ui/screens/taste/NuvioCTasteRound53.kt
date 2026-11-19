@@ -218,7 +218,7 @@ internal fun NuvioCTasteTabsV2(
                         tab == Tab53.DISCOVER -> Discover53(
                             viewModel = viewModel,
                             all = all,
-                            people = (sc?.stats ?: all).let { s -> s.people.ifEmpty { s.morePeople } }.take(7),
+                            people = (sc?.stats ?: all).let { s -> s.people.ifEmpty { s.morePeople } }.take(8),
                             rows = rows,
                             accent = accent,
                             spinFocus = spinFocus,
@@ -357,6 +357,42 @@ private fun hm53(minutes: Int): String {
 
 private fun day53(d: LocalDate): String = "${d.dayOfMonth} " + d.month.getDisplayName(TextStyle.SHORT, Locale.US)
 
+/**
+ * [fork] round 53c: a column that shows only the children that fit whole (top to bottom), so a card never shows a
+ * half-cut fifth row; what doesn't fit is left out instead of clipped.
+ */
+@Composable
+private fun FitColumn53(modifier: Modifier = Modifier, gap: androidx.compose.ui.unit.Dp = 0.dp, content: @Composable () -> Unit) {
+    androidx.compose.ui.layout.Layout(content = content, modifier = modifier) { measurables, constraints ->
+        val gapPx = gap.roundToPx()
+        val loose = constraints.copy(minHeight = 0, maxHeight = androidx.compose.ui.unit.Constraints.Infinity)
+        val placeables = ArrayList<androidx.compose.ui.layout.Placeable>()
+        var used = 0
+        for (m in measurables) {
+            val p = m.measure(loose)
+            val next = used + (if (placeables.isEmpty()) 0 else gapPx) + p.height
+            if (constraints.hasBoundedHeight && next > constraints.maxHeight) break
+            placeables += p
+            used = next
+        }
+        val h = if (constraints.hasBoundedHeight) constraints.maxHeight.coerceAtLeast(used) else used
+        layout(constraints.maxWidth, h.coerceAtLeast(constraints.minHeight)) {
+            var y = 0
+            placeables.forEach { it.place(0, y); y += it.height + gapPx }
+        }
+    }
+}
+
+/** Card heading: colour dot and a bold title. */
+@Composable
+private fun Heading53(text: String, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(8.dp).background(color, CircleShape))
+        Spacer(Modifier.width(8.dp))
+        Text(text, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, softWrap = false)
+    }
+}
+
 /** Section label: a colour dot and short caps. */
 @Composable
 private fun Label53(text: String, color: Color) {
@@ -372,7 +408,7 @@ private fun Label53(text: String, color: Color) {
 @Composable
 private fun Overview53(o: NuvioCTasteOverview, accent: Color) {
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(Modifier.fillMaxWidth().height(84.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth().height(92.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             val delta = o.prevMinutes?.let { p ->
                 val pct = ((o.minutes - p) * 100.0 / p).toInt()
                 (if (pct >= 0) "+$pct%" else "$pct%") + " vs ${o.prevLabel?.take(4)}"
@@ -382,7 +418,7 @@ private fun Overview53(o: NuvioCTasteOverview, accent: Color) {
             Tile53("Episodes", "%,d".format(o.episodes), if (o.shows > 0) "${o.shows} shows" else "No shows", C_AMBER)
             Tile53("Active days", "%,d".format(o.daysWatched), "of ${o.daysInRange} · best run ${o.longestStreak}", C_ROSE)
         }
-        Row(Modifier.fillMaxWidth().height(112.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth().height(116.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             val ms = o.mostShow
             Fact53("Top show", ms?.name ?: "–", ms?.let { "${it.episodes} eps · ${hm53(it.minutes)}" }, C_VIOLET)
             val b = o.biggestDay
@@ -404,8 +440,8 @@ private fun Overview53(o: NuvioCTasteOverview, accent: Color) {
 private fun RowScope.Tile53(label: String, value: String, sub: String, color: Color) {
     Column(Modifier.weight(1f).fillMaxHeight().background(C_CARD, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 11.dp), verticalArrangement = Arrangement.SpaceBetween) {
         Label53(label, color)
-        Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, softWrap = false)
-        Text(sub, style = MaterialTheme.typography.labelMedium, color = color.copy(alpha = 0.95f), maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+        Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, softWrap = false)
+        Text(sub, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = color, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -413,7 +449,7 @@ private fun RowScope.Tile53(label: String, value: String, sub: String, color: Co
 private fun RowScope.Fact53(label: String, main: String, sub: String?, color: Color) {
     Column(Modifier.weight(1f).fillMaxHeight().background(C_CARD, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 11.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Label53(label, color)
-        Text(main, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, lineHeight = 20.sp, overflow = TextOverflow.Ellipsis)
+        Text(main, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2, lineHeight = 20.sp, overflow = TextOverflow.Ellipsis)
         if (sub != null) Text(sub, style = MaterialTheme.typography.labelMedium, color = C_MUTE, maxLines = 2, lineHeight = 15.sp, overflow = TextOverflow.Ellipsis)
     }
 }
@@ -421,17 +457,22 @@ private fun RowScope.Fact53(label: String, main: String, sub: String?, color: Co
 @Composable
 private fun List53(modifier: Modifier, title: String, sub: String, lines: List<NuvioCTasteLine>, emptyText: String, color: Color) {
     Card53(modifier) {
-        Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Label53(title, color)
+        Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Heading53(title, color)
             Spacer(Modifier.weight(1f))
             Text(sub, style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, softWrap = false)
         }
         if (lines.isEmpty()) Text(emptyText, style = MaterialTheme.typography.bodySmall, color = C_MUTE)
-        lines.forEach { l ->
-            Row(Modifier.fillMaxWidth().height(26.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(l.name, style = MaterialTheme.typography.bodyMedium, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                Text(l.sub, style = MaterialTheme.typography.labelMedium, color = color, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 10.dp))
-                Text(day53(l.date), style = MaterialTheme.typography.labelMedium, color = C_MUTE, maxLines = 1, softWrap = false, textAlign = TextAlign.End, modifier = Modifier.width(52.dp))
+        // whole titles (two lines when needed); only the rows that fit are shown
+        FitColumn53(Modifier.fillMaxWidth().weight(1f), gap = 8.dp) {
+            lines.forEach { l ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                    Text(l.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 2, lineHeight = 18.sp, modifier = Modifier.weight(1f))
+                    Column(Modifier.padding(start = 12.dp), horizontalAlignment = Alignment.End) {
+                        Text(l.sub, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = color, maxLines = 1, softWrap = false)
+                        Text(day53(l.date), style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, softWrap = false)
+                    }
+                }
             }
         }
     }
@@ -484,7 +525,7 @@ private fun Stats53(s: NuvioCTasteStats, f: com.nuvio.tv.data.nuvioc.NuvioCTaste
                 val top = s.genres.take(5)
                 val max = top.maxOfOrNull { it.count }?.coerceAtLeast(1) ?: 1
                 val palette = listOf(C_VIOLET, C_ROSE, C_AMBER, C_TEAL, accent)
-                top.forEachIndexed { i, g -> HBar53(g.name, "%,d".format(g.count), g.count.toFloat() / max, palette[i % palette.size]) }
+                FitColumn53(Modifier.fillMaxWidth().weight(1f)) { top.forEachIndexed { i, g -> HBar53(g.name, "%,d".format(g.count), g.count.toFloat() / max, palette[i % palette.size]) } }
             }
             Card53(Modifier.weight(1f).fillMaxHeight()) {
                 val decades = s.decades.takeLast(8)
@@ -496,7 +537,7 @@ private fun Stats53(s: NuvioCTasteStats, f: com.nuvio.tv.data.nuvioc.NuvioCTaste
                 Title53("Studios & networks", C_ROSE, null)
                 val max = f.studios.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1
                 if (f.studios.isEmpty()) Text("Not enough data yet", style = MaterialTheme.typography.bodySmall, color = C_MUTE)
-                f.studios.forEach { (name, n) -> HBar53(name, n.toString(), n.toFloat() / max, C_ROSE) }
+                FitColumn53(Modifier.fillMaxWidth().weight(1f)) { f.studios.forEach { (name, n) -> HBar53(name, n.toString(), n.toFloat() / max, C_ROSE) } }
             }
         }
         Row(Modifier.fillMaxWidth().height(64.dp).background(C_CARD, RoundedCornerShape(14.dp)).padding(vertical = 10.dp)) {
@@ -526,8 +567,8 @@ private fun RowScope.StripFact53(label: String, value: String?, sub: String?, co
 
 @Composable
 private fun Title53(title: String, color: Color, line: String?) {
-    Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Label53(title, color)
+    Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Heading53(title, color)
         if (!line.isNullOrBlank()) {
             Spacer(Modifier.weight(1f))
             Text(line, style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, softWrap = false)
@@ -588,69 +629,73 @@ private fun Discover53(
         val r = requesters[key]
         if (r != null && runCatching { r.requestFocusAfterFrames() }.getOrDefault(false)) viewModel.discoverFocusKey = null
     }
-    Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-        var spinFocused by remember { mutableStateOf(false) }
-        Card(
-            onClick = { viewModel.discoverFocusKey = "spin"; onSpin() },
-            modifier = Modifier.width(250.dp).fillMaxHeight().padding(4.dp)
-                .shadow(if (spinFocused) 24.dp else 10.dp, RoundedCornerShape(20.dp), ambientColor = accent, spotColor = accent)
-                .focusRequester(req("spin")).focusProperties { up = upTarget }
-                .onFocusChanged { spinFocused = it.isFocused },
-            shape = CardDefaults.shape(RoundedCornerShape(20.dp)),
-            scale = CardDefaults.scale(focusedScale = 1f),
-            colors = CardDefaults.colors(containerColor = Color(0xFF1C2233), focusedContainerColor = Color(0xFF243052)),
-            border = CardDefaults.border(
-                border = Border(BorderStroke(2.dp, accent.copy(alpha = 0.55f)), shape = RoundedCornerShape(20.dp)),
-                focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = RoundedCornerShape(20.dp))
-            )
-        ) {
-            Column(
-                Modifier.fillMaxSize().background(Brush.radialGradient(listOf(accent.copy(alpha = 0.32f), C_VIOLET.copy(alpha = 0.10f), Color.Transparent), radius = 560f)).padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // top: a compact Spin card beside the picks; bottom: the faces across the full width
+        Row(Modifier.fillMaxWidth().height(196.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            var spinFocused by remember { mutableStateOf(false) }
+            Card(
+                onClick = { viewModel.discoverFocusKey = "spin"; onSpin() },
+                modifier = Modifier.width(220.dp).fillMaxHeight().padding(4.dp)
+                    .shadow(if (spinFocused) 22.dp else 8.dp, RoundedCornerShape(18.dp), ambientColor = accent, spotColor = accent)
+                    .focusRequester(req("spin")).focusProperties { up = upTarget }
+                    .onFocusChanged { spinFocused = it.isFocused },
+                shape = CardDefaults.shape(RoundedCornerShape(18.dp)),
+                scale = CardDefaults.scale(focusedScale = 1f),
+                colors = CardDefaults.colors(containerColor = Color(0xFF1C2233), focusedContainerColor = Color(0xFF243052)),
+                border = CardDefaults.border(
+                    border = Border(BorderStroke(2.dp, accent.copy(alpha = 0.55f)), shape = RoundedCornerShape(18.dp)),
+                    focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = RoundedCornerShape(18.dp))
+                )
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    all.spinPosters.take(3).forEach { url ->
-                        val r = remember(url) { ImageRequest.Builder(context).data(url).size(96, 144).build() }
-                        AsyncImage(r, null, contentScale = ContentScale.Crop, modifier = Modifier.width(44.dp).height(66.dp).clip(RoundedCornerShape(6.dp)).background(C_INNER))
+                Column(
+                    Modifier.fillMaxSize().background(Brush.radialGradient(listOf(accent.copy(alpha = 0.34f), C_VIOLET.copy(alpha = 0.12f), Color.Transparent), radius = 480f)).padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        all.spinPosters.take(3).forEach { url ->
+                            val r = remember(url) { ImageRequest.Builder(context).data(url).size(80, 120).build() }
+                            AsyncImage(r, null, contentScale = ContentScale.Crop, modifier = Modifier.width(36.dp).height(54.dp).clip(RoundedCornerShape(5.dp)).background(C_INNER))
+                        }
                     }
+                    Spacer(Modifier.weight(1f))
+                    Text("Spin my taste", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1)
+                    Text(listOfNotNull(all.genres.getOrNull(0)?.name, all.genres.getOrNull(1)?.name, all.topDecade?.let { "${it}s" }).joinToString(" · "),
+                        style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = accent, maxLines = 1)
+                    Text("One unseen pick for you", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.75f), maxLines = 1)
                 }
-                Text("Spin my taste", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = Color.White)
-                Text("One unseen pick from what you rate and watch most.", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.8f))
-                Spacer(Modifier.weight(1f))
-                Text(listOfNotNull(all.genres.getOrNull(0)?.name, all.genres.getOrNull(1)?.name, all.topDecade?.let { "${it}s" }).joinToString(" · "),
-                    style = MaterialTheme.typography.labelMedium, color = accent, maxLines = 2)
-                Box(Modifier.background(Color.White, RoundedCornerShape(50)).padding(horizontal = 18.dp, vertical = 8.dp)) {
-                    Text("Spin", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, color = Color.Black)
-                }
+            }
+            Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (row != null) {
+                    Heading53(row.title, C_TEAL)
+                    LazyRow(state = viewModel.discoverListState, horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)) {
+                        itemsIndexed(row.items, key = { _, it -> "t:" + it.id }) { i, item ->
+                            val key = "t:" + item.id
+                            val last = i == row.items.lastIndex
+                            // a held Right stops on the last poster
+                            Poster53(item, Modifier.focusRequester(req(key)).focusProperties { up = upTarget; if (last) right = FocusRequester.Cancel }) {
+                                viewModel.discoverFocusKey = key
+                                onOpenTitle(item.id, item.type)
+                            }
+                        }
+                    }
+                } else Center53("Picks appear after a few more titles")
             }
         }
-        Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (row != null) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Label53(row.title, C_TEAL)
-                LazyRow(state = viewModel.discoverListState, horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp)) {
-                    itemsIndexed(row.items, key = { _, it -> "t:" + it.id }) { i, item ->
-                        val key = "t:" + item.id
-                        val last = i == row.items.lastIndex
-                        // a held Right stops on the last poster
-                        Poster53(item, Modifier.focusRequester(req(key)).focusProperties { up = upTarget; if (last) right = FocusRequester.Cancel }) {
-                            viewModel.discoverFocusKey = key
-                            onOpenTitle(item.id, item.type)
-                        }
+        if (people.isNotEmpty()) Card53(Modifier.fillMaxWidth().weight(1f)) {
+            Title53("Faces you watch most", C_ROSE, "Titles together")
+            // even spacing across the full width, room around every circle so none is cut
+            androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+            val shown = people.take((maxWidth / 108.dp).toInt().coerceAtLeast(1)) // only whole faces, never a squeezed one
+            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                shown.forEachIndexed { i, p ->
+                    val key = "p:" + p.person.id
+                    val last = i == shown.lastIndex
+                    Face53(p, accent, Modifier.focusRequester(req(key)).focusProperties { if (row == null) up = upTarget; if (last) right = FocusRequester.Cancel }) {
+                        viewModel.discoverFocusKey = key
+                        onOpenPerson(p.person.id, p.person.name, p.director)
                     }
                 }
             }
-            if (people.isNotEmpty()) Card53(Modifier.fillMaxWidth().weight(1f)) {
-                Title53("Faces you watch most", C_ROSE, "Titles together")
-                Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    people.forEachIndexed { i, p ->
-                        val key = "p:" + p.person.id
-                        val last = i == people.lastIndex
-                        Face53(p, accent, Modifier.focusRequester(req(key)).focusProperties { if (row == null) up = upTarget; if (last) right = FocusRequester.Cancel }) {
-                            viewModel.discoverFocusKey = key
-                            onOpenPerson(p.person.id, p.person.name, p.director)
-                        }
-                    }
-                }
             }
         }
     }
@@ -685,12 +730,12 @@ private fun Poster53(item: com.nuvio.tv.data.nuvioc.NuvioCTasteShelfItem, modifi
 private fun Face53(p: com.nuvio.tv.data.nuvioc.NuvioCTastePersonStat, accent: Color, modifier: Modifier, onClick: () -> Unit) {
     val context = LocalContext.current
     var focused by remember { mutableStateOf(false) }
-    Column(Modifier.width(92.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+    Column(Modifier.width(104.dp).padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Surface(
             onClick = onClick,
-            modifier = modifier.size(72.dp).onFocusChanged { focused = it.isFocused },
+            modifier = modifier.size(76.dp).onFocusChanged { focused = it.isFocused },
             shape = ClickableSurfaceDefaults.shape(CircleShape),
-            scale = ClickableSurfaceDefaults.scale(focusedScale = 1.06f),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
             colors = ClickableSurfaceDefaults.colors(containerColor = C_INNER, focusedContainerColor = C_INNER),
             border = ClickableSurfaceDefaults.border(
                 border = Border(BorderStroke(1.5.dp, accent.copy(alpha = 0.45f)), shape = CircleShape),
@@ -735,18 +780,20 @@ private fun Wrapped53(y: NuvioCTasteYear, accent: Color) {
                     Num53("%,d".format(y.episodes), "episodes", Modifier.weight(1f))
                 }
             }
-            Ranked53(Modifier.fillMaxWidth().weight(1f, fill = false), "Top shows", y.topShows, "No shows this year", C_TEAL)
+            Ranked53(Modifier.fillMaxWidth().weight(1f), "Top shows", y.topShows, "No shows this year", C_TEAL)
         }
         Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Ranked53(Modifier.fillMaxWidth(), "Top films", y.topFilms, "No films this year", C_AMBER)
+            Ranked53(Modifier.fillMaxWidth().weight(1.15f), "Top films", y.topFilms, "No films this year", C_AMBER)
             Card53(Modifier.fillMaxWidth().weight(1f)) {
                 Title53("Highlights", C_ROSE, null)
+                FitColumn53(Modifier.fillMaxWidth().weight(1f)) {
                 Line53("Top genre", y.topGenre)
                 Line53("Most seen face", y.topFace?.let { "${it.first} · ${it.second}" })
                 Line53("Biggest day", y.biggestDay?.let { day53(it) + " · " + hm53(y.biggestDayMinutes) })
                 Line53("Longest streak", y.longestStreak.takeIf { it > 0 }?.let { "$it days" })
                 Line53("Usually", when (y.peakPart) { 0 -> "Mornings"; 1 -> "Afternoons"; 2 -> "Evenings"; 3 -> "Late nights"; else -> null })
                 Line53("Average rating", y.avgRating?.let { "%.1f · %d rated".format(it, y.rated) })
+                }
             }
         }
         Column(Modifier.weight(1.1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -779,15 +826,17 @@ private fun Ranked53(modifier: Modifier, title: String, lines: List<NuvioCTasteL
     Card53(modifier) {
         Title53(title, color, null)
         if (lines.isEmpty()) Text(emptyText, style = MaterialTheme.typography.bodySmall, color = C_MUTE)
-        lines.forEachIndexed { i, l ->
-            // rank and title share one baseline; fixed 42 dp rows from the top, so a short list never spreads out
-            Row(Modifier.fillMaxWidth().height(42.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("${i + 1}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = color,
-                    textAlign = TextAlign.End, modifier = Modifier.width(20.dp).alignByBaseline())
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f).alignByBaseline()) {
-                    Text(l.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(l.sub, style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, softWrap = false)
+        // rank and title share one baseline; rows stack from the top; whole titles (two lines when needed); only rows that fit
+        FitColumn53(Modifier.fillMaxWidth().weight(1f, fill = false), gap = 8.dp) {
+            lines.forEachIndexed { i, l ->
+                Row(Modifier.fillMaxWidth()) {
+                    Text("${i + 1}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = color,
+                        textAlign = TextAlign.End, modifier = Modifier.width(22.dp).alignByBaseline())
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f).alignByBaseline()) {
+                        Text(l.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, lineHeight = 18.sp)
+                        Text(l.sub, style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, softWrap = false)
+                    }
                 }
             }
         }
