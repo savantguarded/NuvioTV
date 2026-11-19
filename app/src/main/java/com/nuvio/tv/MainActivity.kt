@@ -78,6 +78,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.BlendMode
@@ -2431,6 +2432,15 @@ private fun ModernSidebarScaffold(
                 .fillMaxSize()
                 .then(
                     if (shouldApplySidebarHaze) Modifier.hazeSource(state = sidebarHazeState)
+                    else Modifier
+                )
+                .then(
+                    // [fork] round 53b sidebar_up_profile: while the sidebar is open nothing can move focus into the page
+                    // (Calendar, Roulette and Taste keep their rows focusable behind it, so a held Up, or a page asking
+                    // for focus, took focus out of the sidebar and closed it). Closing hands focus back as before.
+                    if (com.nuvio.tv.NuvioCFeatures.SIDEBAR_UP_PROFILE) Modifier
+                        .focusProperties { onEnter = { if (isSidebarExpanded && !sidebarCollapsePending) cancelFocusChange() } }
+                        .focusGroup()
                     else Modifier
                 )
                 .onPreviewKeyEvent { keyEvent ->
