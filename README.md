@@ -1,69 +1,31 @@
 # Nuvio C
 
-Nuvio C is a personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Android TV. It tracks every official release, including betas, and adds a focused set of refinements to playback, the home screen and day-to-day browsing. Sync, integrations and login work exactly as in the official app, and Nuvio C installs alongside it.
+A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Android TV. It follows every official release, betas included, and adds small refinements to playback, Home and browsing. Sync, integrations and login work as in the official app, and Nuvio C installs alongside it.
 
-**Download:** [latest release](https://github.com/savantguarded/NuvioTV/releases/latest) · built for armeabi-v7a Android TV devices
+**Download:** [latest release](https://github.com/savantguarded/NuvioTV/releases/latest) (armeabi-v7a Android TV)
 
-## Highlights
+## What it adds
 
-### Playback
-- **Two control layouts.** Choose Nuvio C or Clean in Settings > Playback. Clean is compact, with one set of rounded icons: Subtitles and Audio pills on the left, Play always in the centre of the screen, icon-only Sources, Details and Episodes on the right (each named under it on focus), and everything else behind a More icon with current values. Each layout keeps its own button order, and Clean never lets a crowded side reach the centre.
-- **Quick chapter skips.** With the seek bar focused, press Left or Right twice quickly to jump to the previous or next chapter; the focused Next button names the episode it plays. In Clean the time sits above the seek bar, and both layouts get deeper shading behind the controls for bright scenes.
-- **Stream info on any remote.** The stream information page always offers its HUD button, so boxes without an Info key reach it too.
-- **Information-rich controls.** Title logo plus resolution, HDR / Dolby Vision, audio (Dolby Atmos spelled out), source and file-size badges, a slimmer high-contrast seek bar and a label under the focused button.
-- **Subtitles that stay readable.** Bottom subtitles lift clear of the controls and pause screen; subtitles and controls are dimmed during HDR and Dolby Vision playback.
-- **Subtitle styling.** Official's subtitle appearance (font list with the Nuvio C fonts added, fonts imported from a phone, background colour, opacity and rounded corners, outline width, drop shadow), with the Nuvio C lift, top jump and HDR dim carried over, plus an option to hide SDH tracks. Your saved subtitle carries to the next episode, with SDH only as a fallback.
-- **Night mode for passthrough setups.** Lifts dialogue and quiet passages, switching a title from bitstream to decoded audio without interrupting playback, with an optional evening schedule.
-- **Stream information panel.** Source server, decoder, display mode, HDR metadata, buffering and network health in one panel that fits the screen.
-- **Cleaner track lists.** Audio and subtitle tracks are named by language, with the track's own description underneath; add-on subtitles drop their raw file ids and are numbered by add-on with the file type.
-- **Episode switching with feedback.** With auto source select on, the episode you pick shows "Finding streams" until a source is chosen, and long episode titles scroll when focused.
-- **Faster sources.** Up always reaches the first source, and the filter tabs disappear when only one source is installed.
-- **Thoughtful details.** Start over or jump to the previous episode, a pause screen with title and synopsis, details panel with director, writers and cast, an auto skip intro switch in the controls, filename on the loading screen, no countdown when you press Next (auto-play keeps a 3-second countdown you can cancel with Back), and Watch Party tucked into the extra controls.
+**Playback**
+- Two control layouts in Settings > Playback: Default and Modern. Modern is compact: Subtitles and Audio pills on the left, Play in the centre, icons in one rounded pill on the right, the rest under More. The chapter name sits above the elapsed time.
+- Press Left or Right twice on the seek bar to jump chapters; Start over then Previous episode.
+- Subtitles lift clear of the controls; subtitles and controls dim during HDR and Dolby Vision.
+- Subtitle styling (fonts, background, outline width, shadow), night mode for passthrough setups, a stream information panel, cleaner track names, a pause screen with titles only.
 
-### Home
-- **Featured layout.** A full-screen carousel of hero catalogs above Modern home, with ranks, top ratings, a two-line tagline and a timed page indicator.
-- **Extra large cards** for Classic, Modern and Featured, with spacing tuned so the hero is never crowded.
-- **Readable hero text.** A compact four-line description that scrolls like the official app when it runs long.
-- **Upcoming from your library.** One Upcoming row fed by the Calendar, with release-day tags, watched episodes removed and accurate show names.
-- **Profiles and personalisation.** A cleaner profile screen, a choice of app fonts and an on-screen clock while browsing.
-- **Smooth start-up.** One still Nuvio logo from the first frame, the profile screen fading in once it is ready, then a plain fade onto Home, which always opens on the carousel.
-- **Slim sidebar.** A narrower Modern sidebar with Settings pinned at the bottom.
-- **Ambient mode you can act on.** Press OK on a screensaver slide to open that title.
+**Home**
+- Featured carousel: Play, Details icon and Previous / Next arrows, with one context tag (airs today, finale, season out, new film, in your library). Soft glow on focused posters.
+- Upcoming row fed by the Calendar, slim sidebar, a smooth start-up, and a start-up queue that keeps background work off the first seconds.
 
-### Calendar
-- **Week, List and Month views** of everything you follow, in your time zone, with reminders.
-- **Multiple sources.** Your library, MDBList calendar and TMDB "coming soon" digital releases, de-duplicated.
-- **Bell any title.** A bell next to Play on any details page follows that title in the Calendar and the Upcoming row and reminds you once it is out, no library needed. The details and Calendar bells are always in step.
-- **Fresh on open.** Refreshed in the background after a cold start, so stale entries are never shown.
-- **Exact air times.** Add your own TheTVDB key in Settings > Integrations to fill in times TVmaze lacks.
+**Calendar, details, taste**
+- List and Month views, library and TMDB "coming soon" sources, bell on any title, exact air times with your TheTVDB key.
+- Half-star ratings to Trakt, Simkl and MDBList, richer details pages, trailers, Roulette and Shuffle, and a per-profile Taste page.
 
-### Details and discovery
-- **Ratings in one place.** Rate with half-star precision to Trakt, Simkl and MDBList at once, with a dependable prompt once a film counts as watched, even after a long credits sit.
-- **Richer pages.** English tagline, a calmer hero (one facts line under the buttons, wider synopsis), an Information block with fixed slots, Based on in full, Themes and the full Keywords list from TMDB, major award wins, IMDb parental guidance, next-episode countdown, episode Find (number or name) and acting-only filmographies with roles.
-- **Trailers.** Background trailers with a mute setting and one-press exit, a full seek bar and logo on the trailer screen, and IMDb trailers as a fallback when YouTube limits quality.
-- **Roulette and Shuffle.** A genuine shuffle across tens of thousands of TMDB films and shows (from well known to deep cuts, with title counts per level), filtered by type, mood and Unwatched / Watched / All titles, and refined by era, origin, length, acclaim, theme, audience and status, every rating you use shown, a clear message when nothing matches and no repeats within 30 days, plus a Shuffle button on series pages and a random pick in the Library.
-- **Your taste.** A page per profile: a genre ring, a one-press Spin my taste, This week compared with your usual week (hours, shows on the go, the next new episode, your rating average), large spotlight cards that change every visit, text that always fits or scrolls (eras, binge depth, you against the crowd, franchise progress and more) that open the titles behind them, a Month in review, month-by-month recaps that open the month's titles with a short breakdown, and fresh rows each visit, in a new order, that leave out anything you've watched or rated. Kept strictly per profile and works with Nuvio sync alone.
+## Switches and builds
 
-### Performance and reliability
-- Tuned for 2 GB TVs: lighter player memory use, compiled-on-install updates, smoother scrolling and sidebar transitions.
-- Simkl device login with automatic token renewal; Trakt sessions survive server hiccups.
-- In-app updates from this repository, and Nuvio C settings that follow your Nuvio profile to a new TV.
-- Add-on catalog names refresh after time away, with no force close.
+Every change sits behind a switch in [`NuvioCFeatures.kt`](app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt); off means official behaviour. To turn some off without editing code, set the repository variable `NUVIO_C_OFF` to a comma-separated list of lower-case switch names, then run **Actions > Nuvio C build** with *force* ticked.
 
-## Feature switches
+A workflow checks for new official releases hourly, rebuilds each with the Nuvio C changes and publishes it. A conflict is reported once per release, not hourly.
 
-Every change is isolated behind a switch in [`NuvioCFeatures.kt`](app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt). Switched off, that part behaves exactly like the official app.
+## Credits and licence
 
-To turn changes off without editing code, set the repository variable `NUVIO_C_OFF` (Settings › Secrets and variables › Actions › Variables) to a comma-separated list of lower-case switch names, for example `osd_badges,subtitle_lift`, then run **Actions › Nuvio C build** with *force* ticked.
-
-## How builds work
-
-A workflow checks for new official releases every hour. Each release is rebuilt with the Nuvio C changes applied and published to Releases. If an official change conflicts with an optional part (detail-page trailers, IMDb trailer fallback, cast filmography), the build still ships without that part and opens a single tracking issue.
-
-## Credits
-
-Built on [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) by the Nuvio team, with ideas and code adapted from [ysosrs123/NuvioTV-Fork](https://github.com/ysosrs123/NuvioTV-Fork) (Calendar, stats panel layout, night mode) and [TitansparkDev/NuvioTV](https://github.com/TitansparkDev/NuvioTV) (Roulette concept).
-
-## Licence
-
-[GNU GPL v3.0](./LICENSE), as the official app.
+Built on Nuvio TV by the Nuvio team, with ideas adapted from [ysosrs123/NuvioTV-Fork](https://github.com/ysosrs123/NuvioTV-Fork) and [TitansparkDev/NuvioTV](https://github.com/TitansparkDev/NuvioTV). [GNU GPL v3.0](./LICENSE).
