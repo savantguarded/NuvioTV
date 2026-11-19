@@ -4365,6 +4365,7 @@ private fun NuvioCCleanControlsV2(
                     onDownKey = onHideControls,
                     onFocused = onResetHideTimer,
                     nuvioCSize = if (cleanIcons) 52.dp else 48.dp,
+                    nuvioCLabel = if (com.nuvio.tv.NuvioCFeatures.CLEAN_PLAY_RING) "" else null, // [fork] round 51 clean_play_ring: no Play label
                     nuvioCGlyph = if (cleanIcons) 30.dp else null // [fork] round 49
                 )
                 Box(Modifier.size(iconButtonSize)) {
@@ -4376,10 +4377,20 @@ private fun NuvioCCleanControlsV2(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
                 val rightIcons = rightCompact || com.nuvio.tv.NuvioCFeatures.CLEAN_RIGHT_ICONS // [fork] round 49: icons only on the right
                 val items = rightButtons.mapNotNull { sideButton(it, rightIcons) }
-                NuvioCCleanFitRow(
-                    keys = rightButtons.map { it.key } + "compact=$rightIcons", gap = 8.dp, modifier = Modifier.weight(1f, fill = false),
-                    onFit = { n -> if (n < items.size && !rightIcons) rightCompact = true else if (n != rightFit) rightFit = n }, items = items
-                )
+                Box(
+                    Modifier.weight(1f, fill = false).then(
+                        if (com.nuvio.tv.NuvioCFeatures.CLEAN_RIGHT_PILL && items.isNotEmpty()) Modifier
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(26.dp))
+                            .background(nuvioCOsd(Color(0xFF3A3A3A)).copy(alpha = 0.6f)) // [fork] round 51 clean_right_pill: the icons share one large pill
+                            .padding(horizontal = 6.dp)
+                        else Modifier
+                    )
+                ) {
+                    NuvioCCleanFitRow(
+                        keys = rightButtons.map { it.key } + "compact=$rightIcons", gap = 8.dp,
+                        onFit = { n -> if (n < items.size && !rightIcons) rightCompact = true else if (n != rightFit) rightFit = n }, items = items
+                    )
+                }
                 if (moreItems.isNotEmpty()) icon(
                     Icons.Default.Settings, moreLabel, { sheet.open = true }, painter = morePainter,
                     focusRequester = if (infoOnSide) gearFocus else streamInfoFocusRequester
@@ -4650,7 +4661,10 @@ private fun ControlButton(
             contentColor = nuvioCOsd(contentColor), // [fork] HDR dim
             focusedContentColor = Color.Black
         ),
-        shape = IconButtonDefaults.shape(shape = CircleShape)
+        shape = IconButtonDefaults.shape(shape = CircleShape),
+        glow = if (com.nuvio.tv.NuvioCFeatures.CLEAN_BUTTON_GLOW) IconButtonDefaults.glow(
+            focusedGlow = androidx.tv.material3.Glow(nuvioCOsd(Color.White).copy(alpha = 0.28f), 10.dp) // [fork] round 51 clean_button_glow
+        ) else IconButtonDefaults.glow()
     ) {
         if (iconPainter != null) {
             Icon(

@@ -841,4 +841,14 @@ object NuvioCFeatures {
 
     /** Modern OSD: the chapter name sits above the elapsed time on the right (small, accent colour); the title block on the left is never lifted. Off = chapter name on the left of the time line. */
     const val CLEAN_CHAPTER_RIGHT = true
+
+    /** Modern OSD: right-side icons share one large rounded pill (More stays separate). */
+    const val CLEAN_RIGHT_PILL = true
+    /** Modern OSD: focused round buttons glow softly. */
+    const val CLEAN_BUTTON_GLOW = true
+    /** Modern OSD: Play / Pause shows no name label under it on focus. */
+    const val CLEAN_PLAY_RING = true
+
+    /** Pause screen shows titles only: no year under a film (episodes keep their S/E line). */
+    const val PAUSE_TITLES_ONLY = true
 }

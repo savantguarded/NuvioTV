@@ -183,7 +183,8 @@ private fun NuvioCPauseContent(
                 val code = stringResource(R.string.season_episode_format, season, episode)
                 val name = episodeTitle?.takeIf { it.isNotBlank() }?.localizeEpisodeTitle(context)
                 if (name != null) "$code · $name" else code
-            } else {
+            } else if (com.nuvio.tv.NuvioCFeatures.PAUSE_TITLES_ONLY) null // [fork] round 51 pause_titles_only: no year under a film
+            else {
                 year?.takeIf { it.isNotBlank() }
             }
             if (line != null) {

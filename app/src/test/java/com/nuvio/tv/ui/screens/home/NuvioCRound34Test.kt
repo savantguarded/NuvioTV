@@ -44,8 +44,8 @@ class NuvioCRound34Test {
 
     @Test fun trackNamesReadAsLanguagePlusTags() {
         assertEquals("English", NuvioCTrackNames.subtitleTitle("Eng", "en", forced = false))
-        assertEquals("English · SDH", NuvioCTrackNames.subtitleTitle("SDH", "eng", forced = false))
-        assertEquals("English · Forced", NuvioCTrackNames.subtitleTitle("English [Forced]", "en", forced = true))
+        assertEquals("English", NuvioCTrackNames.subtitleTitle("SDH", "eng", forced = false)) // round 35: language alone, tags on the line under
+        assertEquals("English", NuvioCTrackNames.subtitleTitle("English [Forced]", "en", forced = true))
         assertNull(NuvioCTrackNames.subtitleTitle("Track 3", "und", forced = false))
         assertEquals("SDH", NuvioCTrackNames.original("SDH", "English · SDH"))
         assertNull(NuvioCTrackNames.original("English", "English"))
