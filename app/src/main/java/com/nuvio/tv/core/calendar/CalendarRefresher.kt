@@ -452,6 +452,8 @@ class CalendarRefresher internal constructor(
                 calendarDoneMemory(snapshot.doneUntil, snapshot.titles, now)
             } else emptyMap()
             val rules = CalendarFollowRules(
+                // [fork] round 52 calendar_rules: a show left for six months (not saved) is no longer followed
+                staleAfter = if (com.nuvio.tv.NuvioCFeatures.CALENDAR_RULES) java.time.Duration.ofDays(182) else java.time.Duration.ofDays(365),
                 includePersonalLists = settings.includePersonalLists,
                 hiddenTitleKeys = settings.hiddenTitleKeys,
                 bellOn = settings.bellOn,

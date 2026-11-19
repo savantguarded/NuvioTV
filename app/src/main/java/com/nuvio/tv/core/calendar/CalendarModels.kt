@@ -220,7 +220,12 @@ data class CalendarTitleRecord(
     val entries: List<CalendarEntry> by lazy {
         // [fork] round 52 calendar_no_rereleases: a film's 4K / digital / anniversary re-release dates are dropped
         val raw = sources.values.flatten()
-        mergeCalendarEntries(if (CalendarOrigin.BELL in origins) raw else nuvioCDropFilmReReleases(type, raw), sourceFetchedAtMs)
+        val belled = CalendarOrigin.BELL in origins
+        // [fork] round 52 calendar_rules: no specials (season 0) and no talk / news shows unless belled
+        val ruled = if (!com.nuvio.tv.NuvioCFeatures.CALENDAR_RULES || belled) raw
+            else if (nuvioCTalkOrNews(genre)) emptyList()
+            else raw.filter { it.kind != CalendarEntryKind.EPISODE || (it.season ?: 1) > 0 }
+        mergeCalendarEntries(if (belled) ruled else nuvioCDropFilmReReleases(type, ruled), sourceFetchedAtMs)
     }
 
     fun episodeKey(entry: CalendarEntry): String = "$key|${entry.slot}"
@@ -252,3 +257,8 @@ data class CalendarSnapshot(
         const val CURRENT_VERSION = 1
     }
 }
+
+
+/** [fork] round 52 calendar_rules: talk, news and daily shows are left out of the Calendar (a bell keeps one). */
+internal fun nuvioCTalkOrNews(genre: String?): Boolean =
+    genre?.trim()?.lowercase()?.let { it == "talk" || it == "news" || it == "talk show" || it == "talk-show" } == true

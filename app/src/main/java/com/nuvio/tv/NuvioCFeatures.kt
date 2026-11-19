@@ -916,4 +916,6 @@ object NuvioCFeatures {
     const val CALENDAR_STREAMING_ESTIMATES = true
     /** Calendar sources: TheTVDB's air time first when the key is set, then Trakt's; plain dates from TMDB before TVmaze. Off = newest timed source wins. */
     const val CALENDAR_SOURCES = true
+    /** Calendar rules: shows left for six months (not saved in a library) stop being followed (was a year); no specials (season 0); talk / news shows left out unless belled. Ended shows with nothing new, cinema-only films, re-releases and duplicates were already handled. Off = round 51 rules. */
+    const val CALENDAR_RULES = true
 }
