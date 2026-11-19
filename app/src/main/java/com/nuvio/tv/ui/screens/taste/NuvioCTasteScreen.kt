@@ -113,6 +113,28 @@ class NuvioCTasteViewModel @Inject constructor(
             .getOrDefault(Color(0xFF6FA8FF))
     val profileName: String get() = profiles.activeProfile?.name.orEmpty()
 
+    // ---- [fork] round 52 taste_tabs -------------------------------------------------------------------------
+    var tasteTab by mutableStateOf(0)
+    private val _facts = MutableStateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteFacts?>(null)
+    val facts: StateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteFacts?> = _facts.asStateFlow()
+    private val _wrappedYears = MutableStateFlow<List<Int>>(emptyList())
+    val wrappedYears: StateFlow<List<Int>> = _wrappedYears.asStateFlow()
+    private val _wrapped = MutableStateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteWrapped?>(null)
+    val wrapped: StateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteWrapped?> = _wrapped.asStateFlow()
+
+    fun loadFacts(range: NuvioCTasteRange, month: java.time.YearMonth?) {
+        viewModelScope.launch { _facts.value = repository.facts(range, month) }
+    }
+
+    fun loadWrapped(year: Int?) {
+        viewModelScope.launch {
+            val years = repository.wrappedYears()
+            _wrappedYears.value = years
+            val y = year ?: years.firstOrNull()
+            _wrapped.value = y?.let { repository.wrapped(it) }
+        }
+    }
+
     fun open(force: Boolean = false) {
         // [fork] round 42 taste_profile_strict: nothing from another profile's visit is reused on this page
         val profileNow = profiles.activeProfileId.value
@@ -120,6 +142,7 @@ class NuvioCTasteViewModel @Inject constructor(
             if (openedProfile != null) {
                 opened = false
                 _rows.value = emptyList(); _review.value = null; _panel.value = null; _monthData.value = null; _live.value = null
+                _facts.value = null; _wrapped.value = null; _wrappedYears.value = emptyList(); tasteTab = 0 // [fork] round 52
                 memories.clear(); spotlightCache.clear(); changedIds = emptySet(); lastArea = null; monthFrom = null; panelFrom = null
                 lensFor = null; lens = null; _monthTitles.value = emptyList()
                 countUp = true
@@ -435,6 +458,10 @@ fun NuvioCTasteScreen(
     onOpenRoulette: () -> Unit,
     viewModel: NuvioCTasteViewModel = hiltViewModel()
 ) {
+    if (com.nuvio.tv.NuvioCFeatures.TASTE_TABS) { // [fork] round 52: four tabs, each one screen
+        NuvioCTasteTabs(viewModel, onOpenTitle, onOpenPerson, onOpenRoulette)
+        return
+    }
     if (com.nuvio.tv.NuvioCFeatures.TASTE_V2) { // [fork] round 40
         NuvioCTastePage(viewModel, onOpenTitle, onOpenPerson, onOpenRoulette)
         return

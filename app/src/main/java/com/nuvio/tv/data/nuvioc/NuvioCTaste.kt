@@ -517,6 +517,28 @@ class NuvioCTasteRepository @Inject constructor(
         stats to computeTasteInsights(i.history, cache, i.scores, window, now, zone, false, i.collections)
     }
 
+    // ---- [fork] round 52 taste_tabs: the tabs' extra numbers, from the kept inputs (active profile only) --------
+
+    /** Facts for [range], or for [month] when set. Null before a build. */
+    suspend fun facts(range: NuvioCTasteRange, month: java.time.YearMonth?): NuvioCTasteFacts? = withContext(Dispatchers.Default) {
+        val i = inputs?.takeIf { it.profile == profiles.activeProfileId.value } ?: return@withContext null
+        val zone = ZoneId.systemDefault()
+        val now = System.currentTimeMillis()
+        val window = month?.let { tasteMonthWindow(it, zone) } ?: rangeWindow(range, now, zone)
+        computeTasteFacts(i.history, titles(), window, now, zone)
+    }
+
+    /** Years with enough history for Wrapped, newest first. */
+    suspend fun wrappedYears(): List<Int> = withContext(Dispatchers.Default) {
+        val i = inputs?.takeIf { it.profile == profiles.activeProfileId.value } ?: return@withContext emptyList()
+        tasteWrappedYears(i.history, ZoneId.systemDefault())
+    }
+
+    suspend fun wrapped(year: Int): NuvioCTasteWrapped? = withContext(Dispatchers.Default) {
+        val i = inputs?.takeIf { it.profile == profiles.activeProfileId.value } ?: return@withContext null
+        computeTasteWrapped(i.history, titles(), year, ZoneId.systemDefault())
+    }
+
     // ---- [fork] round 41 ------------------------------------------------------------------------------------
 
     /**

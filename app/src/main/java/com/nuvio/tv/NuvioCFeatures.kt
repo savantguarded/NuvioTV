@@ -900,4 +900,6 @@ object NuvioCFeatures {
     const val CLEAN_PLAY_RING_TUNE = true
     /** Player: new Subtitles card (Tracks / Style / Language tabs; Style keeps delay first and every option) and Audio card (Tracks / Sound tabs), both on the left under their pills, two-line rows with scrolling on focus and a check on the active one. Off = the official side-by-side panels. */
     const val TRACK_PANELS_V2 = true
+    /** Taste: four tabs, each one screen that never scrolls: Overview (totals, split, streak, facts; All time / This year / a month), Charts (when you watch, ratings, genres, decades, studios), Discover (Spin my taste, two rows from your taste, faces you watch most) and Wrapped (any year with 10+ titles). Per profile; a new profile sees Overview only, a light one what it has data for. Off = round 47 page. */
+    const val TASTE_TABS = true
 }

@@ -1272,7 +1272,7 @@ private fun TastePageBackdrop(urls: List<String>, accent: Color) {
 
 /** First build: posters from the profile's history drift down into genre bars that grow as titles are read. */
 @Composable
-private fun TasteBuilding(state: NuvioCTasteState, accent: Color) {
+internal fun TasteBuilding(state: NuvioCTasteState, accent: Color) {
     val context = LocalContext.current
     val total = state.progressTotal.coerceAtLeast(1)
     val done = (total - state.pending).coerceIn(0, total)
