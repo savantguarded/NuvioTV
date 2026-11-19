@@ -91,3 +91,24 @@ fun applyAddonEntries(
     val mine = addonEntries.filter { (ids, _) -> ids.sharesIdWith(record.ids) }.map { it.second }.distinctBy { it.slot }
     record.withSource(CalendarSource.ADDON, mine, now)
 }
+
+
+/**
+ * [fork] Nuvio C round 52 `calendar_no_rereleases`: a film is in the Calendar for its own first release only. Any
+ * film date (cinema or digital, from any source) more than [NUVIO_C_REREALEASE_DAYS] after the earliest date known
+ * for that film is a re-release (4K, Blu-ray, anniversary, a new digital date for an old film) and is dropped, so a
+ * 1999 film listed by MDBList with a 2026 digital date shows nothing. Shows and episodes are untouched. A belled film
+ * keeps every date (the caller skips this).
+ */
+fun nuvioCDropFilmReReleases(type: CalendarTitleType, entries: List<CalendarEntry>): List<CalendarEntry> {
+    if (!com.nuvio.tv.NuvioCFeatures.CALENDAR_NO_REREALEASES || type != CalendarTitleType.MOVIE) return entries
+    fun dateOf(e: CalendarEntry): java.time.LocalDate? = e.airDate?.let { runCatching { java.time.LocalDate.parse(it.take(10)) }.getOrNull() }
+        ?: e.airInstantMs?.let { java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneOffset.UTC).toLocalDate() }
+    val films = entries.filter { it.kind != CalendarEntryKind.EPISODE }
+    val first = films.mapNotNull(::dateOf).minOrNull() ?: return entries
+    val limit = first.plusDays(NUVIO_C_REREALEASE_DAYS)
+    return entries.filter { e -> e.kind == CalendarEntryKind.EPISODE || (dateOf(e)?.let { !it.isAfter(limit) } ?: true) }
+}
+
+/** A digital release usually follows the cinema one within months; a year apart means a re-release. */
+const val NUVIO_C_REREALEASE_DAYS = 365L

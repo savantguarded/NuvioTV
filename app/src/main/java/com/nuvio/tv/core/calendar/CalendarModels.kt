@@ -217,7 +217,11 @@ data class CalendarTitleRecord(
     val rating: Double? = null,
     val genre: String? = null
 ) {
-    val entries: List<CalendarEntry> by lazy { mergeCalendarEntries(sources.values.flatten(), sourceFetchedAtMs) }
+    val entries: List<CalendarEntry> by lazy {
+        // [fork] round 52 calendar_no_rereleases: a film's 4K / digital / anniversary re-release dates are dropped
+        val raw = sources.values.flatten()
+        mergeCalendarEntries(if (CalendarOrigin.BELL in origins) raw else nuvioCDropFilmReReleases(type, raw), sourceFetchedAtMs)
+    }
 
     fun episodeKey(entry: CalendarEntry): String = "$key|${entry.slot}"
 

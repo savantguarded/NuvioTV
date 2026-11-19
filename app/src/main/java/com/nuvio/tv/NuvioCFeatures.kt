@@ -886,4 +886,6 @@ object NuvioCFeatures {
     const val FILMOGRAPHY_CHIPS_INLINE = true
     /** Details Information: Parental guidance shows only when it has data (not while loading, never a row of dashes); other empty slots (budget, box office, themes, keywords, awards...) are left out instead of showing a dash. Off = fixed slots with dashes. */
     const val DETAIL_INFO_HIDE_EMPTY = true
+    /** Calendar: a film shows for its own first release only; dates more than a year after the earliest known one (4K, Blu-ray, anniversary or new digital dates of old films, e.g. from MDBList) are dropped unless belled. Off = every dated release shows. */
+    const val CALENDAR_NO_REREALEASES = true
 }
