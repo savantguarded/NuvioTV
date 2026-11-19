@@ -2910,6 +2910,33 @@ private fun NuvioCTrendingBackground(entry: com.nuvio.tv.ui.components.NuvioCTre
             contentScale = androidx.compose.ui.layout.ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
+        if (com.nuvio.tv.NuvioCFeatures.PROFILE_BG_TEXT_V2) {
+            // [fork] round 53: darker on the left where the profiles sit, and a bottom fade for the title block
+            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(
+                0f to Color(0xFF050507).copy(alpha = 0.92f), 0.38f to Color(0xFF050507).copy(alpha = 0.78f),
+                0.7f to Color(0xFF050507).copy(alpha = 0.25f), 1f to Color(0xFF050507).copy(alpha = 0.35f))))
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.75f))))
+            androidx.compose.foundation.layout.Column(
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 40.dp, bottom = 30.dp).widthIn(max = 320.dp),
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)
+            ) {
+                if (entry.logo != null) {
+                    coil3.compose.AsyncImage(
+                        model = coil3.request.ImageRequest.Builder(context).data(entry.logo).size(500, 200).build(),
+                        contentDescription = entry.title,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                        alignment = Alignment.BottomEnd,
+                        modifier = Modifier.width(200.dp).height(64.dp)
+                    )
+                } else {
+                    Text(entry.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2, textAlign = TextAlign.End)
+                }
+                val line = entry.line.ifBlank { entry.meta }
+                if (line.isNotBlank()) Text(line, style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.82f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            return@Box
+        }
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.7f))))
         androidx.compose.foundation.layout.Column(
             modifier = Modifier.align(Alignment.BottomEnd).padding(end = 48.dp, bottom = 36.dp),

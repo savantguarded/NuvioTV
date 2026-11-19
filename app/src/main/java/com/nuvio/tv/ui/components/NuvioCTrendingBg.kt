@@ -33,7 +33,9 @@ object NuvioCTrendingBg {
         val backdrop: String,
         val logo: String?,
         val tag: String,
-        val meta: String
+        val meta: String,
+        // [fork] round 53 profile_bg_text_v2: the line under the logo without a rank (year · genres)
+        val line: String = ""
     )
 
     @Volatile private var pool: List<Entry> = emptyList()
@@ -49,7 +51,7 @@ object NuvioCTrendingBg {
         thread(name = TAG, isDaemon = true, priority = Thread.MIN_PRIORITY) {
             runCatching {
                 val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                if (pool.isEmpty() || System.currentTimeMillis() - prefs.getLong(KEY_FETCHED, 0L) > DAY_MS) {
+                if (pool.isEmpty() || (NuvioCFeatures.PROFILE_BG_POOL_WIDE && pool.size < 30) || System.currentTimeMillis() - prefs.getLong(KEY_FETCHED, 0L) > DAY_MS) {
                     val fresh = fetchPool()
                     if (fresh.isNotEmpty()) {
                         File(dir(app), POOL).writeText(JSONArray(fresh.map { it.toJson() }).toString())
@@ -59,6 +61,14 @@ object NuvioCTrendingBg {
                 }
                 // download every picture of the pool once, so the next cold start has them on disk
                 val saved = parse(runCatching { File(dir(app), POOL).readText() }.getOrDefault("[]"))
+                if (NuvioCFeatures.PROFILE_BG_POOL_WIDE) {
+                    // [fork] round 53: keep the folder to the pool, fetch what profiles show next, then up to 8 more a launch
+                    val keep = saved.map { fileFor(app, it).name }.toSet()
+                    dir(app).listFiles()?.filter { it.name.endsWith(".jpg") && it.name !in keep }?.forEach { it.delete() }
+                    val heads = nextIds(app).toSet()
+                    val missing = saved.filter { fileFor(app, it).length() == 0L }
+                    (missing.filter { it.id in heads } + missing.filter { it.id !in heads }.take(8)).forEach { e -> download(e.backdrop, fileFor(app, e)) }
+                } else
                 saved.forEach { e -> fileFor(app, e).takeIf { it.length() == 0L }?.let { download(e.backdrop, it) } }
             }.onFailure { Log.w(TAG, "trending refresh failed: ${it.message}") }
         }
@@ -71,6 +81,7 @@ object NuvioCTrendingBg {
         if (p.isEmpty()) return null
         val index = picks.getOrPut(profileId) {
             val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            if (NuvioCFeatures.PROFILE_BG_POOL_WIDE) return@getOrPut nextFromDeck(prefs, profileId, p)
             val last = prefs.getInt("last_$profileId", -1)
             var i = (prefs.getInt("seed", 0) + profileIndex * 3) % p.size
             if (i == last) i = (i + 1) % p.size
@@ -78,6 +89,38 @@ object NuvioCTrendingBg {
             i
         }
         return p.getOrNull(index % p.size)
+    }
+
+    /**
+     * [fork] round 53 profile_bg_pool_wide: each profile draws from its own shuffled deck of the pool (by title id, so
+     * a refreshed pool keeps what is left), never the same picture twice running, and only reshuffles once the deck
+     * is used up. Profiles shuffle independently, so two profiles rarely show the same picture.
+     */
+    private fun nextFromDeck(prefs: android.content.SharedPreferences, profileId: Int, p: List<Entry>): Int {
+        val ids = p.map { it.id }
+        val last = prefs.getString("lastid_$profileId", null)
+        var deck = prefs.getString("deck_$profileId", null).orEmpty().split('|').filter { it.isNotBlank() && it in ids }
+        if (deck.isEmpty()) {
+            deck = ids.shuffled(java.util.Random(System.nanoTime() xor profileId.toLong())).let { d ->
+                if (d.size > 1 && d.first() == last) d.drop(1) + d.first() else d
+            }
+        }
+        val pick = deck.first()
+        prefs.edit().putString("deck_$profileId", deck.drop(1).joinToString("|")).putString("lastid_$profileId", pick).apply()
+        return ids.indexOf(pick).coerceAtLeast(0)
+    }
+
+    /** [fork] round 53 profile_bg_no_url_flash: what the launch splash shows for [profileId] (a saved file only). */
+    fun splashUrlFor(context: Context, profileId: Int): String? {
+        if (!NuvioCFeatures.PROFILE_BG_BUILTIN) return null
+        val e = entryFor(context, profileId, 0) ?: return null
+        return (model(context, e) as? File)?.toURI()?.toString()
+    }
+
+    /** The ids every known profile shows next, so their pictures are on disk before the next cold start. */
+    private fun nextIds(app: Context): List<String> {
+        val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return prefs.all.filterKeys { it.startsWith("deck_") }.values.mapNotNull { (it as? String)?.split('|')?.firstOrNull { id -> id.isNotBlank() } }
     }
 
     /** The saved file when it is on disk (instant), else the link. */
@@ -91,11 +134,13 @@ object NuvioCTrendingBg {
 
     private fun fetchPool(): List<Entry> {
         val key = BuildConfig.TMDB_API_KEY.takeIf { it.isNotBlank() } ?: return emptyList()
-        val trending = getJson("https://api.themoviedb.org/3/trending/all/day?api_key=$key&language=en-US")?.optJSONArray("results") ?: return emptyList()
+        val trending = if (NuvioCFeatures.PROFILE_BG_POOL_WIDE) widePool(key) else
+            getJson("https://api.themoviedb.org/3/trending/all/day?api_key=$key&language=en-US")?.optJSONArray("results") ?: return emptyList()
         val genres = (genreMap(key, "movie") + genreMap(key, "tv"))
         val out = ArrayList<Entry>()
+        val limit = if (NuvioCFeatures.PROFILE_BG_POOL_WIDE) WIDE_POOL_SIZE else POOL_SIZE
         for (i in 0 until trending.length()) {
-            if (out.size >= POOL_SIZE) break
+            if (out.size >= limit) break
             val r = trending.optJSONObject(i) ?: continue
             val type = r.optString("media_type")
             if (type != "movie" && type != "tv") continue
@@ -114,15 +159,48 @@ object NuvioCTrendingBg {
             }
             val title = if (type == "movie") r.optString("title") else r.optString("name")
             val year = (if (type == "movie") r.optString("release_date") else r.optString("first_air_date")).take(4)
-            val genre = r.optJSONArray("genre_ids")?.let { g -> (0 until g.length()).mapNotNull { genres[g.optInt(it)] }.firstOrNull() }
+            val genreNames = r.optJSONArray("genre_ids")?.let { g -> (0 until g.length()).mapNotNull { genres[g.optInt(it)] } }.orEmpty()
+            val genre = genreNames.firstOrNull()
             out += Entry(
                 id = "$type:$id",
                 title = title,
                 backdrop = "https://image.tmdb.org/t/p/w1280$backdrop",
                 logo = logo?.let { "https://image.tmdb.org/t/p/w500$it" },
                 tag = "TRENDING TODAY · #${out.size + 1}",
-                meta = listOfNotNull(if (type == "movie") "Film" else "Series", genre, year.takeIf { it.isNotBlank() }).joinToString(" · ")
+                meta = listOfNotNull(if (type == "movie") "Film" else "Series", genre, year.takeIf { it.isNotBlank() }).joinToString(" · "),
+                line = (listOfNotNull(year.takeIf { it.isNotBlank() }) + genreNames.take(2)).joinToString(" · ")
             )
+        }
+        return out
+    }
+
+    private const val WIDE_POOL_SIZE = 72
+
+    /**
+     * [fork] round 53 profile_bg_pool_wide: trending today and this week, then what is popular in the US (films and
+     * shows), merged without repeats and interleaved so the pool isn't all one source. Each item carries media_type.
+     */
+    private fun widePool(key: String): JSONArray {
+        fun results(url: String, type: String? = null): List<JSONObject> =
+            getJson(url)?.optJSONArray("results")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty()
+                .onEach { if (type != null) it.put("media_type", type) }
+        val base = "https://api.themoviedb.org/3"
+        val lists = listOf(
+            results("$base/trending/all/day?api_key=$key&language=en-US"),
+            results("$base/trending/all/week?api_key=$key&language=en-US"),
+            results("$base/trending/all/week?api_key=$key&language=en-US&page=2"),
+            results("$base/movie/popular?api_key=$key&language=en-US&region=US", "movie"),
+            results("$base/discover/tv?api_key=$key&language=en-US&watch_region=US&with_watch_monetization_types=flatrate&sort_by=popularity.desc", "tv"),
+            results("$base/movie/now_playing?api_key=$key&language=en-US&region=US", "movie")
+        )
+        val seen = HashSet<String>()
+        val out = JSONArray()
+        val longest = lists.maxOfOrNull { it.size } ?: 0
+        for (i in 0 until longest) for (l in lists) {
+            val r = l.getOrNull(i) ?: continue
+            val k = r.optString("media_type") + ":" + r.optInt("id")
+            if (r.optInt("vote_count") < 50 && r.optString("media_type") == "movie" && l !== lists[5]) continue
+            if (seen.add(k)) out.put(r)
         }
         return out
     }
@@ -149,12 +227,12 @@ object NuvioCTrendingBg {
         } catch (t: Throwable) { false } finally { c.disconnect() }
     }
 
-    private fun Entry.toJson() = JSONObject().put("id", id).put("title", title).put("backdrop", backdrop).put("logo", logo ?: "").put("tag", tag).put("meta", meta)
+    private fun Entry.toJson() = JSONObject().put("id", id).put("title", title).put("backdrop", backdrop).put("logo", logo ?: "").put("tag", tag).put("meta", meta).put("line", line)
 
     internal fun parse(text: String): List<Entry> = runCatching {
         val arr = JSONArray(text)
         (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }.map {
-            Entry(it.optString("id"), it.optString("title"), it.optString("backdrop"), it.optString("logo").takeIf { l -> l.isNotBlank() }, it.optString("tag"), it.optString("meta"))
+            Entry(it.optString("id"), it.optString("title"), it.optString("backdrop"), it.optString("logo").takeIf { l -> l.isNotBlank() }, it.optString("tag"), it.optString("meta"), it.optString("line"))
         }.filter { it.backdrop.startsWith("http") }
     }.getOrDefault(emptyList())
 }

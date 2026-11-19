@@ -733,8 +733,12 @@ open class MainActivity : ComponentActivity() {
                     focusedSplashColor, focusedSplashBgUrl, focusedSplashCacheKey,
                     focusedSplashTheme, splashPreferencesReady, mainUiPrefs.theme
                 ) {
-                    val bgUrl = when (profileBgSelection) {
-                        is ProfileBackgroundSelection.Custom -> profileBgSelection.url
+                    // [fork] round 53 profile_bg_no_url_flash: with the built-in background, the splash shows this launch's
+                    // saved trending picture (never the profile's own link, which flashed before ours)
+                    val nuvioCBuiltIn = com.nuvio.tv.NuvioCFeatures.PROFILE_BG_NO_URL_FLASH && com.nuvio.tv.NuvioCFeatures.PROFILE_BG_BUILTIN
+                    val nuvioCSplashUrl = if (nuvioCBuiltIn && activeProfile != null) com.nuvio.tv.ui.components.NuvioCTrendingBg.splashUrlFor(context, activeProfileId) else null
+                    val bgUrl = if (nuvioCBuiltIn && nuvioCSplashUrl != null) nuvioCSplashUrl else when (profileBgSelection) {
+                        is ProfileBackgroundSelection.Custom -> if (nuvioCBuiltIn) null else profileBgSelection.url
                         is ProfileBackgroundSelection.Catalog -> {
                             profileBgCatalog.firstOrNull { it.id == profileBgSelection.id }
                                 ?.imageFile?.toURI()?.toString()
@@ -767,7 +771,9 @@ open class MainActivity : ComponentActivity() {
                     val fallbackColor = if (colorHex == null && !hasFocusedOverride) splashPrefs.getString("color_$activeProfileId", null) else null
                     val fallbackBg = if (
                         bgUrl == null && !hasFocusedOverride && (!splashPreferencesReady || profileBgSelection != null)
-                    ) splashPrefs.getString("bg_url_$activeProfileId", null) else null
+                    ) splashPrefs.getString("bg_url_$activeProfileId", null)
+                        ?.takeUnless { nuvioCBuiltIn && !it.startsWith("file:") } // [fork] round 53: no saved web link either
+                    else null
                     val resolvedBgUrl = if (hasFocusedOverride) focusedSplashBgUrl else (bgUrl ?: fallbackBg)
                     val skipGradient = !hasFocusedOverride && resolvedBgUrl == null &&
                         profileBgSelection is ProfileBackgroundSelection.Catalog
@@ -784,8 +790,8 @@ open class MainActivity : ComponentActivity() {
                             is ProfileBackgroundSelection.Catalog -> profileBgCatalog
                                 .firstOrNull { it.id == profileBgSelection.id }
                                 ?.let { "profile-background-${it.id}-v${it.assetVersion}" }
-                            is ProfileBackgroundSelection.Custom -> "custom-profile-background-${profileBgSelection.url}"
-                            null -> null
+                            is ProfileBackgroundSelection.Custom -> if (nuvioCSplashUrl != null) "trending-splash-$nuvioCSplashUrl" else "custom-profile-background-${profileBgSelection.url}"
+                            null -> nuvioCSplashUrl?.let { "trending-splash-$it" }
                         },
                         skipGradient = skipGradient,
                         brandWordmarkRes = resolvedTheme.brandWordmarkResource
@@ -2075,7 +2081,7 @@ private fun LegacySidebarScaffold(
                     ) {
                         if (focusManager.moveFocus(if (isRtl) FocusDirection.Right else FocusDirection.Left)) {
                             true
-                        } else if (currentRoute == Screen.Shuffle.route && keyEvent.nativeKeyEvent.repeatCount > 0) {
+                        } else if ((currentRoute == Screen.Shuffle.route || com.nuvio.tv.NuvioCFeatures.SIDEBAR_HOLD_LEFT_STOPS) && keyEvent.nativeKeyEvent.repeatCount > 0) {
                             true // [fork] roulette_page: a held Left stops at the edge; a fresh press is needed to open the sidebar
                         } else {
                             pendingSidebarFocusRequest = true
@@ -2241,6 +2247,7 @@ private fun ModernSidebarScaffold(
     val isRtl = androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
     val contentFocusRequester = remember { FocusRequester() }
     val drawerItemFocusRequesters = rememberDrawerItemFocusRequesters(drawerItems)
+    val sidebarProfileFocusRequester = remember { FocusRequester() } // [fork] round 53 sidebar_up_profile
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
 
     var isSidebarExpanded by remember { mutableStateOf(false) }
@@ -2479,7 +2486,7 @@ private fun ModernSidebarScaffold(
                         if (keyEvent.key == openKey) {
                             if (focusManager.moveFocus(if (isRtl) FocusDirection.Right else FocusDirection.Left)) {
                                 true
-                            } else if (currentRoute == Screen.Shuffle.route && keyEvent.nativeKeyEvent.repeatCount > 0) {
+                            } else if ((currentRoute == Screen.Shuffle.route || com.nuvio.tv.NuvioCFeatures.SIDEBAR_HOLD_LEFT_STOPS) && keyEvent.nativeKeyEvent.repeatCount > 0) {
                                 true // [fork] roulette_page: a held Left stops at the edge; a fresh press is needed to open the sidebar
                             } else {
                                 isSidebarExpanded = true
@@ -2542,6 +2549,11 @@ private fun ModernSidebarScaffold(
                         when (keyEvent.key) {
                             Key.DirectionUp -> {
                                 if (focusedDrawerIndex == sidebarTopBoundaryIndex) {
+                                    true
+                                } else if (com.nuvio.tv.NuvioCFeatures.SIDEBAR_UP_PROFILE && hasSidebarProfileItem && focusedDrawerIndex == 0) {
+                                    // [fork] round 53: first item -> profile directly; a plain moveFocus could cross the gap
+                                    // into a page's top row (Calendar, Roulette, Taste) and close the sidebar
+                                    runCatching { sidebarProfileFocusRequester.requestFocus() }
                                     true
                                 } else if (com.nuvio.tv.NuvioCFeatures.SIDEBAR_SLIM && drawerItems.size > 1 &&
                                     focusedDrawerIndex == drawerItems.lastIndex && drawerItems.last().route == Screen.Settings.route
@@ -2611,6 +2623,7 @@ private fun ModernSidebarScaffold(
                         panelShape = panelShape,
                         drawerItemFocusRequesters = drawerItemFocusRequesters,
                         onDrawerItemFocused = { focusedDrawerIndex = it },
+                        profileFocusRequester = if (com.nuvio.tv.NuvioCFeatures.SIDEBAR_UP_PROFILE) sidebarProfileFocusRequester else null,
                         onDrawerItemClick = { targetRoute ->
                             keyboardController?.hide()
                             onNavigate(targetRoute)

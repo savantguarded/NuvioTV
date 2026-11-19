@@ -86,6 +86,7 @@ internal fun ModernSidebarBlurPanel(
     panelShape: RoundedCornerShape,
     drawerItemFocusRequesters: Map<String, FocusRequester>,
     onDrawerItemFocused: (Int) -> Unit,
+    profileFocusRequester: FocusRequester? = null, // [fork] round 53 sidebar_up_profile
     onDrawerItemClick: (String) -> Unit,
     activeProfileName: String,
     activeProfileColorHex: String,
@@ -169,7 +170,7 @@ internal fun ModernSidebarBlurPanel(
                         if (focused) onDrawerItemFocused(drawerItems.size)
                     },
                     onClick = onSwitchProfile,
-                    modifier = Modifier.fillMaxWidth(0.92f)
+                    modifier = Modifier.fillMaxWidth(0.92f).then(profileFocusRequester?.let { Modifier.focusRequester(it) } ?: Modifier)
                 )
             }
         } else {
