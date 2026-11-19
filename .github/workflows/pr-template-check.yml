@@ -1,8 +1,8 @@
 name: PR Template Check
 
+# [fork] Nuvio C round 51 `quiet_ci`: upstream's automatic trigger is off on this fork (it only mailed noise); run it by hand from Actions if ever wanted.
 on:
-  pull_request:
-    types: [opened, edited, synchronize, reopened]
+  workflow_dispatch: {}
 
 permissions:
   pull-requests: read

@@ -1,10 +1,8 @@
 name: Triage (needs-info)
 
+# [fork] Nuvio C round 51 `quiet_ci`: upstream's automatic trigger is off on this fork (it only mailed noise); run it by hand from Actions if ever wanted.
 on:
-  issues:
-    # A reopen is an explicit human triage decision. Do not run automatic
-    # closure/needs-info rules again after a maintainer reopens an issue.
-    types: [opened, edited]
+  workflow_dispatch: {}
 
 permissions:
   issues: write

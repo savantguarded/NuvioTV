@@ -126,6 +126,20 @@ jobs:
             echo "build=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          # [fork] round 51 `quiet_ci`: a conflict already reported for this exact release and this exact branch
+          # state is not retried (and not mailed) every hour. It runs again when this branch changes, when a
+          # newer official release appears, or when "force" is ticked.
+          fork_head="$(git rev-parse HEAD)"
+          echo "fork_head=$fork_head" >> "$GITHUB_OUTPUT"
+          if [ "${{ inputs.force }}" != "true" ]; then
+            known="$(gh api "repos/${GITHUB_REPOSITORY}/issues?state=open&per_page=100" \
+              --jq ".[] | select(.title == \"Nuvio C: official ${release} conflicts with the OSD changes\") | .body" 2>/dev/null || true)"
+            if printf '%s' "$known" | grep -q "fork-head: ${fork_head}"; then
+              echo "The conflict with ${release} was already reported for this branch state (see the open issue). Nothing to do until the branch or the official release changes."
+              echo "build=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
           echo "build=true" >> "$GITHUB_OUTPUT"
           git remote add upstream "$UPSTREAM_REPO"
           git fetch --no-tags upstream "$UPSTREAM_BRANCH"
@@ -197,7 +211,7 @@ jobs:
           git checkout -q --detach refs/nuvio/release
           if ! git apply --3way --index "$RUNNER_TEMP/nuvio-c.patch"; then
             git reset -q --hard
-            echo "Official release ${{ steps.plan.outputs.release }} edited the same lines as the Nuvio C commits, so this build stopped. The last good APK is still in Releases. The patch needs refreshing." > "$RUNNER_TEMP/osd-conflict.md"
+            printf '%s\n\nfork-head: %s\n' "Official release ${{ steps.plan.outputs.release }} edited the same lines as the Nuvio C commits, so this build stopped. The last good APK is still in Releases. The patch needs refreshing. This is reported once: the hourly check stays quiet until the branch changes or a newer official release appears." "${{ steps.plan.outputs.fork_head }}" > "$RUNNER_TEMP/osd-conflict.md"
             bash "$RUNNER_TEMP/nuvio-c-issue.sh" "Nuvio C: official ${{ steps.plan.outputs.release }} conflicts with the OSD changes" "$RUNNER_TEMP/osd-conflict.md" || true
             echo "::error::Upstream changed the same code as the Nuvio C commits. The patch needs a manual refresh."
             exit 1

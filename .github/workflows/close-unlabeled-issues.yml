@@ -1,8 +1,7 @@
 name: Close unlabeled issues
 
+# [fork] Nuvio C round 51 `quiet_ci`: upstream's automatic trigger is off on this fork (it only mailed noise); run it by hand from Actions if ever wanted.
 on:
-  schedule:
-    - cron: "23 6 * * *" # daily
   workflow_dispatch:
     inputs:
       dry_run:
