@@ -906,4 +906,8 @@ object NuvioCFeatures {
     const val OFFLINE_EVERYWHERE = true
     /** Profile screen background made in the app from TMDB's trending films and shows (textless picture, logo, tag and meta line), pool refreshed at most daily, a different picture per profile with a crossfade as focus moves, saved for an instant cold start, never the same twice running. A profile's own background is the backup. Off = the profile's own background only. */
     const val PROFILE_BG_BUILTIN = true
+    /** Details: an episode focus restore that can't land (after Find, or after the Ratings / More like this tabs) no longer leaves every episode card unfocusable; it falls back to the nearest valid episode (same season and number, else closest, else first). Off = round 51. */
+    const val DETAILS_FOCUS_FIX = true
+    /** Details: the trailer's letterbox check also waits while the page is still gliding after a key press (it already waited during key presses). Images there were already decoded at their drawn size. Off = round 51. */
+    const val DETAILS_SMOOTH = true
 }

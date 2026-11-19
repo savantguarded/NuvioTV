@@ -504,10 +504,26 @@ fun EpisodesRow(
     LaunchedEffect(restoreFocusToken, restoreEpisodeId, dedupedEpisodes) {
         if (restoreFocusToken <= 0 || restoreEpisodeId.isNullOrBlank()) return@LaunchedEffect
         if (dedupedEpisodes.none { it.id == restoreEpisodeId }) {
-            if (dedupedEpisodes.isEmpty()) return@LaunchedEffect
+            if (dedupedEpisodes.isEmpty()) {
+                // [fork] round 52 details_focus_fix: a restore that can never land (the episode list is empty, e.g.
+                // after Find) used to stay pending and keep every card unfocusable; give up after a short wait
+                if (com.nuvio.tv.NuvioCFeatures.DETAILS_FOCUS_FIX) { delay(1_200); onRestoreFocusHandled() }
+                return@LaunchedEffect
+            }
             delay(EPISODE_RESTORE_FALLBACK_MS)
             if (dedupedEpisodes.none { it.id == restoreEpisodeId }) {
                 onRestoreFocusHandled()
+                // [fork] round 52 details_focus_fix: the episode isn't in this list (opened from Find in another
+                // season, or the list changed): the nearest valid card takes focus instead of nothing
+                if (com.nuvio.tv.NuvioCFeatures.DETAILS_FOCUS_FIX) {
+                    val wanted = restoreEpisodeId
+                    val nearest = nuvioCNearestEpisode(dedupedEpisodes, wanted)
+                    if (nearest != null) {
+                        lazyListState.scrollToItem(dedupedEpisodes.indexOf(nearest))
+                        withFrameNanos { }
+                        episodeFocusRequesters[nearest.id]?.requestFocusAfterFrames(frames = 1)
+                    }
+                }
             }
             return@LaunchedEffect
         }
@@ -525,6 +541,9 @@ fun EpisodesRow(
             }
             withFrameNanos { }
         }
+        // [fork] round 52 details_focus_fix: every attempt failed; clear the pending restore so the cards are
+        // focusable again (it used to stay set, which is how focus was lost after Find / the Ratings tab)
+        if (com.nuvio.tv.NuvioCFeatures.DETAILS_FOCUS_FIX) onRestoreFocusHandled()
     }
 
     LaunchedEffect(scrollToEpisodeId, dedupedEpisodes) {
@@ -1405,4 +1424,21 @@ private fun isSelectKey(keyCode: Int): Boolean {
 
 private fun episodePendingKey(video: Video): String {
     return "${video.id}:${video.season ?: -1}:${video.episode ?: -1}"
+}
+
+
+/**
+ * [fork] round 52 details_focus_fix: the card to focus when the remembered episode isn't in the list: same season and
+ * number if its id carries them ("tt123:2:5"), else the closest number in that season, else the first card.
+ */
+internal fun nuvioCNearestEpisode(episodes: List<Video>, wantedId: String?): Video? {
+    if (episodes.isEmpty()) return null
+    val parts = wantedId?.split(':').orEmpty()
+    val season = parts.getOrNull(parts.size - 2)?.toIntOrNull()
+    val number = parts.lastOrNull()?.toIntOrNull()
+    if (season != null && number != null) {
+        episodes.firstOrNull { it.season == season && it.episode == number }?.let { return it }
+        episodes.filter { it.season == season }.minByOrNull { kotlin.math.abs((it.episode ?: 0) - number) }?.let { return it }
+    }
+    return episodes.first()
 }

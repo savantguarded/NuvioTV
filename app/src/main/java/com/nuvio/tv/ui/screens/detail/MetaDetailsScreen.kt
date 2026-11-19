@@ -1356,6 +1356,12 @@ private fun MetaDetailsContent(
     }
     val nestedPrefetchStrategy = remember { LazyListPrefetchStrategy(nestedPrefetchItemCount = 2) }
     val listState = rememberLazyListState(prefetchStrategy = nestedPrefetchStrategy)
+    if (com.nuvio.tv.NuvioCFeatures.DETAILS_SMOOTH) { // [fork] round 52 details_smooth: tells the trailer's letterbox sampler to wait
+        LaunchedEffect(listState) {
+            androidx.compose.runtime.snapshotFlow { listState.isScrollInProgress }.collect { com.nuvio.tv.core.NuvioCInput.pageScrolling = it }
+        }
+        androidx.compose.runtime.DisposableEffect(Unit) { onDispose { com.nuvio.tv.core.NuvioCInput.pageScrolling = false } }
+    }
     val castRowListState = rememberLazyListState(prefetchStrategy = nestedPrefetchStrategy)
     val moreLikeThisListState = rememberLazyListState(prefetchStrategy = nestedPrefetchStrategy)
     val trailerListState = rememberLazyListState(prefetchStrategy = nestedPrefetchStrategy)

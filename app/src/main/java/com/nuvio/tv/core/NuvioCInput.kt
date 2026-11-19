@@ -6,6 +6,9 @@ import android.os.SystemClock
 // MainActivity.onUserInteraction). Lets background work that briefly blocks the UI thread, like the
 // trailer's black-bar sampling, wait until the remote has been still for a moment.
 object NuvioCInput {
+    /** [fork] round 52 details_smooth: true while a page list (details) is still scrolling. */
+    @Volatile var pageScrolling: Boolean = false
+
     @Volatile
     private var lastAtMs: Long = 0L
 

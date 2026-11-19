@@ -196,6 +196,8 @@ fun TrailerPlayer(
                 if (!player.isPlaying) continue
                 // [fork] the sample is a GPU read-back on the UI thread (dearer on HD frames): skip it while the user is moving
                 if (nuvioCSmooth && com.nuvio.tv.core.NuvioCInput.recentlyActive(NUVIO_C_SAMPLE_QUIET_MS)) continue
+                // [fork] round 52 details_smooth: nor while the page is still gliding after the key was let go
+                if (com.nuvio.tv.NuvioCFeatures.DETAILS_SMOOTH && com.nuvio.tv.core.NuvioCInput.pageScrolling) continue
                 val textureView = playerViewRef.value?.videoSurfaceView as? TextureView ?: continue
                 val bar = sampler.sample(textureView) ?: continue
                 if (nuvioCSmooth) { // [fork] no bars on 10 real frames in a row: full-frame trailer, stop checking
