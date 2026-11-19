@@ -880,4 +880,6 @@ object NuvioCFeatures {
     // [fork] round 52
     /** Featured carousel: Previous and Next are two separate 38 dp round buttons, ring drawn inside, no zoom; focus stays on the arrow you pressed. Off = round 51 arrow pill. */
     const val FEATURED_ARROWS_SPLIT = true
+    /** Modern OSD right pill: painted, not clipped, 3 dp around 40 dp buttons and no zoom inside it, so the focused button, its glow and its name under the row are never cut. Off = round 51 clipped pill. */
+    const val CLEAN_PILL_FOCUS_FIT = true
 }

@@ -4377,19 +4377,27 @@ private fun NuvioCCleanControlsV2(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
                 val rightIcons = rightCompact || com.nuvio.tv.NuvioCFeatures.CLEAN_RIGHT_ICONS // [fork] round 49: icons only on the right
                 val items = rightButtons.mapNotNull { sideButton(it, rightIcons) }
+                val nuvioCPillFix = com.nuvio.tv.NuvioCFeatures.CLEAN_PILL_FOCUS_FIT // [fork] round 52
                 Box(
                     Modifier.weight(1f, fill = false).then(
-                        if (com.nuvio.tv.NuvioCFeatures.CLEAN_RIGHT_PILL && items.isNotEmpty()) Modifier
+                        if (com.nuvio.tv.NuvioCFeatures.CLEAN_RIGHT_PILL && items.isNotEmpty() && nuvioCPillFix) Modifier
+                            // [fork] round 52 clean_pill_focus_fit: the pill is only painted, never clipped, so the focused
+                            // button, its glow and its name under the row are drawn whole; 3 dp above and below the 40 dp buttons.
+                            .background(nuvioCOsd(Color(0xFF3A3A3A)).copy(alpha = 0.6f), androidx.compose.foundation.shape.RoundedCornerShape(23.dp))
+                            .padding(horizontal = 3.dp, vertical = 3.dp)
+                        else if (com.nuvio.tv.NuvioCFeatures.CLEAN_RIGHT_PILL && items.isNotEmpty()) Modifier
                             .clip(androidx.compose.foundation.shape.RoundedCornerShape(26.dp))
                             .background(nuvioCOsd(Color(0xFF3A3A3A)).copy(alpha = 0.6f)) // [fork] round 51 clean_right_pill: the icons share one large pill
                             .padding(horizontal = 6.dp)
                         else Modifier
                     )
                 ) {
-                    NuvioCCleanFitRow(
-                        keys = rightButtons.map { it.key } + "compact=$rightIcons", gap = 8.dp,
-                        onFit = { n -> if (n < items.size && !rightIcons) rightCompact = true else if (n != rightFit) rightFit = n }, items = items
-                    )
+                    androidx.compose.runtime.CompositionLocalProvider(LocalNuvioCNoZoom provides (nuvioCPillFix && com.nuvio.tv.NuvioCFeatures.CLEAN_RIGHT_PILL)) {
+                        NuvioCCleanFitRow(
+                            keys = rightButtons.map { it.key } + "compact=$rightIcons", gap = if (nuvioCPillFix) 4.dp else 8.dp,
+                            onFit = { n -> if (n < items.size && !rightIcons) rightCompact = true else if (n != rightFit) rightFit = n }, items = items
+                        )
+                    }
                 }
                 if (moreItems.isNotEmpty()) icon(
                     Icons.Default.Settings, moreLabel, { sheet.open = true }, painter = morePainter,
@@ -4662,6 +4670,7 @@ private fun ControlButton(
             focusedContentColor = Color.Black
         ),
         shape = IconButtonDefaults.shape(shape = CircleShape),
+        scale = if (LocalNuvioCNoZoom.current) IconButtonDefaults.scale(focusedScale = 1f) else IconButtonDefaults.scale(), // [fork] round 52: no zoom inside the right pill
         glow = if (com.nuvio.tv.NuvioCFeatures.CLEAN_BUTTON_GLOW) IconButtonDefaults.glow(
             focusedGlow = androidx.tv.material3.Glow(nuvioCOsd(Color.White).copy(alpha = 0.28f), 10.dp) // [fork] round 51 clean_button_glow
         ) else IconButtonDefaults.glow()
@@ -5955,3 +5964,7 @@ private const val OSD_LOGO_START_DELAY_MS = 6_000L // [fork]
 @Composable
 private fun nuvioCCleanIcon(@androidx.annotation.DrawableRes id: Int): androidx.compose.ui.graphics.painter.Painter? =
     if (com.nuvio.tv.NuvioCFeatures.CLEAN_ICONS) androidx.compose.ui.res.painterResource(id) else null
+
+
+/** [fork] round 52 clean_pill_focus_fit: true inside the Modern right pill, where buttons don't zoom so they stay inside it. */
+internal val LocalNuvioCNoZoom = androidx.compose.runtime.staticCompositionLocalOf { false }
