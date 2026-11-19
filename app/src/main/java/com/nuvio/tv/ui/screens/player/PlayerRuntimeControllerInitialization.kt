@@ -2174,6 +2174,7 @@ internal fun PlayerRuntimeController.resetLoadingOverlayForNewStream() {
     _uiState.update { state ->
         state.copy(
             showLoadingOverlay = state.loadingOverlayEnabled,
+            isEpisodeAutoPlaySearching = false,
             showControls = false,
             loadingMessage = preparingMessage,
             loadingIssueReportVisible = false,

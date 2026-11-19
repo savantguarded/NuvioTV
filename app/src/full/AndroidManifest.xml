@@ -14,6 +14,14 @@
             android:name=".updater.UpdateInstallResultReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name=".updater.UpdateRelaunchReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <!-- [fork] Nuvio C round 17 `update_reopen`: reopen Nuvio C after an in-app update finishes installing. -->
         <receiver
             android:name="com.nuvio.tv.updater.NuvioCUpdatedReceiver"

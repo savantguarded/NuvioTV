@@ -231,13 +231,13 @@ private fun SubtitleAppearanceControls(
                         onColorSelected = { color -> onUpdate { setSubtitleOutlineColor(color.toArgb()) } }
                     )
                 }
-                if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_OUTLINE_WIDTH_ROW) item(key = "outline_width") { // [fork] round 46
+                if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_OUTLINE_WIDTH_ROW) item(key = "outline_width") { // [fork] round 46: the fork's one Outline width control (official's same-key row dropped)
                     SliderSettingsItem(
                         title = stringResource(R.string.nuvio_c_outline_width),
                         value = style.outlineWidth,
                         valueText = style.outlineWidth.toString(),
-                        minValue = 1,
-                        maxValue = 5,
+                        minValue = SubtitleStyleSettings.OUTLINE_WIDTH_MIN,
+                        maxValue = SubtitleStyleSettings.OUTLINE_WIDTH_MAX,
                         step = 1,
                         onValueChange = { width -> onUpdate { setSubtitleOutlineWidth(width) } }
                     )

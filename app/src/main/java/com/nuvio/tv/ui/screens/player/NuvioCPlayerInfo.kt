@@ -73,7 +73,13 @@ class NuvioCPlayerInfoViewModel @Inject constructor(
                             runCatching { tmdbService.ensureTmdbId(contentId, "series", fallbackImdbId = imdb) }.getOrNull()
                         }?.toIntOrNull()
                     }
-                    val map = runCatching { episodeRatings.getEpisodeRatings(imdb, tmdb) }.getOrDefault(emptyMap())
+                    // [fork] beta.2: ratings are lined up with the add-on's episode order, so give it the add-on's list
+                    // (from the details page's cached meta; empty = IMDb's own numbering, as before)
+                    val addonEpisodes = listOf(contentId.split(':').take(2).joinToString(":"), contentId, id).firstNotNullOfOrNull { k ->
+                        (runCatching { metaRepository.getCachedMeta(type ?: "series", k) }.getOrNull()
+                            ?: runCatching { metaRepository.getCachedMeta("series", k) }.getOrNull())?.videos?.takeIf { it.isNotEmpty() }
+                    }.orEmpty().map { com.nuvio.tv.data.repository.AddonEpisodeAirDate(it.season, it.episode, it.released) }
+                    val map = runCatching { episodeRatings.getEpisodeRatings(imdb, tmdb, addonEpisodes) }.getOrDefault(emptyMap())
                     _state.update { if (it.key == key) it.copy(episodeRatings = map) else it }
                 } else {
                     val ratings = mdbList.nuvioCRatingsForItem(contentId, "movie")
