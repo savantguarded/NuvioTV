@@ -181,7 +181,7 @@ class TmdbSoonClient @Inject constructor(
             } ?: continue
             if (keep) shows += item
         }
-        Log.d(TAG, "Top 20 rules: ${films.size} films, ${shows.size} shows (checked $filmChecks + $showChecks new)")
+        Log.i(TAG, "Top 20 rules: ${films.size} films, ${shows.size} shows (checked $filmChecks + $showChecks new)")
         if (filmChecks + showChecks > 0) saveChecks()
         (films + shows).sortedByDescending { it.popularity }.take(TOP20_MAX_TITLES)
     } catch (cancelled: CancellationException) {

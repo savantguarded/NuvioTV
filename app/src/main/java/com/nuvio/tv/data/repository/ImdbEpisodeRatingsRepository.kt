@@ -1,6 +1,9 @@
 package com.nuvio.tv.data.repository
 
+import android.content.Context
 import android.util.Log
+import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
 import com.nuvio.tv.data.remote.api.ImdbTapframeApi
 import com.nuvio.tv.data.remote.api.SeriesGraphApi
 import kotlinx.coroutines.CoroutineScope
@@ -16,7 +19,8 @@ import javax.inject.Singleton
 @Singleton
 class ImdbEpisodeRatingsRepository @Inject constructor(
     private val imdbTapframeApi: ImdbTapframeApi,
-    private val seriesGraphApi: SeriesGraphApi
+    private val seriesGraphApi: SeriesGraphApi,
+    @ApplicationContext private val context: Context
 ) {
     private data class CacheEntry(
         val episodes: List<ExternalEpisodeRating>,
@@ -29,6 +33,54 @@ class ImdbEpisodeRatingsRepository @Inject constructor(
     private val inFlight = mutableMapOf<String, kotlinx.coroutines.Deferred<List<ExternalEpisodeRating>>>()
     private val inFlightMutex = Mutex()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // [fork] round 50 imdb_ratings_lean: the primary host is skipped for a day once it fails to answer at all
+    // (DNS gone, refused, timed out), instead of failing once per show before the fallback answers.
+    @Volatile private var primaryDownUntilMs = 0L
+    private fun primaryUsable(): Boolean =
+        !com.nuvio.tv.NuvioCFeatures.IMDB_RATINGS_LEAN || System.currentTimeMillis() >= primaryDownUntilMs
+    private fun primaryFailedHard(e: Exception) {
+        if (!com.nuvio.tv.NuvioCFeatures.IMDB_RATINGS_LEAN) return
+        if (e is java.io.IOException) primaryDownUntilMs = System.currentTimeMillis() + 24L * 60L * 60L * 1000L
+    }
+
+    // [fork] round 50 imdb_ratings_lean: a show's ratings are kept on disk for 24 h (nothing is written for an empty
+    // answer), so a cold start reads Continue Watching's ratings from disk instead of downloading every show again.
+    private fun diskFile(cacheKey: String): File =
+        File(File(context.cacheDir, "nuvioc_episode_ratings"), cacheKey.replace(Regex("[^A-Za-z0-9]"), "_") + ".txt")
+
+    private fun readDisk(cacheKey: String): List<ExternalEpisodeRating>? {
+        if (!com.nuvio.tv.NuvioCFeatures.IMDB_RATINGS_LEAN) return null
+        return runCatching {
+            val file = diskFile(cacheKey)
+            if (!file.exists()) return null
+            val lines = file.readLines()
+            val savedAt = lines.firstOrNull()?.toLongOrNull() ?: return null
+            if (System.currentTimeMillis() - savedAt > 24L * 60L * 60L * 1000L) return null
+            lines.drop(1).mapNotNull { line ->
+                val p = line.split('|')
+                if (p.size < 4) return@mapNotNull null
+                ExternalEpisodeRating(
+                    season = p[0].toIntOrNull() ?: return@mapNotNull null,
+                    episode = p[1].toIntOrNull() ?: return@mapNotNull null,
+                    airDate = p[2].takeIf { it.isNotEmpty() },
+                    rating = p[3].toDoubleOrNull()
+                )
+            }.takeIf { it.isNotEmpty() }
+        }.getOrNull()
+    }
+
+    private fun writeDisk(cacheKey: String, episodes: List<ExternalEpisodeRating>) {
+        if (!com.nuvio.tv.NuvioCFeatures.IMDB_RATINGS_LEAN || episodes.none { it.rating != null }) return
+        runCatching {
+            val file = diskFile(cacheKey)
+            file.parentFile?.mkdirs()
+            file.writeText(buildString {
+                append(System.currentTimeMillis()).append('\n')
+                episodes.forEach { append(it.season).append('|').append(it.episode).append('|').append(it.airDate.orEmpty()).append('|').append(it.rating ?: "").append('\n') }
+            })
+        }
+    }
 
     internal suspend fun getEpisodeRatings(
         imdbId: String?,
@@ -60,6 +112,11 @@ class ImdbEpisodeRatingsRepository @Inject constructor(
             cache.remove(cacheKey)
         }
 
+        readDisk(cacheKey)?.let { fromDisk ->
+            cache[cacheKey] = CacheEntry(episodes = fromDisk, expiresAtMs = now + cacheTtlMs)
+            return fromDisk
+        }
+
         val deferred = inFlightMutex.withLock {
             inFlight[cacheKey] ?: scope.async {
                 try {
@@ -67,6 +124,7 @@ class ImdbEpisodeRatingsRepository @Inject constructor(
                         imdbId = normalizedImdbId,
                         tmdbId = normalizedTmdbId
                     ).also { result ->
+                        writeDisk(cacheKey, result)
                         cache[cacheKey] = CacheEntry(
                             episodes = result,
                             // [fork] round 33 player_episode_ratings_fix: an empty answer (a failed or timed-out call)
@@ -92,7 +150,7 @@ class ImdbEpisodeRatingsRepository @Inject constructor(
         imdbId: String?,
         tmdbId: Int?
     ): List<ExternalEpisodeRating> {
-        if (!imdbId.isNullOrBlank()) {
+        if (!imdbId.isNullOrBlank() && primaryUsable()) {
             val primary = fetchFromImdbTapframe(imdbId)
             if (primary.any { it.rating != null }) return primary
             Log.w(tag, "Primary episode ratings empty for imdbId=$imdbId, trying fallback.")
@@ -114,7 +172,8 @@ class ImdbEpisodeRatingsRepository @Inject constructor(
             }
             toEpisodeRatings(response.body().orEmpty())
         } catch (e: Exception) {
-            Log.w(tag, "Error fetching primary season ratings for imdbId=$imdbId", e)
+            primaryFailedHard(e)
+            Log.w(tag, "Error fetching primary season ratings for imdbId=$imdbId" + if (com.nuvio.tv.NuvioCFeatures.IMDB_RATINGS_LEAN) " (skipped for a day)" else "", if (com.nuvio.tv.NuvioCFeatures.IMDB_RATINGS_LEAN) null else e)
             emptyList()
         }
     }

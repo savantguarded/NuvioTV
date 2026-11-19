@@ -482,7 +482,7 @@ class WatchProgressPreferences @Inject constructor(
                         preservedLocalItems = true
                     } else {
                         local.remove(key)
-                        Log.d("WatchProgressPrefs", "  removed key=$key (not in remote)")
+                        if (!com.nuvio.tv.NuvioCFeatures.PROGRESS_MERGE_BATCH) Log.d("WatchProgressPrefs", "  removed key=$key (not in remote)") // [fork] round 50
                     }
                 }
             }
@@ -501,7 +501,7 @@ class WatchProgressPreferences @Inject constructor(
                     }
                     else -> {
                         local[key] = mergeDisplayMetadata(remote, existing)
-                        Log.d("WatchProgressPrefs", "  merged key=$key (existing=${existing != null})")
+                        if (!com.nuvio.tv.NuvioCFeatures.PROGRESS_MERGE_BATCH) Log.d("WatchProgressPrefs", "  merged key=$key (existing=${existing != null})") // [fork] round 50: no line per key
                     }
                 }
             }

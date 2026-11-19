@@ -81,7 +81,7 @@ internal object NuvioCEpisodeTitles {
             ?: seriesKey(target.id, target.season, target.episode)?.let { bySeriesEpisode.get(it) }
         val own = target.title.trim().takeIf { it.isNotEmpty() }
         val chosen = known ?: own
-        Log.d(TAG, "id=${target.id} S${target.season}E${target.episode} details=${known != null} player='${target.title}' -> '${chosen.orEmpty()}'")
+        Log.i(TAG, "id=${target.id} S${target.season}E${target.episode} details=${known != null} player='${target.title}' -> '${chosen.orEmpty()}'")
         return chosen
     }
 }
@@ -154,7 +154,7 @@ internal fun PlayerRuntimeController.nuvioCFillEpisodeTitles() {
             val e = v.episode ?: return@forEach
             if (NuvioCEpisodeTitles.missing(v)) found[s to e]?.let { NuvioCEpisodeTitles.put(v.id, it); named++ }
         }
-        Log.d(TAG_FILL, "id=$id looked up ${found.size} names, filled $named blank episodes")
+        Log.i(TAG_FILL, "id=$id looked up ${found.size} names, filled $named blank episodes")
         nuvioCApplyKnownEpisodeTitles()
     }
 }

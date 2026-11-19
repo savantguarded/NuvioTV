@@ -191,7 +191,7 @@ internal fun PlayerRuntimeController.nuvioCApplyNightMode(level: NightModeLevel,
     val nowActive = gainAudioProcessor.isGainEnabled() || gainAudioProcessor.isNightModeEnabled()
     val pathChanged = playbackSpeedAwareAudioSink?.nuvioCSetNightForcePcm(on) == true
     if (pathChanged || wasActive != nowActive) {
-        Log.d("NuvioCNight", "night=$level pcmPathChanged=$pathChanged processor=$nowActive")
+        Log.i("NuvioCNight", "night=$level pcmPathChanged=$pathChanged processor=$nowActive")
         val wasPlaying = hasActivePlayIntent() && !userPausedManually
         playbackSpeedAwareAudioSink?.notifyAudioProcessingRequirementChanged()
         _exoPlayer?.let { player ->

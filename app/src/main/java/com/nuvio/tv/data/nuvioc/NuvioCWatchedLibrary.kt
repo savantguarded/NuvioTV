@@ -93,7 +93,7 @@ class NuvioCWatchedLibrary @Inject constructor(
                     .onSuccess {
                         traktWatched.value = it
                         traktFetchedAt = System.currentTimeMillis()
-                        Log.d(TAG, "Trakt watched: ${it.size} titles")
+                        Log.i(TAG, "Trakt watched: ${it.size} titles")
                     }
                     .onFailure { Log.w(TAG, "Trakt watched failed: ${it.message}") }
             }

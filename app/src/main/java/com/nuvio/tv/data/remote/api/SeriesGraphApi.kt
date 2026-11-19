@@ -11,8 +11,8 @@ data class SeriesGraphEpisodeRatingDto(
     @field:Json(name = "season_number") val seasonNumber: Int? = null,
     @field:Json(name = "episode_number") val episodeNumber: Int? = null,
     @field:Json(name = "vote_average") val voteAverage: Double? = null,
-    @field:Json(name = "name") val name: String? = null,
-    @field:Json(name = "tconst") val tconst: String? = null,
+    // [fork] round 50 imdb_ratings_lean: name / tconst (and the overview, still etc. the server also sends) are not
+    // read at all: Moshi skips unknown keys, so only season / episode / rating / date are built per episode.
     @field:Json(name = "air_date") val airDate: String? = null
 )
 

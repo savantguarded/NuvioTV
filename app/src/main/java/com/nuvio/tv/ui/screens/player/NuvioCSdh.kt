@@ -68,12 +68,12 @@ internal object NuvioCSubtitleSession {
         if (!NuvioCFeatures.SDH_SESSION_PICK) return
         owner = System.identityHashCode(controller)
         autoPick = "lang=${track.language} sdh=${NuvioCSdh.isSdhText(track.name, track.trackId)} name=${track.name}"
-        android.util.Log.d(TAG, "auto pick kept for this session: $autoPick")
+        android.util.Log.i(TAG, "auto pick kept for this session: $autoPick")
     }
 
     fun forget(controller: Any) {
         if (owner == System.identityHashCode(controller) && autoPick != null) {
-            android.util.Log.d(TAG, "manual subtitle pick: session auto pick cleared")
+            android.util.Log.i(TAG, "manual subtitle pick: session auto pick cleared")
             autoPick = null
         }
     }
@@ -87,7 +87,7 @@ internal object NuvioCSubtitleSession {
     fun filterSaved(controller: Any, saved: PlayerRuntimeController.TrackPreference?): PlayerRuntimeController.TrackPreference? {
         if (!NuvioCFeatures.SDH_SESSION_PICK || saved?.subtitle == null) return saved
         if (owner != System.identityHashCode(controller) || autoPick == null) return saved
-        android.util.Log.d(TAG, "next episode: saved subtitle skipped, picking again like last time ($autoPick)")
+        android.util.Log.i(TAG, "next episode: saved subtitle skipped, picking again like last time ($autoPick)")
         return saved.copy(subtitle = null)
     }
 }

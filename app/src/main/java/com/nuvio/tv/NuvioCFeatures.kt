@@ -814,4 +814,21 @@ object NuvioCFeatures {
     const val CLEAN_RIGHT_ICONS = true
     /** Clean More sheet: no Night mode line (it stays in the Audio panel and Settings). Off = round 46b line. */
     const val CLEAN_MORE_NO_NIGHT = true
+    // [fork] round 50 (start-up and CPU)
+    /** Start-up: background jobs (Taste refresh, Shuffle pool, Continue Watching episode ratings) wait for Home to settle and then run one at a time, never during playback. Off = each runs on its own timer as before. */
+    const val STARTUP_JOB_QUEUE = true
+    /** Episode ratings: the primary host is skipped for a day once it fails to answer, only season / episode / rating / date are parsed, and each show's ratings are kept on disk for 24 h. Off = official behaviour. */
+    const val IMDB_RATINGS_LEAN = true
+    /** Calendar refresh: the per-title lines of a refresh are not logged, only the summary. Off = every decision logged. */
+    const val CALENDAR_REFRESH_LEAN = true
+    /** Watch progress sync: the per-key "merged key" lines are not logged and the merge is written once. Off = official logging. */
+    const val PROGRESS_MERGE_BATCH = true
+    /** Taste: the quiet daily refresh builds one range at a time on a single background thread. Off = as round 49. */
+    const val TASTE_COMPUTE_LEAN = true
+    /** Image memory cache: 12% of the heap on TVs with 2 GB or less (was 15%). Off = 15%. */
+    const val IMAGE_CACHE_CAP = true
+    /** Home: nothing animates or ticks while the app is in the background or the screen is off. Off = as round 49. */
+    const val IDLE_QUIET = true
+    /** Release builds: Nuvio C's own debug lines are raised to info so they stay in logcat, official's debug and verbose lines are stripped. Off = as round 49. */
+    const val RELEASE_LOG_STRIP = true
 }

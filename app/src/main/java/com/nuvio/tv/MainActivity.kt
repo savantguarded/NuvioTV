@@ -1492,9 +1492,20 @@ open class MainActivity : ComponentActivity() {
                     // start-up and only while nothing is playing, so the page usually opens on fresh numbers.
                     LaunchedEffect(showSplash, startupLoadingState.complete) {
                         if (!com.nuvio.tv.NuvioCFeatures.TASTE_PAGE || showSplash || !startupLoadingState.complete) return@LaunchedEffect
+                        if (com.nuvio.tv.NuvioCFeatures.STARTUP_JOB_QUEUE) {
+                            // [fork] round 50 startup_job_queue: after Home settled, 3 min later, alone, never during a film
+                            com.nuvio.tv.core.nuvioc.NuvioCStartupQueue.inTurn(afterMs = 180_000L) {
+                                runCatching { nuvioCTaste.get().refreshIfStale() }
+                            }
+                            return@LaunchedEffect
+                        }
                         kotlinx.coroutines.delay(180_000)
                         if (com.nuvio.tv.core.NuvioCPlayback.active) return@LaunchedEffect
                         runCatching { nuvioCTaste.get().refreshIfStale() }
+                    }
+                    // [fork] round 50 startup_job_queue: queued background jobs may start once the start-up screen is gone
+                    LaunchedEffect(showSplash, startupLoadingState.complete) {
+                        if (!showSplash && startupLoadingState.complete) com.nuvio.tv.core.nuvioc.NuvioCStartupQueue.release()
                     }
                     LaunchedEffect(showSplash, startupLoadingState.complete) {
                         if (!com.nuvio.tv.NuvioCFeatures.BADGE_PREFETCH || showSplash || !startupLoadingState.complete) return@LaunchedEffect
@@ -1507,6 +1518,12 @@ open class MainActivity : ComponentActivity() {
                     // [fork] round 28 shuffle_page: a minute after start-up settles, build the Shuffle pool if it's missing or over 12 h old
                     LaunchedEffect(showSplash, startupLoadingState.complete) {
                         if (!com.nuvio.tv.NuvioCFeatures.SHUFFLE_PAGE || showSplash || !startupLoadingState.complete) return@LaunchedEffect
+                        if (com.nuvio.tv.NuvioCFeatures.STARTUP_JOB_QUEUE) {
+                            com.nuvio.tv.core.nuvioc.NuvioCStartupQueue.inTurn(afterMs = 240_000L) { // [fork] round 50: after the Taste refresh's turn
+                                if (nuvioCShufflePrefs.config.value.menuVisible) nuvioCShufflePool.get().warmUp()
+                            }
+                            return@LaunchedEffect
+                        }
                         kotlinx.coroutines.delay(60_000)
                         if (nuvioCShufflePrefs.config.value.menuVisible) nuvioCShufflePool.get().warmUp()
                     }

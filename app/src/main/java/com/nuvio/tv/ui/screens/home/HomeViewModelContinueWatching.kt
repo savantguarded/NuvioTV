@@ -2039,7 +2039,7 @@ private suspend fun HomeViewModel.enrichInProgressItem(
             val tmdbIdInt = tmdbIdStr?.toIntOrNull()
             if (imdbId != null || tmdbIdInt != null) {
                 runCatching {
-                    imdbEpisodeRatingsRepository.getEpisodeRatings(imdbId, tmdbIdInt, meta.videos.map { AddonEpisodeAirDate(it.season, it.episode, it.released) })
+                    com.nuvio.tv.core.nuvioc.NuvioCStartupQueue.inTurn { imdbEpisodeRatingsRepository.getEpisodeRatings(imdbId, tmdbIdInt, meta.videos.map { AddonEpisodeAirDate(it.season, it.episode, it.released) }) } // [fork] round 50 startup_job_queue
                 }.getOrNull()?.get(item.progress.season!! to item.progress.episode!!)?.toFloat()
             } else null
         }
@@ -2153,7 +2153,7 @@ private suspend fun HomeViewModel.enrichNextUpItem(
             val tmdbIdInt = tmdbIdStr?.toIntOrNull()
             if (imdbId != null || tmdbIdInt != null) {
                 runCatching {
-                    imdbEpisodeRatingsRepository.getEpisodeRatings(imdbId, tmdbIdInt, meta.videos.map { AddonEpisodeAirDate(it.season, it.episode, it.released) })
+                    com.nuvio.tv.core.nuvioc.NuvioCStartupQueue.inTurn { imdbEpisodeRatingsRepository.getEpisodeRatings(imdbId, tmdbIdInt, meta.videos.map { AddonEpisodeAirDate(it.season, it.episode, it.released) }) } // [fork] round 50 startup_job_queue
                 }.getOrNull()?.get(s to e)?.toFloat()
             } else null
         }

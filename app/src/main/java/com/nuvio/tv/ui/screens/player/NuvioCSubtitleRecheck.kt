@@ -43,12 +43,12 @@ internal object NuvioCSubtitleRecheck {
         val nothingSelected = state.selectedSubtitleTrackIndex < 0 && state.selectedAddonSubtitle == null
         when {
             !nothingSelected -> return
-            isUserExplicitSubtitleSelection -> { Log.d(TAG, "skip: your own choice stands"); return }
-            subtitleDisabledByPersistedPreference -> { Log.d(TAG, "skip: saved as off for this title"); return }
+            isUserExplicitSubtitleSelection -> { Log.i(TAG, "skip: your own choice stands"); return }
+            subtitleDisabledByPersistedPreference -> { Log.i(TAG, "skip: saved as off for this title"); return }
             hasBurnedInServerSubtitle -> return
-            subtitleLanguageTargets().isEmpty() -> { Log.d(TAG, "skip: no preferred subtitle language"); return }
+            subtitleLanguageTargets().isEmpty() -> { Log.i(TAG, "skip: no preferred subtitle language"); return }
         }
-        Log.d(TAG, "nothing selected after start, running the automatic pick once more")
+        Log.i(TAG, "nothing selected after start, running the automatic pick once more")
         autoSubtitleSelected = false
         tryAutoSelectPreferredSubtitleFromAvailableTracks()
     }

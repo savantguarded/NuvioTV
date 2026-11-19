@@ -517,7 +517,7 @@ class CalendarRefresher internal constructor(
             )
             calendarLeftOutSummary(result.leftOut).forEach { Log.i(TAG, it) }
             if (com.nuvio.tv.NuvioCFeatures.CALENDAR_DONE_MEMORY) Log.i(TAG, "done remembered=${doneMemory.size} dated=${followed.count { it.dated }}")
-            if (com.nuvio.tv.NuvioCFeatures.CALENDAR_ORIGIN_LOG) logOrigins(followed) // [fork] calendar_origin_log
+            if (com.nuvio.tv.NuvioCFeatures.CALENDAR_ORIGIN_LOG && !com.nuvio.tv.NuvioCFeatures.CALENDAR_REFRESH_LEAN) logOrigins(followed) // [fork] round 50 calendar_refresh_lean: no name lists in the log // [fork] calendar_origin_log
             if (!complete) {
                 val notReady = sources.notReady.entries.joinToString(", ") { (name, why) -> "$name $why" }
                 val kept = snapshot.titles.count { record -> record.origins.any { it in unread } }

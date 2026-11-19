@@ -168,7 +168,7 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
                 // Normal devices (>3GB): use 0.25 for snappy image loading.
                 // - allowHardware(false) keeps bitmaps on heap instead of GPU memory
                 val cachePercent = when {
-                    totalRamMb <= 2048 -> 0.15
+                    totalRamMb <= 2048 -> if (NuvioCFeatures.IMAGE_CACHE_CAP) 0.12 else 0.15 // [fork] round 50 image_cache_cap
                     totalRamMb <= 3072 -> 0.20
                     else -> 0.25
                 }
