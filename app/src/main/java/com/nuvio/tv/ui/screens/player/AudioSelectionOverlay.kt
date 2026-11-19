@@ -2,6 +2,8 @@
 
 package com.nuvio.tv.ui.screens.player
 
+import kotlinx.coroutines.launch
+
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.background
 import com.nuvio.tv.ui.theme.NuvioTheme
@@ -185,17 +187,16 @@ internal fun AudioSelectionOverlay(
             val tabRequesters = remember { List(2) { FocusRequester() } }
             val selectedTrack = tracks.firstOrNull { it.index == selectedIndex }
             LaunchedEffect(visible) { if (visible) tab = 0 }
+            val audioScope = androidx.compose.runtime.rememberCoroutineScope()
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .width(560.dp)
-                    .heightIn(max = 640.dp)
-                    .background(Color(0xF2141519), RoundedCornerShape(24.dp))
-                    .padding(horizontal = 22.dp, vertical = 20.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                    .nuvioCPanelCard(), // [fork] round 53 track_panels_v3: slimmer, see-through
+                verticalArrangement = Arrangement.spacedBy(NuvioCPanelLook.gap)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.audio_dialog_title), style = MaterialTheme.typography.headlineSmall, color = Color.White)
+                    Text(stringResource(R.string.audio_dialog_title),
+                        style = if (NuvioCPanelLook.v3) MaterialTheme.typography.titleMedium.copy(shadow = NuvioCPanelLook.textShadow) else MaterialTheme.typography.headlineSmall, color = Color.White)
                     Spacer(Modifier.weight(1f))
                     Text(
                         if (tab == 0 || selectedTrack == null) androidx.compose.ui.res.pluralStringResource(R.plurals.nuvio_c_panel_track_count, tracks.size, tracks.size)
@@ -205,7 +206,12 @@ internal fun AudioSelectionOverlay(
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    NuvioCPanelTab(stringResource(R.string.nuvio_c_panel_tracks), tab == 0, tabRequesters[0], tracksFocusRequester) { tab = 0 }
+                    NuvioCPanelTab(stringResource(R.string.nuvio_c_panel_tracks), tab == 0, tabRequesters[0], tracksFocusRequester,
+                        onDown = if (NuvioCPanelLook.v3 && tracks.isNotEmpty()) ({
+                            val idx = tracks.indexOfFirst { it.index == selectedIndex }.coerceAtLeast(0)
+                            audioScope.launch { listState.scrollToItem(idx); tracksFocusRequester.requestFocusAfterFrames(1) }
+                            true
+                        }) else null) { tab = 0 }
                     NuvioCPanelTab(stringResource(R.string.nuvio_c_panel_sound), tab == 1, tabRequesters[1], delayMinusFocusRequester) { tab = 1 }
                 }
                 if (tab == 0) {
@@ -215,7 +221,7 @@ internal fun AudioSelectionOverlay(
                         state = listState,
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                         contentPadding = PaddingValues(vertical = 4.dp),
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 470.dp)
+                        modifier = Modifier.fillMaxWidth().heightIn(max = NuvioCPanelLook.listMax)
                     ) {
                         items(items = tracks, key = { track -> track.index }) { track ->
                             val title = NuvioCTrackNames.audioTitle(track.name, track.language)
@@ -226,7 +232,8 @@ internal fun AudioSelectionOverlay(
                                 detail = nuvioCAudioDetail(track),
                                 selected = track.index == selectedIndex,
                                 focusRequester = if (track.index == selectedIndex || (selectedIndex < 0 && track == tracks.firstOrNull())) tracksFocusRequester else null,
-                                onClick = { onTrackSelected(track.index) }
+                                onClick = { onTrackSelected(track.index) },
+                                modifier = Modifier.nuvioCUpToTab(track == tracks.firstOrNull(), tabRequesters[0])
                             )
                         }
                     }

@@ -3,6 +3,7 @@
 package com.nuvio.tv.ui.screens.player
 
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.res.pluralStringResource
@@ -481,6 +482,7 @@ internal fun SubtitleSelectionOverlay(
 
         if (com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V2) {
             // [fork] round 52 track_panels_v2: one card on the left with Tracks / Style / Language tabs
+            val styleDelayFocused = remember { mutableStateOf(false) } // [fork] round 53: Up from Delay -> Style tab
             NuvioCSubtitleTabsPanel(
                 modifier = Modifier.align(Alignment.BottomStart),
                 visible = visible,
@@ -504,6 +506,7 @@ internal fun SubtitleSelectionOverlay(
                             activeStyleFocusKey = key
                             lastStyleFocusKey = key
                             persistedStyleFocusKey = key
+                            styleDelayFocused.value = key == StyleFocusKey.DelaySet
                         },
                         onEvent = onEvent,
                         isStyleDisabledByLibass = isStyleDisabledByLibass,
@@ -511,7 +514,8 @@ internal fun SubtitleSelectionOverlay(
                         nuvioCTitle = false
                     )
                 },
-                styleEntry = requireNotNull(styleRequesters[StyleFocusKey.DelaySet])
+                styleEntry = requireNotNull(styleRequesters[StyleFocusKey.DelaySet]),
+                styleEntryFocused = styleDelayFocused
             )
         } else
         Column(verticalArrangement = Arrangement.Bottom) {
@@ -1092,6 +1096,7 @@ private fun SubtitleStyleRail(
                         )
                         if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_OUTLINE_WIDTH_ROW && subtitleStyle.outlineEnabled) {
                             // [fork] round 46: Outline width came back (lost when round 44 took official's Style tab)
+                            if (com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V3) RailStepperLabel(stringResource(R.string.nuvio_c_sub_outline_width)) // [fork] round 53
                             StepperRow(
                                 value = subtitleStyle.outlineWidth.toString(),
                                 onDecrease = { dispatchStyleEvent(PlayerEvent.OnSetSubtitleOutlineWidth((subtitleStyle.outlineWidth - 1).coerceIn(1, 5))) },
@@ -2308,7 +2313,8 @@ private fun NuvioCSubtitleTabsPanel(
     onAddonSubtitleSelected: (Subtitle) -> Unit,
     onDisableSubtitles: () -> Unit,
     styleContent: @Composable (androidx.compose.ui.unit.Dp) -> Unit,
-    styleEntry: FocusRequester
+    styleEntry: FocusRequester,
+    styleEntryFocused: androidx.compose.runtime.State<Boolean> = androidx.compose.runtime.mutableStateOf(false)
 ) {
     val firstLanguage = remember(languageItems) { languageItems.firstOrNull { it.key != SubtitleOffLanguageKey }?.key }
     var tab by remember(visible) { mutableStateOf(0) }
@@ -2323,8 +2329,14 @@ private fun NuvioCSubtitleTabsPanel(
     val languageEntry = remember { FocusRequester() }
     val tracksState = rememberLazyListState()
     val languageState = rememberLazyListState()
-    val cardWidth = 560.dp
+    val cardWidth = NuvioCPanelLook.width
     val labelOf = languageItems.associate { it.key to it.label }
+    // [fork] round 53 track_panels_v3: Tracks lists every language (no Language tab); each row is language, then details
+    val allOptions = remember(languageItems, selectedId) {
+        if (!NuvioCPanelLook.v3) emptyList()
+        else languageItems.filter { it.key != SubtitleOffLanguageKey }.flatMap { lang -> buildOptions(lang.key, selectedId).map { lang.label to it } }
+    }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     LaunchedEffect(visible) {
         if (!visible) return@LaunchedEffect
@@ -2334,37 +2346,88 @@ private fun NuvioCSubtitleTabsPanel(
     }
 
     Column(
-        modifier = modifier
-            .width(cardWidth)
-            .heightIn(max = 640.dp)
-            .background(Color(0xF2141519), RoundedCornerShape(24.dp))
-            .padding(horizontal = 22.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        modifier = modifier.nuvioCPanelCard(),
+        verticalArrangement = Arrangement.spacedBy(NuvioCPanelLook.gap)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.subtitle_dialog_title), style = MaterialTheme.typography.headlineSmall, color = Color.White)
+            Text(stringResource(R.string.subtitle_dialog_title),
+                style = if (NuvioCPanelLook.v3) MaterialTheme.typography.titleMedium.copy(shadow = NuvioCPanelLook.textShadow) else MaterialTheme.typography.headlineSmall, color = Color.White)
             Spacer(Modifier.weight(1f))
             val summary = if (off) stringResource(R.string.subtitle_none)
                 else listOfNotNull(labelOf[languageKey], options.size.takeIf { it > 0 }?.toString()).joinToString(" · ")
             Text(summary, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.6f), maxLines = 1)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            listOf(
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOfNotNull(
                 stringResource(R.string.nuvio_c_panel_tracks),
                 stringResource(R.string.subtitle_style_title),
-                stringResource(R.string.nuvio_c_panel_language)
+                if (NuvioCPanelLook.v3) null else stringResource(R.string.nuvio_c_panel_language)
             ).forEachIndexed { i, label ->
                 NuvioCPanelTab(
                     label = label,
                     selected = tab == i,
                     focusRequester = tabRequesters[i],
                     down = when (i) { 0 -> trackEntry; 1 -> styleEntry; else -> languageEntry },
-                    onFocused = { tab = i }
+                    onFocused = { tab = i },
+                    onDown = if (NuvioCPanelLook.v3 && i == 0) ({
+                        // scroll the active row into view before focusing it, so Down never loses focus
+                        val idx = if (off) 0 else (allOptions.indexOfFirst { it.second.id == selectedId } + 1).coerceAtLeast(0)
+                        scope.launch { tracksState.scrollToItem(idx); trackEntry.requestFocusAfterFrames(1) }
+                        true
+                    }) else null
                 )
             }
         }
-        when (tab) {
-            0 -> LazyColumn(
+        when {
+            NuvioCPanelLook.v3 && tab == 0 -> LazyColumn(
+                state = tracksState,
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                contentPadding = PaddingValues(vertical = 2.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(max = NuvioCPanelLook.listMax)
+            ) {
+                item(key = "off") {
+                    NuvioCPanelRow(
+                        title = stringResource(R.string.subtitle_none),
+                        detail = stringResource(R.string.nuvio_c_panel_no_subtitles),
+                        selected = off,
+                        focusRequester = if (off || allOptions.none { it.second.id == selectedId }) trackEntry else null,
+                        onClick = { off = true; selectedId = null; onDisableSubtitles() },
+                        modifier = Modifier.nuvioCUpToTab(true, tabRequesters[0])
+                    )
+                }
+                items(allOptions.size, key = { allOptions[it].second.id }) { i ->
+                    val (language, item) = allOptions[i]
+                    val detail = listOfNotNull(
+                        item.title.takeIf { it.isNotBlank() && !it.equals(language, true) },
+                        item.meta?.takeIf { it.isNotBlank() },
+                        item.sourceLabel.takeIf { it.isNotBlank() }
+                    ).distinct().joinToString(" · ")
+                    NuvioCPanelRow(
+                        title = language,
+                        detail = detail,
+                        selected = !off && item.id == selectedId,
+                        focusRequester = if (!off && item.id == selectedId) trackEntry else null,
+                        onClick = {
+                            off = false
+                            selectedId = item.id
+                            when (item.kind) {
+                                SubtitleOptionKind.INTERNAL -> item.internalTrackIndex?.let(onInternalTrackSelected)
+                                SubtitleOptionKind.ADDON -> item.addonSubtitle?.let(onAddonSubtitleSelected)
+                            }
+                        }
+                    )
+                }
+            }
+            NuvioCPanelLook.v3 && tab == 1 -> Box(
+                Modifier.onPreviewKeyEvent { e ->
+                    // Up from the first Style row (Delay) goes back to the Style tab
+                    if (e.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_DPAD_UP && styleEntryFocused.value) {
+                        if (e.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) runCatching { tabRequesters[1].requestFocus() }
+                        true
+                    } else false
+                }
+            ) { styleContent(cardWidth - NuvioCPanelLook.padH * 2) }
+            tab == 0 -> LazyColumn(
                 state = tracksState,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 contentPadding = PaddingValues(vertical = 4.dp),
@@ -2412,7 +2475,7 @@ private fun NuvioCSubtitleTabsPanel(
                     }
                 }
             }
-            1 -> styleContent(cardWidth - 44.dp)
+            tab == 1 -> styleContent(cardWidth - 44.dp)
             else -> LazyColumn(
                 state = languageState,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -2446,12 +2509,18 @@ internal fun NuvioCPanelTab(
     selected: Boolean,
     focusRequester: FocusRequester,
     down: FocusRequester?,
+    onDown: (() -> Boolean)? = null,
     onFocused: () -> Unit
 ) {
     androidx.tv.material3.Surface(
         onClick = onFocused,
         modifier = Modifier
             .focusRequester(focusRequester)
+            .then(if (onDown != null) Modifier.onPreviewKeyEvent { e ->
+                if (e.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN) {
+                    if (e.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) onDown() else true
+                } else false
+            } else Modifier)
             .then(if (down != null) Modifier.focusProperties { this.down = down } else Modifier)
             .onFocusChanged { if (it.isFocused) onFocused() },
         shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
@@ -2468,9 +2537,9 @@ internal fun NuvioCPanelTab(
     ) {
         Text(
             label,
-            style = MaterialTheme.typography.titleSmall,
+            style = if (NuvioCPanelLook.v3) MaterialTheme.typography.labelLarge else MaterialTheme.typography.titleSmall,
             fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Normal,
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp)
+            modifier = if (NuvioCPanelLook.v3) Modifier.padding(horizontal = 14.dp, vertical = 6.dp) else Modifier.padding(horizontal = 18.dp, vertical = 8.dp)
         )
     }
 }
@@ -2484,42 +2553,45 @@ internal fun NuvioCPanelRow(
     selected: Boolean,
     focusRequester: FocusRequester?,
     onClick: () -> Unit,
-    trailing: (@Composable () -> Unit)? = null
+    trailing: (@Composable () -> Unit)? = null,
+    modifier: Modifier = Modifier
 ) {
     var focused by remember { mutableStateOf(false) }
+    val v3 = NuvioCPanelLook.v3
     Card(
         onClick = onClick,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onFocusChanged { focused = it.isFocused },
         colors = CardDefaults.colors(
-            containerColor = if (selected) Color.White.copy(alpha = 0.10f) else Color.Transparent,
-            focusedContainerColor = Color.White.copy(alpha = 0.16f)
+            containerColor = if (selected) Color.White.copy(alpha = if (v3) 0.14f else 0.10f) else Color.Transparent,
+            focusedContainerColor = if (v3) Color.White else Color.White.copy(alpha = 0.16f)
         ),
-        shape = CardDefaults.shape(RoundedCornerShape(14.dp)),
+        shape = CardDefaults.shape(RoundedCornerShape(if (v3) 12.dp else 14.dp)),
         border = CardDefaults.border(
             focusedBorder = Border(border = NuvioTheme.focusRing.border(2.dp), shape = RoundedCornerShape(14.dp))
         ),
         scale = CardDefaults.scale(focusedScale = 1f, pressedScale = 1f)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = if (v3) 12.dp else 16.dp, vertical = if (v3) 6.dp else 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            val fg = if (v3 && focused) Color.Black else Color.White
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (v3) 1.dp else 2.dp)) {
                 Text(
                     title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White,
+                    style = if (v3) MaterialTheme.typography.titleSmall.copy(shadow = if (focused) null else NuvioCPanelLook.textShadow) else MaterialTheme.typography.titleMedium,
+                    color = fg,
                     maxLines = 1,
                     overflow = if (focused) androidx.compose.ui.text.style.TextOverflow.Clip else androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     modifier = if (focused) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier
                 )
                 if (!detail.isNullOrBlank()) Text(
                     detail,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.6f),
+                    style = if (v3) MaterialTheme.typography.labelMedium.copy(shadow = if (focused) null else NuvioCPanelLook.textShadow) else MaterialTheme.typography.bodySmall,
+                    color = if (v3 && focused) Color.Black.copy(alpha = 0.7f) else Color.White.copy(alpha = if (v3) 0.75f else 0.6f),
                     maxLines = 1,
                     overflow = if (focused) androidx.compose.ui.text.style.TextOverflow.Clip else androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     modifier = if (focused) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier
@@ -2528,8 +2600,44 @@ internal fun NuvioCPanelRow(
             trailing?.invoke()
             if (selected) {
                 Spacer(Modifier.width(10.dp))
-                Icon(Icons.Default.Check, contentDescription = null, tint = NuvioTheme.colors.Secondary)
+                Icon(Icons.Default.Check, contentDescription = null, tint = if (v3 && focused) Color.Black else NuvioTheme.colors.Secondary)
             }
         }
     }
 }
+
+
+// ---- [fork] Nuvio C round 53 track_panels_v3: slimmer, see-through panels -------------------------------------------
+
+internal object NuvioCPanelLook {
+    val v3: Boolean get() = com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V3
+    val width: Dp get() = if (v3) 372.dp else 560.dp
+    val maxHeight: Dp get() = if (v3) 430.dp else 640.dp
+    val listMax: Dp get() = if (v3) 318.dp else 470.dp
+    val background: Color get() = if (v3) Color(0x8C0E0F13) else Color(0xF2141519)
+    val radius: Dp get() = if (v3) 18.dp else 24.dp
+    val padH: Dp get() = if (v3) 14.dp else 22.dp
+    val padV: Dp get() = if (v3) 14.dp else 20.dp
+    val gap: Dp get() = if (v3) 8.dp else 14.dp
+    val textShadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.7f), androidx.compose.ui.geometry.Offset(0f, 1.5f), 4f)
+}
+
+/** The panel's card: a thin border and a lighter fill in v3 so the video shows through. */
+internal fun Modifier.nuvioCPanelCard(): Modifier = this
+    .width(NuvioCPanelLook.width)
+    .heightIn(max = NuvioCPanelLook.maxHeight)
+    .background(NuvioCPanelLook.background, RoundedCornerShape(NuvioCPanelLook.radius))
+    .then(if (NuvioCPanelLook.v3) Modifier.border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(NuvioCPanelLook.radius)) else Modifier)
+    .padding(horizontal = NuvioCPanelLook.padH, vertical = NuvioCPanelLook.padV)
+
+/**
+ * [fork] round 53: Up from the first row of a panel list goes to the active tab (never the tab that happens to sit
+ * above it, which would switch tabs); Down from a tab scrolls the list to its entry row first, so focus always lands.
+ */
+internal fun Modifier.nuvioCUpToTab(isFirst: Boolean, tab: FocusRequester): Modifier =
+    if (!NuvioCPanelLook.v3 || !isFirst) this else this.onPreviewKeyEvent { e ->
+        if (e.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_DPAD_UP) {
+            if (e.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) runCatching { tab.requestFocus() }
+            true
+        } else false
+    }

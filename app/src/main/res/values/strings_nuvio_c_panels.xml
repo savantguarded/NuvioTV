@@ -9,4 +9,10 @@
         <item quantity="one">%d track</item>
         <item quantity="other">%d tracks</item>
     </plurals>
+    <!-- [fork] round 53 track_panels_v3: every Style label named in full -->
+    <string name="nuvio_c_sub_background_opacity">Background opacity</string>
+    <string name="nuvio_c_sub_background_roundness">Background corner roundness</string>
+    <string name="nuvio_c_sub_shadow_opacity">Drop shadow opacity</string>
+    <string name="nuvio_c_sub_shadow_size">Drop shadow size</string>
+    <string name="nuvio_c_sub_outline_width">Outline width</string>
 </resources>
