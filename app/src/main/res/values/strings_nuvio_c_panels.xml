@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- [fork] Nuvio C round 52 track_panels_v2 -->
+    <string name="nuvio_c_panel_tracks">Tracks</string>
+    <string name="nuvio_c_panel_language">Language</string>
+    <string name="nuvio_c_panel_sound">Sound</string>
+    <string name="nuvio_c_panel_no_subtitles">No subtitles</string>
+    <plurals name="nuvio_c_panel_track_count">
+        <item quantity="one">%d track</item>
+        <item quantity="other">%d tracks</item>
+    </plurals>
+</resources>

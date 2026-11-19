@@ -898,4 +898,6 @@ object NuvioCFeatures {
     const val CAROUSEL_CW_FADE = true
     /** Modern OSD Play: focus zoom 1.04 (was 1.1) and a 6 dp halo (was 10), so its focus sits tight and clear of the seek bar; still the largest button. Off = round 51. */
     const val CLEAN_PLAY_RING_TUNE = true
+    /** Player: new Subtitles card (Tracks / Style / Language tabs; Style keeps delay first and every option) and Audio card (Tracks / Sound tabs), both on the left under their pills, two-line rows with scrolling on focus and a check on the active one. Off = the official side-by-side panels. */
+    const val TRACK_PANELS_V2 = true
 }

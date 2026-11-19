@@ -2,6 +2,8 @@
 
 package com.nuvio.tv.ui.screens.player
 
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.background
 import com.nuvio.tv.ui.theme.NuvioTheme
 
 import androidx.compose.foundation.BorderStroke
@@ -177,6 +179,91 @@ internal fun AudioSelectionOverlay(
         captureKeys = false,
         contentPadding = PaddingValues(start = 44.dp, end = 44.dp, top = 28.dp, bottom = 64.dp)
     ) {
+        if (com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V2) {
+            // [fork] round 52 track_panels_v2: one card on the left with Tracks / Sound tabs
+            var tab by remember(visible) { mutableStateOf(0) }
+            val tabRequesters = remember { List(2) { FocusRequester() } }
+            val selectedTrack = tracks.firstOrNull { it.index == selectedIndex }
+            LaunchedEffect(visible) { if (visible) tab = 0 }
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .width(560.dp)
+                    .heightIn(max = 640.dp)
+                    .background(Color(0xF2141519), RoundedCornerShape(24.dp))
+                    .padding(horizontal = 22.dp, vertical = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.audio_dialog_title), style = MaterialTheme.typography.headlineSmall, color = Color.White)
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        if (tab == 0 || selectedTrack == null) androidx.compose.ui.res.pluralStringResource(R.plurals.nuvio_c_panel_track_count, tracks.size, tracks.size)
+                        else listOfNotNull(NuvioCTrackNames.audioTitle(selectedTrack.name, selectedTrack.language) ?: selectedTrack.name, nuvioCAudioDetail(selectedTrack)).joinToString(" · "),
+                        style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.6f), maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(start = 16.dp)
+                    )
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    NuvioCPanelTab(stringResource(R.string.nuvio_c_panel_tracks), tab == 0, tabRequesters[0], tracksFocusRequester) { tab = 0 }
+                    NuvioCPanelTab(stringResource(R.string.nuvio_c_panel_sound), tab == 1, tabRequesters[1], delayMinusFocusRequester) { tab = 1 }
+                }
+                if (tab == 0) {
+                    if (tracks.isEmpty()) {
+                        Text(stringResource(R.string.audio_lang_default), style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.7f))
+                    } else LazyColumn(
+                        state = listState,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        contentPadding = PaddingValues(vertical = 4.dp),
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 470.dp)
+                    ) {
+                        items(items = tracks, key = { track -> track.index }) { track ->
+                            val title = NuvioCTrackNames.audioTitle(track.name, track.language)
+                                ?: track.language?.takeIf { it.isNotBlank() && it != "und" }?.let { languageCodeToName(it) }
+                                ?: track.name
+                            NuvioCPanelRow(
+                                title = title,
+                                detail = nuvioCAudioDetail(track),
+                                selected = track.index == selectedIndex,
+                                focusRequester = if (track.index == selectedIndex || (selectedIndex < 0 && track == tracks.firstOrNull())) tracksFocusRequester else null,
+                                onClick = { onTrackSelected(track.index) }
+                            )
+                        }
+                    }
+                } else {
+                    Column(Modifier.fillMaxWidth()) {
+                        AudioControlsContent(
+                            audioDelayMs = audioDelayMs,
+                            audioAmplificationDb = audioAmplificationDb,
+                            isAmplificationAvailable = isAmplificationAvailable,
+                            centerMixLevelDb = centerMixLevelDb,
+                            isCenterMixAvailable = isCenterMixAvailable,
+                            nightMode = nightMode,
+                            isNightModeAvailable = isNightModeAvailable,
+                            persistAmplification = persistAmplification,
+                            delayMinusFocusRequester = delayMinusFocusRequester,
+                            delayPlusFocusRequester = delayPlusFocusRequester,
+                            ampMinusFocusRequester = ampMinusFocusRequester,
+                            ampPlusFocusRequester = ampPlusFocusRequester,
+                            centerMinusFocusRequester = centerMinusFocusRequester,
+                            centerPlusFocusRequester = centerPlusFocusRequester,
+                            nightModeFocusRequester = nightModeFocusRequester,
+                            persistFocusRequester = persistFocusRequester,
+                            leftFocusRequester = FocusRequester.Cancel,
+                            onAudioDelayChange = onAudioDelayChange,
+                            onAmplificationChange = { nextDb, focusTarget ->
+                                pendingControlFocusTarget = focusTarget
+                                onAmplificationChange(nextDb)
+                            },
+                            onCenterMixLevelChange = onCenterMixLevelChange,
+                            onNightModeChange = onNightModeChange,
+                            onPersistAmplificationChange = onPersistAmplificationChange,
+                            nuvioCOnNightChange = nuvioCOnNightChange
+                        )
+                    }
+                }
+            }
+        } else
         Column(
             modifier = Modifier
                 .width(724.dp)
@@ -970,4 +1057,19 @@ private fun formatAudioDelay(delayMs: Int): String {
     } else {
         String.format(Locale.US, "%+.3fs", delayMs / 1000f)
     }
+}
+
+
+/** [fork] round 52 track_panels_v2: "DTS-HD MA · 5.1 · 48 kHz" (and Commentary when the name says so). */
+internal fun nuvioCAudioDetail(track: TrackInfo): String? {
+    val channels = when (track.channelCount) {
+        null -> null
+        1 -> "Mono"
+        2 -> "2.0"
+        6 -> "5.1"
+        8 -> "7.1"
+        else -> "${track.channelCount} ch"
+    }
+    val commentary = if (track.name.contains("comment", ignoreCase = true)) "Commentary" else null
+    return listOfNotNull(track.codec, channels, track.sampleRate?.let { "${it / 1000} kHz" }, commentary).joinToString(" · ").ifBlank { null }
 }
