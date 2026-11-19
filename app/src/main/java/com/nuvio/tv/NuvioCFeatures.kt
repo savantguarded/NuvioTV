@@ -873,4 +873,7 @@ object NuvioCFeatures {
 
     /** More Nuvio C settings travel with the Nuvio profile: controls style and button orders, night mode switches, TheTVDB key. Passthrough switches stay on this TV. */
     const val CLOUD_SETTINGS_ALL = true
+
+    /** Offline notice on Home reads "No internet · Showing what's saved on this TV" and shows "Back online" for 2 s. */
+    const val OFFLINE_NOTICE_V2 = true
 }

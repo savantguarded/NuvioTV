@@ -67,8 +67,16 @@ internal fun BoxScope.NuvioCOfflineNotice(onBackOnline: () -> Unit) {
         runCatching { cm?.registerDefaultNetworkCallback(callback) }
         onDispose { runCatching { cm?.unregisterNetworkCallback(callback) } }
     }
+    // [fork] round 51 offline_notice: "Back online" for 2 s when the connection returns
+    var showBack by remember { mutableStateOf(false) }
+    var wasOffline by remember { mutableStateOf(!online) }
+    androidx.compose.runtime.LaunchedEffect(online) {
+        if (!NuvioCFeatures.OFFLINE_NOTICE_V2) return@LaunchedEffect
+        if (!online) { wasOffline = true; showBack = false }
+        else if (wasOffline) { wasOffline = false; showBack = true; kotlinx.coroutines.delay(2_000); showBack = false }
+    }
     AnimatedVisibility(
-        visible = !online,
+        visible = !online || (NuvioCFeatures.OFFLINE_NOTICE_V2 && showBack),
         enter = fadeIn(),
         exit = fadeOut(),
         modifier = Modifier.align(Alignment.TopCenter).padding(top = 20.dp).zIndex(10f)
@@ -80,7 +88,8 @@ internal fun BoxScope.NuvioCOfflineNotice(onBackOnline: () -> Unit) {
                 .padding(horizontal = 18.dp, vertical = 8.dp)
         ) {
             Text(
-                text = stringResource(R.string.nuvio_c_offline_notice),
+                text = if (NuvioCFeatures.OFFLINE_NOTICE_V2) stringResource(if (online) R.string.nuvio_c_back_online else R.string.nuvio_c_offline_notice_v2)
+                else stringResource(R.string.nuvio_c_offline_notice),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.9f)
             )

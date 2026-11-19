@@ -169,6 +169,8 @@
     <string name="nuvio_c_shuffle_setting_menu">Show Roulette in the sidebar</string>
     <string name="nuvio_c_shuffle_setting_menu_sub">After Calendar, before Settings</string>
     <string name="nuvio_c_subtitle_background_title">Background opacity</string>
+    <string name="nuvio_c_offline_notice_v2">No internet · Showing what\'s saved on this TV</string>
+    <string name="nuvio_c_back_online">Back online</string>
     <string name="nuvio_c_offline_notice">You\'re offline. Home refreshes by itself when you\'re back online.</string>
     <string name="nuvio_c_night_mode">Night mode</string>
     <string name="nuvio_c_night_mode_help">Lifts quiet moments, loud ones stay as mixed. While on, the app plays the sound itself (no Atmos passthrough).</string>
