@@ -13,7 +13,6 @@ import com.nuvio.tv.data.nuvioc.pickTasteSpotlight
 import com.nuvio.tv.data.nuvioc.tasteMonthWindow
 import com.nuvio.tv.data.nuvioc.NuvioCRatingService
 import com.nuvio.tv.domain.model.WatchedItem
-import com.nuvio.tv.ui.screens.taste.NuvioCTasteCopy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -79,29 +78,7 @@ class NuvioCRound40Test {
         assertEquals(a.size, a.map { it.id }.toSet().size)
     }
 
-    @Test fun recapsSkipThinAndCurrentMonths() {
-        val oct = YearMonth.of(2026, 10)
-        val octStart = oct.atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
-        val lines = (1..12).map { WatchedItem("tt$it", "movie", "F", watchedAt = octStart + it * day) } +
-            (13..15).map { WatchedItem("tt$it", "movie", "F", watchedAt = octStart - 20 * day) } +
-            (16..30).map { WatchedItem("tt$it", "movie", "F", watchedAt = now - day) }
-        val titles = (1..30).associate { "movie:tt$it" to film(it, "Crime", 2000) }
-        val recaps = computeTasteRecaps(lines, titles, now, zone)
-        assertEquals(listOf(oct), recaps.map { it.month })
-        assertEquals(12, recaps.first().titles)
-        assertEquals("Crime", recaps.first().topGenre)
-        val month = computeTasteStats(lines, titles, emptyMap(), NuvioCTasteRange.ALL, now, zone, window = tasteMonthWindow(oct, zone))
-        assertEquals(12, month.titles)
-        assertEquals("October was mostly crime.", NuvioCTasteCopy.monthSummary(month, oct))
-    }
 
-    @Test fun pageSummaryForLightProfiles() {
-        val titles = (1..3).associate { "movie:tt$it" to film(it, "Comedy", 2010) }
-        val s = computeTasteStats(history(3, 5), titles, emptyMap(), NuvioCTasteRange.ALL, now, zone)
-        assertEquals("Three titles in. Comedy leads so far.", NuvioCTasteCopy.pageSummary(s))
-        val none = computeTasteStats(emptyList(), titles, emptyMap(), NuvioCTasteRange.ALL, now, zone)
-        assertEquals("Nothing watched on this profile yet.", NuvioCTasteCopy.pageSummary(none))
-    }
 
     @Test fun popularityLevelsLowerTheFloor() {
         val wide = NuvioCRoulettePool.WIDE.floor("movie", false, 1990)

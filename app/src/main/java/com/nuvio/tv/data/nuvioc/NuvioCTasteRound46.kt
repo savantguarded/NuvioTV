@@ -7,9 +7,7 @@ package com.nuvio.tv.data.nuvioc
 import com.nuvio.tv.domain.model.WatchedItem
 import java.time.DayOfWeek
 import java.time.Instant
-import java.time.LocalDate
 import java.time.ZoneId
-import java.time.format.TextStyle
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -78,56 +76,6 @@ internal fun computeTasteWeek(
     val (thisAvg, thisCount) = avg(monthStart, Long.MAX_VALUE)
     val (lastAvg, _) = avg(lastMonthStart, monthStart)
     return NuvioCTasteWeek(thisWeek, usual, thisAvg, lastAvg, thisCount)
-}
-
-/** "6 h 40 m", "45 m", "0 m". */
-internal fun tasteDuration(minutes: Int): String {
-    val h = minutes / 60
-    val m = minutes % 60
-    return when {
-        h == 0 -> "$m m"
-        m == 0 -> "$h h"
-        else -> "$h h $m m"
-    }
-}
-
-/** The line under the hours tile: compared with the same point of a usual week. */
-internal fun tasteWeekCompare(week: NuvioCTasteWeek): String? {
-    val usual = week.usualMinutes ?: return null
-    val diff = week.minutes - usual
-    return when {
-        kotlin.math.abs(diff) < 30 -> "About usual for this point in the week"
-        diff > 0 -> "${tasteDuration(diff)} more than usual"
-        else -> "${tasteDuration(-diff)} less than usual"
-    }
-}
-
-/** "Tonight 9:00 pm", "Tomorrow 8:00 pm", "Thu 9:00 pm", "Thu" (date only). */
-internal fun tasteAirLabel(next: NuvioCTasteNextAir, nowMs: Long, zone: ZoneId): String {
-    val at = Instant.ofEpochMilli(next.atMs).atZone(zone)
-    val days = java.time.temporal.ChronoUnit.DAYS.between(Instant.ofEpochMilli(nowMs).atZone(zone).toLocalDate(), at.toLocalDate())
-    val day = when (days) {
-        0L -> if (next.timeKnown && at.hour >= 17) "Tonight" else "Today"
-        1L -> "Tomorrow"
-        in 2L..6L -> at.dayOfWeek.nuvioC3()
-        else -> "${at.dayOfMonth} ${at.month.nuvioC3()}"
-    }
-    if (!next.timeKnown) return day
-    val h = at.hour % 12
-    val time = "${if (h == 0) 12 else h}:${at.minute.toString().padStart(2, '0')} ${if (at.hour < 12) "am" else "pm"}"
-    return "$day $time"
-}
-
-/** The rating tile's line: "up from 3.8 last month", "down from 4.2 last month", "same as last month". */
-internal fun tasteRatingCompare(week: NuvioCTasteWeek): String? {
-    val now = week.avgThisMonth ?: return null
-    val before = week.avgLastMonth ?: return "${week.ratedThisMonth} rated this month"
-    val d = now - before
-    return when {
-        kotlin.math.abs(d) < 0.05 -> "Same as last month"
-        d > 0 -> "Up from ${oneDecimal(before)} last month"
-        else -> "Down from ${oneDecimal(before)} last month"
-    }
 }
 
 internal fun oneDecimal(v: Double): String = String.format(Locale.US, "%.1f", v)
@@ -208,6 +156,3 @@ internal fun tasteBecauseTitle(name: String, score: Int?): String? = when (score
     9 -> "Because you gave $name 4.5 stars"
     else -> null
 }
-
-@Suppress("unused")
-private fun LocalDate.isWeekend() = dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY

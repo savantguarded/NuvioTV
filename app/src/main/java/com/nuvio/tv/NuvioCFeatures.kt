@@ -627,10 +627,6 @@ object NuvioCFeatures {
     const val ROULETTE_POPULARITY = true
     /** Roulette: an empty spin shows a short message (what happened, and whether a lower popularity has titles) with Open Refine. Off = the line under the header only. */
     const val ROULETTE_EMPTY_NOTICE = true
-    /** Taste page rows: a held Left on a row's first item stops there; a fresh press opens the sidebar. Off = held Left can open it. */
-    const val ROWS_NO_SIDEBAR_ON_HOLD = true
-    /** Taste page rework: profile name, Taste DNA ring, Spin my taste card, live tiles, spotlight cards, rotating rows, Recaps. Off = round 39 page. */
-    const val TASTE_V2 = true
     /** Taste: the first build shows posters drifting into genre bars from real lookup progress. Off = a plain line. */
     const val TASTE_BUILD_ANIM = true
     /** Taste: live tiles (Watching, Up next, Upcoming, Saved, Rated this month; rating dates kept from Trakt and this TV). Off = no tiles. */
@@ -642,21 +638,11 @@ object NuvioCFeatures {
     /** Taste: rotating poster rows (Because you loved, More from, decade and genre gaps, Unfinished, Rewatch), at most two TMDB calls a visit. Off = no rows. */
     const val TASTE_ROWS = true
     // [fork] round 41
-    /** Taste: held Up / Down gate, tile count-up once per visit, Spotlight lines as separate list items and a steady scroll anchor. Off = round 40 scrolling. */
-    const val TASTE_SMOOTH = true
-    /** Taste: two-column genre legend, wider Spin card with a poster fan and compact chips, one backdrop rotating per visit from recent titles. Off = round 40 look. */
-    const val TASTE_POLISH = true
     /** Taste: Month in review banner above Spotlight (last month in the first week, then the current month so far). Off = no banner. */
     const val TASTE_REVIEW = true
-    /** Taste: pressing a spotlight card opens a right-side panel listing its titles, with the card's action at the top. Off = the card acts directly. */
-    const val TASTE_CARD_TITLES = true
-    /** Taste: Back from a month view returns to the default view, focus on what opened it. Off = Back leaves the page. */
-    const val TASTE_BACK = true
     // [fork] round 42
     /** Calendar Coming soon: every TMDB candidate is checked (not the 70 most popular), checks kept on disk for a day, air-date search in the TV's time zone. Off = round 32 behaviour. */
     const val TMDB_SOON_ALL = true
-    /** Taste titles panel: the chips are reachable (Up from the list), and picking a sort keeps focus on the chip. Off = round 41 panel. */
-    const val TASTE_PANEL_FOCUS = true
     /** Taste: scroll position and spotlight cards stay fixed for a visit, so closing a panel or month view lands back on what opened it. Off = round 41. */
     const val TASTE_FOCUS_KEEP = true
     /** Taste: Month in review from 5 titles; under that, the most recent month with 5 or more. Retries when the data wasn't ready. Off = 10 titles, current or last month only. */
@@ -665,13 +651,9 @@ object NuvioCFeatures {
     const val TASTE_SEEN_RATED = true
     /** Taste: rows, the titles panel, month views and live tiles read only the active profile's data; a build is dropped if the profile changes while it runs. Off = round 41. */
     const val TASTE_PROFILE_STRICT = true
-    /** Taste: pressing a Recap opens the right-side panel for that month (numbers, biggest day, most watched, top genres, titles). Off = opens the month view. */
-    const val TASTE_RECAP_PANEL = true
     /** Taste: the refresh button spins while rebuilding and says Updated; a long press re-reads every title's details. Off = silent refresh. */
     const val TASTE_REFRESH_FEEDBACK = true
     // [fork] round 42b
-    /** Taste: closing a titles or recap panel puts focus back on the card or recap that opened it (the panel's focus guard stops at Back). Off = round 42. */
-    const val TASTE_CLOSE_FOCUS = true
     /** Taste: Your people picks a different lens each visit (all time, lately, this year, directors, actors) from a wider pool. Off = the same all-time top eight. */
     const val TASTE_PEOPLE_LENSES = true
     /** Taste month view: a row of the titles watched that month, most recent first. Off = no row. */
@@ -727,10 +709,6 @@ object NuvioCFeatures {
     const val DETAIL_AWARDS_WINS = true
     /** Featured carousel: the tagline is a notch smaller (13 sp) and may take two lines; the synopsis gives up a line when it does, so the carousel never grows. Off = one line at 14 sp. */
     const val FEATURED_TAGLINE_TWO = true
-    /** Taste: text never cut off without a way to read it: sizes step down and wrap first, then a marquee (on focus on cards, on its own on the tiles). This week is a 2 x 2 grid on the Spotlight's columns; every card and tile keeps one fixed size. Off = round 46b. */
-    const val TASTE_FIT = true
-    /** Taste: This week and Spotlight stay on top; the sections under them (people, poster rows, Recaps) come in a new order each visit, per profile, never leading with the same kind twice running. Off = fixed order. */
-    const val TASTE_ROTATE = true
     /** Rating after a film: the "just finished" note survives the app closing, lasts 30 min from the last moment on the film (credits included), matches any of its ids, waits 3 s at most for the tracker look-ups, and logs each decision (adb logcat -s NuvioCRate). Read-only on playback: progress, Up next and scrobbling are official's. Off = round 34. */
     const val RATING_RELIABLE = true
     /** Add-on catalog names refresh without a force close: every enabled add-on's manifest is read again when the app returns after 30 min away (or 6 h since the last time) and on a profile switch, through official's own fetch. Off = official (cold start only). */
@@ -742,8 +720,6 @@ object NuvioCFeatures {
     // [fork] round 47b
     /** Details Information: once its stop has focus the page glides on to the very end . Off = the block's top only. */
     const val INFO_END_SCROLL = true
-    /** Taste: This week as one compact card in the Month so far style, stats side by side. Off = round 47 2 x 2 tiles. */
-    const val TASTE_WEEK_CARD = true
     /** Clean More: a page opened from More brings More back on its line when it closes. Off = back to the main controls. */
     const val MORE_RETURN = true
     // [fork] round 48
@@ -846,8 +822,6 @@ object NuvioCFeatures {
     const val CLEAN_PLAY_RING_TUNE = true
     /** Player: new Subtitles card (Tracks / Style / Language tabs; Style keeps delay first and every option) and Audio card (Tracks / Sound tabs), both on the left under their pills, two-line rows with scrolling on focus and a check on the active one. Off = the official side-by-side panels. */
     const val TRACK_PANELS_V2 = true
-    /** Taste: four tabs, each one screen that never scrolls: Overview (totals, split, streak, facts; All time / This year / a month), Charts (when you watch, ratings, genres, decades, studios), Discover (Spin my taste, two rows from your taste, faces you watch most) and Wrapped (any year with 10+ titles). Per profile; a new profile sees Overview only, a light one what it has data for. Off = round 47 page. */
-    const val TASTE_TABS = true
     /** Offline outside Home: a small "No internet" chip in the player's top corner ("Back online" for 2 s after), and on a cold start with no internet and nothing saved a full-screen message with Network settings and Try again that carries on by itself. Off = Home notice only. */
     const val OFFLINE_EVERYWHERE = true
     /** Profile screen background made in the app from TMDB's trending films and shows (textless picture, logo, tag and meta line), pool refreshed at most daily, a different picture per profile with a crossfade as focus moves, saved for an instant cold start, never the same twice running. A profile's own background is the backup. Off = the profile's own background only. */
@@ -868,8 +842,6 @@ object NuvioCFeatures {
     const val CLOUD_SETTINGS_MORE = true
 
     // [fork] round 53
-    /** Taste: one header row (avatar + large profile name, tabs Overview / Discover / Stats / Wrapped, range All time / This year / Month on every tab but Wrapped, which gets a Year dropdown); compact Overview cards (no rewatches); Stats = patterns only; Discover with Spin on its own card and round faces, focus kept after Back; Wrapped with aligned ranks and no gaps. Pages with nothing to press have no hidden focus stop. Off = round 52 tabs. */
-    const val TASTE_TABS_V2 = true
     /** Modern sidebar: Up from the first item goes straight to the profile, so a held Up never crosses the gap into a page's top row (Calendar, Roulette, Taste) and closes the sidebar. Off = plain focus move. */
     const val SIDEBAR_UP_PROFILE = true
     /** Sidebar: a held Left (key repeat) stops at a page's left edge on every page; a fresh Left press opens the sidebar. Off = Roulette only. */

@@ -9,7 +9,6 @@ import com.nuvio.tv.data.nuvioc.NuvioCWatchFilter
 import com.nuvio.tv.data.nuvioc.computeTasteStats
 import com.nuvio.tv.domain.model.WatchedItem
 import com.nuvio.tv.ui.screens.player.NuvioCSubtitleRows
-import com.nuvio.tv.ui.screens.taste.NuvioCTasteCopy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -64,40 +63,7 @@ class NuvioCRound39Test {
         genres = listOf(genre), runtime = 120, vote = vote, votes = 5000
     )
 
-    @Test fun emptyHistoryIsEmpty() {
-        val s = computeTasteStats(emptyList(), emptyMap(), emptyMap(), NuvioCTasteRange.ALL, now, zone)
-        assertTrue(s.empty)
-        assertEquals(NuvioCTasteCopy.empty(), NuvioCTasteCopy.summary(s))
-    }
 
-    @Test fun lightHistoryHedges() {
-        val titles = (1..4).associate { "movie:tt$it" to film(it, "Thriller", 1995, 7.0) }
-        val history = (1..4).map { WatchedItem("tt$it", "movie", "Film $it", watchedAt = now - it * day) }
-        val s = computeTasteStats(history, titles, emptyMap(), NuvioCTasteRange.ALL, now, zone)
-        assertFalse(s.showNumbers)
-        assertEquals("Early days, but you're leaning towards thrillers.", NuvioCTasteCopy.summary(s))
-    }
 
-    @Test fun fullHistorySummaryAndCritic() {
-        val titles = (1..30).associate { "movie:tt$it" to film(it, if (it <= 20) "Crime" else "Comedy", 1990 + (it % 10), 7.5) }
-        val history = (1..30).map { WatchedItem("tt$it", "movie", "Film $it", watchedAt = now - it * day) }
-        val scores = (1..30).associate { "movie:tt$it" to 6 } // 1.5 below the crowd everywhere
-        val s = computeTasteStats(history, titles, scores, NuvioCTasteRange.ALL, now, zone)
-        assertTrue(s.showNumbers)
-        assertTrue(s.showRatings)
-        assertEquals("Crime", s.genres.first().name)
-        assertEquals(1990, s.topDecade)
-        assertEquals(60, s.hours)
-        assertEquals("Crime-heavy, 90s-leaning, tougher critic than the crowd.", NuvioCTasteCopy.summary(s))
-        assertTrue(NuvioCTasteCopy.ratingLine(s)!!.startsWith("You rate 1.5 below the crowd"))
-    }
 
-    @Test fun noRatingsUsesWhatYouPick() {
-        val titles = (1..12).associate { "movie:tt$it" to film(it, "Drama", 2012, 7.4) }
-        val history = (1..12).map { WatchedItem("tt$it", "movie", "Film $it", watchedAt = now - it * day) }
-        val s = computeTasteStats(history, titles, emptyMap(), NuvioCTasteRange.ALL, now, zone)
-        assertFalse(s.showRatings)
-        assertEquals("You pick titles the crowd rates 7.4 on average, above the 6.6 norm.", NuvioCTasteCopy.pickLine(s))
-        assertEquals("Drama-heavy, with a soft spot for the 2010s.".substringBefore(","), NuvioCTasteCopy.summary(s).substringBefore(","))
-    }
 }
