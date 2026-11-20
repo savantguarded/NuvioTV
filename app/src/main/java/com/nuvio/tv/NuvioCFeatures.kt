@@ -148,8 +148,6 @@ object NuvioCFeatures {
     const val DETAIL_ROW_THROTTLE = true
     /** Home hero carousel (Featured, Classic, Grid): 18 titles from your hero catalogs instead of official's 7, a new random pick and order on every app launch, mixed across catalogs (official took the same 7 by a fixed hash, so it showed the same few all day). Order stays put within a run. */
     const val HERO_POOL_SHUFFLE = true
-    /** Featured home: Left from Play on the first title goes to the last (Right from the arrow already wraps to the first), so the carousel loops both ways. The sidebar is reached with Back. Off = Left on the first title goes to the sidebar (official; Right on the last title still wraps to the first). Off since round 17 (Charles: Left at the edge should open the sidebar). */
-    const val FEATURED_WRAP = false
     /** Featured home: the carousel only moves forward by hand. Left from Play opens the sidebar on every title (no stepping back); Right from the arrow still goes to the next title and loops from the last to the first. Off = Left on Play steps back a title (except on the first). */
     const val FEATURED_RIGHT_ONLY = true
     /** Details background trailer: no stutter while moving around as it starts. The black-bar check (official, a GPU read-back on the UI thread, dearer on HD trailers) waits while a key was pressed in the last 0.9 s and stops after 10 clean frames with no bars. Off = official sampling. (Hero dim, backdrop crossfade and scroll state now redraw at draw time in both cases.) */
