@@ -2262,38 +2262,6 @@ private fun MetaDetailsContent(
             onEpisodeClick(video)
         }
     }
-    // [fork] round 43 episode_find: null = closed; otherwise the text typed so far.
-    var nuvioCFindQuery by androidx.compose.runtime.saveable.rememberSaveable(meta.id) { mutableStateOf<String?>(null) }
-    val nuvioCFinding = com.nuvio.tv.NuvioCFeatures.EPISODE_FIND && nuvioCFindQuery != null
-    val nuvioCFindChipFocus = remember { FocusRequester() }
-    val nuvioCSeasonRowFocus = remember(meta.id) { NuvioCSeasonRowFocus() } // [fork] round 46 find_focus
-    val nuvioCFindFieldFocus = remember { FocusRequester() }
-    val nuvioCFindFirstResult = remember { FocusRequester() }
-    val nuvioCFindRequesters = remember(meta.id) { mutableMapOf<String, FocusRequester>() }
-    var nuvioCFindClosedToken by remember { mutableIntStateOf(0) }
-    val nuvioCFindResults = remember(nuvioCFindQuery, meta.videos) {
-        nuvioCFindQuery?.let { nuvioCFindEpisodes(meta.videos, it) }.orEmpty()
-    }
-    nuvioCFindResults.firstOrNull()?.let { first ->
-        nuvioCFindRequesters.keys.toList().forEach { if (nuvioCFindRequesters[it] === nuvioCFindFirstResult && it != first.id) nuvioCFindRequesters.remove(it) }
-        nuvioCFindRequesters[first.id] = nuvioCFindFirstResult
-    }
-    BackHandler(enabled = nuvioCFinding) {
-        nuvioCFindQuery = null
-        nuvioCFindClosedToken++
-    }
-    LaunchedEffect(nuvioCFindClosedToken) {
-        if (nuvioCFindClosedToken == 0) return@LaunchedEffect
-        repeat(10) {
-            if (runCatching { nuvioCFindChipFocus.requestFocus() }.isSuccess) return@LaunchedEffect
-            kotlinx.coroutines.delay(32)
-        }
-    }
-    val nuvioCFindEpisodeClick: (Video) -> Unit = { video ->
-        nuvioCFindQuery = null
-        video.season?.let { if (it != selectedSeason) onSeasonSelected(it) }
-        episodeClick(video)
-    }
     val episodeManualClick = remember(onEpisodeManualPlayClick, canPlayEpisode) {
         { video: Video ->
             if (canPlayEpisode(video)) markEpisodeRestore(video.id)
@@ -2774,16 +2742,7 @@ private fun MetaDetailsContent(
             if (showSeasonTabs) {
                 item(key = "season_tabs", contentType = "season_tabs") {
                     Box(modifier = Modifier.bringIntoViewResponder(detailRowBringIntoViewResponder)) {
-                        if (nuvioCFinding) { // [fork] round 43 episode_find
-                            NuvioCEpisodeFindBar(
-                                query = nuvioCFindQuery.orEmpty(),
-                                onQueryChange = { nuvioCFindQuery = it },
-                                resultCount = nuvioCFindResults.size,
-                                fieldFocusRequester = nuvioCFindFieldFocus,
-                                upFocusRequester = heroPlayFocusRequester,
-                                downFocusRequester = nuvioCFindFirstResult
-                            )
-                        } else SeasonTabs(
+                        SeasonTabs(
                             seasons = seasons,
                             selectedSeason = selectedSeason,
                             onSeasonSelected = onSeasonSelected,
@@ -2792,25 +2751,13 @@ private fun MetaDetailsContent(
                             upFocusRequester = heroPlayFocusRequester,
                             downFocusRequester = seasonDownFocusRequester,
                             isFocusEnabled = pendingRestoreType != RestoreTarget.EPISODE,
-                            nuvioCRowFocus = nuvioCSeasonRowFocus, // [fork] round 46 find_focus
-                            nuvioCFindRequester = if (com.nuvio.tv.NuvioCFeatures.EPISODE_FIND) nuvioCFindChipFocus else null,
-                            nuvioCTrailing = if (com.nuvio.tv.NuvioCFeatures.EPISODE_FIND) {
-                                {
-                                    NuvioCEpisodeFindChip(
-                                        onClick = { nuvioCFindQuery = "" },
-                                        focusRequester = nuvioCFindChipFocus,
-                                        upFocusRequester = heroPlayFocusRequester,
-                                        downFocusRequester = seasonDownFocusRequester
-                                    )
-                                }
-                            } else null,
                             posterStyle = seasonPosterStyle
                         )
                     }
                 }
             }
             if (showEpisodesRow) {
-                item(key = if (nuvioCFinding) "episodes_find" else "episodes_$selectedSeason", contentType = "episodes") {
+                item(key = "episodes_$selectedSeason", contentType = "episodes") {
                     val visibleEpisodeRestoreId = if (pendingRestoreType == RestoreTarget.EPISODE) {
                         resolveVisibleEpisodeRestoreId(
                             requestedId = pendingRestoreEpisodeId,
@@ -2820,29 +2767,10 @@ private fun MetaDetailsContent(
                     } else {
                         null
                     }
-                    Box(modifier = Modifier.bringIntoViewResponder(episodeRowStayVerticalResponder).then(
-                        // [fork] round 46 find_focus: Up from the episodes goes into the season row through its own
-                        // memory (Find or the selected season), scrolled into view first; Play if that fails.
-                        if (com.nuvio.tv.NuvioCFeatures.FIND_FOCUS && showSeasonTabs && !nuvioCFinding) Modifier.onPreviewKeyEvent { event ->
-                            val native = event.nativeKeyEvent
-                            if (native.keyCode != android.view.KeyEvent.KEYCODE_DPAD_UP) return@onPreviewKeyEvent false
-                            if (native.action == android.view.KeyEvent.ACTION_DOWN) {
-                                if (pendingRestoreType == RestoreTarget.EPISODE) clearPendingRestore()
-                                coroutineScope.launch {
-                                    if (!nuvioCSeasonRowFocus.enter()) {
-                                        runCatching { (heroPlayFocusRequester ?: heroPlayButtonFocusRequester).requestFocus() }
-                                    }
-                                }
-                            }
-                            true
-                        } else Modifier
-                    )) {
-                        if (NuvioCDetailSmooth.enabled && !nuvioCFinding) NuvioCEpisodeEntry(nuvioCEpisodeEntry) { nuvioCResolveEpisode() } // [fork]
-                        androidx.compose.runtime.CompositionLocalProvider(LocalNuvioCEpisodeSeasonCode provides nuvioCFinding) { // [fork] round 43 episode_find
-                        if (nuvioCFinding && nuvioCFindResults.isEmpty()) {
-                            Spacer(modifier = Modifier.height(1.dp))
-                        } else EpisodesRow(
-                            episodes = if (nuvioCFinding) nuvioCFindResults else episodesForSeason,
+                    Box(modifier = Modifier.bringIntoViewResponder(episodeRowStayVerticalResponder)) {
+                        if (NuvioCDetailSmooth.enabled) NuvioCEpisodeEntry(nuvioCEpisodeEntry) { nuvioCResolveEpisode() } // [fork]
+                        EpisodesRow(
+                            episodes = episodesForSeason,
                             episodeProgressMap = episodeProgressMap,
                             episodeRatings = visibleEpisodeImdbRatings,
                             watchedEpisodes = watchedEpisodes,
@@ -2850,7 +2778,7 @@ private fun MetaDetailsContent(
                             blurUnwatchedEpisodes = blurUnwatchedEpisodes,
                             episodeOptionsOverlayStyle = episodeOptionsOverlayStyle,
                             posterCardCornerRadiusDp = posterCardCornerRadiusDp,
-                            onEpisodeClick = if (nuvioCFinding) nuvioCFindEpisodeClick else episodeClick,
+                            onEpisodeClick = episodeClick,
                             canPlayEpisode = canPlayEpisode,
                             onEpisodeManualPlayClick = episodeManualClick,
                             onEpisodeStartFromBeginningClick = { video ->
@@ -2866,11 +2794,11 @@ private fun MetaDetailsContent(
                             onOpenEpisodeComments = episodeCommentsClick,
                             showOpenEpisodeComments = shouldShowCommentsSection,
                             onMarkPreviousEpisodesWatched = onMarkPreviousEpisodesWatched,
-                            upFocusRequester = if (nuvioCFinding) nuvioCFindFieldFocus else if (showSeasonTabs) selectedSeasonFocusRequester else (heroPlayFocusRequester ?: heroPlayButtonFocusRequester),
+                            upFocusRequester = if (showSeasonTabs) selectedSeasonFocusRequester else (heroPlayFocusRequester ?: heroPlayButtonFocusRequester),
                             downFocusRequester = episodesDownFocusRequester,
-                            episodeFocusRequesters = if (nuvioCFinding) nuvioCFindRequesters else seasonEpisodeFocusRequesters,
-                            restoreEpisodeId = if (nuvioCFinding) null else visibleEpisodeRestoreId,
-                            restoreFocusToken = if (!nuvioCFinding && pendingRestoreType == RestoreTarget.EPISODE) restoreFocusToken else 0,
+                            episodeFocusRequesters = seasonEpisodeFocusRequesters,
+                            restoreEpisodeId = visibleEpisodeRestoreId,
+                            restoreFocusToken = if (pendingRestoreType == RestoreTarget.EPISODE) restoreFocusToken else 0,
                             onRestoreFocusHandled = {
                                 val isStaleEpisodeRestore =
                                     pendingRestoreType == RestoreTarget.EPISODE &&
@@ -2882,7 +2810,6 @@ private fun MetaDetailsContent(
                                 }
                             },
                             onEpisodeFocused = { episodeId ->
-                                if (nuvioCFinding) return@EpisodesRow // [fork] round 43: Find results don't move the season's remembered episode
                                 if ((if (NuvioCDetailSmooth.enabled) tapScroll.lastKey else lastDetailDpadKey) == KeyEvent.KEYCODE_DPAD_UP) {
                                     val episodeListItemIndex = 1 + if (showSeasonTabs) 1 else 0
                                     val episodeItem = listState.layoutInfo.visibleItemsInfo
@@ -2897,7 +2824,7 @@ private fun MetaDetailsContent(
                                     }
                                 }
                             },
-                            scrollToEpisodeId = if (nuvioCFinding) null else if (lastFocusedEpisodeIdBySeason[selectedSeason] != null) {
+                            scrollToEpisodeId = if (lastFocusedEpisodeIdBySeason[selectedSeason] != null) {
                                 null
                             } else if (!initialEpisodeScrollDone && pendingRestoreType != RestoreTarget.EPISODE) {
                                 val ntwId = nextToWatch?.nextVideoId
@@ -2919,11 +2846,10 @@ private fun MetaDetailsContent(
                             onScrollToEpisodeHandled = {
                                 initialEpisodeScrollDone = true
                             },
-                            anchorEpisodeId = if (nuvioCFinding) null else lastFocusedEpisodeIdBySeason[selectedSeason],
-                            windowResetKey = if (nuvioCFinding) "find:${nuvioCFindQuery}" else meta.id,
+                            anchorEpisodeId = lastFocusedEpisodeIdBySeason[selectedSeason],
+                            windowResetKey = meta.id,
                             ratingMedia = { video -> meta.ratingReference(video) }
                         )
-                        } // [fork] round 43 CompositionLocalProvider
                     }
             }
         }

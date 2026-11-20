@@ -379,11 +379,6 @@
     <string name="nuvio_c_award_globes">Golden Globes</string>
     <string name="nuvio_c_award_bafta">BAFTA</string>
     <string name="nuvio_c_award_emmys">Primetime Emmys</string>
-    <string name="nuvio_c_find">Find</string>
-    <string name="nuvio_c_find_hint">Episode number or name</string>
-    <string name="nuvio_c_find_matches">%d matches</string>
-    <string name="nuvio_c_find_one">1 match</string>
-    <string name="nuvio_c_find_none">No episodes match</string>
     <!-- [fork] round 44 -->
     <string name="nuvio_c_autoplay_back_hint">Back to stay</string>
     <string name="nuvio_c_outline_width">Outline width</string>
@@ -396,6 +391,7 @@
     <string name="nuvio_c_osd_style_nuvio_c">Default</string>
     <string name="nuvio_c_osd_style_clean">Modern</string>
     <string name="nuvio_c_more_playback">Playback</string>
+    <string name="nuvio_c_more_subtitle_delay">Subtitle delay</string>
     <string name="nuvio_c_more_player">Player</string>
     <!-- [fork] round 48 -->
     <string name="nuvio_c_next_label">Next · S%1$d E%2$d</string>

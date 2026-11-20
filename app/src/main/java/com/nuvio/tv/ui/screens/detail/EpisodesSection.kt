@@ -5,7 +5,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.BorderStroke
 import com.nuvio.tv.ui.theme.NuvioPrimitives
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -159,10 +158,7 @@ fun SeasonTabs(
     upFocusRequester: FocusRequester? = null,
     downFocusRequester: FocusRequester? = null,
     isFocusEnabled: Boolean = true,
-    posterStyle: SeasonPosterTabsStyle? = null,
-    nuvioCTrailing: (@Composable () -> Unit)? = null, // [fork] round 43 episode_find: the Find chip after the last tab
-    nuvioCRowFocus: NuvioCSeasonRowFocus? = null, // [fork] round 46 find_focus
-    nuvioCFindRequester: FocusRequester? = null // [fork] round 46 find_focus
+    posterStyle: SeasonPosterTabsStyle? = null
 ) {
     // Move season 0 (specials) to the end
     val sortedSeasons = remember(seasons) {
@@ -187,7 +183,6 @@ fun SeasonTabs(
 
     var pendingSeason by remember { mutableStateOf<Int?>(null) }
     var seasonRowHasFocus by remember { mutableStateOf(false) }
-    var suppressFocusSwitch by remember { mutableStateOf(false) } // [fork] round 46: scrolling for an entry must not switch season
     var lastHorizontalKeyRepeatTime by remember { mutableStateOf(0L) }
     val currentOnSeasonSelected by rememberUpdatedState(onSeasonSelected)
     val currentOnSeasonLongPress by rememberUpdatedState(onSeasonLongPress)
@@ -195,9 +190,8 @@ fun SeasonTabs(
     val onTabLongPress: (Int) -> Unit = remember { { season -> currentOnSeasonLongPress(season) } }
     val onTabFocused: (Int, Boolean) -> Unit = remember {
         { season, isSelected ->
-            nuvioCRowFocus?.lastFind = false // [fork] round 46
             lastFocusedSeason = season
-            if (!isSelected && !suppressFocusSwitch) {
+            if (!isSelected) {
                 pendingSeason = season
             }
         }
@@ -220,33 +214,6 @@ fun SeasonTabs(
         when {
             lastFocusedSeason == selectedSeason -> selectedTabFocusRequester
             else -> seasonFocusRequesters.getOrPut(lastFocusedSeason) { FocusRequester() }
-        }
-    }
-
-    // [fork] round 46 find_focus: a way into the row from outside that never lands on an uncomposed tab.
-    val nuvioCFindFocus = com.nuvio.tv.NuvioCFeatures.FIND_FOCUS && nuvioCRowFocus != null
-    val nuvioCScope = androidx.compose.runtime.rememberCoroutineScope()
-    if (nuvioCFindFocus) {
-        androidx.compose.runtime.SideEffect {
-            nuvioCRowFocus!!.enterAction = enter@{ toFind ->
-                val useFind = toFind && nuvioCTrailing != null && nuvioCFindRequester != null
-                val index = if (useFind) sortedSeasons.size else sortedSeasons.indexOf(selectedSeason).coerceAtLeast(0)
-                val requester = if (useFind) nuvioCFindRequester!! else selectedTabFocusRequester
-                pendingSeason = null
-                val info = lazyListState.layoutInfo
-                val contentEnd = info.viewportEndOffset - info.afterContentPadding
-                val shown = info.visibleItemsInfo.firstOrNull { it.index == index }
-                if (shown == null || shown.offset < 0 || shown.offset + shown.size > contentEnd) {
-                    suppressFocusSwitch = true
-                    runCatching { lazyListState.scrollToItem(index) }
-                    suppressFocusSwitch = false
-                }
-                repeat(8) {
-                    if (runCatching { requester.requestFocus() }.getOrDefault(false)) return@enter true
-                    withFrameNanos { }
-                }
-                false
-            }
         }
     }
 
@@ -289,13 +256,7 @@ fun SeasonTabs(
                     false
                 }
                 .focusRestorer {
-                    if (nuvioCFindFocus) { // [fork] round 46: Find remembered; a pending season switch no longer blocks entry
-                        when {
-                            suppressFocusSwitch -> FocusRequester.Cancel
-                            nuvioCRowFocus!!.lastFind && nuvioCFindRequester != null -> nuvioCFindRequester
-                            else -> restorerRequester
-                        }
-                    } else if (suppressFocusSwitch || pendingSeason != null) {
+                    if (pendingSeason != null) {
                         FocusRequester.Cancel
                     } else {
                         restorerRequester
@@ -317,7 +278,7 @@ fun SeasonTabs(
                     season = season,
                     isSelected = isSelected,
                     isLeftEdge = if (isRtl) season == sortedSeasons.last() else season == sortedSeasons.first(),
-                    isRightEdge = nuvioCTrailing == null && (if (isRtl) season == sortedSeasons.first() else season == sortedSeasons.last()), // [fork] round 43: Right reaches Find
+                    isRightEdge = if (isRtl) season == sortedSeasons.first() else season == sortedSeasons.last(),
                     isFocusEnabled = isFocusEnabled,
                     rowHasFocus = isSelected && seasonRowHasFocus,
                     isPosterMode = posterStyle != null,
@@ -329,30 +290,6 @@ fun SeasonTabs(
                     onLongPress = onTabLongPress,
                     onFocused = onTabFocused
                 )
-            }
-            if (nuvioCTrailing != null) {
-                item(key = "nuvio_c_find", contentType = "nuvio_c_find") {
-                    // [fork] round 54 find_poster: with season posters on, Find is a portrait tile of the same size
-                    androidx.compose.runtime.CompositionLocalProvider(LocalNuvioCFindPosterMode provides (posterStyle != null)) {
-                    if (nuvioCFindFocus) {
-                        // [fork] round 46: Find is remembered; Left goes straight to the selected season (no walk through
-                        // every tab, each of which used to switch the season as focus passed it).
-                        Box(
-                            Modifier
-                                .onFocusChanged { if (it.hasFocus) nuvioCRowFocus!!.lastFind = true }
-                                .onPreviewKeyEvent { event ->
-                                    val native = event.nativeKeyEvent
-                                    val towardTabs = if (isRtl) AndroidKeyEvent.KEYCODE_DPAD_RIGHT else AndroidKeyEvent.KEYCODE_DPAD_LEFT
-                                    if (native.keyCode != towardTabs) return@onPreviewKeyEvent false
-                                    if (native.action == AndroidKeyEvent.ACTION_DOWN && native.repeatCount == 0) {
-                                        nuvioCScope.launch { nuvioCRowFocus!!.enterSeason() }
-                                    }
-                                    true
-                                }
-                        ) { nuvioCTrailing() }
-                    } else nuvioCTrailing()
-                    }
-                }
             }
         }
     }
@@ -1013,11 +950,9 @@ private fun EpisodeCard(
     }
     val strEpisode = stringResource(R.string.episodes_episode)
     val strUnavailable = stringResource(R.string.episodes_unavailable)
-    val nuvioCSeasonCode = LocalNuvioCEpisodeSeasonCode.current // [fork] round 43 episode_find
-    val episodeCode = remember(episode.episode, episode.season, strEpisode, nuvioCSeasonCode) {
+    val episodeCode = remember(episode.episode, strEpisode) {
         val prefix = strEpisode.uppercase(Locale.getDefault())
-        val code = episode.episode?.let { number -> "$prefix $number" } ?: prefix
-        if (nuvioCSeasonCode && episode.season != null) (if (episode.season == 0) "SP · $code" else "S${episode.season} · $code") else code
+        episode.episode?.let { number -> "$prefix $number" } ?: prefix
     }
 
     val primaryColor = NuvioTheme.colors.Secondary
