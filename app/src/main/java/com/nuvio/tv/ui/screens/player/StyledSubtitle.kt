@@ -45,11 +45,10 @@ private const val STYLED_SUBTITLE_PADDING_X = 10f
 private const val STYLED_SUBTITLE_PADDING_Y = 5f
 
 internal val SubtitleStyleSettings.usesStyledRenderer: Boolean
-    get() = !com.nuvio.tv.NuvioCFeatures.SUBTITLE_CLASSIC_RENDERER && // [fork] round 44: Nuvio C keeps the subtitle view (lift, top jump, HDR dim)
-        (fontId != SubtitleFonts.DEFAULT ||
-            (backgroundColor ushr 24) > 0 ||
-            shadowEnabled ||
-            (outlineEnabled && outlineWidth != SubtitleStyleSettings.OUTLINE_WIDTH_DEFAULT))
+    get() = fontId != SubtitleFonts.DEFAULT ||
+        (backgroundColor ushr 24) > 0 ||
+        shadowEnabled ||
+        (outlineEnabled && outlineWidth != SubtitleStyleSettings.OUTLINE_WIDTH_DEFAULT)
 
 internal fun styledSubtitlePaddingXPx(textSizePx: Float): Float =
     STYLED_SUBTITLE_PADDING_X * textSizePx / SUBTITLE_BASE_TEXT_SP

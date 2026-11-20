@@ -1128,7 +1128,7 @@ private fun SubtitleStyleRail(
                     }
                 }
             }
-            if (!com.nuvio.tv.NuvioCFeatures.SUBTITLE_CLASSIC_RENDERER) item { // [fork] round 44: shadow needs official's new renderer
+            item {
                 SubtitleShadowStyleCard(
                     subtitleStyle = subtitleStyle,
                     focusRequesters = focusRequesters,
@@ -1941,9 +1941,7 @@ private fun String.isHdrBrightnessFocusKey(): Boolean =
  */
 private fun styleListIndexForFocusKey(focusKey: String, hasHdrBrightnessItem: Boolean): Int {
     if (focusKey.isHdrBrightnessFocusKey()) return 6
-    val raw = styleListIndexForFocusKey(focusKey)
-    // [fork] round 44 subtitle_classic_renderer: no Shadow card, so the rows after it move up one
-    val index = if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_CLASSIC_RENDERER && raw >= 9) raw - 1 else raw
+    val index = styleListIndexForFocusKey(focusKey)
     return if (hasHdrBrightnessItem && index >= 6) index + 1 else index
 }
 

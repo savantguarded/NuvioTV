@@ -153,7 +153,7 @@ internal object NuvioCSubtitleFont {
 
     // ---- [fork] round 44: the Nuvio C fonts inside official 1.2's Font list ----------------------------------
     // Official stores the pick as `fontId` in the player settings (per profile); the Nuvio C fonts join that list
-    // as "nuvioc_<id>". The subtitle view (SUBTITLE_CLASSIC_RENDERER) draws any official id: Nuvio C fonts from the
+    // as "nuvioc_<id>". Text subtitles draw any official id: Nuvio C fonts from the
     // APK, Serif / Monospace, and fonts imported from a phone. mpv follows the pick through the old app-wide pref.
 
     private const val PREFIX = "nuvioc_"

@@ -202,7 +202,7 @@ private fun SubtitleAppearanceControls(
                     }
                 )
             }
-            if (!com.nuvio.tv.NuvioCFeatures.SUBTITLE_CLASSIC_RENDERER) item(key = "background_radius") { // [fork] round 44: needs official's new renderer
+            item(key = "background_radius") {
                 SliderSettingsItem(
                     title = stringResource(R.string.sub_bg_roundness),
                     value = style.backgroundRadius,
@@ -243,7 +243,7 @@ private fun SubtitleAppearanceControls(
                     )
                 }
             }
-            if (!com.nuvio.tv.NuvioCFeatures.SUBTITLE_CLASSIC_RENDERER) item(key = "shadow") { // [fork] round 44: needs official's new renderer
+            item(key = "shadow") {
                 SettingsToggleRow(
                     title = stringResource(R.string.sub_shadow),
                     subtitle = stringResource(R.string.sub_shadow_desc),
@@ -251,7 +251,7 @@ private fun SubtitleAppearanceControls(
                     onToggle = { onUpdate { setSubtitleShadowEnabled(!style.shadowEnabled) } }
                 )
             }
-            if (style.shadowEnabled && !com.nuvio.tv.NuvioCFeatures.SUBTITLE_CLASSIC_RENDERER) {
+            if (style.shadowEnabled) {
                 item(key = "shadow_opacity") {
                     SliderSettingsItem(
                         title = stringResource(R.string.sub_shadow_opacity),

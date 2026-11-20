@@ -88,7 +88,7 @@ internal fun SubtitleBackgroundStyleCard(
                 incrementFocusKey = StyleFocusKey.BackgroundOpacityIncrease,
                 onFocusChanged = onFocused
             )
-            if (!com.nuvio.tv.NuvioCFeatures.SUBTITLE_CLASSIC_RENDERER) Column( // [fork] round 44: roundness needs official's new renderer
+            Column(
                 modifier = Modifier.alpha(if (opacityPercent > 0) 1f else 0.35f),
                 verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
             ) {

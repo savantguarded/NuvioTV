@@ -701,8 +701,6 @@ object NuvioCFeatures {
     // [fork] round 44
     /** Player: unattended auto-play gets official's 3-second countdown card again (Back cancels it for that episode), with a small "Back to stay" line. A Next press still starts at once. Off = no countdown for auto-play either (round 43). */
     const val AUTOPLAY_COUNTDOWN = true
-    /** Subtitles: text subtitles keep the player's own subtitle view, with official 1.2's Font list (plus the Nuvio C fonts) and Background colour / opacity applied to it; rounded corners and drop shadow hidden. Round 44b: off, official 1.2's drawn renderer is used (see SUBTITLE_STYLED_LIFT). */
-    const val SUBTITLE_CLASSIC_RENDERER = false
     // [fork] round 44b
     /** Subtitles: official 1.2's drawn renderer (fonts, background box, rounded corners, shadow) gets the Nuvio C lift above the OSD, the top jump, the pause-screen lift and HDR dim. Off = it only moves with official's own lift. */
     const val SUBTITLE_STYLED_LIFT = true
