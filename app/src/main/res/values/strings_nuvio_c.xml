@@ -377,7 +377,6 @@
     </plurals>
     <string name="nuvio_c_info_country">Country</string>
     <string name="nuvio_c_info_based_on">Based on</string>
-    <string name="nuvio_c_info_original_title">Original title</string>
     <string name="nuvio_c_info_last_aired">Last aired</string>
     <string name="nuvio_c_info_episodes">Episodes</string>
     <string name="nuvio_c_info_episode_length">Episode length</string>
@@ -386,17 +385,6 @@
     <string name="nuvio_c_award_bafta">BAFTA</string>
     <string name="nuvio_c_award_emmys">Primetime Emmys</string>
     <string name="nuvio_c_award_festivals">Festivals</string>
-    <string name="nuvio_c_guide_title">Parental guidance</string>
-    <string name="nuvio_c_guide_nudity">Sex &amp; nudity</string>
-    <string name="nuvio_c_guide_violence">Violence</string>
-    <string name="nuvio_c_guide_profanity">Profanity</string>
-    <string name="nuvio_c_guide_alcohol">Alcohol &amp; drugs</string>
-    <string name="nuvio_c_guide_frightening">Frightening</string>
-    <string name="nuvio_c_guide_level_none">None</string>
-    <string name="nuvio_c_guide_level_mild">Mild</string>
-    <string name="nuvio_c_guide_level_moderate">Moderate</string>
-    <string name="nuvio_c_guide_level_severe">Severe</string>
-    <string name="nuvio_c_guide_none">No IMDb guide for this title</string>
     <string name="nuvio_c_find">Find</string>
     <string name="nuvio_c_find_hint">Episode number or name</string>
     <string name="nuvio_c_find_matches">%d matches</string>
@@ -404,8 +392,6 @@
     <string name="nuvio_c_find_none">No episodes match</string>
     <!-- [fork] round 44 -->
     <string name="nuvio_c_autoplay_back_hint">Back to stay</string>
-    <string name="nuvio_c_info_themes">Themes</string>
-    <string name="nuvio_c_info_keywords">Keywords</string>
     <string name="nuvio_c_outline_width">Outline width</string>
     <string name="nuvio_c_osd_crew">Crew</string>
     <string name="nuvio_c_osd_more">More</string>

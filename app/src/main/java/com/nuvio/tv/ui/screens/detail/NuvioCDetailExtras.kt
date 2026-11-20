@@ -6,17 +6,15 @@ package com.nuvio.tv.ui.screens.detail
 // dash where a value is missing, so the eye always finds the same thing in the same spot. Anything the top of the
 // page already shows (rating, runtime, genres, seasons, director / creator) stays out.
 //
-// Round 43b layout, one full-width column: Information, then Parental guidance (rating chip and five fixed cells
-// with a 3-step bar and level, no notes).
-// Round 47: inside Information, after Themes, a Keywords line (the rest of TMDB's keywords, wrapping) and an Awards
-// line: major wins only (Oscars, Emmys, Golden Globes, BAFTA, main festival prizes) from Wikidata by IMDb id (the
+// Round 43b layout, one full-width column. Round 47: an Awards line: major wins only (Oscars, Emmys, Golden Globes, BAFTA, main festival prizes) from Wikidata by IMDb id (the
 // title and people "for" it), 7 days on disk. No nominations, no OMDb. A dash means "no major win found".
+//
+// 2026-11-20: Parental guidance, Themes, Keywords and Original title removed (Charles).
 //
 // The whole block is one quiet focus stop (detail_info_stop) below the last row; late data never moves anything above it.
 
 import android.content.Context
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,7 +25,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
@@ -40,8 +37,6 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
-import com.nuvio.tv.data.repository.NuvioCGuide
-import com.nuvio.tv.data.repository.NuvioCGuideLine
 import com.nuvio.tv.ui.theme.NuvioTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -213,33 +208,30 @@ internal val NUVIO_C_FILM_SLOTS = listOf(
     R.string.nuvio_c_info_theatrical, R.string.nuvio_c_info_digital,
     R.string.nuvio_c_info_country, R.string.nuvio_c_info_language,
     R.string.nuvio_c_info_budget, R.string.nuvio_c_info_box_office,
-    R.string.nuvio_c_info_based_on, R.string.nuvio_c_info_original_title
+    R.string.nuvio_c_info_based_on
 )
 internal val NUVIO_C_SHOW_SLOTS = listOf(
     R.string.nuvio_c_info_status, R.string.nuvio_c_info_airs,
     R.string.nuvio_c_info_first_aired, R.string.nuvio_c_info_last_aired,
     R.string.nuvio_c_info_episodes, R.string.nuvio_c_info_episode_length,
     R.string.nuvio_c_info_country, R.string.nuvio_c_info_language,
-    R.string.nuvio_c_info_based_on, R.string.nuvio_c_info_original_title
+    R.string.nuvio_c_info_based_on
 )
 
 /**
  * [fork] round 43b: one column, full width. Information (two slots per line, so long values keep their room), then
- * Parental guidance (five fixed cells: name, 3-step bar, level), then Awards (fixed cells: body, counts). Same
- * heading style, hairline and spacing rules for all three.
+ * Based on and Awards on full-width lines.
  */
 @Composable
 internal fun NuvioCInfoSlots(info: NuvioCDetailInfo, margin: Dp) {
     val hairline = NuvioTheme.colors.TextPrimary.copy(alpha = 0.08f)
     Column(Modifier.fillMaxWidth().padding(horizontal = margin)) {
         Heading(stringResource(R.string.nuvio_c_info_title))
-        val full = com.nuvio.tv.NuvioCFeatures.INFO_FULL_ROWS // [fork] round 44: Based on (and Themes) get the full width
+        val full = com.nuvio.tv.NuvioCFeatures.INFO_FULL_ROWS // [fork] round 44: Based on gets the full width
         val slots = (if (info.show) NUVIO_C_SHOW_SLOTS else NUVIO_C_FILM_SLOTS).let { if (full) it - R.string.nuvio_c_info_based_on else it }
         val byLabel = info.rows.associateBy { it.label }
-        // [fork] round 52: empty slots were left out; round 53 detail_info_slots: every slot back in its fixed place with a
-        // dash, and only the Parental guidance band (below) still waits for data
+        // [fork] round 52: empty slots were left out; round 53 detail_info_slots: every slot back in its fixed place with a dash
         val hideEmpty = com.nuvio.tv.NuvioCFeatures.DETAIL_INFO_HIDE_EMPTY && !com.nuvio.tv.NuvioCFeatures.DETAIL_INFO_DASHES
-        val hideEmptyGuide = com.nuvio.tv.NuvioCFeatures.DETAIL_INFO_HIDE_EMPTY
         val shownSlots = if (hideEmpty) slots.filter { l -> !byLabel[l]?.value.isNullOrBlank() } else slots
         shownSlots.chunked(2).forEach { pair ->
             Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
@@ -256,14 +248,6 @@ internal fun NuvioCInfoSlots(info: NuvioCDetailInfo, margin: Dp) {
         if (full && (!hideEmpty || !byLabel[R.string.nuvio_c_info_based_on]?.value.isNullOrBlank())) {
             Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
             SlotLine(stringResource(R.string.nuvio_c_info_based_on), byLabel[R.string.nuvio_c_info_based_on]?.value?.takeIf { it.isNotBlank() }, Modifier.fillMaxWidth(), maxLines = 2)
-        }
-        if (com.nuvio.tv.NuvioCFeatures.DETAIL_THEMES && (!hideEmpty || info.themes.isNotEmpty())) {
-            Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
-            NuvioCThemesLine(stringResource(R.string.nuvio_c_info_themes), info.themes)
-        }
-        if (com.nuvio.tv.NuvioCFeatures.DETAIL_KEYWORDS && (!hideEmpty || info.keywords.isNotEmpty())) { // [fork] round 47: the rest of the keywords, wrapping
-            Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
-            NuvioCThemesLine(stringResource(R.string.nuvio_c_info_keywords), info.keywords) // [fork] 47b: one line and "+N", like Themes
         }
         val nuvioCAwardNames = mapOf(
                 NuvioCAwardBody.OSCARS to stringResource(R.string.nuvio_c_award_oscars),
@@ -283,44 +267,10 @@ internal fun NuvioCInfoSlots(info: NuvioCDetailInfo, margin: Dp) {
             SlotLine(stringResource(R.string.nuvio_c_info_awards), NuvioCAwardBodies.winsText(info.awards, names), Modifier.fillMaxWidth(), maxLines = Int.MAX_VALUE)
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
-
-        // [fork] round 52 detail_info_hide_empty: Parental guidance only once it has at least one level (never while
-        // loading, never as a row of dashes). It is the last band, so arriving late moves nothing below it.
-        val nuvioCGuideHas = info.guide?.let { g -> listOf(g.nudity, g.violence, g.profanity, g.alcohol, g.frightening).any { it?.level != null } } == true
-        if (com.nuvio.tv.NuvioCFeatures.DETAIL_GUIDE && (!hideEmptyGuide || nuvioCGuideHas)) {
-            Spacer(Modifier.height(BAND_GAP))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Heading(stringResource(R.string.nuvio_c_guide_title))
-                Spacer(Modifier.width(10.dp))
-                Box(
-                    Modifier
-                        .padding(bottom = HEADING_GAP)
-                        .border(1.dp, NuvioTheme.colors.TextPrimary.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp, vertical = 1.dp)
-                ) {
-                    Text(info.rated ?: "NR", style = MaterialTheme.typography.labelMedium, color = NuvioTheme.colors.TextPrimary, maxLines = 1)
-                }
-            }
-            val g = info.guide
-            Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
-            Row(horizontalArrangement = Arrangement.spacedBy(CELL_GAP), modifier = Modifier.fillMaxWidth()) {
-                listOf(
-                    R.string.nuvio_c_guide_nudity to g?.nudity,
-                    R.string.nuvio_c_guide_violence to g?.violence,
-                    R.string.nuvio_c_guide_profanity to g?.profanity,
-                    R.string.nuvio_c_guide_alcohol to g?.alcohol,
-                    R.string.nuvio_c_guide_frightening to g?.frightening
-                ).forEach { (label, line) -> GuideCell(stringResource(label), line?.level, Modifier.weight(1f)) }
-            }
-            Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
-        }
-
     }
 }
 
-private val BAND_GAP = 28.dp
 private val HEADING_GAP = 10.dp
-private val CELL_GAP = 24.dp
 
 @Composable
 private fun Heading(text: String) {
@@ -353,95 +303,8 @@ private fun SlotLine(label: String, value: String?, modifier: Modifier, maxLines
     }
 }
 
-@Composable
-private fun GuideCell(label: String, level: String?, modifier: Modifier) {
-    val steps = when (level) { "mild" -> 1; "moderate" -> 2; "severe" -> 3; else -> 0 }
-    val levelText = when (level) {
-        "none" -> stringResource(R.string.nuvio_c_guide_level_none)
-        "mild" -> stringResource(R.string.nuvio_c_guide_level_mild)
-        "moderate" -> stringResource(R.string.nuvio_c_guide_level_moderate)
-        "severe" -> stringResource(R.string.nuvio_c_guide_level_severe)
-        else -> null
-    }
-    Column(modifier.padding(vertical = 10.dp)) {
-        Text(label, style = MaterialTheme.typography.bodySmall, color = NuvioTheme.extendedColors.textTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.height(6.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                repeat(3) { i ->
-                    Box(
-                        Modifier.width(16.dp).height(5.dp).background(
-                            if (i < steps) NuvioTheme.colors.TextPrimary.copy(alpha = 0.9f) else NuvioTheme.colors.TextPrimary.copy(alpha = 0.14f),
-                            RoundedCornerShape(3.dp)
-                        )
-                    )
-                }
-            }
-            Spacer(Modifier.width(10.dp))
-            Text(
-                levelText ?: DASH,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (levelText != null) NuvioTheme.colors.TextPrimary else dashColor(),
-                maxLines = 1
-            )
-        }
-    }
-}
-
 /** [fork] round 44 info_full_rows: Information labels and values at 13 sp (were 14). */
 @Composable
 private fun slotStyle(): androidx.compose.ui.text.TextStyle =
     if (com.nuvio.tv.NuvioCFeatures.INFO_FULL_ROWS) MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp, lineHeight = 18.sp)
     else MaterialTheme.typography.bodyMedium
-
-/**
- * [fork] round 44 detail_themes: label, then quiet outline chips on one line, as many whole chips as fit and "+N" for
- * the rest. Not focusable (the Information block is one focus stop). A dash while TMDB has none.
- */
-@Composable
-private fun NuvioCThemesLine(label: String, themes: List<String>) {
-    val style = slotStyle()
-    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = style, color = NuvioTheme.extendedColors.textTertiary, maxLines = 1, modifier = Modifier.width(136.dp))
-        if (themes.isEmpty()) {
-            Text(DASH, style = style, color = dashColor())
-            return@Row
-        }
-        val chipStyle = MaterialTheme.typography.labelMedium
-        val chipColor = NuvioTheme.colors.TextPrimary.copy(alpha = 0.85f)
-        val border = NuvioTheme.colors.TextPrimary.copy(alpha = 0.22f)
-        val more = NuvioTheme.extendedColors.textTertiary
-        androidx.compose.ui.layout.SubcomposeLayout(Modifier.weight(1f)) { constraints ->
-            val gap = 8.dp.roundToPx()
-            val loose = constraints.copy(minWidth = 0, minHeight = 0)
-            val chips = themes.mapIndexed { i, t ->
-                subcompose("c$i") {
-                    Box(
-                        Modifier
-                            .border(1.dp, border, RoundedCornerShape(50))
-                            .padding(horizontal = 10.dp, vertical = 3.dp)
-                    ) { Text(t, style = chipStyle, color = chipColor, maxLines = 1) }
-                }.first().measure(loose)
-            }
-            val plusWidth = subcompose("plusProbe") { Text("+${themes.size}", style = chipStyle, color = more) }.first().measure(loose).width
-            var used = 0
-            var count = 0
-            for ((i, p) in chips.withIndex()) {
-                val next = (if (count == 0) 0 else used + gap) + p.width
-                val rest = chips.size - i - 1
-                val room = if (rest > 0) next + gap + plusWidth else next
-                if (room > constraints.maxWidth) break
-                used = next
-                count++
-            }
-            val left = chips.size - count
-            val plus = if (left > 0) subcompose("plus") { Text("+$left", style = chipStyle, color = more) }.first().measure(loose) else null
-            val height = (chips.take(count).maxOfOrNull { it.height } ?: 0).coerceAtLeast(plus?.height ?: 0)
-            layout(constraints.maxWidth, height) {
-                var x = 0
-                chips.take(count).forEach { p -> p.placeRelative(x, (height - p.height) / 2); x += p.width + gap }
-                plus?.placeRelative(x, (height - plus.height) / 2)
-            }
-        }
-    }
-}

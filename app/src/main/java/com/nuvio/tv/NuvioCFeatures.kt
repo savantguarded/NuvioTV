@@ -719,12 +719,10 @@ object NuvioCFeatures {
     const val HERO_FACTS_ABOVE = true
     /** Details hero: synopsis as wide as the six-button row (fixed on every title), left fade a little wider. Off = round 39 width. */
     const val HERO_SYNOPSIS_WIDE = true
-    /** Details Information as fixed slots (films 8, shows 10, a dim dash when missing), nothing that the top of the page already shows; adds Country, Based on, Original title, Last aired, Episodes, Episode length. Off = round 39 block. */
+    /** Details Information as fixed slots (films 8, shows 10, a dim dash when missing), nothing that the top of the page already shows; adds Country, Based on, Last aired, Episodes, Episode length. Off = round 39 block. */
     const val DETAIL_INFO_SLOTS = true
     /** Details Awards: one fixed line per major body (Oscars / Emmys, Golden Globes, BAFTA, Festivals for films) from Wikidata, plus Overall from OMDb. Needs DETAIL_INFO_SLOTS. Off = no Awards lines. */
     const val DETAIL_AWARDS_BODIES = false // round 43c: removed (inaccurate)
-    /** Details Parental guidance next to Information: rating chip, the five IMDb categories with a level bar and a short non-spoiler note. Needs DETAIL_INFO_SLOTS. Off = no guide. */
-    const val DETAIL_GUIDE = true
     /** Details episodes: a Find chip at the end of the season tabs; search by number (12, e12, s3e5, 3x05) or name across all seasons. Off = official tabs. */
     const val EPISODE_FIND = true
     // [fork] round 43b
@@ -742,8 +740,6 @@ object NuvioCFeatures {
     const val HERO_META_SMALL = true
     /** Details Information: Based on gets its own full-width line (wraps to two lines) and labels / values are 13 sp. Needs DETAIL_INFO_SLOTS. Off = round 43b slots. */
     const val INFO_FULL_ROWS = true
-    /** Details Information: a Themes line from TMDB keywords (same request, no extra call), meta tags filtered out, up to 8 chips. Needs DETAIL_INFO_SLOTS. Off = no Themes. */
-    const val DETAIL_THEMES = true
     // [fork] round 46
     /** Library: Back from a title lands on that title again. A list, filter or sort change still jumps to the first poster once. Off = round 26 (Back could jump to the first poster). */
     const val LIBRARY_BACK_FOCUS = true
@@ -767,8 +763,6 @@ object NuvioCFeatures {
     // [fork] round 47
     /** Details tagline (and the Featured carousel's): English only; a tagline in another script or language is hidden, never shown. Off = TMDB's tagline as given. */
     const val TAGLINE_ENGLISH = true
-    /** Details Information: a Keywords line after Themes with every other TMDB keyword (same request), chips wrapping onto more lines. Needs DETAIL_INFO_SLOTS. Off = no Keywords line. */
-    const val DETAIL_KEYWORDS = true
     /** Details Information: an Awards line (full width, wraps) with the major wins only (Oscars, Emmys, Golden Globes, BAFTA, main festival prizes) from Wikidata. No nominations, no OMDb. Needs DETAIL_INFO_SLOTS. Off = no Awards line. */
     const val DETAIL_AWARDS_WINS = true
     /** Featured carousel: the tagline is a notch smaller (13 sp) and may take two lines; the synopsis gives up a line when it does, so the carousel never grows. Off = one line at 14 sp. */
@@ -788,7 +782,7 @@ object NuvioCFeatures {
     /** Stream info page: the HUD button is always offered; on a box without the Info key setting it turns that per-device setting on first. Off = official (button only once the setting is on). */
     const val HUD_ANY_DEVICE = true
     // [fork] round 47b
-    /** Details Information: once its stop has focus the page glides on to the very end (Parental guidance in view). Off = the block's top only. */
+    /** Details Information: once its stop has focus the page glides on to the very end . Off = the block's top only. */
     const val INFO_END_SCROLL = true
     /** Taste: This week as one compact card in the Month so far style, stats side by side. Off = round 47 2 x 2 tiles. */
     const val TASTE_WEEK_CARD = true
@@ -884,7 +878,7 @@ object NuvioCFeatures {
     const val CLEAN_PILL_FOCUS_FIT = true
     /** Cast page: All / Movies (count) / Shows (count) chips sit on the right of the "Filmography" line, so posters and titles are never cut; a new filter starts the row at its first poster and the chip keeps focus. Off = round 51 chip row above the posters. */
     const val FILMOGRAPHY_CHIPS_INLINE = true
-    /** Details Information: Parental guidance shows only when it has data (not while loading, never a row of dashes); other empty slots (budget, box office, themes, keywords, awards...) are left out instead of showing a dash. Off = fixed slots with dashes. */
+    /** Details Information: empty slots (budget, box office, awards...) are left out instead of showing a dash. Off = fixed slots with dashes. */
     const val DETAIL_INFO_HIDE_EMPTY = true
     /** Calendar: a film shows for its own first release only; dates more than a year after the earliest known one (4K, Blu-ray, anniversary or new digital dates of old films, e.g. from MDBList) are dropped unless belled. Off = every dated release shows. */
     const val CALENDAR_NO_REREALEASES = true
@@ -952,7 +946,7 @@ object NuvioCFeatures {
     const val TRAKT_COMMENTS_BASELINE = true
     /** Featured carousel: your rating tag reads "YOUR RATING 8/10" with no star. Off = star + number. */
     const val FEATURED_RATING_PLAIN = true
-    /** Details Information: every slot always in the same place, a dash when empty; only the Parental guidance band is left out when it has no data. Off = round 52 (empty slots hidden). */
+    /** Details Information: every slot always in the same place, a dash when empty. Off = round 52 (empty slots hidden). */
     const val DETAIL_INFO_DASHES = true
     // [fork] round 53b
     /** Modern OSD: the right-hand group pill is as tall as the left pills (32 dp): 28 dp buttons, 2 dp around them, the focused circle inside the pill. Off = 46 dp group pill. */

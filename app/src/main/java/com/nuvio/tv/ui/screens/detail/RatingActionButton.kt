@@ -51,6 +51,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
+import com.nuvio.tv.ui.screens.player.nuvioCFocusLabel // [fork] detail_focus_label
 import com.nuvio.tv.ui.theme.NuvioMotion
 import com.nuvio.tv.ui.theme.NuvioTheme
 import kotlin.math.PI
@@ -90,6 +91,8 @@ internal fun RatingActionButton(
                 if (state.isFocused) onFocused()
             }
             .focusProperties { up = FocusRequester.Cancel }
+            // [fork] detail_focus_label: the same small name over the button as the other detail buttons
+            .nuvioCFocusLabel(focused, stringResource(R.string.rating_your_rating), enabled = com.nuvio.tv.NuvioCFeatures.DETAIL_FOCUS_LABEL, above = true, osdDim = false)
             .semantics {
                 role = Role.Button
                 contentDescription = description

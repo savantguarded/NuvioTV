@@ -1,7 +1,6 @@
 package com.nuvio.tv
 
 import com.nuvio.tv.core.tmdb.nuvioCEnglishTagline
-import com.nuvio.tv.ui.screens.detail.nuvioCCleanKeywords
 import com.nuvio.tv.ui.screens.player.NuvioCCleanOrder
 import com.nuvio.tv.ui.screens.player.NuvioCCleanZone
 import com.nuvio.tv.ui.screens.player.NuvioCOsdButton
@@ -20,11 +19,6 @@ class NuvioCRound47Test {
         assertNull(nuvioCEnglishTagline("Une phrase", "fr-FR"))
         assertEquals("Amélie's world", nuvioCEnglishTagline("Amélie's world", "en"))
         assertNull(nuvioCEnglishTagline("  ", "en"))
-    }
-
-    @Test fun keywordsSkipThemesAndNameStingers() {
-        val k = nuvioCCleanKeywords(listOf("kaiju", "duringcreditsstinger", "post-war japan", "Kaiju", "atomic bomb"), listOf("Kaiju"))
-        assertEquals(listOf("Mid-credits scene", "Post-war Japan", "Atomic Bomb"), k)
     }
 
     @Test fun rotationNeverLeadsTwiceWithTheSameKind() {
