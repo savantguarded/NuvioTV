@@ -808,8 +808,6 @@ object NuvioCFeatures {
 
     /** Modern OSD: right-side icons share one large rounded pill (More stays separate). */
     const val CLEAN_RIGHT_PILL = true
-    /** Modern OSD: focused round buttons glow softly. */
-    const val CLEAN_BUTTON_GLOW = false // round 53b: off, Charles wants the OSD light and responsive
     /** Modern OSD: Play / Pause shows no name label under it on focus. */
     const val CLEAN_PLAY_RING = true
 
@@ -896,8 +894,6 @@ object NuvioCFeatures {
     const val TRACK_PANELS_V3 = true
     /** Modern OSD and More: the Info button opens the HUD panel only; the remote's INFO key still opens official stream info. Off = Info opens stream info. */
     const val MODERN_INFO_HUD = true
-    /** Modern OSD: button glow drawn once and only on the focused button (no blur redrawn on every button every frame). Off = round 51 glow. */
-    const val OSD_GLOW_LEAN = true
     /** Profile picker: with the built-in background on, official's background link is never loaded (no flash before ours); the saved picture shows at once, black if none; a custom link is used only when the pool is empty. Off = round 52. */
     const val PROFILE_BG_NO_URL_FLASH = true
     /** Profile picker pool: TMDB trending (day + week) plus popular US films and shows, about 60 to 80 titles, a shuffled deck per profile (no repeat until the deck is used up). Off = trending day top 16. */

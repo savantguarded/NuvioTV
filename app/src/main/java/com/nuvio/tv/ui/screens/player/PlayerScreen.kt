@@ -4693,7 +4693,6 @@ private fun ControlButton(
         modifier = Modifier
             .size(LocalNuvioCPillButton.current ?: nuvioCSize ?: NuvioTheme.spacing.xxxl) // [fork] round 53c: smaller inside the group pill
             .nuvioCFocusLabel(isFocused, nuvioCLabel ?: contentDescription) // [fork]
-            .then(if (com.nuvio.tv.NuvioCFeatures.OSD_GLOW_LEAN && com.nuvio.tv.NuvioCFeatures.CLEAN_BUTTON_GLOW) nuvioCLeanGlow({ isFocused }, nuvioCOsd(Color.White), if (nuvioCFocusScale != null) 6.dp else 10.dp) else Modifier) // [fork] round 53 osd_glow_lean
             .then(
                 if (nuvioCRequester != null) Modifier.focusRequester(nuvioCRequester) // [fork] was focusRequester
                 else Modifier
@@ -4741,10 +4740,7 @@ private fun ControlButton(
             LocalNuvioCNoZoom.current -> IconButtonDefaults.scale(focusedScale = 1f)
             nuvioCFocusScale != null -> IconButtonDefaults.scale(focusedScale = nuvioCFocusScale)
             else -> IconButtonDefaults.scale()
-        },
-        glow = if (com.nuvio.tv.NuvioCFeatures.CLEAN_BUTTON_GLOW && !com.nuvio.tv.NuvioCFeatures.OSD_GLOW_LEAN) IconButtonDefaults.glow(
-            focusedGlow = androidx.tv.material3.Glow(nuvioCOsd(Color.White).copy(alpha = 0.28f), if (nuvioCFocusScale != null) 6.dp else 10.dp) // [fork] round 51 clean_button_glow; round 52: Play's tighter halo
-        ) else IconButtonDefaults.glow()
+        }
     ) {
         if (iconPainter != null) {
             Icon(
@@ -6041,24 +6037,3 @@ private fun nuvioCCleanIcon(@androidx.annotation.DrawableRes id: Int): androidx.
 internal val LocalNuvioCNoZoom = androidx.compose.runtime.staticCompositionLocalOf { false }
 /** [fork] round 53c clean_pill_height_match: buttons inside the right group pill take this size (null = their own). */
 internal val LocalNuvioCPillButton = androidx.compose.runtime.staticCompositionLocalOf<androidx.compose.ui.unit.Dp?> { null }
-
-
-/**
- * [fork] round 53 osd_glow_lean: the focused button's halo as one cached radial gradient drawn behind it, only while it
- * has focus. tv-material's Glow puts a blurred shadow layer on every button and redraws it through every focus and
- * scale animation, which is what made the Modern OSD feel heavier on the TCL.
- */
-private fun nuvioCLeanGlow(focused: () -> Boolean, color: Color, spread: androidx.compose.ui.unit.Dp): Modifier =
-    Modifier.drawWithCache {
-        val r = size.minDimension / 2f
-        val outer = r + spread.toPx()
-        val center = androidx.compose.ui.geometry.Offset(size.width / 2f, size.height / 2f)
-        val brush = androidx.compose.ui.graphics.Brush.radialGradient(
-            0f to color.copy(alpha = 0.30f),
-            (r / outer) to color.copy(alpha = 0.22f),
-            1f to Color.Transparent,
-            center = center,
-            radius = outer
-        )
-        onDrawBehind { if (focused()) drawCircle(brush, radius = outer, center = center) }
-    }
