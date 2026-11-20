@@ -2,6 +2,8 @@ package com.nuvio.tv.ui.screens.profile
 
 // [fork] Nuvio C profile screen tweaks (choosing a profile; "Manage profiles" stays official).
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box

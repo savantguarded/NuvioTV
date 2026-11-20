@@ -6,6 +6,8 @@ package com.nuvio.tv.ui.screens.player
 //    block (title, episode line, seek bar, buttons); top subtitles stay put. Only the finished
 //    subtitle picture moves; saved subtitle settings, cue parsing and libass rendering are untouched.
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import android.view.View
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
