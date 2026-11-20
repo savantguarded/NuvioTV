@@ -501,8 +501,6 @@ object NuvioCFeatures {
     const val TRACK_NAMES = true
     /** Stream info panel: more rows from the player's own data (position, rebuffers, container, HDR metadata, decoder, display mode, frame lead, underruns, load errors, back buffer, CPU clock) and the filename scrolls when cut off. Off = round 31 rows. */
     const val STATS_PANEL_FULL = true
-    /** Post-play rating appears when the movie reaches the same point Nuvio sync marks it watched (90%, 80% for Simkl, or your override) instead of the end-credits marker. Off = round 28 trigger. */
-    const val RATING_AT_WATCHED = true // round 47: always on (the end-credits trigger option was removed)
     /** Player Sources panel: Up on the second result jumps straight to the first and scrolls to the top (fast scrolling no longer stops one short). Off = official focus search. */
     const val SOURCES_TOP_JUMP = true
     /** HDR dim reads HDR from official's decoder-input detection (beta.10, read only) before the fork's own colour reading. Off = fork detection only. */
@@ -791,8 +789,6 @@ object NuvioCFeatures {
     const val IMAGE_CACHE_CAP = true
     /** Home: nothing animates or ticks while the app is in the background or the screen is off. Off = as round 49. */
     const val IDLE_QUIET = true
-    /** Release builds: Nuvio C's own debug lines are raised to info so they stay in logcat, official's debug and verbose lines are stripped (done in source and in proguard-rules.pro; this switch only documents it). Off = as round 49. */
-    const val RELEASE_LOG_STRIP = true
     // [fork] round 51
     /** Every focused poster / card (Home rows, Continue Watching, grids, collections, See all) gets a light halo in the accent colour, outside the card; no size, spacing or neighbour change. Off = official focus ring only (collections keep their artwork glow). */
     const val POSTER_GLOW = true
@@ -842,8 +838,6 @@ object NuvioCFeatures {
     const val FEATURED_ARROWS_SPLIT = true
     /** Modern OSD right pill: painted, not clipped, 3 dp around 40 dp buttons and no zoom inside it, so the focused button, its glow and its name under the row are never cut. Off = round 51 clipped pill. */
     const val CLEAN_PILL_FOCUS_FIT = true
-    /** Cast page: All / Movies (count) / Shows (count) chips sit on the right of the "Filmography" line, so posters and titles are never cut; a new filter starts the row at its first poster and the chip keeps focus. Off = round 51 chip row above the posters. */
-    const val FILMOGRAPHY_CHIPS_INLINE = true
     /** Details Information: empty slots (budget, box office, awards...) are left out instead of showing a dash. Off = fixed slots with dashes. */
     const val DETAIL_INFO_HIDE_EMPTY = true
     /** Calendar: a film shows for its own first release only; dates more than a year after the earliest known one (4K, Blu-ray, anniversary or new digital dates of old films, e.g. from MDBList) are dropped unless belled. Off = every dated release shows. */
