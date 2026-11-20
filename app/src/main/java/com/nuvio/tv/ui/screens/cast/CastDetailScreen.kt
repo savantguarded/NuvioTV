@@ -42,6 +42,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -84,6 +85,8 @@ import androidx.tv.material3.Card
 import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Tab
+import androidx.tv.material3.TabRow
 import androidx.tv.material3.Text
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
@@ -194,6 +197,25 @@ private fun CastDetailContent(
             .distinctBy { it.id }
             .sortedByDescending { releaseYearSortKey(it.releaseInfo) }
     }
+    // [fork] beta.3 merge: Nuvio C's credit list (acting only, newest first) feeds official's tabs
+    val showFilmographyFilter = com.nuvio.tv.NuvioCFeatures.FILMOGRAPHY_FILTER &&
+        allCredits.any { it.apiType == "movie" } && allCredits.any { it.apiType != "movie" }
+    var filmographyFilter by rememberSaveable(person.tmdbId) { mutableStateOf(FilmographyFilter.ALL) }
+    val filterTabFocusRequesters = remember { FilmographyFilter.entries.associateWith { FocusRequester() } }
+    // Posters sit under the portrait, so geometric focus search would skip the tabs on D-pad up.
+    val filmographyUpFocusRequester = if (showFilmographyFilter) {
+        filterTabFocusRequesters.getValue(filmographyFilter)
+    } else {
+        FocusRequester.Default
+    }
+    val visibleCredits = when {
+        !showFilmographyFilter -> allCredits
+        filmographyFilter == FilmographyFilter.MOVIES -> nuvioCFilterCredits(allCredits, NuvioCFilmographyFilter.MOVIES)
+        filmographyFilter == FilmographyFilter.SERIES -> nuvioCFilterCredits(allCredits, NuvioCFilmographyFilter.SHOWS)
+        else -> allCredits
+    }
+    // Initial focus goes to the first poster once per screen visit, not on every filter change.
+    val hasRequestedInitialFocus = remember { mutableStateOf(false) }
 
     val globalLandscape = LocalLandscapePosterMode.current
     val filmographyPosterStyle = remember(posterCardCornerRadiusDp, globalLandscape) {
@@ -286,47 +308,46 @@ private fun CastDetailContent(
                         slideOutVertically(targetOffsetY = { it })
                 ) {
                     Column {
-                        var nuvioCFilter by rememberSaveable { mutableStateOf(NuvioCFilmographyFilter.ALL) } // [fork] round 51 filmography_filter
-                        val shownCredits = if (com.nuvio.tv.NuvioCFeatures.FILMOGRAPHY_FILTER) nuvioCFilterCredits(allCredits, nuvioCFilter) else allCredits
-                        val nuvioCHasBoth = com.nuvio.tv.NuvioCFeatures.FILMOGRAPHY_FILTER && allCredits.any { it.apiType == "movie" } && allCredits.any { it.apiType != "movie" }
-                        val nuvioCInline = nuvioCHasBoth && com.nuvio.tv.NuvioCFeatures.FILMOGRAPHY_CHIPS_INLINE // [fork] round 52
-                        var nuvioCUserFiltered by remember { mutableStateOf(false) } // [fork] round 52: no auto-focus jump after a filter change
+                        val shownCredits = visibleCredits // [fork] beta.3 merge: one filter state (official tabs)
+                        val nuvioCHasBoth = showFilmographyFilter
                         SectionHeader(
                             title = stringResource(R.string.cast_detail_filmography),
                             count = shownCredits.size,
-                            nuvioCCompact = nuvioCLayout, // [fork]
-                            trailing = if (nuvioCInline) { // [fork] round 52 filmography_chips_inline: chips on the header line, right side
-                                {
-                                    NuvioCFilmographyFilterRow(
-                                        nuvioCFilter, { nuvioCUserFiltered = true; nuvioCFilter = it }, firstPosterFocusRequester,
-                                        counts = nuvioCFilmographyCounts(allCredits), inline = true
-                                    )
-                                }
-                            } else null
-                        )
-                        if (nuvioCHasBoth && !nuvioCInline) {
-                            NuvioCFilmographyFilterRow(nuvioCFilter, { nuvioCFilter = it }, firstPosterFocusRequester)
+                            nuvioCCompact = nuvioCLayout // [fork]
+                        ) {
+                            // [fork] beta.3 merge: official's Movies / Series tabs and their focus handling, driving
+                            // Nuvio C's filtering (acting credits, newest first) and showing its counts
+                            if (nuvioCHasBoth) {
+                                FilmographyFilterTabs(
+                                    selected = filmographyFilter,
+                                    tabFocusRequesters = filterTabFocusRequesters,
+                                    onSelect = { filmographyFilter = it },
+                                    nuvioCCounts = nuvioCFilmographyCounts(allCredits)
+                                )
+                            }
                         }
-                        androidx.compose.runtime.key(if (com.nuvio.tv.NuvioCFeatures.FILMOGRAPHY_CHIPS_INLINE) nuvioCFilter else Unit) { // [fork] round 52: a new filter starts the row at its first poster
-                        FilmographyRow(
-                            nuvioCAutoFocus = !nuvioCUserFiltered, // [fork] round 52
-                            credits = shownCredits,
-                            nuvioCRoleLines = person.nuvioCRoleLines, // [fork] role / job under each title
-                            posterCardStyle = filmographyPosterStyle,
-                            firstItemFocusRequester = firstPosterFocusRequester,
-                            restoreItemId = pendingRestoreItemId,
-                            restoreFocusToken = restoreFocusToken,
-                            onRestoreFocusHandled = { pendingRestoreItemId = null },
-                            onItemClick = { item ->
-                                pendingRestoreItemId = item.id
-                                onNavigateToDetail(item.id, item.apiType, null)
-                            },
-                            onItemLongPress = { item ->
-                                posterOptions.show(item, null)
-                            },
-                            isItemWatched = isItemWatched
-                        )
-                        } // [fork] round 52 key(filter)
+                        // Recreate the row per filter so it starts scrolled to the beginning.
+                        key(filmographyFilter) {
+                            FilmographyRow(
+                                credits = shownCredits,
+                                nuvioCRoleLines = person.nuvioCRoleLines, // [fork] role / job under each title
+                                posterCardStyle = filmographyPosterStyle,
+                                firstItemFocusRequester = firstPosterFocusRequester,
+                                hasRequestedInitialFocus = hasRequestedInitialFocus,
+                                upFocusRequester = filmographyUpFocusRequester,
+                                restoreItemId = pendingRestoreItemId,
+                                restoreFocusToken = restoreFocusToken,
+                                onRestoreFocusHandled = { pendingRestoreItemId = null },
+                                onItemClick = { item ->
+                                    pendingRestoreItemId = item.id
+                                    onNavigateToDetail(item.id, item.apiType, null)
+                                },
+                                onItemLongPress = { item ->
+                                    posterOptions.show(item, null)
+                                },
+                                isItemWatched = isItemWatched
+                            )
+                        }
                     }
                 }
             }
@@ -568,7 +589,12 @@ private fun HeroSection(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun SectionHeader(title: String, count: Int, nuvioCCompact: Boolean = false, trailing: (@Composable () -> Unit)? = null) { // [fork] nuvioCCompact; round 52 trailing
+private fun SectionHeader(
+    title: String,
+    count: Int,
+    nuvioCCompact: Boolean = false, // [fork]
+    trailingContent: @Composable () -> Unit = {}
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -598,9 +624,51 @@ private fun SectionHeader(title: String, count: Int, nuvioCCompact: Boolean = fa
                 )
                 .padding(horizontal = NuvioTheme.spacing.sm, vertical = NuvioTheme.spacing.xxs)
         )
-        if (trailing != null) { // [fork] round 52
-            Spacer(modifier = Modifier.weight(1f))
-            trailing()
+        Spacer(modifier = Modifier.width(NuvioTheme.spacing.lg))
+        trailingContent()
+    }
+}
+
+private enum class FilmographyFilter { ALL, MOVIES, SERIES }
+
+@OptIn(ExperimentalTvMaterial3Api::class, ExperimentalComposeUiApi::class)
+@Composable
+private fun FilmographyFilterTabs(
+    selected: FilmographyFilter,
+    tabFocusRequesters: Map<FilmographyFilter, FocusRequester>,
+    onSelect: (FilmographyFilter) -> Unit,
+    nuvioCCounts: Map<NuvioCFilmographyFilter, Int> = emptyMap() // [fork] counts on Movies / Series
+) {
+    val filters = FilmographyFilter.entries
+    TabRow(
+        selectedTabIndex = filters.indexOf(selected),
+        modifier = Modifier.focusRestorer { tabFocusRequesters.getValue(selected) }
+    ) {
+        filters.forEach { filter ->
+            Tab(
+                selected = filter == selected,
+                onFocus = { onSelect(filter) },
+                onClick = { onSelect(filter) },
+                modifier = Modifier.focusRequester(tabFocusRequesters.getValue(filter))
+            ) {
+                val nuvioCCount = when (filter) { // [fork] counts
+                    FilmographyFilter.MOVIES -> nuvioCCounts[NuvioCFilmographyFilter.MOVIES]
+                    FilmographyFilter.SERIES -> nuvioCCounts[NuvioCFilmographyFilter.SHOWS]
+                    FilmographyFilter.ALL -> null
+                }
+                Text(
+                    text = when (filter) {
+                        FilmographyFilter.ALL -> stringResource(R.string.cast_detail_filter_all)
+                        FilmographyFilter.MOVIES -> stringResource(R.string.type_movies)
+                        FilmographyFilter.SERIES -> stringResource(R.string.type_series)
+                    } + (nuvioCCount?.let { " $it" } ?: ""),
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(
+                        horizontal = NuvioTheme.spacing.lg,
+                        vertical = NuvioTheme.spacing.xs
+                    )
+                )
+            }
         }
     }
 }
@@ -611,16 +679,16 @@ private fun FilmographyRow(
     credits: List<MetaPreview>,
     posterCardStyle: PosterCardStyle,
     firstItemFocusRequester: FocusRequester,
+    hasRequestedInitialFocus: androidx.compose.runtime.MutableState<Boolean>,
+    upFocusRequester: FocusRequester = FocusRequester.Default,
     restoreItemId: String? = null,
     restoreFocusToken: Int = 0,
     onRestoreFocusHandled: () -> Unit = {},
     onItemClick: (MetaPreview) -> Unit,
     onItemLongPress: (MetaPreview) -> Unit = {},
     isItemWatched: (MetaPreview) -> Boolean = { false },
-    nuvioCRoleLines: Map<String, String> = emptyMap(), // [fork]
-    nuvioCAutoFocus: Boolean = true // [fork] round 52: false after the viewer changed the filter (focus stays on the chip)
+    nuvioCRoleLines: Map<String, String> = emptyMap() // [fork]
 ) {
-    val hasRequestedInitialFocus = remember(credits) { mutableStateOf(!nuvioCAutoFocus) }
     // [fork] Nuvio C: own title + role lines under the poster (not in landscape-poster mode)
     val nuvioCLines = com.nuvio.tv.NuvioCFeatures.CAST_ACTING_ONLY && nuvioCRoleLines.isNotEmpty() &&
         !com.nuvio.tv.ui.components.LocalLandscapePosterMode.current
@@ -672,16 +740,21 @@ private fun FilmographyRow(
                 onClick = { onItemClick(item) },
                 onLongPress = { onItemLongPress(item) },
                 isWatched = isItemWatched(item),
-                modifier = Modifier.nuvioCRowEdge(isFirstItem).then(if (isFirstItem) {
-                    Modifier.onGloballyPositioned {
-                        if (!hasRequestedInitialFocus.value) {
-                            hasRequestedInitialFocus.value = true
-                            runCatching { firstItemFocusRequester.requestFocus() }
+                modifier = Modifier
+                    .nuvioCRowEdge(isFirstItem) // [fork]
+                    .focusProperties { up = upFocusRequester }
+                    .then(
+                        if (isFirstItem) {
+                            Modifier.onGloballyPositioned {
+                                if (!hasRequestedInitialFocus.value) {
+                                    hasRequestedInitialFocus.value = true
+                                    runCatching { firstItemFocusRequester.requestFocus() }
+                                }
+                            }
+                        } else {
+                            Modifier
                         }
-                    }
-                } else {
-                    Modifier
-                }),
+                    ),
                 posterCardStyle = posterCardStyle,
                 showLabel = nuvioCShowLabel, // [fork] was true
                 focusRequester = itemFocusRequester,

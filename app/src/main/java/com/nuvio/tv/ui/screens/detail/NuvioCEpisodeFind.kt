@@ -102,6 +102,14 @@ internal fun nuvioCFindEpisodes(videos: List<Video>, query: String): List<Video>
 private fun fold(s: String): String =
     Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
 
+/** [fork] round 54 find_poster: true when the season tabs show posters; Find then draws as a matching portrait tile. */
+internal val LocalNuvioCFindPosterMode = androidx.compose.runtime.compositionLocalOf { false }
+
+// Same geometry as official's poster season tabs (EpisodesSection: 150 dp tall, 2:3, 6 dp corners).
+private val FIND_TILE_HEIGHT = 150.dp
+private val FIND_TILE_WIDTH = 100.dp
+private val FIND_TILE_CORNER = 6.dp
+
 /** The chip at the end of the season tabs. */
 @Composable
 internal fun NuvioCEpisodeFindChip(
@@ -111,6 +119,60 @@ internal fun NuvioCEpisodeFindChip(
     downFocusRequester: FocusRequester?
 ) {
     var focused by remember { mutableStateOf(false) }
+    if (com.nuvio.tv.NuvioCFeatures.FIND_POSTER_TILE && LocalNuvioCFindPosterMode.current) {
+        val shape = RoundedCornerShape(FIND_TILE_CORNER)
+        androidx.compose.foundation.layout.Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Card(
+                onClick = onClick,
+                modifier = Modifier
+                    .focusRequester(focusRequester)
+                    .focusProperties {
+                        right = FocusRequester.Cancel
+                        upFocusRequester?.let { up = it }
+                        downFocusRequester?.let { down = it }
+                    }
+                    .onFocusChanged { focused = it.isFocused },
+                shape = CardDefaults.shape(shape = shape),
+                colors = CardDefaults.colors(
+                    containerColor = NuvioTheme.colors.BackgroundCard,
+                    focusedContainerColor = NuvioTheme.colors.Secondary
+                ),
+                border = CardDefaults.border(
+                    border = androidx.tv.material3.Border(
+                        border = androidx.compose.foundation.BorderStroke(NuvioTheme.spacing.hairline, NuvioTheme.colors.TextPrimary.copy(alpha = 0.14f)),
+                        shape = shape
+                    ),
+                    focusedBorder = androidx.tv.material3.Border(
+                        border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
+                        shape = shape
+                    )
+                ),
+                scale = CardDefaults.scale(focusedScale = 1.0f)
+            ) {
+                androidx.compose.foundation.layout.Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier.size(width = FIND_TILE_WIDTH, height = FIND_TILE_HEIGHT)
+                ) {
+                    val color = if (focused) NuvioTheme.colors.OnSecondary else NuvioTheme.colors.TextPrimary
+                    Icon(Icons.Default.Search, contentDescription = null, tint = color, modifier = Modifier.size(28.dp))
+                    Spacer(Modifier.height(8.dp))
+                    Text(stringResource(R.string.nuvio_c_find), style = MaterialTheme.typography.titleSmall, color = color)
+                }
+            }
+            // label line under the tile, like the season names under the posters
+            Text(
+                stringResource(R.string.nuvio_c_find),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = if (focused) androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Normal,
+                color = if (focused) NuvioTheme.colors.TextPrimary else NuvioTheme.extendedColors.textSecondary,
+                maxLines = 1,
+                modifier = Modifier.width(FIND_TILE_WIDTH).padding(top = NuvioTheme.spacing.sm),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+        }
+        return
+    }
     Card(
         onClick = onClick,
         modifier = Modifier

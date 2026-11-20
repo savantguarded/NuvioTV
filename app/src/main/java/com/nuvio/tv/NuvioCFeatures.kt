@@ -999,8 +999,9 @@ object NuvioCFeatures {
     const val TASTE_SPIN_FLOURISH = true
     /** Taste: a dimmed, blurred-looking backdrop of the profile's top title behind the cards. */
     const val TASTE_BACKDROP = true
-    /** Details: a safety net that puts focus back on the page (last focused row) when it is lost; logs NuvioCDetailsFocus. */
     /** round 53e Up handler on the Information stop (custom navigation); off in 54c, official focus search instead. */
+    // ---- beta.3 merge (2026-11-20) ----
+    /** With official season posters on, Find is a portrait tile the same size as the posters. */
+    const val FIND_POSTER_TILE = true
     const val INFO_UP_HANDLER = false
-    const val DETAILS_FOCUS_GUARD = false // round 54c: off; details back on the official focus navigation
 }

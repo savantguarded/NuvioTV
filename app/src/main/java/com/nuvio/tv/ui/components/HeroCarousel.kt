@@ -503,6 +503,7 @@ internal fun HeroCarouselBackdrop(
             .build()
     }
     val bgColor = NuvioTheme.colors.Background
+    val isRtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
     Box(
         modifier = modifier
@@ -551,8 +552,8 @@ internal fun HeroCarouselBackdrop(
                         1.0f to Color.Transparent
                     )
                 },
-                startX = 0f,
-                endX = leftEndX
+                startX = if (isRtl) size.width else 0f,
+                endX = if (isRtl) size.width - leftEndX else leftEndX
             )
             onDrawWithContent {
                 drawContent()
@@ -563,6 +564,7 @@ internal fun HeroCarouselBackdrop(
                 )
                 drawRect(
                     brush = leftGradient,
+                    topLeft = Offset(if (isRtl) size.width - leftEndX else 0f, 0f),
                     size = Size(leftEndX, size.height)
                 )
             }
