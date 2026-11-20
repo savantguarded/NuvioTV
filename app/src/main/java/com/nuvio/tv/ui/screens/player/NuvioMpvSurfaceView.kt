@@ -590,8 +590,6 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
             // sub-pos only moves bottom-aligned lines; sub-margin-y (also the top margin) is left as
             // saved so top subtitles stay exactly where they are.
             val pos = MPV_SUB_POS_AT_BOTTOM - (bottomFraction - savedMargin / 720.0) * 100.0
-            if (nuvioCTopAligned) mpv.setPropertyString("sub-align-y", "bottom")
-            nuvioCTopAligned = false
             mpv.setPropertyDouble("sub-pos", pos.coerceIn(0.0, 150.0))
             nuvioCLifted = true
         }.onFailure {
@@ -599,40 +597,7 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
         }
     }
 
-    // [fork] subtitle_top (2026-10-14): plain-text subtitles aligned by their TOP edge at [topFraction]
-    // of the view height, so 3-4 lines grow downwards instead of past the screen top. libass ignores
-    // sub-pos for top-aligned lines, so sub-pos goes to 100 and sub-margin-y (720-line script units)
-    // sets the top edge. Image subtitles (PGS / VobSub / DVB) and ASS keep the sub-pos lift
-    // (bottom-anchored, [fallbackBottom]); ASS is never moved.
-    private var nuvioCTopAligned = false
-
-    fun nuvioCSetSubtitleTop(topFraction: Double?, fallbackBottom: Double?, style: SubtitleStyleSettings) {
-        if (!initialized) return
-        runCatching {
-            if (topFraction == null || isAssOrSsaSubtitleSelectedNow()) {
-                nuvioCRelease(style)
-                return
-            }
-            val codec = mpv.getPropertyString("current-tracks/sub/codec")?.lowercase().orEmpty()
-            if ("pgs" in codec || "dvd" in codec || "dvb" in codec || "vobsub" in codec) {
-                nuvioCSetSubtitleLift(fallbackBottom, style)
-                return
-            }
-            mpv.setPropertyDouble("sub-pos", 100.0)
-            mpv.setPropertyString("sub-align-y", "top")
-            mpv.setPropertyInt("sub-margin-y", (topFraction * 720.0).roundToInt().coerceIn(0, 360))
-            nuvioCTopAligned = true
-            nuvioCLifted = true
-        }.onFailure {
-            Log.w(TAG, "Nuvio C subtitle top failed: ${it.message}")
-        }
-    }
-
     private fun nuvioCRelease(style: SubtitleStyleSettings) {
-        if (nuvioCTopAligned) {
-            nuvioCTopAligned = false
-            mpv.setPropertyString("sub-align-y", "bottom")
-        }
         if (nuvioCLifted) {
             nuvioCLifted = false
             applySubtitleStyle(style)
