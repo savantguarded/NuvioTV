@@ -53,7 +53,6 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.ContentScale
@@ -146,8 +145,6 @@ fun CalendarScreen(
     val nuvioCContent = remember { FocusRequester() } // [fork] calendar_tab_focus
     var nuvioCContentFocused by remember { mutableStateOf(false) } // [fork] calendar_tab_focus
     NuvioCCalendarBackToTabs(nuvioCContentFocused && nuvioCBackToTabs, finding != null, modeFocusRequester) // [fork] calendar_tab_focus; round 31 calendar_back_leaves
-    val nuvioCFromMonth by viewModel.nuvioCFromMonth.collectAsState() // [fork] calendar_month_back
-    BackHandler(enabled = nuvioCFromMonth != null && viewMode == CalendarViewMode.WEEK && finding == null) { viewModel.nuvioCBackToMonth() } // [fork] calendar_month_back
     val nuvioCRefreshing by viewModel.nuvioCRefreshing.collectAsState() // [fork] calendar_refresh_button
     val nuvioCBrake = rememberNuvioCEdgeBrake() // [fork] calendar_edge_brake
 
@@ -175,9 +172,6 @@ fun CalendarScreen(
     CompositionLocalProvider(LocalNuvioCEdgeBrake provides nuvioCBrake) { // [fork] calendar_edge_brake
     Box(Modifier.fillMaxSize().background(NuvioTheme.colors.Background).nuvioCBrakeTrack(nuvioCBrake)) { // [fork] calendar_edge_brake
         if (v2 != null) V2Atmosphere(background = v2.settingsBackground)
-        if (v2 == null && viewMode == CalendarViewMode.WEEK && uiState.phase == CalendarPhase.READY) {
-            CalendarPageBackdrop(backdrop)
-        }
 
         Column(
             modifier = Modifier
@@ -200,15 +194,6 @@ fun CalendarScreen(
             Box(Modifier.fillMaxWidth().weight(1f).nuvioCCalendarContent(nuvioCContent) { nuvioCContentFocused = it }) { // [fork] calendar_tab_focus
                 when (uiState.phase) {
                     CalendarPhase.READY -> when (viewMode) {
-                        CalendarViewMode.WEEK -> CalendarWeekView(
-                            viewModel = viewModel,
-                            uiState = uiState,
-                            focus = focus,
-                            formats = formats,
-                            performance = performance,
-                            onOpen = open,
-                            onOptions = { optionsRow = it }
-                        )
                         CalendarViewMode.LIST -> CalendarListView(
                             viewModel = viewModel,
                             uiState = uiState,
@@ -219,7 +204,8 @@ fun CalendarScreen(
                             onWatch = watch,
                             onOptions = { optionsRow = it }
                         )
-                        CalendarViewMode.MONTH -> CalendarMonthView(
+                        // [fork] the Week view was removed 2026-11-20; a stored Week choice opens Month
+                        CalendarViewMode.WEEK, CalendarViewMode.MONTH -> CalendarMonthView(
                             viewModel = viewModel,
                             uiState = uiState,
                             formats = formats,
@@ -357,28 +343,6 @@ private fun CalendarHeader(
                 }
             }
             nuvioCOnRefresh?.let { NuvioCCalendarRefreshButton(nuvioCRefreshing, it) } // [fork] calendar_refresh_button
-        }
-    }
-}
-
-/** The Original look has no page artwork of its own, so the Week view draws the focused title's backdrop. */
-@Composable
-private fun CalendarPageBackdrop(url: String?) {
-    if (url.isNullOrBlank()) return
-    val background = NuvioTheme.colors.Background
-    Box(Modifier.fillMaxSize()) {
-        Box(Modifier.align(Alignment.TopEnd).fillMaxWidth(0.72f).fillMaxHeight(0.72f)) {
-            CalendarArtImage(url = url, modifier = Modifier.fillMaxSize())
-            Box(
-                Modifier.fillMaxSize().background(
-                    Brush.horizontalGradient(0f to background, 0.45f to background.copy(alpha = 0.55f), 1f to Color.Transparent)
-                )
-            )
-            Box(
-                Modifier.fillMaxSize().background(
-                    Brush.verticalGradient(0.4f to Color.Transparent, 1f to background)
-                )
-            )
         }
     }
 }

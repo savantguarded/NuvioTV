@@ -23,7 +23,6 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -61,12 +60,6 @@ class NuvioCRound26CalendarTest {
         assertEquals(CalendarMonthMove.To(d(4)), move(d(3), CalendarMonthKey.RIGHT))
     }
 
-    @Test fun shelfScrollKeepsRoomBeforeAndPeekAfter() {
-        // Container 1000, room 16 before, 16 + 60 peek after.
-        assertEquals(0f, nuvioCShelfScrollDistance(16f, 200f, 1000f, 16f, 76f))
-        assertEquals(-16f, nuvioCShelfScrollDistance(0f, 200f, 1000f, 16f, 76f)) // flush left: back off by the room
-        assertEquals(76f, nuvioCShelfScrollDistance(800f, 200f, 1000f, 16f, 76f)) // flush right: room and peek kept
-    }
 
     @Test fun brakeStopsHeldAndQuickLeftOnlyOnce() {
         val brake = NuvioCEdgeBrake()
@@ -122,16 +115,4 @@ class NuvioCRound26CalendarTest {
     @Before fun setUp() = Dispatchers.setMain(Dispatchers.Unconfined)
     @After fun tearDown() = Dispatchers.resetMain()
 
-    @Test fun backToMonthOnlyAfterOpeningADayFromMonth() {
-        val data = Data()
-        val model = CalendarViewModel(data, Dispatchers.Unconfined, 3_600_000L, null)
-        model.setViewMode(CalendarViewMode.MONTH)
-        // openDayInWeek ignores empty days, so set the flag the way it does for a day with something on.
-        model.nuvioCBackToMonth() // nothing opened: no change
-        assertEquals(CalendarViewMode.MONTH, model.viewMode.value)
-        model.setViewMode(CalendarViewMode.WEEK)
-        assertNull(model.nuvioCFromMonth.value)
-        model.nuvioCRefresh()
-        assertEquals(listOf(CalendarRefreshReason.MANUAL), data.reasons.filter { it == CalendarRefreshReason.MANUAL })
-    }
 }

@@ -155,46 +155,7 @@ class CalendarViewModelTest {
         assertNull(vm.pendingListKey.value)
     }
 
-    @Test fun theCalendarOpensOnWeekAndTheWeekFlipsBackToThisWeek() = runBlocking {
-        val vm = viewModel()
-        assertEquals(CalendarViewMode.WEEK.nuvioCNoWeek(), vm.viewMode.value) // [fork] calendar_no_week: Week opens Month
-        if (com.nuvio.tv.NuvioCFeatures.CALENDAR_NO_WEEK) return@runBlocking
-        vm.shiftWeek(java.time.LocalDate.of(2026, 10, 19), 1)
-        assertEquals(java.time.LocalDate.of(2026, 10, 26), vm.weekStart.value)
-        vm.setFilter(CalendarFilter.FILMS)
-        vm.setViewMode(CalendarViewMode.LIST)
-        assertEquals(java.time.LocalDate.of(2026, 10, 26), vm.weekStart.value)
-        vm.setViewMode(CalendarViewMode.WEEK)
-        assertNull(vm.weekStart.value)
-        assertEquals(CalendarFilter.FILMS, vm.filter.value)
-        vm.shiftWeek(java.time.LocalDate.of(2026, 10, 19), -1)
-        vm.onScreenShown()
-        assertNull(vm.weekStart.value)
-    }
 
-    @Test fun okOnAMonthDayOpensTheWeekThereAndAnEmptyDayDoesNothing() = runBlocking {
-        val vm = viewModel()
-        data.settings.value = CalendarSettings(profileId = 1)
-        data.state.value = CalendarState(
-            profileId = 1, loaded = true, watched = CalendarWatchedIndex(),
-            titles = listOf(show("tt1", "2026-10-06T09:30:00Z"))
-        )
-        val ready = vm.until { it.phase == CalendarPhase.READY && it.days.isNotEmpty() }
-        val day = ready.days.keys.first()
-        vm.setViewMode(CalendarViewMode.MONTH)
-        vm.openDayInWeek(day.minusYears(1), day.minusYears(1))
-        assertEquals(CalendarViewMode.MONTH, vm.viewMode.value)
-        assertNull(vm.pendingWeekDay.value)
-
-        vm.setFilter(CalendarFilter.FILMS)
-        vm.openDayInWeek(day, day.minusDays(2))
-        assertEquals(CalendarViewMode.WEEK, vm.viewMode.value)
-        assertEquals(day.minusDays(2), vm.weekStart.value)
-        assertEquals(day, vm.pendingWeekDay.value)
-        assertEquals(CalendarFilter.ALL, vm.filter.value)
-        vm.consumePendingWeekDay()
-        assertNull(vm.pendingWeekDay.value)
-    }
 
     @Test fun focusedRowGetsItsDetailsAfterAShortPause() = runBlocking {
         val vm = viewModel()

@@ -3,11 +3,8 @@ package com.nuvio.tv.ui.screens.calendar
 import android.os.SystemClock
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
@@ -19,7 +16,6 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.nuvio.tv.NuvioCFeatures
 import com.nuvio.tv.R
@@ -63,33 +59,6 @@ internal fun NuvioCCalendarRefreshButton(refreshing: Boolean, onRefresh: () -> U
 }
 
 // ---- calendar_week_edges ----
-
-internal const val NUVIO_C_WEEK_ACROSS = 4.3f
-internal val NUVIO_C_WEEK_ROOM: Dp = 16.dp
-
-/**
- * Scrolls a Week row only as far as it takes to show the focused card with [startPx] free before it and [endPx]
- * after it (the focus room, plus the peek of the next card on the right), so neither the ring nor the peek is lost.
- */
-@Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
-internal class NuvioCShelfScroll(private val startPx: Float, private val endPx: Float) : BringIntoViewSpec {
-    override val scrollAnimationSpec: AnimationSpec<Float> = spring()
-    override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float =
-        nuvioCShelfScrollDistance(offset, size, containerSize, startPx, endPx)
-}
-
-internal fun nuvioCShelfScrollDistance(offset: Float, size: Float, containerSize: Float, startPx: Float, endPx: Float): Float {
-    val lo = startPx
-    val hi = containerSize - endPx
-    val end = offset + size
-    return when {
-        size > hi - lo || offset < lo -> offset - lo
-        end > hi -> end - hi
-        else -> 0f
-    }
-}
-
-// ---- calendar_edge_brake ----
 
 /** One per view: remembers the last key and arms the first item when Left brought focus onto it. */
 internal class NuvioCEdgeBrake {

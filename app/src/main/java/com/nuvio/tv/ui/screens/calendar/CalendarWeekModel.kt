@@ -1,9 +1,7 @@
 package com.nuvio.tv.ui.screens.calendar
 
 import androidx.compose.runtime.Immutable
-import java.time.DayOfWeek
 import java.time.LocalDate
-import java.time.temporal.TemporalAdjusters
 
 enum class CalendarFilter { ALL, SHOWS, FILMS;
 
@@ -13,53 +11,6 @@ enum class CalendarFilter { ALL, SHOWS, FILMS;
         FILMS -> row.isFilm
     }
 }
-
-/** One card on a day: a release, or several episodes of a show that come out together. */
-@Immutable
-data class CalendarCard(val rows: List<CalendarRow>) {
-    val row: CalendarRow get() = rows.first()
-    val key: String get() = row.key
-    val count: Int get() = rows.size
-
-    /** The last episode when the card holds a run of one season, for "S2 E1-E3". */
-    val lastEpisode: Int?
-        get() = if (rows.size > 1 && rows.all { it.season == row.season && it.episode != null }) rows.last().episode else null
-}
-
-@Immutable
-data class CalendarWeekDay(val date: LocalDate, val cards: List<CalendarCard>) {
-    val isEmpty: Boolean get() = cards.isEmpty()
-
-    /** Dots under the day in the strip: one per card, at most four. */
-    val dots: Int get() = cards.size.coerceAtMost(4)
-}
-
-fun calendarWeekStart(date: LocalDate, firstDay: DayOfWeek): LocalDate = date.with(TemporalAdjusters.previousOrSame(firstDay))
-
-/** A day's rows as cards; episodes of one show on one day share a card, in the order they were first met. */
-fun calendarCards(rows: List<CalendarRow>): List<CalendarCard> {
-    val groups = LinkedHashMap<String, MutableList<CalendarRow>>()
-    rows.forEach { row ->
-        val group = if (row.isFilm || row.kind != CalendarRowKind.EPISODE) row.key else "${row.titleKey}|${row.time}"
-        groups.getOrPut(group) { mutableListOf() } += row
-    }
-    return groups.values.map { group ->
-        CalendarCard(group.sortedWith(compareBy<CalendarRow> { it.season ?: 0 }.thenBy { it.episode ?: 0 }))
-    }
-}
-
-/** The seven days from [weekStart], each with its cards after [filter]. */
-fun buildCalendarWeek(
-    days: Map<LocalDate, List<CalendarRow>>,
-    weekStart: LocalDate,
-    filter: CalendarFilter
-): List<CalendarWeekDay> = List(7) { offset ->
-    val date = weekStart.plusDays(offset.toLong())
-    CalendarWeekDay(date, calendarCards(days[date].orEmpty().filter(filter::keeps)))
-}
-
-/** The card the week opens on: the first one of the week, at the top. */
-fun calendarWeekOpeningKey(week: List<CalendarWeekDay>): String? = week.firstOrNull { !it.isEmpty }?.cards?.first()?.key
 
 /** Every dated release of each title in time order, for "Next from". */
 fun calendarRowsByTitle(days: Map<LocalDate, List<CalendarRow>>): Map<String, List<CalendarRow>> =

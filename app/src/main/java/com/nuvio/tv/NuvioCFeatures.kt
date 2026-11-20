@@ -303,12 +303,6 @@ object NuvioCFeatures {
     // ---- Round 26 (2026-10-23) ----
     /** Calendar: a refresh button after Week / List / Month; asks every source again (Trakt and MDBList calendars at once, titles airing around now refetched). The icon turns while a refresh runs. Off = no button. */
     const val CALENDAR_REFRESH_BUTTON = true
-    /** Calendar: Back in Week after OK on a Month day goes straight back to Month on that day (only then). Off = Back goes to the view buttons. */
-    const val CALENDAR_MONTH_BACK = true
-    /** Calendar Week: Up / Down (and Month -> Week) always land on the day's first card; the day's row is scrolled back to its start first. Off = ysosrs123's focus (could restore a later card). */
-    const val CALENDAR_WEEK_FIRST_CARD = true
-    /** Calendar Week: 16 dp room around the rows and scrolling that keeps it, so the focus ring of the first and last cards is never cut; about 4.3 cards across so the next card peeks. Off = 8 dp, 4 across, cards scrolled flush to the edge. */
-    const val CALENDAR_WEEK_EDGES = true
     /** Calendar: held or fast Left stops on the first card of a Week row, the week strip and the view buttons; one more press opens the sidebar. Off = Left runs straight into the sidebar. */
     const val CALENDAR_EDGE_BRAKE = true
     /** Calendar Month: Up / Down stay in the month (Up from the top row goes to the month arrows, then the view buttons); Left / Right wrap rows, only Left on the 1st or Right on the last day turns the month (held keys stop there); Right on the last column still goes to the day's list. Off = ysosrs123's moves. */
@@ -339,8 +333,6 @@ object NuvioCFeatures {
     const val LIBRARY_DOWN_FIRST = true
     /** Library: a Random pick button after Sync; it picks a title from what the page shows (list, type and filters), avoiding the last few picks, with Pick again and Open. Off = no button. */
     const val LIBRARY_RANDOM = true
-    /** Calendar Week: the logo / title, meta line and summary at the top keep fixed heights, so the poster rows stay on one line whatever title is focused. Off = heights follow the text. */
-    const val CALENDAR_WEEK_FIXED_HERO = true
     /** Profile screen: avatars and their rings 10% smaller (86 dp, 92 focused); names, gaps and layout unchanged. Off = 96 / 102 dp. */
     const val PROFILE_AVATAR_SMALL = true
     /** Ten more app fonts (Manrope, Figtree, Noto Sans, Nunito Sans, Public Sans, Schibsted Grotesk, Montserrat, Archivo, Familjen Grotesk, Bricolage Grotesque); the first five also as subtitle fonts. mpv gets only the chosen subtitle font. Off = round 3 font list. */
@@ -357,8 +349,6 @@ object NuvioCFeatures {
     const val BADGE_PREFETCH = true
 
     // ---- Round 28 (2026-10-25) ----
-    /** Calendar Week: Back on any card after the first in a day's row scrolls that row back to its start and focuses its first card (like Home rows); Back on a first card leaves as before. Off = Back always leaves. */
-    const val CALENDAR_WEEK_BACK_FIRST = true
     /** Calendar List: Just aired runs oldest day first, so the whole list reads in date order; "See all in Calendar" from a reminder lands on the newest Just aired row. Off = Just aired newest first. */
     const val CALENDAR_JUST_AIRED_ASCENDING = true
     /** Shuffle in the sidebar (idea from TitansparkDev's "Surprise me"): a mood screen (Movies / Shows / Either, mood chips, Unwatched), a poster reel, then the pick with Open and Shuffle again. Picks come from a Blend of For you (TMDB recommendations from your watches and ratings), Trakt recommendations, add-on catalogs, Home rows and Library, each with its own weight; truly random draws, last 40 picks skipped. Off = no Shuffle entry or page, nothing built. */
@@ -397,8 +387,6 @@ object NuvioCFeatures {
     const val PLAYER_EPISODE_RATINGS = true
     /** Calendar Month: only the month on show (no peek of the next), wider grid inside the header arrows, day list 15% narrower; OK on a day moves to the day list. Off = ysosrs123's month layout. */
     const val CALENDAR_MONTH_WIDE = true
-    /** Calendar: Week view removed (List and Month only; a saved Week start view opens Month). Off = Week is back. */
-    const val CALENDAR_NO_WEEK = true
     /** Calendar: Back no longer jumps to the List / Month buttons; Up from the top reaches them, Back leaves. Off = round 17 behaviour. */
     const val CALENDAR_BACK_LEAVES = true
     /** Calendar coming soon uses the Top 20 add-on's rules: US dates, first digital release (no cinema), real releases (US cinema run, streamer original or on a US service; major networks for shows), new shows, new seasons and shows back from a break, up to 5 pages, each title remembered 24 h, up to 60. Off = round 30 rules. */

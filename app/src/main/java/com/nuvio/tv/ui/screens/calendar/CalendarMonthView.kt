@@ -170,11 +170,8 @@ internal fun CalendarMonthView(
                         when {
                             select -> {
                                 if (native.action == AndroidKeyEvent.ACTION_UP) {
-                                    if (com.nuvio.tv.NuvioCFeatures.CALENDAR_NO_WEEK) { // [fork] calendar_no_week: OK moves into the day list
-                                        if (dayRows.isNotEmpty()) runCatching { dayListRequester.requestFocus() }
-                                    } else {
-                                        viewModel.openDayInWeek(focusedDay, calendarWeekStart(focusedDay, formats.firstDayOfWeek))
-                                    }
+                                    // [fork] calendar_no_week: OK moves into the day list
+                                    if (dayRows.isNotEmpty()) runCatching { dayListRequester.requestFocus() }
                                 }
                                 true
                             }

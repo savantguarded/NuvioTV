@@ -115,10 +115,6 @@ class CalendarViewModel internal constructor(
     private val _month = MutableStateFlow(CalendarMonthState())
     val month: StateFlow<CalendarMonthState> = _month.asStateFlow()
 
-    /** The first day of the week on show; null for this week. */
-    private val _weekStart = MutableStateFlow<LocalDate?>(null)
-    val weekStart: StateFlow<LocalDate?> = _weekStart.asStateFlow()
-
     private val _filter = MutableStateFlow(CalendarFilter.ALL)
     val filter: StateFlow<CalendarFilter> = _filter.asStateFlow()
 
@@ -137,18 +133,6 @@ class CalendarViewModel internal constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_AFTER_MS), false)
 
     fun nuvioCRefresh() = data.requestRefresh(com.nuvio.tv.core.calendar.CalendarRefreshReason.MANUAL)
-
-    // [fork] calendar_month_back: the Month day OK opened the Week on; Back in that Week returns to Month there.
-    private val _nuvioCFromMonth = MutableStateFlow<LocalDate?>(null)
-    val nuvioCFromMonth: StateFlow<LocalDate?> = _nuvioCFromMonth.asStateFlow()
-
-    fun nuvioCBackToMonth() {
-        val day = _nuvioCFromMonth.value ?: return
-        _nuvioCFromMonth.value = null
-        focusDay(day)
-        _viewMode.value = CalendarViewMode.MONTH
-        viewPrefs?.rememberUsed(CalendarViewMode.MONTH) // [fork] calendar_start_view
-    }
 
     private var detailsJob: Job? = null
     private var titleOpened = false
@@ -170,7 +154,6 @@ class CalendarViewModel internal constructor(
     /** Each time the page comes into view; the page is kept while you are elsewhere, so this is not done once. */
     fun onScreenShown() {
         if (!titleOpened) {
-            _nuvioCFromMonth.value = null // [fork] calendar_month_back
             showToday()
             // [fork] calendar_start_view: a fixed "Start in" choice applies each time the page is opened afresh.
             // Not when "See all in Calendar" from a reminder is taking you to Just aired.
@@ -190,11 +173,6 @@ class CalendarViewModel internal constructor(
     /** The menu entry chosen while the Calendar is already open. */
     fun showToday() {
         _month.value = CalendarMonthState()
-        _weekStart.value = null
-    }
-
-    fun shiftWeek(current: LocalDate, weeks: Long) {
-        _weekStart.value = current.plusWeeks(weeks)
     }
 
     fun setFilter(filter: CalendarFilter) {
@@ -226,7 +204,6 @@ class CalendarViewModel internal constructor(
 
     fun setViewMode(requested: CalendarViewMode) {
         val mode = requested.nuvioCNoWeek() // [fork] calendar_no_week
-        _nuvioCFromMonth.value = null // [fork] calendar_month_back
         if (mode != CalendarViewMode.LIST && _viewMode.value != mode) showToday()
         _viewMode.value = mode
         if (viewPrefs != null) {
@@ -246,26 +223,6 @@ class CalendarViewModel internal constructor(
         _pendingListKey.value = uiState.value.list.rowKeyFor(date)
         _viewMode.value = CalendarViewMode.LIST
         viewPrefs?.rememberUsed(CalendarViewMode.LIST) // [fork] calendar_start_view
-    }
-
-    /** Set when OK on a month day opens the Week on it; the Week clears it once it has focused that day. */
-    private val _pendingWeekDay = MutableStateFlow<LocalDate?>(null)
-    val pendingWeekDay: StateFlow<LocalDate?> = _pendingWeekDay.asStateFlow()
-
-    /** OK on a month day with something on: the Week of that day, focused on its first card. An empty day does nothing. */
-    fun openDayInWeek(date: LocalDate, weekStart: LocalDate) {
-        val rows = uiState.value.days[date].orEmpty()
-        if (rows.isEmpty()) return
-        if (rows.none(_filter.value::keeps)) _filter.value = CalendarFilter.ALL
-        _weekStart.value = weekStart
-        _pendingWeekDay.value = date
-        if (com.nuvio.tv.NuvioCFeatures.CALENDAR_MONTH_BACK) _nuvioCFromMonth.value = date // [fork] calendar_month_back
-        _viewMode.value = CalendarViewMode.WEEK
-        viewPrefs?.rememberUsed(CalendarViewMode.WEEK) // [fork] calendar_start_view
-    }
-
-    fun consumePendingWeekDay() {
-        _pendingWeekDay.value = null
     }
 
     fun consumePendingListKey() {

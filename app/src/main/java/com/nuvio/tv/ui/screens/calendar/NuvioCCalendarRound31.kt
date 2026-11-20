@@ -14,21 +14,17 @@ import java.time.YearMonth
 
 // ---- calendar_no_week ----
 
-/** [this] with Week replaced by Month while Week is removed. */
+/** [this] with Week replaced by Month (the Week view was removed; WEEK stays only so old saved choices still read). */
 internal fun CalendarViewMode.nuvioCNoWeek(): CalendarViewMode =
-    if (NuvioCFeatures.CALENDAR_NO_WEEK && this == CalendarViewMode.WEEK) CalendarViewMode.MONTH else this
+    if (this == CalendarViewMode.WEEK) CalendarViewMode.MONTH else this
 
 /** The view buttons in the header, in order. */
 internal val nuvioCCalendarModes: List<CalendarViewMode>
-    get() = if (NuvioCFeatures.CALENDAR_NO_WEEK) {
-        listOf(CalendarViewMode.LIST, CalendarViewMode.MONTH)
-    } else {
-        CalendarViewMode.entries
-    }
+    get() = listOf(CalendarViewMode.LIST, CalendarViewMode.MONTH)
 
 /** The "Start in" choices in settings (Week left out while it's removed). */
 internal val nuvioCCalendarStarts: List<NuvioCCalendarStart>
-    get() = NuvioCCalendarStart.entries.filter { !(NuvioCFeatures.CALENDAR_NO_WEEK && it == NuvioCCalendarStart.WEEK) }
+    get() = NuvioCCalendarStart.entries.filter { it != NuvioCCalendarStart.WEEK }
 
 // ---- calendar_month_wide ----
 
