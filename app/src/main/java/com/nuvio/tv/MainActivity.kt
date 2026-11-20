@@ -447,9 +447,6 @@ open class MainActivity : ComponentActivity() {
 
         setContent {
             var hasSelectedProfileThisSession by rememberSaveable { mutableStateOf(false) }
-            // [fork] round 42 startup_profile_atomic: false when the activity came back with a profile already picked
-            // (restored state); such a launch says nothing about whether the next cold start shows the profile screen.
-            val nuvioCStartedFresh = remember { !hasSelectedProfileThisSession }
             var startupSession by remember { mutableIntStateOf(0) }
             // Triggered immediately on profile click (before system confirms selection).
             var splashTriggered by remember { mutableStateOf(false) }
@@ -462,15 +459,10 @@ open class MainActivity : ComponentActivity() {
             // thinks there is one default profile), so it flashed before the profile screen.
             val nuvioCPickerPrefs = remember { getSharedPreferences("startup_splash", android.content.Context.MODE_PRIVATE) }
             val nuvioCExpectPicker = remember {
-                com.nuvio.tv.NuvioCFeatures.STARTUP_TO_PROFILES && (
-                    // [fork] round 43 startup_gate_always: every fresh cold start waits (black) for the real profile list,
-                    // whatever the last launch did, so a stale "expect the profile screen" note can't let Home's logo in first.
-                    (com.nuvio.tv.NuvioCFeatures.STARTUP_GATE_ALWAYS && nuvioCStartedFresh) ||
-                        nuvioCPickerPrefs.getBoolean("nuvioc_expect_picker", false)
-                    )
+                com.nuvio.tv.NuvioCFeatures.STARTUP_TO_PROFILES && nuvioCPickerPrefs.getBoolean("nuvioc_expect_picker", false)
             }
             var nuvioCPickerWaitOver by remember { mutableStateOf(!nuvioCExpectPicker) }
-            remember { if (nuvioCExpectPicker && !com.nuvio.tv.NuvioCFeatures.STARTUP_NO_LOGO) com.nuvio.tv.ui.components.NuvioCOpening.begin(); 0 } // [fork] round 37 startup_opening (round 42b: no logo)
+            remember { if (nuvioCExpectPicker) com.nuvio.tv.ui.components.NuvioCOpening.begin(); 0 } // [fork] round 37 startup_opening
             var nuvioCPickerShown by remember { mutableStateOf(false) }
             LaunchedEffect(Unit) {
                 if (nuvioCPickerWaitOver) return@LaunchedEffect
@@ -478,13 +470,7 @@ open class MainActivity : ComponentActivity() {
                     // [fork] round 40 startup_profile_gate: wait for the saved profiles themselves (safety 6 s), not a fixed
                     // 2 s. On a slow cold start the fixed wait ran out first, the app went down the Home path and its
                     // start-up logo showed before the profile screen popped in over it.
-                    if (com.nuvio.tv.NuvioCFeatures.STARTUP_PROFILE_ATOMIC) {
-                        // [fork] round 42 startup_profile_atomic: wait on the very list the screen collects. The separate
-                        // "loaded" signal could turn true a beat before this list changed, so the Home path won for a frame.
-                        kotlinx.coroutines.withTimeoutOrNull(6_000) { profileManager.profiles.first { it !== profileManager.standInProfiles } }
-                    } else {
-                        kotlinx.coroutines.withTimeoutOrNull(6_000) { profileManager.profilesLoaded.first { it } }
-                    }
+                    kotlinx.coroutines.withTimeoutOrNull(6_000) { profileManager.profilesLoaded.first { it } }
                     kotlinx.coroutines.delay(150) // the profile list settles in the same frame window
                 } else {
                     kotlinx.coroutines.delay(2_000)
@@ -926,7 +912,7 @@ open class MainActivity : ComponentActivity() {
                     val layoutChosen = mainUiPrefs.hasChosenLayout
                     val prefsLoading = layoutChosen == null || !mainUiPrefs.experienceModeLoaded || installedAddons == null ||
                         (!nuvioCPickerWaitOver && !splashTriggered && !hasSelectedProfileThisSession) // [fork] startup_to_profiles: wait (black) for the saved profiles
-                    if (prefsLoading && com.nuvio.tv.NuvioCFeatures.STARTUP_OPENING && !com.nuvio.tv.NuvioCFeatures.STARTUP_NO_LOGO && nuvioCExpectPicker && !splashTriggered && !hasSelectedProfileThisSession) {
+                    if (prefsLoading && com.nuvio.tv.NuvioCFeatures.STARTUP_OPENING && nuvioCExpectPicker && !splashTriggered && !hasSelectedProfileThisSession) {
                         com.nuvio.tv.ui.components.NuvioCOpeningLogo() // [fork] round 37 startup_opening: the still logo instead of black while profiles load
                     }
                     if (!prefsLoading) {
@@ -1540,9 +1526,7 @@ open class MainActivity : ComponentActivity() {
                     }
                     // [fork] startup_to_profiles: remember whether this launch went through the profile screen
                     LaunchedEffect(hasSelectedProfileThisSession) {
-                        if (com.nuvio.tv.NuvioCFeatures.STARTUP_TO_PROFILES && hasSelectedProfileThisSession &&
-                            (!com.nuvio.tv.NuvioCFeatures.STARTUP_PROFILE_ATOMIC || (nuvioCStartedFresh && (nuvioCPickerShown || profiles.size <= 1)))
-                        ) {
+                        if (com.nuvio.tv.NuvioCFeatures.STARTUP_TO_PROFILES && hasSelectedProfileThisSession) {
                             nuvioCPickerPrefs.edit().putBoolean("nuvioc_expect_picker", nuvioCPickerShown).apply()
                         }
                     }
