@@ -26,7 +26,7 @@ Updated: 2026-11-20 (evening)
 
 ## Cleanup (branch `cleanup-ab`, NOT compiled yet)
 - Groups A and B approved by Charles and done as 17 commits on branch `cleanup-ab` (on top of `nuvio-c` d9b6eff0): 22 switches and their dead code removed, 6 unused strings removed, CI now skips removed switch names in `NUVIO_C_OFF` instead of failing.
-- Next build session: compile and test `cleanup-ab` first. If green, fast-forward `nuvio-c` to it, then do the new work on top.
+- Next build session: compile and test `cleanup-ab` first. If green, fast-forward `nuvio-c` to it (`git merge --ff-only origin/cleanup-ab`), then do the new work on top.
 - Group C (older versions kept as fallbacks: start-up loader / halo, older Taste, panel and OSD versions): list each case for Charles to pick. Keep the Calendar Week view (ysosrs123 code).
 - Project knowledge: fold the claude/round* project docs into one history file, delete the rest; add the project instruction block.
 
