@@ -1,6 +1,5 @@
 package com.nuvio.tv.ui.screens.detail
 
-import androidx.compose.ui.input.key.onPreviewKeyEvent
 
 // [fork] Nuvio C round 31 (switches `detail_info_block`, `detail_next_ep_badge`).
 //
@@ -397,30 +396,10 @@ internal fun NuvioCDetailInfoBlock(metaId: String) {
         // [fork] 47b info_end_scroll: once the stop has focus, the page glides on to its very end, however tall the
         // block is; the page's own scroll spec animates it.
         val end = androidx.compose.runtime.remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
-        val top = androidx.compose.runtime.remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
-        val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
         val scope = androidx.compose.runtime.rememberCoroutineScope()
         Column(
             Modifier
                 .fillMaxWidth()
-                .bringIntoViewRequester(top)
-                .then(if (NuvioCFeatures.INFO_UP_HANDLER && NuvioCFeatures.DETAIL_INFO_STOP) Modifier.onPreviewKeyEvent { e ->
-                    // [fork] round 53e details_fluid: Up from the Information stop first brings the block's top (and the
-                    // row above it) back on screen, then moves up; the tall stop's top used to be off screen with the row
-                    // above not laid out, so Up found nothing and stuck
-                    if (e.nativeKeyEvent.keyCode != android.view.KeyEvent.KEYCODE_DPAD_UP) return@onPreviewKeyEvent false
-                    if (e.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
-                        scope.launch {
-                            runCatching { top.bringIntoView() }
-                            androidx.compose.runtime.withFrameNanos { }
-                            if (!focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Up)) {
-                                androidx.compose.runtime.withFrameNanos { }
-                                focusManager.moveFocus(androidx.compose.ui.focus.FocusDirection.Up)
-                            }
-                        }
-                    }
-                    true
-                } else Modifier)
                 .then(if (NuvioCFeatures.DETAIL_INFO_STOP && NuvioCFeatures.INFO_END_SCROLL) Modifier.onFocusChanged { f ->
                     if (f.isFocused) scope.launch { kotlinx.coroutines.delay(60); end.bringIntoView() }
                 } else Modifier)
