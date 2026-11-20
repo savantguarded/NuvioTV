@@ -575,8 +575,6 @@ object NuvioCFeatures {
     // ---- Round 37b (2026-11-10) ----
     /** Start-up and opening logo 10% smaller (76 dp, was 84). Off = 84 dp. */
     const val STARTUP_LOGO_SMALLER = true
-    /** Start-up and opening logo: a soft band of light passes across it every 2.4 s while loading, drawn by the render thread. No text. Off = still logo. */
-    const val STARTUP_LOGO_SHIMMER = false // round 39 (Charles): fully still logo
     /** Roulette mood screen: cards keep a fixed shape (width x 1.15) centred between the header and the mood chips, so the posters fill them with no empty space on top. Off = cards stretch to the screen height. */
     const val ROULETTE_CARDS_FIT = true
 
@@ -587,8 +585,6 @@ object NuvioCFeatures {
     const val DETAIL_BELL = true
     /** Ambient mode: OK on a slide opens that title's details page (other keys still just close it), with a faint "OK · Details" hint in the corner. Off = any key closes it. */
     const val AMBIENT_OPEN_DETAILS = true
-    /** Start-up logo shimmer: the band of light leans 20 degrees and has feathered edges. Same timing. Off = upright band. */
-    const val STARTUP_SHIMMER_SLANT = true
 
     // ---- Round 39 (2026-11-12) ----
     /** Calendar and Details bells are one bell: ringing either writes every id the title is known by, turning either off clears them all, so the two never disagree. Off = one key per screen, as before. */
