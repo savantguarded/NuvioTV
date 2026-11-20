@@ -3097,7 +3097,6 @@ private fun PlayerControlsOverlay(
     val nuvioCTimeline = viewModel.playbackTimeline.collectAsState()
     val isLivePlayback by remember { derivedStateOf { nuvioCTimeline.value.isLive } }
     val nuvioCHasDuration by remember { derivedStateOf { nuvioCTimeline.value.duration > 0L } }
-    val nuvioCSplit = com.nuvio.tv.NuvioCFeatures.OSD_SPLIT && !isLivePlayback // [fork] live keeps the official row
     // [fork] round 46 osd_clean: the Clean controls (Settings > Playback > Player controls style); live keeps the row
     val nuvioCStyleContext = LocalContext.current
     LaunchedEffect(Unit) { NuvioCOsdStyle.load(nuvioCStyleContext) }
@@ -3346,7 +3345,7 @@ private fun PlayerControlsOverlay(
                         )
                         } // [fork]
                     }
-                    if ((nuvioCSplit || nuvioCClean) && !nuvioCCleanTimeTop) { // [fork] split layout (and round 46 Clean): time under the seek bar, right-aligned
+                    if (nuvioCClean && !nuvioCCleanTimeTop) { // [fork] round 46 Clean: time under the seek bar, right-aligned
                         Spacer(modifier = Modifier.height(if (nuvioCClean) 2.dp else NuvioTheme.spacing.sm)) // [fork] 46b compact
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                             PlayerControlsTimeTextHost(viewModel = viewModel)
@@ -3403,7 +3402,6 @@ private fun PlayerControlsOverlay(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
-                    modifier = if (nuvioCSplit) Modifier.weight(1f) else Modifier, // [fork] split: fills the row
                     horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -3428,7 +3426,7 @@ private fun PlayerControlsOverlay(
                     )
                     }
                     // [fork] round 32 osd_order_all: Play is a slot (always in the main row) when its order is set.
-                    val nuvioCPlaySlotted = com.nuvio.tv.NuvioCFeatures.OSD_ORDER_ALL && com.nuvio.tv.NuvioCFeatures.OSD_BUTTON_ORDER && !nuvioCSplit
+                    val nuvioCPlaySlotted = com.nuvio.tv.NuvioCFeatures.OSD_ORDER_ALL && com.nuvio.tv.NuvioCFeatures.OSD_BUTTON_ORDER
                     if (!nuvioCPlaySlotted) nuvioCPlayButton()
 
                     // [fork] round 31 osd_button_order: every button below is a slot, laid out in the order (and main
@@ -3437,7 +3435,7 @@ private fun PlayerControlsOverlay(
                     val nuvioCOrderContext = androidx.compose.ui.platform.LocalContext.current
                     LaunchedEffect(Unit) { NuvioCOsdOrder.load(nuvioCOrderContext) }
                     val nuvioCSlotsSaved by NuvioCOsdOrder.slots.collectAsState()
-                    val nuvioCSlots = if (com.nuvio.tv.NuvioCFeatures.OSD_BUTTON_ORDER && !nuvioCSplit) nuvioCSlotsSaved else NuvioCOsdOrder.defaults
+                    val nuvioCSlots = if (com.nuvio.tv.NuvioCFeatures.OSD_BUTTON_ORDER) nuvioCSlotsSaved else NuvioCOsdOrder.defaults
                     // [fork] round 31 start_over_previous: armed for 8 s after a Start over, when there is an episode before.
                     var nuvioCPrevArmed by remember { mutableStateOf(false) }
                     var nuvioCPrevArmToken by remember { mutableStateOf(0) }
@@ -3546,7 +3544,7 @@ private fun PlayerControlsOverlay(
                                 onDownKey = onHideControls,
                                 onFocused = onResetHideTimer
                             )
-                            NuvioCOsdButton.EPISODES -> if (hasEpisodeContext && !nuvioCSplit) { // [fork] was if (hasEpisodeContext)
+                            NuvioCOsdButton.EPISODES -> if (hasEpisodeContext) {
                                 ControlButton(
                                     icon = Icons.AutoMirrored.Filled.List,
                                     iconPainter = customEpisodesPainter,
@@ -3661,21 +3659,6 @@ private fun PlayerControlsOverlay(
                             NuvioCOsdButton.REPORT -> nuvioCReportButton()
                             else -> nuvioCButton(slot.button)
                         }
-                        // [fork] split layout: playback buttons (and Episodes) left, track buttons right
-                        if (nuvioCSplit && slot.button == NuvioCOsdButton.NEXT) {
-                            if (hasEpisodeContext) {
-                                ControlButton(
-                                    icon = Icons.AutoMirrored.Filled.List,
-                                    iconPainter = customEpisodesPainter,
-                                    contentDescription = stringResource(R.string.cd_episodes),
-                                    onClick = onShowEpisodesPanel,
-                                    upFocusRequester = progressUpTarget,
-                                    onDownKey = onHideControls,
-                                    onFocused = onResetHideTimer
-                                )
-                            }
-                            Spacer(modifier = Modifier.weight(1f))
-                        }
                     }
 
                     if (nuvioCOrderAll) {
@@ -3738,7 +3721,7 @@ private fun PlayerControlsOverlay(
 
                 // Right side - Time display only
                 // [fork] round 40 osd_more_time: the time steps aside while the More row is open, so the buttons get the width.
-                if (!nuvioCSplit && !(com.nuvio.tv.NuvioCFeatures.OSD_MORE_TIME && uiState.showMoreDialog)) PlayerControlsTimeTextHost(viewModel = viewModel) // [fork] split: time sits under the seek bar
+                if (!(com.nuvio.tv.NuvioCFeatures.OSD_MORE_TIME && uiState.showMoreDialog)) PlayerControlsTimeTextHost(viewModel = viewModel)
             }
             }
         }
