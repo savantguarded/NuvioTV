@@ -55,6 +55,13 @@ internal object NuvioCTrackNames {
         return tags.joinToString(" · ").ifBlank { null }
     }
 
+    /** [fork] round 56 sub_panel_no_tabs: "SDH", "Forced", "SDH · Forced"… for a built-in track, null when it has none. */
+    fun shortTag(name: String?, forced: Boolean): String? {
+        val tags = tags(name.orEmpty()).toMutableList()
+        if (forced && "Forced" !in tags) tags += "Forced"
+        return tags.joinToString(" · ").ifBlank { null }
+    }
+
     private fun tags(name: String): List<String> = tagRules.filter { (re, _) -> re.containsMatchIn(name) }.map { it.second }.distinct()
 
     private fun languageName(code: String?): String? {

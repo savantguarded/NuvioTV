@@ -91,6 +91,9 @@ internal object NuvioCOsdStyle {
         return _style.value
     }
 
+    /** [fork] round 56: read again after the stored value changed underneath (profile switch, cloud copy). */
+    fun reload(context: Context) { loaded = false; load(context) }
+
     fun set(context: Context, value: String) {
         _style.value = value
         loaded = true

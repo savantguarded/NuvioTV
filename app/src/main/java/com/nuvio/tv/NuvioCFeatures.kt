@@ -655,8 +655,6 @@ object NuvioCFeatures {
     const val HERO_SYNOPSIS_WIDE = true
     /** Details Information as fixed slots (films 8, shows 10, a dim dash when missing), nothing that the top of the page already shows; adds Country, Based on, Last aired, Episodes, Episode length. Off = round 39 block. */
     const val DETAIL_INFO_SLOTS = true
-    /** Details episodes: a Find chip at the end of the season tabs; search by number (12, e12, s3e5, 3x05) or name across all seasons. Off = official tabs. */
-    const val EPISODE_FIND = true
     // [fork] round 43b
     /** Details: the Information block is one focus stop after the logo rows; the logo rows then scroll like any other row (no scroll-to-end, no blocked scroll). Needs DETAIL_INFO_SLOTS. Off = round 9 scroll-to-end on the logo rows. */
     const val DETAIL_INFO_STOP = true
@@ -673,8 +671,6 @@ object NuvioCFeatures {
     // [fork] round 46
     /** Library: Back from a title lands on that title again. A list, filter or sort change still jumps to the first poster once. Off = round 26 (Back could jump to the first poster). */
     const val LIBRARY_BACK_FOCUS = true
-    /** Details Find: Up from the episodes returns to whatever was last focused in the season row (Find or a season), scrolled into view first, with a fallback so focus never vanishes; Left from Find goes straight to the selected season; Back from a cast page lands on Find again. Off = round 43. */
-    const val FIND_FOCUS = true
     /** Subtitle appearance (Settings and the player's Style tab): Outline width row (1 to 5) under Outline. Off = no row (round 44). */
     const val SUBTITLE_OUTLINE_WIDTH_ROW = true
     /** Player Details panel: "Directed by" / "This episode" (director and writer) above the cast, from the credits already fetched. Off = cast only. */
@@ -902,8 +898,6 @@ object NuvioCFeatures {
     /** Taste: a dimmed, blurred-looking backdrop of the profile's top title behind the cards. */
     const val TASTE_BACKDROP = true
     // ---- beta.3 merge (2026-11-20) ----
-    /** With official season posters on, Find is a portrait tile the same size as the posters. */
-    const val FIND_POSTER_TILE = true
     /**
      * Ratings: official's pill (your score inside) and panel look, driving Nuvio C's multi-tracker sync. The pill shows
      * MDBList, then Trakt, then Simkl, then the score sent from this TV. "Sync to" toggles per rating (all connected on
@@ -911,4 +905,14 @@ object NuvioCFeatures {
      * Official's single-service Ratings setting is hidden; MDBList ratings always sync for the score.
      */
     const val RATINGS_MULTI = true
+
+    // ---- round 56 ----
+    /** Modern Subtitles panel: no Tracks / Style tabs, one list; every row is two lines (source pill; language, plus SDH / Forced / CC for built-in tracks). Off = round 54 tabs. */
+    const val SUB_PANEL_NO_TABS = true
+    /** Modern OSD More: a "Subtitle delay" line (shows the current delay) that opens official's delay bar, since the Style tab is gone. Off = no line. */
+    const val SUB_DELAY_IN_MORE = true
+    /** Fork settings are kept per Nuvio profile on this TV (filled once from that profile's cloud copy, else from this TV's values); a profile switch never uploads the previous profile's settings, and the player's remembered choices reload. Off = one set for the TV. */
+    const val CLOUD_SETTINGS_PER_PROFILE = true
+    /** Roulette's "seen recently" list and the post-play rating marker are kept per Nuvio profile. Off = one for the TV. */
+    const val PROFILE_LOCAL_HISTORY = true
 }

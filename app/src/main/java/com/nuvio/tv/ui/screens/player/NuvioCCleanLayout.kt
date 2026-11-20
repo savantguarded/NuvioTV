@@ -73,6 +73,9 @@ internal object NuvioCCleanOrder {
         return _slots.value
     }
 
+    /** [fork] round 56: read again after the stored value changed underneath (profile switch, cloud copy). */
+    fun reload(context: Context) { loaded = false; load(context) }
+
     fun save(context: Context, slots: List<NuvioCCleanSlot>) {
         val sorted = sortedByZone(slots)
         _slots.value = sorted

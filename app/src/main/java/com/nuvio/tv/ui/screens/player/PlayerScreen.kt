@@ -3939,6 +3939,7 @@ private fun NuvioCCleanControlsV2(
     val autoSkipLabel = stringResource(R.string.nuvio_c_auto_skip_intro)
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val secPlayback = stringResource(R.string.nuvio_c_more_playback)
+    val subDelayLabel = stringResource(R.string.nuvio_c_more_subtitle_delay) // [fork] round 56
     val secPlayer = stringResource(R.string.nuvio_c_more_player)
     val nightActive = remember { NuvioCNight.active(context) }
     val nightLevel by NuvioCNight.level.collectAsState()
@@ -4059,6 +4060,12 @@ private fun NuvioCCleanControlsV2(
             com.nuvio.tv.data.local.NightModeLevel.entries.map { l -> NuvioCMoreOption(nightLabels.getValue(l), l == nightLevel) { viewModel.controller.nuvioCApplyNightMode(l) } }
         ))
         if (inMore(NuvioCOsdButton.AUTO_SKIP)) autoSkip?.let { s -> add(NuvioCMoreItem.Toggle("auto_skip", autoSkipLabel, secPlayback, s.on, s.toggle)) }
+        // [fork] round 56 sub_delay_in_more: the Subtitles panel has no Style tab, so the delay bar opens from here
+        if (com.nuvio.tv.NuvioCFeatures.SUB_DELAY_IN_MORE && (uiState.selectedSubtitleTrackIndex >= 0 || uiState.selectedAddonSubtitle != null)) add(NuvioCMoreItem.Action(
+            "sub_delay", subDelayLabel, secPlayback,
+            if (uiState.subtitleDelayMs > 0) "+${uiState.subtitleDelayMs} ms" else "${uiState.subtitleDelayMs} ms",
+            onClick = { viewModel.onEvent(PlayerEvent.OnShowSubtitleDelayOverlay) }, arrow = true
+        ))
         // (no Subtitles / Audio lines: those buttons always sit on a side and their panels hold style and delays)
         // Player
         if (inMore(NuvioCOsdButton.SOURCES)) add(NuvioCMoreItem.Action("sources", sourcesLabel, secPlayer, arrow = true, onClick = onShowSourcesPanel))

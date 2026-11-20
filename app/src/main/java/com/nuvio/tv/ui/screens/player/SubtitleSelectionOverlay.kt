@@ -2046,7 +2046,8 @@ private data class SubtitleOptionRailItem(
     val meta: String?,
     val isSelected: Boolean,
     val internalTrackIndex: Int? = null,
-    val addonSubtitle: Subtitle? = null
+    val addonSubtitle: Subtitle? = null,
+    val nuvioCTag: String? = null // [fork] round 56 sub_panel_no_tabs: SDH / Forced / CC... for built-in tracks
 )
 
 private fun buildSubtitleLanguageRailItems(
@@ -2153,7 +2154,8 @@ private fun buildSubtitleOptionRailItems(
             sourceLabel = if (subtitle.isStreamProvided) builtInLabel else subtitle.addonName,
             meta = subtitle.id.takeIf { it.isNotBlank() && it != subtitle.lang && it != subtitle.url },
             isSelected = optionId == selectedOptionId,
-            addonSubtitle = subtitle
+            addonSubtitle = subtitle,
+            nuvioCTag = if (subtitle.isStreamProvided) NuvioCTrackNames.shortTag(subtitle.label, forced = false) else null
         )
     }
 
@@ -2184,7 +2186,8 @@ private fun buildSubtitleOptionRailItems(
                     if (track.isForced && nuvioCTitle == null) forcedLabel else null
                 ).joinToString(" • ").ifBlank { null }),
                 isSelected = "internal:${track.index}" == selectedOptionId,
-                internalTrackIndex = track.index
+                internalTrackIndex = track.index,
+                nuvioCTag = NuvioCTrackNames.shortTag(track.name, track.isForced)
             )
         }
 
@@ -2376,7 +2379,7 @@ private fun NuvioCSubtitleTabsPanel(
             repeat(4) {
                 if (rowReq(0).requestFocusAfterFrames(frames = 1)) return@LaunchedEffect
             }
-            runCatching { tabRequesters[0].requestFocus() }
+            if (!com.nuvio.tv.NuvioCFeatures.SUB_PANEL_NO_TABS) runCatching { tabRequesters[0].requestFocus() }
         } else trackEntry.requestFocusAfterFrames(frames = 2)
     }
 
@@ -2392,7 +2395,9 @@ private fun NuvioCSubtitleTabsPanel(
                 else listOfNotNull(labelOf[languageKey], options.size.takeIf { it > 0 }?.toString()).joinToString(" · ")
             Text(summary, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.6f), maxLines = 1)
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.nuvioCTabRow { tabRequesters[tab] }) {
+        // [fork] round 56 sub_panel_no_tabs: no Tracks / Style tabs; the panel is the track list (delay moved to More)
+        val noTabs = com.nuvio.tv.NuvioCFeatures.SUB_PANEL_NO_TABS
+        if (!noTabs) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.nuvioCTabRow { tabRequesters[tab] }) {
             listOfNotNull(
                 stringResource(R.string.nuvio_c_panel_tracks),
                 stringResource(R.string.subtitle_style_title)
@@ -2422,11 +2427,11 @@ private fun NuvioCSubtitleTabsPanel(
                 item(key = "off") {
                     NuvioCPanelRow(
                         title = stringResource(R.string.subtitle_none),
-                        detail = stringResource(R.string.nuvio_c_panel_no_subtitles),
+                        detail = if (noTabs) null else stringResource(R.string.nuvio_c_panel_no_subtitles),
                         selected = off,
                         focusRequester = if (off || allOptions.none { it.second.id == selectedId }) trackEntry else null,
                         onClick = { off = true; selectedId = null; onDisableSubtitles() },
-                        modifier = Modifier.focusRequester(rowReq(0)).nuvioCRowUp(0, rowFocus, tracksState, tabRequesters[0], scope),
+                        modifier = Modifier.focusRequester(rowReq(0)).nuvioCRowUp(0, rowFocus, tracksState, if (noTabs) rowReq(0) else tabRequesters[0], scope),
                         pill = stringResource(R.string.nuvio_c_panel_pill_off)
                     )
                 }
@@ -2438,10 +2443,11 @@ private fun NuvioCSubtitleTabsPanel(
                         item.meta?.takeIf { it.isNotBlank() }
                     ).distinct().joinToString(" · ").ifBlank { stringResource(R.string.nuvio_c_panel_subtitle_track) }
                     NuvioCPanelRow(
-                        modifier = Modifier.focusRequester(rowReq(i + 1)).nuvioCRowUp(i + 1, rowFocus, tracksState, tabRequesters[0], scope),
+                        modifier = Modifier.focusRequester(rowReq(i + 1)).nuvioCRowUp(i + 1, rowFocus, tracksState, if (noTabs) rowReq(i + 1) else tabRequesters[0], scope),
                         pill = item.sourceLabel.ifBlank { null },
-                        title = language,
-                        detail = detail,
+                        // [fork] round 56: two lines only, the pill and the language (built-in tracks add their tag)
+                        title = if (noTabs) listOfNotNull(language, item.nuvioCTag).joinToString(" · ") else language,
+                        detail = if (noTabs) null else detail,
                         selected = !off && item.id == selectedId,
                         focusRequester = if (!off && item.id == selectedId) trackEntry else null,
                         onClick = {
