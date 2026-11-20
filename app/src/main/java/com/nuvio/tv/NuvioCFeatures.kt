@@ -569,8 +569,6 @@ object NuvioCFeatures {
     const val SIDEBAR_SLIM = true
     /** Cold start to the profile screen: the still Nuvio logo on black from the first frame, held over the profile screen until it's ready, then it fades as the profile intro begins. Off = black wait. */
     const val STARTUP_OPENING = true
-    /** After a profile pick: the start-up screen shows that profile's avatar, still, in the centre; once Home has settled a circle opens from the centre onto Home. Off = logo and plain fade. */
-    const val PROFILE_TO_HOME = false // round 37b (Charles): back to the logo and plain fade
     /** Settings > Integrations: a TheTVDB row with your own key (round 47: OMDb removed) (kept on this TV only, never in your Nuvio account). Off = rows hidden, the built-in TVDB key only. */
     const val API_KEYS = true
 

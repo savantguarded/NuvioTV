@@ -122,7 +122,6 @@ import com.nuvio.tv.core.runtime.PluginRuntimeHooks
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import com.nuvio.tv.ui.components.nuvioCCircleReveal
 import androidx.compose.ui.unit.sp
 import androidx.core.os.ConfigurationCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -1567,8 +1566,7 @@ open class MainActivity : ComponentActivity() {
                             }
                             nuvioCDissolving = false
                         } else if (nuvioCSplashAlpha.value > 0f) {
-                            nuvioCSplashAlpha.animateTo(0f, tween(if (com.nuvio.tv.NuvioCFeatures.PROFILE_TO_HOME) 520 else 500, easing = FastOutSlowInEasing))
-                            com.nuvio.tv.ui.components.NuvioCOpening.picked.value = null // [fork] round 37 profile_to_home: used once
+                            nuvioCSplashAlpha.animateTo(0f, tween(500, easing = FastOutSlowInEasing))
                         }
                     }
                     LaunchedEffect(nuvioCDissolving) { // safety: never leave the profile screen held
@@ -1595,11 +1593,9 @@ open class MainActivity : ComponentActivity() {
                             modifier = if (nuvioCSmooth) Modifier.graphicsLayer { // [fork] full at once on a cold start; animated around a profile pick and on the way out
                                 alpha = when {
                                     showSplash && !nuvioCDissolving -> 1f
-                                    // [fork] round 37 profile_to_home: on the way out a circle opens onto Home; the screen fades only at the end
-                                    !showSplash && com.nuvio.tv.NuvioCFeatures.PROFILE_TO_HOME -> (nuvioCSplashAlpha.value / 0.35f).coerceAtMost(1f)
                                     else -> nuvioCSplashAlpha.value
                                 }
-                            }.nuvioCCircleReveal(exiting = { !showSplash }, exit = { nuvioCSplashAlpha.value })
+                            }
                                 else Modifier.graphicsLayer { alpha = splashAlpha }
                         )
                     }

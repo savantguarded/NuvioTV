@@ -98,12 +98,7 @@ fun StartupSplashScreen(
             )
         }
 
-        // [fork] round 37 profile_to_home: after a pick, that profile's avatar (still) instead of the logo
-        val nuvioCAppear = androidx.compose.runtime.remember { androidx.compose.animation.core.Animatable(0f) }
-        androidx.compose.runtime.LaunchedEffect(Unit) { nuvioCAppear.animateTo(1f, androidx.compose.animation.core.tween(300, easing = androidx.compose.animation.core.LinearOutSlowInEasing)) }
-        if (NuvioCPickedAvatar(appear = { nuvioCAppear.value })) {
-            // avatar drawn
-        } else if (com.nuvio.tv.NuvioCFeatures.STARTUP_STATIC) { // [fork] round 27 startup_static: still logo, nothing animated
+        if (com.nuvio.tv.NuvioCFeatures.STARTUP_STATIC) { // [fork] round 27 startup_static: still logo, nothing animated
             NuvioCStartupStatic(
                 logoRes = brandWordmarkRes ?: NuvioTheme.currentTheme.brandWordmarkResource,
                 contentDescription = stringResource(R.string.cd_nuvio_logo),

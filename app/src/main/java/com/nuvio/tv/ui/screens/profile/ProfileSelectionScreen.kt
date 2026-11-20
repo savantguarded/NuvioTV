@@ -270,9 +270,6 @@ fun ProfileSelectionScreen(
     }
     val selectProfile: (Int) -> Unit = { profileId ->
         if (!viewModel.isSelectingProfile) {
-            profiles.firstOrNull { it.id == profileId }?.let { p -> // [fork] round 37 profile_to_home: the start-up screen shows who was picked
-                com.nuvio.tv.ui.components.NuvioCOpening.pick(p.name, p.avatarColorHex, p.avatarId?.let { avatarImageUrlsById[it] })
-            }
             onProfileClicked()
             viewModel.selectProfile(
                 id = profileId,
