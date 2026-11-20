@@ -8,15 +8,12 @@
     <string name="nuvio_c_prefer_sdh">Prefer SDH Subtitles</string>
     <string name="nuvio_c_prefer_sdh_desc">Pick the SDH (hearing impaired) version of an embedded subtitle in your language when the file has one</string>
     <string name="nuvio_c_prefer_sdh_strip_warning">Strip SDH is also on, so sound descriptions will still be hidden</string>
-    <string name="nuvio_c_rate">Rate</string>
-    <string name="nuvio_c_rate_title">Rate %1$s</string>
     <string name="nuvio_c_rate_remove">Remove rating</string>
     <string name="nuvio_c_rate_failed">Couldn\'t reach %1$s. Save again to retry.</string>
     <string name="nuvio_c_rate_pick_score">Pick a score first</string>
     <string name="nuvio_c_rate_pick_tracker">Pick at least one tracker</string>
     <string name="nuvio_c_subtitle_font">Subtitle Font</string>
     <string name="nuvio_c_subtitle_font_desc">Font for plain-text subtitles. ASS and picture subtitles keep their own</string>
-    <string name="nuvio_c_subtitle_font_title">Font</string>
     <string name="nuvio_c_rate_trakt_score">You rated this %1$d/10</string>
     <string name="nuvio_c_rate_your_rating">Your Rating</string>
     <string name="nuvio_c_rate_sync_to">Sync to %1$s</string>
@@ -62,7 +59,6 @@
     <string name="nuvio_c_osd_cast_see_more">See more</string>
     <string name="nuvio_c_osd_cast_see_less">See less</string>
     <!-- round 28: Shuffle -->
-    <string name="nuvio_c_shuffle">Shuffle</string>
     <string name="nuvio_c_roulette">Roulette</string>
     <string name="nuvio_c_shuffle_settings_desc">Sidebar entry and refreshing picks</string>
     <string name="nuvio_c_shuffle_title">Roulette</string>
@@ -170,7 +166,6 @@
     <string name="nuvio_c_shuffle_refresh_failed">Couldn\'t refresh, kept the last picks</string>
     <string name="nuvio_c_shuffle_setting_menu">Show Roulette in the sidebar</string>
     <string name="nuvio_c_shuffle_setting_menu_sub">After Calendar, before Settings</string>
-    <string name="nuvio_c_subtitle_background_title">Background opacity</string>
     <string name="nuvio_c_offline_notice_v2">No internet · Showing what\'s saved on this TV</string>
     <string name="nuvio_c_back_online">Back online</string>
     <!-- [fork] round 52 offline_everywhere -->
@@ -384,7 +379,6 @@
     <string name="nuvio_c_award_globes">Golden Globes</string>
     <string name="nuvio_c_award_bafta">BAFTA</string>
     <string name="nuvio_c_award_emmys">Primetime Emmys</string>
-    <string name="nuvio_c_award_festivals">Festivals</string>
     <string name="nuvio_c_find">Find</string>
     <string name="nuvio_c_find_hint">Episode number or name</string>
     <string name="nuvio_c_find_matches">%d matches</string>
