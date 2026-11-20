@@ -2,7 +2,7 @@
 
 Rewrite this file at the end of every build session (do not append). History lives in git log.
 
-Updated: 2026-11-20
+Updated: 2026-11-20 (evening)
 
 ## Where things stand
 - Branch `nuvio-c` @ `122312e8` = round 55 on official `1.2.0-beta.3`.
@@ -24,10 +24,11 @@ Updated: 2026-11-20
 - MDBList API call growth during playback (raised 2026-10-31). Current status unknown, re-check with a request log.
 - Watchly C lives in its own repo, not here.
 
-## Cleanup queue (awaiting Charles's approval)
-- Remove the 16 switched-off tweaks' code and switches (list in `docs/FORK_CHANGES.md`).
-- Check for switches superseded by later rounds and dead `NuvioC*` files.
-- Project knowledge: fold the claude/round* project docs into one history file, delete the rest.
+## Cleanup (branch `cleanup-ab`, NOT compiled yet)
+- Groups A and B approved by Charles and done as 17 commits on branch `cleanup-ab` (on top of `nuvio-c` d9b6eff0): 22 switches and their dead code removed, 6 unused strings removed, CI now skips removed switch names in `NUVIO_C_OFF` instead of failing.
+- Next build session: compile and test `cleanup-ab` first. If green, fast-forward `nuvio-c` to it, then do the new work on top.
+- Group C (older versions kept as fallbacks: start-up loader / halo, older Taste, panel and OSD versions): list each case for Charles to pick. Keep the Calendar Week view (ysosrs123 code).
+- Project knowledge: fold the claude/round* project docs into one history file, delete the rest; add the project instruction block.
 
 ## Start of every build session
 1. Read `docs/ARCHITECTURE.md`, `docs/FORK_CHANGES.md` and this file.

@@ -4,14 +4,14 @@ How Nuvio C differs from official NuvioTV, grouped by area: what you see, the sw
 Per-switch detail: every switch in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt` has a one-line comment. This file is the overview, not a copy of that list.
 Paths below are relative to `app/src/main/java/com/nuvio/tv/` unless they start with `app/`, `.github/` or `scripts/`.
 
-Base: official `1.2.0-beta.3` (`552cacf5`). Fork footprint vs that tag: 410 files added, 177 official files edited, about 68,700 lines added. 453 switches, 16 off.
+Base: official `1.2.0-beta.3` (`552cacf5`). Fork footprint vs that tag: 410 files added, 177 official files edited, about 68,700 lines added. 431 switches, 0 off.
 Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream merge).
 
 ## Build and distribution
 - App "Nuvio C", package `com.nuvio.tv.c`, `armeabi-v7a` only, beside the official app. Set at build time in `.github/workflows/nuvio-c.yml`, not in source.
 - Hourly CI replays the fork onto each official release. Optional patches (trailer layer, IMDb backup, cast filmography) drop alone on conflict. Issue opened when upstream edits OSD files. Repeat conflict mails are quieted.
 - In-app updater points at this repo, offers forced rebuilds and compiles on install: `app/src/full/java/com/nuvio/tv/updater/NuvioCUpdate*.kt`, `UPDATE_REOPEN`.
-- English-only APK (`ENGLISH_ONLY`, `app/build.gradle.kts`), no crash reports to Nuvio (`NO_CRASH_REPORTING`), no launcher channels (`NO_TV_CHANNELS`), debug logs stripped in release (`app/proguard-rules.pro`, `RELEASE_LOG_STRIP`), fork baseline profile `app/src/main/baselineProfiles/nuvio-c.txt`.
+- English-only APK (`ENGLISH_ONLY`, `app/build.gradle.kts`), no crash reports to Nuvio (`NO_CRASH_REPORTING`), no launcher channels (`NO_TV_CHANNELS`), debug logs stripped in release (`app/proguard-rules.pro`), fork baseline profile `app/src/main/baselineProfiles/nuvio-c.txt`.
 - ysosrs123 calendar tracking: `.github/workflows/nuvio-c-ysos-watch.yml`, `scripts/nuvio-c-calendar-sync.sh`.
 
 ## Player controls (OSD)
@@ -103,7 +103,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Files: `core/NuvioCPerf.kt`, `core/NuvioCPlayerMemory.kt`, `core/nuvioc/NuvioCStartupQueue.kt`, `ui/screens/home/NuvioCHomeCatalogSweep.kt`.
 
 ## Switched off (reverted, code still present: cleanup candidates)
-`PROFILE_MINIMAL`, `OSD_SPLIT`, `SDH_SESSION_PICK`, `SUBTITLE_TOP`, `FEATURED_WRAP`, `SOURCES_NAV`, `PROFILE_TO_HOME`, `STARTUP_LOGO_SHIMMER`, `STARTUP_PROFILE_ATOMIC`, `DV_RESUME_HEADER_FIRST`, `STARTUP_NO_LOGO`, `STARTUP_GATE_ALWAYS`, `DETAIL_AWARDS_BODIES`, `SUBTITLE_CLASSIC_RENDERER`, `CLEAN_BUTTON_GLOW`, `INFO_UP_HANDLER`. Also `IMDB_QUIET_START` (retired no-op, kept on). Some switches may be dead for other reasons (superseded by a later round); the cleanup pass checks each.
+None. The 2026-11-20 cleanup removed every reverted tweak and every switch nothing read (22 switches). Older versions kept as fallbacks behind newer ones (start-up loader / halo, Calendar Week view, older Taste and panel versions) are listed in `docs/STATUS.md` for a later decision.
 
 ## Keeping this file true
 Add, change or remove a line here in the same commit as any feature that is added, reworked or removed. Removed tweaks leave this file entirely. Update the Base line after each upstream merge.
