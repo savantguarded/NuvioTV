@@ -70,9 +70,8 @@ internal class NuvioCPlaybackLog(
             append(" | transfer=").append(transferName(f.colorInfo?.colorTransfer))
             append(" | dv=").append(if (looksDolbyVision(f)) "file" else "no")
             append(" decoderDv=").append(if (decoderIsDolby(decoder)) "yes" else "no")
-            // [fork] round 42: where playback started, and whether the header-first resume ran
+            // [fork] round 42: where playback started
             append(" | at=").append(eventTime.currentPlaybackPositionMs / 1000).append("s")
-            if (NuvioCDvResume.lastHeaderFirst) append(" headerFirst")
             if (com.nuvio.tv.NuvioCFeatures.DV_LOG_MORE) {
                 // [fork] round 43 dv_log_more: what to compare between a Dolby Vision start and a miss (read-only)
                 val described = runCatching(describe).getOrDefault("")

@@ -679,8 +679,6 @@ object NuvioCFeatures {
     const val TASTE_RECAP_PANEL = true
     /** Taste: the refresh button spins while rebuilding and says Updated; a long press re-reads every title's details. Off = silent refresh. */
     const val TASTE_REFRESH_FEEDBACK = true
-    /** Player: resuming an MKV mid-file on a Dolby Vision TV reads the file's header from the start, then jumps to the resume point, so the Dolby Vision track isn't lost. Decoder untouched. Off = official resume. */
-    const val DV_RESUME_HEADER_FIRST = false // round 43: off, back to official resume (set position at prepare). It also lost the resume point.
     // [fork] round 42b
     /** Taste: closing a titles or recap panel puts focus back on the card or recap that opened it (the panel's focus guard stops at Back). Off = round 42. */
     const val TASTE_CLOSE_FOCUS = true

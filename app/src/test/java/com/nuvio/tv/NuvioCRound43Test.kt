@@ -89,8 +89,4 @@ class NuvioCRound43Test {
         assertFalse(NuvioCPlaybackLog.namesDolbyVision("DVD.Rip.Advanced.mkv"))
         assertFalse(NuvioCPlaybackLog.namesDolbyVision("Dvorak.2019.mkv"))
     }
-
-    @Test fun resumeIsOfficialAgain() {
-        assertFalse(NuvioCFeatures.DV_RESUME_HEADER_FIRST)
-    }
 }
