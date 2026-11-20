@@ -50,6 +50,8 @@
     <!-- round 28: rating after a finished movie -->
     <string name="nuvio_c_rate_just_finished">You just finished %1$s</string>
     <string name="nuvio_c_rate_not_now">Not now</string>
+    <string name="nuvio_c_rate_you_finished">You finished</string>
+    <string name="nuvio_c_rate_sync_label">Sync to</string>
     <!-- round 28: Cast in the player -->
     <string name="nuvio_c_osd_cast">Cast</string>
     <string name="nuvio_c_osd_cast_episode">In this episode</string>

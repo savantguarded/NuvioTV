@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.screens.detail
 
+import androidx.compose.runtime.collectAsState
+
 import android.content.Context
 import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.animation.AnimatedContent
@@ -138,7 +140,15 @@ internal fun EpisodeOptionsOverlay(
     val detailsFocusRequester = remember { FocusRequester() }
     val detailsScrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
-    val ratingState = ratingMedia?.let { rememberRatingState(it).value } ?: TrackingRatingState()
+    // [fork] beta.3 merge (ratings_multi): the episode is rated on Trakt and MDBList through Nuvio C's sync
+    val nuvioCRateVm = rememberNuvioCEpisodeRating(ratingMedia)
+    val nuvioCRate = nuvioCRateVm?.state?.collectAsState()?.value
+    val ratingState = if (com.nuvio.tv.NuvioCFeatures.RATINGS_MULTI) {
+        if (nuvioCRate != null && nuvioCRate.available) TrackingRatingState(
+            provider = com.nuvio.tv.core.tracking.TrackingProviderId.TRAKT,
+            rating = nuvioCRate.display?.toDouble()
+        ) else TrackingRatingState()
+    } else ratingMedia?.let { rememberRatingState(it).value } ?: TrackingRatingState()
     var showRating by remember(episode.id) { mutableStateOf(false) }
     var ratingVisited by remember(episode.id) { mutableStateOf(false) }
     val ratingFocusRequester = remember { FocusRequester() }
@@ -254,6 +264,7 @@ internal fun EpisodeOptionsOverlay(
                     onClick = {
                         ratingVisited = true
                         showRating = true
+                        nuvioCRateVm?.open() // [fork]
                     }
                 )
             )
@@ -319,7 +330,7 @@ internal fun EpisodeOptionsOverlay(
 
     Dialog(
         onDismissRequest = {
-            if (ratingPageVisible) showRating = false else onDismiss()
+            if (ratingPageVisible) { showRating = false; nuvioCRateVm?.close() } else onDismiss()
         },
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
@@ -524,7 +535,20 @@ internal fun EpisodeOptionsOverlay(
                     contentAlignment = Alignment.Center,
                     label = "episode_overlay_page"
                 ) { rating ->
-                    if (rating && ratingMedia != null) {
+                    if (rating && ratingMedia != null && nuvioCRateVm != null && nuvioCRate != null) {
+                        // [fork] beta.3 merge: same panel look, Trakt / MDBList toggles; closes once saved
+                        LaunchedEffect(nuvioCRate.open, nuvioCRate.saving) {
+                            if (!nuvioCRate.open && !nuvioCRate.saving && ratingVisited) onDismiss()
+                        }
+                        NuvioCRatingPanelContent(
+                            label = null, title = null, subtitle = null,
+                            state = nuvioCRate,
+                            onPick = nuvioCRateVm::pick,
+                            onToggle = nuvioCRateVm::toggle,
+                            onSave = { nuvioCRateVm.save() },
+                            onRemove = { nuvioCRateVm.save(remove = true) }
+                        )
+                    } else if (rating && ratingMedia != null) {
                         RatingPanel(
                             media = ratingMedia,
                             state = ratingState,

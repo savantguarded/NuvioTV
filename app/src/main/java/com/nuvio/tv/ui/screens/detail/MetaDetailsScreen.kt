@@ -2693,8 +2693,14 @@ private fun MetaDetailsContent(
                         isMovieWatched = isMovieWatched,
                         isMovieWatchedPending = isMovieWatchedPending,
                         onToggleMovieWatched = onToggleMovieWatched,
-                        ratingState = titleRatingState,
-                        onRateClick = { showRatingDialog = true },
+                        // [fork] beta.3 merge (ratings_multi): official pill showing Nuvio C's multi-tracker score
+                        ratingState = if (com.nuvio.tv.NuvioCFeatures.RATINGS_MULTI) {
+                            com.nuvio.tv.core.tracking.TrackingRatingState(
+                                provider = if (nuvioCRating.available) com.nuvio.tv.core.tracking.TrackingProviderId.TRAKT else null,
+                                rating = nuvioCRating.score?.toDouble()
+                            )
+                        } else titleRatingState,
+                        onRateClick = { if (com.nuvio.tv.NuvioCFeatures.RATINGS_MULTI) nuvioCRating.open() else showRatingDialog = true },
                         mdbListRatings = visibleMdbListRatings,
                         mdbListRatingOrder = mdbListRatingOrder,
                         nuvioCRatingsPending = isMdbListRatingsActive && nuvioCMdbPending, // [fork] hero ratings space
@@ -3340,7 +3346,7 @@ private fun MetaDetailsContent(
             )
         }
 
-        if (showRatingDialog && titleRatingState.isAvailable) {
+        if (!com.nuvio.tv.NuvioCFeatures.RATINGS_MULTI && showRatingDialog && titleRatingState.isAvailable) {
             RatingDialog(
                 media = titleRatingMedia,
                 title = meta.name,

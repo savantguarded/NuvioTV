@@ -85,27 +85,47 @@ data class NuvioCRatingUiState(
     /** [fork] round 28 post_play_rating: opened because you just finished this movie. */
     val justFinished: Boolean = false,
     /** [fork] round 28: the Trakt / Simkl lookups for this title are done. */
-    val checked: Boolean = false
+    val checked: Boolean = false,
+    /** [fork] beta.3 merge: your score on MDBList (official MDBList ratings sync). */
+    val mdblist: Int? = null
 ) {
     val available: Boolean get() = target != null && connected.isNotEmpty()
+    /** [fork] beta.3 merge: the score the pill shows: MDBList, then Trakt, then Simkl, then the one sent from this TV. */
+    val display: Int? get() = mdblist ?: trakt ?: simkl ?: saved
 }
+
+/** [fork] beta.3 merge: episodes can only be rated on trackers that take episode ratings (Trakt, MDBList). */
+internal fun List<NuvioCTracker>.forTarget(target: NuvioCRatingTarget?): List<NuvioCTracker> =
+    if (target?.isEpisode == true) filter { it == NuvioCTracker.TRAKT || it == NuvioCTracker.MDBLIST } else this
 
 @HiltViewModel
 class NuvioCRatingViewModel @Inject constructor(
-    private val service: NuvioCRatingService
+    private val service: NuvioCRatingService,
+    private val mdbRatings: com.nuvio.tv.data.mdblist.MdbListUserRatings // [fork] beta.3 merge: MDBList score read
 ) : ViewModel() {
     private val _state = MutableStateFlow(NuvioCRatingUiState())
     val state = _state.asStateFlow()
+    private var mdbJob: kotlinx.coroutines.Job? = null
 
-    fun bind(target: NuvioCRatingTarget?) {
+    fun bind(target: NuvioCRatingTarget?, media: com.nuvio.tv.core.tracking.TrackingMediaReference? = null) {
         if (target == _state.value.target && _state.value.connected.isNotEmpty()) return
         _state.value = NuvioCRatingUiState(target = target)
+        mdbJob?.cancel()
         if (target == null) return
+        if (NuvioCFeatures.RATINGS_MULTI && media != null) {
+            // [fork] beta.3 merge: MDBList score from official's MDBList ratings sync, kept current as it refreshes
+            mdbJob = viewModelScope.launch {
+                mdbRatings.changes.collect {
+                    val score = runCatching { mdbRatings.rating(media)?.let { kotlin.math.round(it).toInt() } }.getOrNull()
+                    if (_state.value.target == target) _state.update { it.copy(mdblist = score?.takeIf { s -> s in 1..10 }) }
+                }
+            }
+        }
         viewModelScope.launch {
             // [fork] off the UI thread: prefs load, the Trakt copy file and the ratings JSON (up to ~150 KB)
             // were read / parsed on the main thread as the details page opened.
             val (connected, saved) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                service.connected() to service.savedScore(target)
+                service.connected().forTarget(target) to service.savedScore(target)
             }
             _state.update { it.copy(connected = connected, saved = saved) }
             // Trakt copy: memory lookup, refreshed at most every 15 min (tiny request)
@@ -134,7 +154,7 @@ class NuvioCRatingViewModel @Inject constructor(
         val target = s.target ?: return log("skip: no rating target for this page")
         if (!s.available) return log("skip: no tracker connected to rate on")
         if (s.open) return log("skip: rating dialog already open")
-        if (s.saved != null || s.trakt != null || s.simkl != null) return log("skip: already rated (${s.saved ?: s.trakt ?: s.simkl})")
+        if (s.display != null) return log("skip: already rated (${s.display})")
         if (service.askedAfterFinish(target)) return log("skip: asked before for this title")
         service.markAskedAfterFinish(target)
         open()
@@ -144,13 +164,14 @@ class NuvioCRatingViewModel @Inject constructor(
 
     fun open() {
         _state.update { s ->
-            val remembered = service.lastChoice()?.intersect(s.connected.toSet())?.takeIf { it.isNotEmpty() }
-            s.copy(open = true, score = s.saved, ticked = remembered ?: s.connected.toSet(), failed = emptySet(), needScore = false)
+            // [fork] beta.3 merge: toggles apply to this one rating; every panel starts with all connected trackers on
+            val remembered = if (NuvioCFeatures.RATINGS_MULTI) null else service.lastChoice()?.intersect(s.connected.toSet())?.takeIf { it.isNotEmpty() }
+            s.copy(open = true, score = if (NuvioCFeatures.RATINGS_MULTI) s.display else s.saved, ticked = remembered ?: s.connected.toSet(), failed = emptySet(), needScore = false)
         }
         // [fork] rate_connected_only: the list of services was read when the page opened; a service
         // signed out since then (or on another profile) kept its "Sync to" line. Checked again on open.
         if (NuvioCFeatures.RATE_CONNECTED_ONLY) viewModelScope.launch {
-            val now = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { service.connected() }
+            val now = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { service.connected().forTarget(_state.value.target) }
             _state.update { s ->
                 if (!s.open || now == s.connected) s
                 else s.copy(connected = now, ticked = s.ticked.intersect(now.toSet()).ifEmpty { now.toSet() })
@@ -176,7 +197,8 @@ class NuvioCRatingViewModel @Inject constructor(
             _state.update {
                 if (failed.isEmpty()) it.copy(saving = false, open = false, justFinished = false, saved = saved,
                     trakt = if (NuvioCTracker.TRAKT in s.ticked) score else it.trakt,
-                    simkl = if (NuvioCTracker.SIMKL in s.ticked) score else it.simkl)
+                    simkl = if (NuvioCTracker.SIMKL in s.ticked) score else it.simkl,
+                    mdblist = if (NuvioCTracker.MDBLIST in s.ticked) score else it.mdblist)
                 // keep only the failed ones ticked, so Save retries just those
                 else it.copy(saving = false, saved = saved, failed = failed, ticked = failed)
             }
@@ -185,14 +207,21 @@ class NuvioCRatingViewModel @Inject constructor(
 }
 
 /** Star button state for the hero row, plus the dialog when it is open. */
-class NuvioCRatingHandle(val available: Boolean, val rated: Boolean, val open: () -> Unit)
+class NuvioCRatingHandle(
+    val available: Boolean,
+    val rated: Boolean,
+    val open: () -> Unit,
+    /** [fork] beta.3 merge: the score shown in the pill (MDBList, then Trakt, then Simkl, then this TV). */
+    val score: Int? = null
+)
 
 @Composable
 internal fun rememberNuvioCRating(meta: Meta, starFocusRequester: FocusRequester): NuvioCRatingHandle {
-    if (!NuvioCFeatures.DETAIL_RATING) return NuvioCRatingHandle(false, false) {}
+    if (!NuvioCFeatures.DETAIL_RATING) return NuvioCRatingHandle(false, false, {})
     val viewModel: NuvioCRatingViewModel = hiltViewModel()
     val target = remember(meta.id, meta.imdbId, meta.type) { meta.nuvioCRatingTarget() }
-    LaunchedEffect(target) { viewModel.bind(target) }
+    val media = remember(meta) { meta.ratingReference() } // [fork] beta.3 merge: for the MDBList score
+    LaunchedEffect(target) { viewModel.bind(target, media) }
     val state by viewModel.state.collectAsState()
     // [fork] round 28 post_play_rating: back on the details page of the movie you just finished
     if (NuvioCFeatures.POST_PLAY_RATING) {
@@ -219,7 +248,21 @@ internal fun rememberNuvioCRating(meta: Meta, starFocusRequester: FocusRequester
         }
         }
     }
-    if (state.open) {
+    if (state.open && NuvioCFeatures.RATINGS_MULTI) {
+        // [fork] beta.3 merge: official's panel look with the tracker toggles; "You finished" + Not now after playback
+        NuvioCRatingPanelDialog(
+            label = if (state.justFinished) stringResource(R.string.nuvio_c_rate_you_finished) else stringResource(R.string.rating_your_rating),
+            title = meta.name,
+            subtitle = null,
+            state = state,
+            onPick = viewModel::pick,
+            onToggle = viewModel::toggle,
+            onSave = { viewModel.save() },
+            onRemove = { viewModel.save(remove = true) },
+            onDismiss = viewModel::close,
+            notNow = state.justFinished
+        )
+    } else if (state.open) {
         NuvioCRatingDialog(
             title = stringResource(R.string.nuvio_c_rate_your_rating),
             subtitle = if (state.justFinished) {
@@ -239,7 +282,7 @@ internal fun rememberNuvioCRating(meta: Meta, starFocusRequester: FocusRequester
         if (wasOpen && !state.open) runCatching { starFocusRequester.requestFocus() }
         wasOpen = state.open
     }
-    return NuvioCRatingHandle(state.available, state.saved != null, viewModel::open)
+    return NuvioCRatingHandle(state.available, state.display != null, viewModel::open, state.display)
 }
 
 @Composable

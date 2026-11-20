@@ -1003,5 +1003,12 @@ object NuvioCFeatures {
     // ---- beta.3 merge (2026-11-20) ----
     /** With official season posters on, Find is a portrait tile the same size as the posters. */
     const val FIND_POSTER_TILE = true
+    /**
+     * Ratings: official's pill (your score inside) and panel look, driving Nuvio C's multi-tracker sync. The pill shows
+     * MDBList, then Trakt, then Simkl, then the score sent from this TV. "Sync to" toggles per rating (all connected on
+     * at open, not remembered); episodes on Trakt and MDBList only. Post-play prompt in the same look with Not now.
+     * Official's single-service Ratings setting is hidden; MDBList ratings always sync for the score.
+     */
+    const val RATINGS_MULTI = true
     const val INFO_UP_HANDLER = false
 }

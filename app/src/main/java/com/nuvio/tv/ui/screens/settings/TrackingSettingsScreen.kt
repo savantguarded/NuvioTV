@@ -636,7 +636,7 @@ internal fun TrackingSettingsOverview(
                                     .testTag(TrackingSettingsTestTags.MORE_LIKE_THIS)
                             )
                         }
-                        if (trackingState.availableRatingSources.isNotEmpty()) {
+                        if (!com.nuvio.tv.NuvioCFeatures.RATINGS_MULTI && trackingState.availableRatingSources.isNotEmpty()) { // [fork] single-service picker hidden: Nuvio C rates on several trackers
                             SettingsActionRow(
                                 title = stringResource(R.string.tracking_ratings_title),
                                 subtitle = stringResource(R.string.tracking_ratings_subtitle),

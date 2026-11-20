@@ -60,13 +60,22 @@ import javax.inject.Singleton
 enum class NuvioCTracker(val label: String) { TRAKT("Trakt"), SIMKL("Simkl"), MDBLIST("MDBList") }
 
 /** What is being rated. At least one id is set. */
-data class NuvioCRatingTarget(val isShow: Boolean, val imdbId: String?, val tmdbId: Int?) {
-    val key: String get() = (if (isShow) "show:" else "movie:") + (imdbId ?: "tmdb$tmdbId")
+data class NuvioCRatingTarget(
+    val isShow: Boolean,
+    val imdbId: String?,
+    val tmdbId: Int?,
+    /** [fork] beta.3 merge: an episode of [isShow] show (episode ratings go to Trakt and MDBList only). */
+    val season: Int? = null,
+    val episode: Int? = null
+) {
+    val isEpisode: Boolean get() = isShow && season != null && episode != null
+    private val episodeSuffix: String get() = if (isEpisode) ":s${season}e$episode" else ""
+    val key: String get() = (if (isShow) "show:" else "movie:") + (imdbId ?: "tmdb$tmdbId") + episodeSuffix
 
     /** Every id this title can be matched by (IMDb and TMDB), for the Trakt copy. */
     fun keys(): List<String> {
         val p = if (isShow) "show:" else "movie:"
-        return listOfNotNull(imdbId?.let { p + it }, tmdbId?.let { p + "tmdb" + it })
+        return listOfNotNull(imdbId?.let { p + it + episodeSuffix }, tmdbId?.let { p + "tmdb" + it + episodeSuffix })
     }
 }
 
@@ -153,6 +162,7 @@ class NuvioCRatingService @Inject constructor(
             if (!k.startsWith(prefix)) return@mapNotNull null
             val key = k.removePrefix(prefix)
             if (!key.startsWith("movie:") && !key.startsWith("show:")) return@mapNotNull null
+            if (NUVIO_C_EPISODE_KEY.containsMatchIn(key)) return@mapNotNull null // [fork] episode ratings stay out of title stats
             (v as? Int)?.takeIf { it in 1..10 }?.let { key to it }
         }.toMap()
     }
@@ -209,7 +219,7 @@ class NuvioCRatingService @Inject constructor(
             }
         }
         val prefix = profileKey("at:")
-        prefs.all.forEach { (k, v) -> if (k.startsWith(prefix)) (v as? Long)?.let { out[k.removePrefix(prefix)] = it } }
+        prefs.all.forEach { (k, v) -> if (k.startsWith(prefix) && !NUVIO_C_EPISODE_KEY.containsMatchIn(k)) (v as? Long)?.let { out[k.removePrefix(prefix)] = it } } // [fork] episode ratings stay out of title stats
         out
     }.getOrDefault(emptyMap())
 
@@ -268,7 +278,7 @@ class NuvioCRatingService @Inject constructor(
      * Returns the trackers that failed (empty = all good). The local memory follows the result.
      */
     suspend fun send(target: NuvioCRatingTarget, score: Int?, to: Set<NuvioCTracker>): Set<NuvioCTracker> {
-        prefs.edit { putStringSet(profileKey("trackers2"), to.map { it.name }.toSet()) }
+        if (!com.nuvio.tv.NuvioCFeatures.RATINGS_MULTI) prefs.edit { putStringSet(profileKey("trackers2"), to.map { it.name }.toSet()) } // [fork] toggles are per rating now
         val body = payload(target, score)
         val failed = coroutineScope {
             to.map { tracker ->
@@ -424,9 +434,21 @@ class NuvioCRatingService @Inject constructor(
                     target.imdbId?.let { put("imdb", it) }
                     target.tmdbId?.let { put("tmdb", it) }
                 })
-                score?.let { put("rating", it) }
+                if (target.isEpisode) {
+                    // [fork] beta.3 merge: one episode, nested under its show (Trakt / MDBList sync format)
+                    put("seasons", JsonArray(listOf(buildJsonObject {
+                        put("number", target.season!!)
+                        put("episodes", JsonArray(listOf(buildJsonObject {
+                            put("number", target.episode!!)
+                            score?.let { put("rating", it) }
+                        })))
+                    })))
+                } else score?.let { put("rating", it) }
             }
             put(if (target.isShow) "shows" else "movies", JsonArray(listOf(item)))
         }.toString()
     }
 }
+
+/** [fork] beta.3 merge: suffix of an episode rating key (see [NuvioCRatingTarget.key]). */
+private val NUVIO_C_EPISODE_KEY = Regex(":s\\d+e\\d+$")

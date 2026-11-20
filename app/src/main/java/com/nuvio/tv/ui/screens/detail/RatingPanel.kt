@@ -178,7 +178,7 @@ internal fun RatingPanel(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun RatingScore(value: Int) {
+internal fun RatingScore(value: Int) {
     val color by animateColorAsState(
         targetValue = if (value > 0) NuvioTheme.colors.TextPrimary else NuvioTheme.colors.TextTertiary,
         animationSpec = tween(durationMillis = 200),

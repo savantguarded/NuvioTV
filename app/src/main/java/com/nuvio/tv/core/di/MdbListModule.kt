@@ -99,6 +99,6 @@ object MdbListModule {
     ) = MdbListSyncRepository(
         storage, auth, api, profiles.activeProfileId,
         CoroutineScope(SupervisorJob() + Dispatchers.IO),
-        ratingsEnabled = { settings.ratingSource.value == TrackingProviderId.MDBLIST }
+        ratingsEnabled = { com.nuvio.tv.NuvioCFeatures.RATINGS_MULTI || settings.ratingSource.value == TrackingProviderId.MDBLIST } // [fork] multi-tracker ratings read MDBList scores
     )
 }
