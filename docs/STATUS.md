@@ -2,21 +2,22 @@
 
 Rewrite this file at the end of every build session (do not append). History lives in git log.
 
-Updated: 2026-11-20 (evening)
+Updated: 2026-11-20 (round 56)
 
 ## Where things stand
-- Branch `nuvio-c` @ `122312e8` = round 55 on official `1.2.0-beta.3`.
-- Last release: `1.2.0-beta.3+nuvioc`, built and installed on the TV 2026-11-20 (with the `.dm` file). 567 unit tests passed locally.
-- Round 55 (verified on TV): "Your rating" focus label, parental guidance removed from Details, Themes / Keywords / Original title removed from Information.
-- beta.3 merge: official rating pill now drives Nuvio C multi-tracker sync (`RATINGS_MULTI`); fork trailer behaviour runs on official's `BackgroundTrailerController`.
+- Branch `nuvio-c` = round 56 on official `1.2.0-beta.3` (no newer official release on 2026-11-20).
+- Cleanup Groups A, B and C are merged into `nuvio-c` (branch `cleanup-ab` is done and can be deleted). Compiling it found that the Week view removal had taken four pieces Month / List still use; they now live in `ui/screens/calendar/CalendarShared.kt`.
+- 549 `NuvioC*` / `Calendar*` unit tests pass locally.
+- Round 56:
+  - Modern Subtitles panel: no tabs, two-line rows (pill; language, with SDH / Forced / CC on built-in tracks). Subtitle delay is a line in the Modern More sheet (shown while a subtitle is on).
+  - Episode Find removed completely (the series details page lost focus around it).
+  - Fork settings per profile: each profile keeps its own copy on the TV, loaded on every switch before syncing; the player's cached choices (controls style, button orders, night mode) reload. Roulette's seen list and the post-play rating marker are per profile.
 
 ## Still to check on the TV
-- Season posters on, with the Find tile.
-- Cast page: bottom clipping.
-- Episode rating panel.
-- Trailers: countdown, mute and fade, hold, resume, Home handoff.
-- Post-play rating prompt.
-- Round 50 start-up / CPU measurement (adb script vs the 2026-11-18 baseline: CPU in first 3 min halved, under 8 GCs in 4 min, Home settle under 4 s). Charles asked to be reminded of this before the next build. Not recorded as done.
+- Series details page: focus never lost, scrolling always works (Find gone).
+- Modern Subtitles panel opens on the active track; Up on the top row stays put; More > Subtitle delay opens the delay bar.
+- Profiles: change a fork setting on profile A, switch to B, B unchanged; back to A, A's value back. Profiles whose cloud copy already holds another profile's values (from the old leak) need their settings checked once by hand.
+- Cast page: bottom clipping. Episode rating panel. Trailers: countdown, mute and fade, hold, resume, Home handoff. Post-play rating prompt.
 
 ## Open ideas (not approved for building)
 - Seek thumbnails on the device, no external API (AIOStreams app's version works on the TV). Investigating only.
@@ -24,14 +25,10 @@ Updated: 2026-11-20 (evening)
 - MDBList API call growth during playback (raised 2026-10-31). Current status unknown, re-check with a request log.
 - Watchly C lives in its own repo, not here.
 
-## Cleanup (branch `cleanup-ab`, NOT compiled yet)
-- All approved cleanups are on branch `cleanup-ab` (Groups A, B and C): 47 dead switches and their code removed (reverted tweaks, switches nothing read, and older versions kept as fallbacks: start-up loader / halo, Calendar Week view, Taste rounds 39 to 52, round 52 Modern panels, round 46 Modern controls, old HDR dim layer), about 6,600 lines, plus unused strings and the tests that only covered removed code. CI skips removed switch names in `NUVIO_C_OFF`.
-- Next build session: compile and test `cleanup-ab` first and fix anything the compiler finds (the cleanup was done without a compile). If green, fast-forward `nuvio-c` to it (`git merge --ff-only origin/cleanup-ab`), then do the new work on top.
-
 ## Start of every build session
 1. Read `docs/ARCHITECTURE.md`, `docs/FORK_CHANGES.md` and this file.
 2. Upstream check: `git ls-remote --tags https://github.com/NuvioMedia/NuvioTV`. Newer than `1.2.0-beta.3`? Scan it for new servers / hosts / secrets, then merge it first. Ask Charles before keeping or dropping any fork or official feature.
-3. Environment and commands: `docs/ARCHITECTURE.md` section 7. Attach the repo with push access, clone `nuvio-c`.
+3. Environment and commands: `docs/ARCHITECTURE.md` section 7. Attach the repo with push access, clone `nuvio-c`. Tests need `--max-workers=1` and `-Xmx4g` (the test run ran out of memory at 5g / 2 workers).
 
 ## End of every build session
 1. Compile, run `NuvioC*` and `Calendar*` tests, forced GitHub build.

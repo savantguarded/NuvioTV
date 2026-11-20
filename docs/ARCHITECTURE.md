@@ -4,7 +4,7 @@ Read this first in every session. It tells you where things are so you open only
 Fork-specific behaviour (what each tweak does, its switch, its screen) lives in `docs/FORK_CHANGES.md`.
 Current state, last build and open issues live in `docs/STATUS.md`.
 
-Last verified against: branch `nuvio-c` @ `122312e8`, official base `1.2.0-beta.3` (`552cacf5`), 2026-11-20.
+Last verified against: branch `nuvio-c` @ `67bc6021`, official base `1.2.0-beta.3` (`552cacf5`), 2026-11-20.
 
 ## 1. What this is
 
@@ -158,7 +158,7 @@ Manual build: `gh workflow run nuvio-c.yml -R savantguarded/NuvioTV --ref nuvio-
 | Startup / splash / jank | `MainActivity.kt`, `core/nuvioc/NuvioCStartup*.kt`, `ui/components/StartupSplashScreen.kt`, `NuvioCOpening.kt`, `core/NuvioCPerf.kt` |
 | Sidebar | `ui/components/SidebarNavigation.kt`, `NuvioCSidebarSettle.kt`, `src/ModernSidebarBlurPanel.kt` |
 | Settings UI for a fork option | `ui/screens/settings/NuvioC*Settings.kt`, then the matching `Layout*Settings.kt` / `Playback*Settings.kt` |
-| Fork prefs storage | `core/nuvioc/NuvioCPrefs.kt`, `NuvioCCloudSettings.kt` (fork toggles synced per profile) |
+| Fork prefs storage | `core/nuvioc/NuvioCPrefs.kt`, `NuvioCCloudSettings.kt` (fork toggles: per-profile copy on the TV, synced per profile), `NuvioCActiveProfile.kt` |
 | Trakt / Simkl / MDBList | `data/repository/Trakt*.kt`, `data/simkl/`, `data/mdblist/`, `core/tracking/` |
 | API keys (TVDB, OMDb, TMDB) | `core/nuvioc/NuvioCApiKeys.kt`, `ui/screens/settings/NuvioCApiKeySettings.kt`, `app/build.gradle.kts` |
 | Fonts | `ui/theme/Type.kt`, `res/font/nuvio_c_*`, `player/NuvioCSubtitleFont.kt` |

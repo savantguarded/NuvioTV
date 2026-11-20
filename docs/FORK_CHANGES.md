@@ -4,7 +4,7 @@ How Nuvio C differs from official NuvioTV, grouped by area: what you see, the sw
 Per-switch detail: every switch in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt` has a one-line comment. This file is the overview, not a copy of that list.
 Paths below are relative to `app/src/main/java/com/nuvio/tv/` unless they start with `app/`, `.github/` or `scripts/`.
 
-Base: official `1.2.0-beta.3` (`552cacf5`). Fork footprint vs that tag: 410 files added, 177 official files edited, about 68,700 lines added. 406 switches, 0 off.
+Base: official `1.2.0-beta.3` (`552cacf5`). Fork footprint vs that tag: 404 files added, 174 official files edited, about 62,300 lines added. 407 switches, 0 off.
 Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream merge).
 
 ## Build and distribution
@@ -21,7 +21,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 
 ## Subtitles
 - Lift above the controls (bottom subtitles only), drawn renderer kept, SDH preference and hide, subtitle font picker, Outline width row, plain language names, one safety re-check after start.
-- Modern Subtitles / Audio panels with Tracks / Style / Language tabs (`TRACK_PANELS_V2/V3`, `PANEL_*`), Modern style only.
+- Modern Subtitles panel: one list, no tabs, every row two lines (source pill; language, with SDH / Forced / CC on built-in tracks) (`SUB_PANEL_NO_TABS`). Subtitle delay opens from the More sheet (`SUB_DELAY_IN_MORE`); size, font and style live in Settings > Subtitles. Modern Audio panel keeps Tracks / Sound tabs (`TRACK_PANELS_V2`, `PANEL_*`). Modern style only.
 - Files: `player/NuvioCSubtitle*.kt`, `NuvioCStyledLift.kt`, `NuvioCSdh.kt`, `NuvioCTrackNames.kt`, `SubtitleSelectionOverlay.kt`, `ui/screens/settings/NuvioCSubtitleSettings.kt`.
 
 ## Audio
@@ -44,7 +44,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Files: `player/NuvioCEpisodeTitles.kt`, `NuvioCFinishTracker.kt`, `PlayerRuntimeControllerStreams.kt`, `StreamSourcesSidePanel.kt`, `ui/screens/stream/`.
 
 ## Details page
-- Hero spec (logo box, facts line above, wider synopsis, tagline), round Shuffle / Rate / Bell buttons with focus labels, Information ledger with fixed slots (Awards wins via OMDb), episode Find chip, collection on its own row, smoother scrolling and focus.
+- Hero spec (logo box, facts line above, wider synopsis, tagline), round Shuffle / Rate / Bell buttons with focus labels, Information ledger with fixed slots (Awards wins via OMDb), collection on its own row (episode Find was removed in round 56: it caused the lost focus on series pages), smoother scrolling and focus.
 - Files: `ui/screens/detail/NuvioCDetail*.kt`, `NuvioCCredits.kt`, `HeroSection.kt`, `MetaDetailsScreen.kt`, `EpisodesSection.kt`, `ui/screens/calendar/NuvioCDetailBell.kt`.
 
 ## Ratings
@@ -95,7 +95,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 
 ## Trackers and sync
 - Simkl AUTH V2 device login (`SIMKL_V2`, `data/simkl/SimklAuthRepository.kt`), Trakt keeps login on soft refresh failures (`TRAKT_KEEP_LOGIN`), MDBList rating batching.
-- Fork settings travel with the Nuvio profile (`NUVIO_C_CLOUD_SETTINGS`, `CLOUD_SETTINGS_*`, `core/nuvioc/NuvioCCloudSettings.kt`). TVDB key in Integrations (`API_KEYS`, `core/nuvioc/NuvioCApiKeys.kt`).
+- Fork settings travel with the Nuvio profile (`NUVIO_C_CLOUD_SETTINGS`, `CLOUD_SETTINGS_*`, `core/nuvioc/NuvioCCloudSettings.kt`). Each profile also keeps its own copy on the TV and it is loaded on every profile switch before any sync, so one profile's settings never land in another's (`CLOUD_SETTINGS_PER_PROFILE`). Passthrough switches stay on this TV, per profile, never synced. Roulette's seen list and the post-play rating marker are per profile (`PROFILE_LOCAL_HISTORY`, `core/nuvioc/NuvioCActiveProfile.kt`). TVDB key in Integrations (`API_KEYS`, `core/nuvioc/NuvioCApiKeys.kt`).
 
 ## Performance
 - Player memory trim, trailer pool guard, lean episode ratings and calendar logging, image cache cap on 2 GB TVs, idle quiet, start-up job queue, catalog sweep order.
