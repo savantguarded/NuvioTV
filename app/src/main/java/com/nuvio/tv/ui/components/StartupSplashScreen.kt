@@ -104,12 +104,6 @@ fun StartupSplashScreen(
                 contentDescription = stringResource(R.string.cd_nuvio_logo),
                 modifier = Modifier.fillMaxSize()
             )
-        } else if (com.nuvio.tv.NuvioCFeatures.STARTUP_BREATHE) { // [fork] startup_breathe
-            NuvioCStartupBreathe(
-                logoRes = brandWordmarkRes ?: NuvioTheme.currentTheme.brandWordmarkResource,
-                contentDescription = stringResource(R.string.cd_nuvio_logo),
-                modifier = Modifier.fillMaxSize()
-            )
         } else
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -122,11 +116,7 @@ fun StartupSplashScreen(
                 drawableOverride = brandWordmarkRes
             )
             Spacer(modifier = Modifier.height(NuvioTheme.spacing.xxl))
-            if (com.nuvio.tv.NuvioCFeatures.STARTUP_SWEEP) {
-                NuvioCStartupSweep() // [fork] startup_sweep
-            } else {
-                LoadingIndicator(modifier = Modifier.size(NuvioTheme.spacing.xxxl))
-            }
+            LoadingIndicator(modifier = Modifier.size(NuvioTheme.spacing.xxxl))
         }
     }
 }

@@ -6,8 +6,8 @@ import android.content.Context
 // [fork] Nuvio C round 26b: smooth start-up.
 // Measured on the TCL (2026-10-23, cold start, profile pick at ~1.6 s): Home leaves its loader at ~9 s, then the
 // first rows and a big memory clean-up froze the screen for 2.2 s and 2.5 s within the next 4 s, in front of you.
-// The start-up screen now stays over Home until it has settled (STARTUP_SETTLE) and its loading sweep is animated
-// by the render thread (STARTUP_SWEEP), so the wait is smooth and Home appears in one piece.
+// The start-up screen now stays over Home until it has settled (STARTUP_SETTLE), showing the still logo
+// (STARTUP_STATIC), so the wait is smooth and Home appears in one piece.
 
 object NuvioCStartup {
     /** While true the start-up screen is up: remote keys are held so nothing moves behind it. */

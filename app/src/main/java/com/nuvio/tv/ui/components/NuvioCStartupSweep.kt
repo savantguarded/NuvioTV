@@ -1,6 +1,5 @@
 package com.nuvio.tv.ui.components
 
-import android.graphics.drawable.Animatable
 import android.widget.ImageView
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -12,69 +11,11 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.nuvio.tv.NuvioCFeatures
-import com.nuvio.tv.R
 import com.nuvio.tv.core.nuvioc.nuvioCStartupSettled
 
 // [fork] Nuvio C round 26b `startup_sweep` and `startup_settle`. See core/nuvioc/NuvioCStartup.kt.
-
-/** The loading sweep under the logo; an AnimatedVectorDrawable in a plain ImageView, so the render thread animates it. */
-@Composable
-fun NuvioCStartupSweep(modifier: Modifier = Modifier) {
-    AndroidView(
-        factory = { context ->
-            ImageView(context).apply {
-                val sweep = context.getDrawable(R.drawable.nuvio_c_loading_sweep)
-                setImageDrawable(sweep)
-                (sweep as? Animatable)?.start()
-            }
-        },
-        onRelease = { view -> (view.drawable as? Animatable)?.stop() },
-        modifier = modifier.size(width = 160.dp, height = 6.dp)
-    )
-}
-
-/**
- * startup_breathe: the logo drawn smoothly over a slowly breathing halo. The halo is an AnimatedVectorDrawable
- * (render thread). The logo PNG is far larger than it is shown (1085 px wide for about 150 dp), and drawing it
- * scaled down in one go leaves jagged edges, so it is shrunk once in halving steps, which averages the edge pixels.
- */
-@Composable
-fun NuvioCStartupBreathe(logoRes: Int, contentDescription: String?, modifier: Modifier = Modifier) {
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val heightPx = with(density) { LOGO_HEIGHT.roundToPx() }
-    val logo = remember(logoRes, heightPx) { nuvioCSmoothBitmap(context.resources, logoRes, heightPx) }
-    androidx.compose.foundation.layout.Box(modifier, contentAlignment = androidx.compose.ui.Alignment.Center) {
-        AndroidView(
-            factory = { ctx ->
-                ImageView(ctx).apply {
-                    val halo = ctx.getDrawable(R.drawable.nuvio_c_startup_halo)
-                    setImageDrawable(halo)
-                    (halo as? Animatable)?.start()
-                }
-            },
-            onRelease = { view -> (view.drawable as? Animatable)?.stop() },
-            modifier = Modifier.size(width = 420.dp, height = 220.dp)
-        )
-        if (logo != null) {
-            val widthDp = with(density) { logo.width.toDp() }
-            val heightDp = with(density) { logo.height.toDp() }
-            AndroidView(
-                factory = { ctx ->
-                    ImageView(ctx).apply {
-                        setImageBitmap(logo)
-                        scaleType = ImageView.ScaleType.FIT_CENTER
-                        this.contentDescription = contentDescription
-                    }
-                },
-                modifier = Modifier.size(width = widthDp, height = heightDp)
-            )
-        }
-    }
-}
 
 /**
  * [fork] round 27 startup_static (27d: Charles still saw the turning arc stutter on the 2 GB TV, so nothing moves):
@@ -105,7 +46,6 @@ fun NuvioCStartupStatic(logoRes: Int, contentDescription: String?, modifier: Mod
     }
 }
 
-private val LOGO_HEIGHT = 48.dp
 private val MARK_HEIGHT get() = if (NuvioCFeatures.STARTUP_LOGO_SMALLER) 76.dp else 84.dp // [fork] round 29 icon-only start-up screen; round 37b: 10% smaller
 
 /**
