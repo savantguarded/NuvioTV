@@ -846,8 +846,6 @@ object NuvioCFeatures {
     const val SIDEBAR_UP_PROFILE = true
     /** Sidebar: a held Left (key repeat) stops at a page's left edge on every page; a fresh Left press opens the sidebar. Off = Roulette only. */
     const val SIDEBAR_HOLD_LEFT_STOPS = true
-    /** Modern track panels: 372 dp, 55% see-through with a text shadow, Subtitles = Tracks / Style (no Language tab), every track two lines (language; type · format · source), Style labels named in full (Background opacity, Drop shadow opacity, Drop shadow size...), Up to the tabs keeps focus on the active tab. Off = round 52 panels. */
-    const val TRACK_PANELS_V3 = true
     /** Modern OSD and More: the Info button opens the HUD panel only; the remote's INFO key still opens official stream info. Off = Info opens stream info. */
     const val MODERN_INFO_HUD = true
     /** Profile picker: with the built-in background on, official's background link is never loaded (no flash before ours); the saved picture shows at once, black if none; a custom link is used only when the pool is empty. Off = round 52. */

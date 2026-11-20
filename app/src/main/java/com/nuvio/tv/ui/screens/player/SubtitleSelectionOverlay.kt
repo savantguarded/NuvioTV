@@ -2353,8 +2353,7 @@ private fun NuvioCSubtitleTabsPanel(
     val labelOf = languageItems.associate { it.key to it.label }
     // [fork] round 53 track_panels_v3: Tracks lists every language (no Language tab); each row is language, then details
     val allOptions = remember(languageItems, selectedId) {
-        if (!NuvioCPanelLook.v3) emptyList()
-        else languageItems.filter { it.key != SubtitleOffLanguageKey }.flatMap { lang -> buildOptions(lang.key, selectedId).map { lang.label to it } }
+        languageItems.filter { it.key != SubtitleOffLanguageKey }.flatMap { lang -> buildOptions(lang.key, selectedId).map { lang.label to it } }
     }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val rowFocus = remember(visible) { HashMap<Int, FocusRequester>() } // [fork] round 53c: one per Tracks row
@@ -2364,7 +2363,7 @@ private fun NuvioCSubtitleTabsPanel(
         if (!visible) return@LaunchedEffect
         tab = 0
         delay(120)
-        if (com.nuvio.tv.NuvioCFeatures.SUB_PANEL_ENTRY_FIX && NuvioCPanelLook.v3) {
+        if (com.nuvio.tv.NuvioCFeatures.SUB_PANEL_ENTRY_FIX) {
             // [fork] round 54 sub_panel_entry_fix: the active track can sit far down the list (an add-on subtitle
             // was row 40-something of 47); it wasn't composed, the request failed and the panel opened with no focus
             // at all, so nothing could be changed. Scroll it into view first, retry, then fall back to the top row.
@@ -2396,16 +2395,15 @@ private fun NuvioCSubtitleTabsPanel(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.nuvioCTabRow { tabRequesters[tab] }) {
             listOfNotNull(
                 stringResource(R.string.nuvio_c_panel_tracks),
-                stringResource(R.string.subtitle_style_title),
-                if (NuvioCPanelLook.v3) null else stringResource(R.string.nuvio_c_panel_language)
+                stringResource(R.string.subtitle_style_title)
             ).forEachIndexed { i, label ->
                 NuvioCPanelTab(
                     label = label,
                     selected = tab == i,
                     focusRequester = tabRequesters[i],
-                    down = when (if (NuvioCPanelLook.v3 && com.nuvio.tv.NuvioCFeatures.PANEL_TABS_ON_SELECT) tab else i) { 0 -> trackEntry; 1 -> styleEntry; else -> languageEntry },
+                    down = when (if (com.nuvio.tv.NuvioCFeatures.PANEL_TABS_ON_SELECT) tab else i) { 0 -> trackEntry; else -> styleEntry },
                     onFocused = { tab = i },
-                    onDown = if (NuvioCPanelLook.v3 && (if (com.nuvio.tv.NuvioCFeatures.PANEL_TABS_ON_SELECT) tab == 0 else i == 0)) ({
+                    onDown = if (if (com.nuvio.tv.NuvioCFeatures.PANEL_TABS_ON_SELECT) tab == 0 else i == 0) ({
                         // scroll the active row into view before focusing it, so Down never loses focus
                         val idx = if (off) 0 else (allOptions.indexOfFirst { it.second.id == selectedId } + 1).coerceAtLeast(0)
                         scope.launch { tracksState.scrollToItem(idx); trackEntry.requestFocusAfterFrames(1) }
@@ -2415,7 +2413,7 @@ private fun NuvioCSubtitleTabsPanel(
             }
         }
         when {
-            NuvioCPanelLook.v3 && tab == 0 -> LazyColumn(
+            tab == 0 -> LazyColumn(
                 state = tracksState,
                 verticalArrangement = Arrangement.spacedBy(2.dp),
                 contentPadding = PaddingValues(vertical = 2.dp),
@@ -2457,7 +2455,7 @@ private fun NuvioCSubtitleTabsPanel(
                     )
                 }
             }
-            NuvioCPanelLook.v3 && tab == 1 -> Box(
+            tab == 1 -> Box(
                 Modifier.onPreviewKeyEvent { e ->
                     // Up from the first Style row (Delay) goes back to the Style tab
                     if (e.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_DPAD_UP && styleEntryFocused.value) {
@@ -2466,80 +2464,8 @@ private fun NuvioCSubtitleTabsPanel(
                     } else false
                 }
             ) { styleContent(cardWidth - NuvioCPanelLook.padH * 2) }
-            tab == 0 -> LazyColumn(
-                state = tracksState,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-                contentPadding = PaddingValues(vertical = 4.dp),
-                modifier = Modifier.fillMaxWidth().heightIn(max = 470.dp)
-            ) {
-                item(key = "off") {
-                    NuvioCPanelRow(
-                        title = stringResource(R.string.subtitle_none),
-                        detail = stringResource(R.string.nuvio_c_panel_no_subtitles),
-                        selected = off,
-                        focusRequester = if (off || options.none { it.id == selectedId }) trackEntry else null,
-                        onClick = { off = true; selectedId = null; onDisableSubtitles() }
-                    )
-                }
-                var lastSource: String? = null
-                options.forEach { item ->
-                    if (item.sourceLabel != lastSource) {
-                        val header = item.sourceLabel
-                        lastSource = header
-                        item(key = "h:$header") {
-                            Text(
-                                header.uppercase(),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color.White.copy(alpha = 0.5f),
-                                modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp)
-                            )
-                        }
-                    }
-                    item(key = item.id) {
-                        val active = !off && item.id == selectedId
-                        NuvioCPanelRow(
-                            title = item.title,
-                            detail = item.meta,
-                            selected = active,
-                            focusRequester = if (!off && item.id == selectedId) trackEntry else null,
-                            onClick = {
-                                off = false
-                                selectedId = item.id
-                                when (item.kind) {
-                                    SubtitleOptionKind.INTERNAL -> item.internalTrackIndex?.let(onInternalTrackSelected)
-                                    SubtitleOptionKind.ADDON -> item.addonSubtitle?.let(onAddonSubtitleSelected)
-                                }
-                            }
-                        )
-                    }
-                }
-            }
-            tab == 1 -> styleContent(cardWidth - 44.dp)
-            else -> LazyColumn(
-                state = languageState,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-                contentPadding = PaddingValues(vertical = 4.dp),
-                modifier = Modifier.fillMaxWidth().heightIn(max = 470.dp)
-            ) {
-                val items = languageItems.filter { it.key != SubtitleOffLanguageKey }
-                items(items.size, key = { items[it].key }) { i ->
-                    val item = items[i]
-                    NuvioCPanelRow(
-                        title = item.label,
-                        detail = pluralStringResource(R.plurals.nuvio_c_panel_track_count, item.count, item.count),
-                        selected = item.key == languageKey,
-                        focusRequester = if (item.key == languageKey || (i == 0 && items.none { it.key == languageKey })) languageEntry else null,
-                        onClick = {
-                            languageKey = item.key
-                            tab = 0
-                        }
-                    )
-                }
-            }
         }
     }
-    // a language chosen in the Language tab opens Tracks on that language's list
-    LaunchedEffect(languageKey) { tracksState.scrollToItem(0) }
 }
 
 @Composable
@@ -2683,7 +2609,7 @@ internal fun nuvioCModernPanels(): Boolean =
     !com.nuvio.tv.NuvioCFeatures.PANELS_MODERN_ONLY || NuvioCOsdStyle.style.value == NuvioCOsdStyle.CLEAN
 
 internal object NuvioCPanelLook {
-    val v3: Boolean get() = com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V3 && com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V2 && nuvioCModernPanels()
+    val v3: Boolean get() = com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V2 && nuvioCModernPanels()
     /** [fork] round 54: the focus bar and active tab take the theme accent, as the official panels do. */
     val accent: Boolean get() = v3 && com.nuvio.tv.NuvioCFeatures.PANEL_ACCENT_BAR
     val width: Dp get() = if (v3) (if (com.nuvio.tv.NuvioCFeatures.PANEL_NARROWER) 298.dp else 372.dp) else 560.dp
