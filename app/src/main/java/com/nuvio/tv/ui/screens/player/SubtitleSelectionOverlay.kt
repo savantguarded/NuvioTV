@@ -481,7 +481,7 @@ internal fun SubtitleSelectionOverlay(
             pendingStyleFocusKey = null
         }
 
-        if (com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V2) {
+        if (com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V2 && nuvioCModernPanels()) { // [fork] round 54: new panels in Modern only
             // [fork] round 52 track_panels_v2: one card on the left with Tracks / Style / Language tabs
             val styleDelayFocused = remember { mutableStateOf(false) } // [fork] round 53: Up from Delay -> Style tab
             NuvioCSubtitleTabsPanel(
@@ -1097,7 +1097,7 @@ private fun SubtitleStyleRail(
                         )
                         if (com.nuvio.tv.NuvioCFeatures.SUBTITLE_OUTLINE_WIDTH_ROW && subtitleStyle.outlineEnabled) {
                             // [fork] round 46: Outline width came back (lost when round 44 took official's Style tab)
-                            if (com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V3) RailStepperLabel(stringResource(R.string.nuvio_c_sub_outline_width)) // [fork] round 53
+                            if (NuvioCPanelLook.v3) RailStepperLabel(stringResource(R.string.nuvio_c_sub_outline_width)) // [fork] round 53
                             StepperRow(
                                 value = subtitleStyle.outlineWidth.toString(),
                                 onDecrease = { dispatchStyleEvent(PlayerEvent.OnSetSubtitleOutlineWidth((subtitleStyle.outlineWidth - 1).coerceIn(1, 5))) },
@@ -2345,7 +2345,21 @@ private fun NuvioCSubtitleTabsPanel(
         if (!visible) return@LaunchedEffect
         tab = 0
         delay(120)
-        trackEntry.requestFocusAfterFrames(frames = 2)
+        if (com.nuvio.tv.NuvioCFeatures.SUB_PANEL_ENTRY_FIX && NuvioCPanelLook.v3) {
+            // [fork] round 54 sub_panel_entry_fix: the active track can sit far down the list (an add-on subtitle
+            // was row 40-something of 47); it wasn't composed, the request failed and the panel opened with no focus
+            // at all, so nothing could be changed. Scroll it into view first, retry, then fall back to the top row.
+            val idx = if (off) 0 else (allOptions.indexOfFirst { it.second.id == selectedId } + 1).coerceAtLeast(0)
+            runCatching { tracksState.scrollToItem((idx - 1).coerceAtLeast(0)) }
+            repeat(6) {
+                if (trackEntry.requestFocusAfterFrames(frames = 1)) return@LaunchedEffect
+            }
+            runCatching { tracksState.scrollToItem(0) }
+            repeat(4) {
+                if (rowReq(0).requestFocusAfterFrames(frames = 1)) return@LaunchedEffect
+            }
+            runCatching { tabRequesters[0].requestFocus() }
+        } else trackEntry.requestFocusAfterFrames(frames = 2)
     }
 
     Column(
@@ -2370,9 +2384,9 @@ private fun NuvioCSubtitleTabsPanel(
                     label = label,
                     selected = tab == i,
                     focusRequester = tabRequesters[i],
-                    down = when (i) { 0 -> trackEntry; 1 -> styleEntry; else -> languageEntry },
+                    down = when (if (NuvioCPanelLook.v3 && com.nuvio.tv.NuvioCFeatures.PANEL_TABS_ON_SELECT) tab else i) { 0 -> trackEntry; 1 -> styleEntry; else -> languageEntry },
                     onFocused = { tab = i },
-                    onDown = if (NuvioCPanelLook.v3 && i == 0) ({
+                    onDown = if (NuvioCPanelLook.v3 && (if (com.nuvio.tv.NuvioCFeatures.PANEL_TABS_ON_SELECT) tab == 0 else i == 0)) ({
                         // scroll the active row into view before focusing it, so Down never loses focus
                         val idx = if (off) 0 else (allOptions.indexOfFirst { it.second.id == selectedId } + 1).coerceAtLeast(0)
                         scope.launch { tracksState.scrollToItem(idx); trackEntry.requestFocusAfterFrames(1) }
@@ -2528,12 +2542,12 @@ internal fun NuvioCPanelTab(
                 } else false
             } else Modifier)
             .then(if (down != null) Modifier.focusProperties { this.down = down } else Modifier)
-            .onFocusChanged { if (it.isFocused) onFocused() },
+            .onFocusChanged { if (it.isFocused && !(NuvioCPanelLook.v3 && com.nuvio.tv.NuvioCFeatures.PANEL_TABS_ON_SELECT)) onFocused() }, // [fork] round 54: Modern tabs switch on Select only
         shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
         scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
         colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) Color.White.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.08f),
-            contentColor = if (selected) Color.Black else Color.White,
+            containerColor = if (selected) (if (NuvioCPanelLook.accent) NuvioTheme.colors.Secondary else Color.White.copy(alpha = 0.92f)) else Color.White.copy(alpha = 0.08f),
+            contentColor = if (selected) (if (NuvioCPanelLook.accent) NuvioTheme.colors.OnSecondary else Color.Black) else Color.White,
             focusedContainerColor = Color.White,
             focusedContentColor = Color.Black
         ),
@@ -2573,7 +2587,7 @@ internal fun NuvioCPanelRow(
             .onFocusChanged { focused = it.isFocused },
         colors = CardDefaults.colors(
             containerColor = if (selected) Color.White.copy(alpha = if (v3) 0.14f else 0.10f) else Color.Transparent,
-            focusedContainerColor = if (v3) Color.White else Color.White.copy(alpha = 0.16f)
+            focusedContainerColor = if (v3) (if (NuvioCPanelLook.accent) NuvioTheme.colors.Secondary else Color.White) else Color.White.copy(alpha = 0.16f)
         ),
         shape = CardDefaults.shape(RoundedCornerShape(if (v3) 12.dp else 14.dp)),
         border = CardDefaults.border(
@@ -2585,14 +2599,15 @@ internal fun NuvioCPanelRow(
             modifier = Modifier.fillMaxWidth().padding(horizontal = if (v3) 12.dp else 16.dp, vertical = if (v3) 6.dp else 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            val fg = if (v3 && focused) Color.Black else Color.White
+            val onBar = if (NuvioCPanelLook.accent) NuvioTheme.colors.OnSecondary else Color.Black // [fork] round 54: accent bar
+            val fg = if (v3 && focused) onBar else Color.White
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(if (v3) 1.dp else 2.dp)) {
                 if (v3 && pill != null) Box(
                     Modifier.padding(bottom = 2.dp)
-                        .background(if (focused) Color.Black.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.14f), RoundedCornerShape(50))
+                        .background(if (focused) onBar.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.14f), RoundedCornerShape(50))
                         .padding(horizontal = 8.dp, vertical = 1.dp)
                 ) {
-                    Text(pill, style = MaterialTheme.typography.labelSmall, color = if (focused) Color.Black.copy(alpha = 0.8f) else Color.White.copy(alpha = 0.9f), maxLines = 1)
+                    Text(pill, style = MaterialTheme.typography.labelSmall, color = if (focused) onBar.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.9f), maxLines = 1)
                 }
                 Text(
                     title,
@@ -2604,8 +2619,8 @@ internal fun NuvioCPanelRow(
                 )
                 if (!detail.isNullOrBlank()) Text(
                     detail,
-                    style = if (v3) MaterialTheme.typography.labelMedium.copy(shadow = if (focused) null else NuvioCPanelLook.textShadow) else MaterialTheme.typography.bodySmall,
-                    color = if (v3 && focused) Color.Black.copy(alpha = 0.7f) else Color.White.copy(alpha = if (v3) 0.75f else 0.6f),
+                    style = if (v3) (if (com.nuvio.tv.NuvioCFeatures.PANEL_DETAIL_SMALLER) MaterialTheme.typography.labelSmall else MaterialTheme.typography.labelMedium).copy(shadow = if (focused) null else NuvioCPanelLook.textShadow) else MaterialTheme.typography.bodySmall,
+                    color = if (v3 && focused) onBar.copy(alpha = 0.75f) else Color.White.copy(alpha = if (v3) 0.75f else 0.6f),
                     maxLines = 1,
                     overflow = if (focused) androidx.compose.ui.text.style.TextOverflow.Clip else androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     modifier = if (focused) Modifier.basicMarquee(iterations = Int.MAX_VALUE) else Modifier
@@ -2614,7 +2629,7 @@ internal fun NuvioCPanelRow(
             trailing?.invoke()
             if (selected) {
                 Spacer(Modifier.width(10.dp))
-                Icon(Icons.Default.Check, contentDescription = null, tint = if (v3 && focused) Color.Black else NuvioTheme.colors.Secondary)
+                Icon(Icons.Default.Check, contentDescription = null, tint = if (v3 && focused) onBar else NuvioTheme.colors.Secondary)
             }
         }
     }
@@ -2623,9 +2638,15 @@ internal fun NuvioCPanelRow(
 
 // ---- [fork] Nuvio C round 53 track_panels_v3: slimmer, see-through panels -------------------------------------------
 
+/** [fork] round 54: the new track panels belong to the Modern player style; the default style keeps the round 51 panels. */
+internal fun nuvioCModernPanels(): Boolean =
+    !com.nuvio.tv.NuvioCFeatures.PANELS_MODERN_ONLY || NuvioCOsdStyle.style.value == NuvioCOsdStyle.CLEAN
+
 internal object NuvioCPanelLook {
-    val v3: Boolean get() = com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V3
-    val width: Dp get() = if (v3) 372.dp else 560.dp
+    val v3: Boolean get() = com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V3 && com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V2 && nuvioCModernPanels()
+    /** [fork] round 54: the focus bar and active tab take the theme accent, as the official panels do. */
+    val accent: Boolean get() = v3 && com.nuvio.tv.NuvioCFeatures.PANEL_ACCENT_BAR
+    val width: Dp get() = if (v3) (if (com.nuvio.tv.NuvioCFeatures.PANEL_NARROWER) 298.dp else 372.dp) else 560.dp
     val maxHeight: Dp get() = if (v3) 430.dp else 640.dp
     val listMax: Dp get() = if (v3) 318.dp else 470.dp
     val background: Color get() = if (v3) Color(0x8C0E0F13) else Color(0xF2141519)

@@ -1572,12 +1572,23 @@ fun PlayerScreen(
 
         if (com.nuvio.tv.NuvioCFeatures.STATS_PANEL_RIGHT && uiState.playerStatsHudEnabled && uiState.playerStatsHudButtonAvailable && uiState.error == null &&
             !(com.nuvio.tv.NuvioCFeatures.STATS_PANEL_SAFE && uiState.showLoadingOverlay)) { // [fork] round 32: not over the loading screen
+            // [fork] round 54 hud_fixed: one box whether the controls show or not: from just under the clock to just
+            // above the seek bar (its last measured top, kept after the controls hide), so the size never changes
+            val nuvioCHudDensity = androidx.compose.ui.platform.LocalDensity.current
+            val nuvioCHudWindowH = androidx.compose.ui.platform.LocalView.current.rootView.height
+            var nuvioCHudBottom by remember { mutableStateOf(96.dp) }
+            val nuvioCBarTop = nuvioCOsdAnchor.barTop
+            if (!nuvioCBarTop.isNaN() && nuvioCHudWindowH > 0) {
+                val b = with(nuvioCHudDensity) { (nuvioCHudWindowH - nuvioCBarTop).coerceAtLeast(0f).toDp() } + 14.dp
+                if (kotlin.math.abs((b - nuvioCHudBottom).value) > 1f) nuvioCHudBottom = b
+            }
             if (!(com.nuvio.tv.NuvioCFeatures.HUD_FIT && uiState.showPauseOverlay)) // [fork] round 35: hidden behind the pause screen
             NuvioCStatsPanel( // [fork] stats_panel_right: ysosrs123's layout, on the right
                 viewModel = viewModel,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(end = NuvioTheme.spacing.xl, top = 76.dp, bottom = when { // under the OSD clock
+                    .padding(end = NuvioTheme.spacing.xl, top = if (com.nuvio.tv.NuvioCFeatures.HUD_FIXED) 62.dp else 76.dp, bottom = when { // under the OSD clock
+                        com.nuvio.tv.NuvioCFeatures.HUD_FIXED -> nuvioCHudBottom
                         // [fork] round 53d hud_above_controls: while the controls show, the HUD ends above the seek bar so the
                         // Info button that turns it off is never covered
                         com.nuvio.tv.NuvioCFeatures.HUD_ABOVE_CONTROLS && uiState.showControls -> 150.dp
@@ -1653,7 +1664,7 @@ fun PlayerScreen(
         }
 
         val skipButtonBottomPadding by animateDpAsState(
-            targetValue = nuvioCAboveSeekBar(nuvioCOsdAnchor, uiState.showControls, if (uiState.showControls) 122.dp else 30.dp), // [fork] was if (showControls) 122.dp else 30.dp
+            targetValue = nuvioCAboveSeekBar(nuvioCOsdAnchor, uiState.showControls, if (uiState.showControls) 122.dp else 30.dp, leftSide = true), // [fork] was if (showControls) 122.dp else 30.dp
             animationSpec = tween(durationMillis = NuvioMotion.tokens.durations.fast),
             label = "skipButtonBottomPadding"
         )
@@ -4460,10 +4471,20 @@ private fun NuvioCCleanControlsV2(
                         )
                     }
                 }
-                if (moreItems.isNotEmpty()) icon(
-                    Icons.Default.Settings, moreLabel, { sheet.open = true }, painter = morePainter,
-                    focusRequester = if (infoOnSide) gearFocus else streamInfoFocusRequester
-                )
+                if (moreItems.isNotEmpty()) {
+                    // [fork] round 54 more_ring_match: More's focus circle is the same 32 dp, no-zoom circle as the
+                    // buttons in the right pill
+                    val matchRing = com.nuvio.tv.NuvioCFeatures.MORE_RING_MATCH && com.nuvio.tv.NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH && nuvioCPillFix && com.nuvio.tv.NuvioCFeatures.CLEAN_RIGHT_PILL
+                    androidx.compose.runtime.CompositionLocalProvider(
+                        LocalNuvioCNoZoom provides (matchRing || LocalNuvioCNoZoom.current),
+                        LocalNuvioCPillButton provides (if (matchRing) 32.dp else LocalNuvioCPillButton.current)
+                    ) {
+                        icon(
+                            Icons.Default.Settings, moreLabel, { sheet.open = true }, painter = morePainter,
+                            focusRequester = if (infoOnSide) gearFocus else streamInfoFocusRequester
+                        )
+                    }
+                }
             }
         }
     )

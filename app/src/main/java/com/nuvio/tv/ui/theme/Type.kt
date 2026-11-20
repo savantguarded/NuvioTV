@@ -252,12 +252,17 @@ private val nuvioCWeightedCache = HashMap<Int, FontFamily>()
 
 /** Runs [content] with the theme's typography switched to the weighted family of the same font. */
 @androidx.compose.runtime.Composable
-fun NuvioCWeightedFont(content: @androidx.compose.runtime.Composable () -> Unit) {
+fun NuvioCWeightedFont(calm: Boolean = false, content: @androidx.compose.runtime.Composable () -> Unit) {
     val t = androidx.tv.material3.MaterialTheme.typography
     val fam = androidx.compose.runtime.remember(t.bodyMedium.fontFamily) { nuvioCWeighted(t.bodyMedium.fontFamily) }
     if (fam == null) { content(); return }
-    val typo = androidx.compose.runtime.remember(t, fam) {
-        fun androidx.compose.ui.text.TextStyle.w() = copy(fontFamily = fam)
+    val typo = androidx.compose.runtime.remember(t, fam, calm) {
+        // [fork] round 54 taste_type_calm: styles default to Medium (display, headline, title) or Regular, so weight is
+        // only where a screen asks for it (headings); numbers carry emphasis through size and colour
+        fun androidx.compose.ui.text.TextStyle.w() = copy(fontFamily = fam, fontWeight = if (!calm) fontWeight else when {
+            (fontWeight?.weight ?: 400) >= 500 -> FontWeight.Medium
+            else -> FontWeight.Normal
+        })
         t.copy(
             displayLarge = t.displayLarge.w(), displayMedium = t.displayMedium.w(), displaySmall = t.displaySmall.w(),
             headlineLarge = t.headlineLarge.w(), headlineMedium = t.headlineMedium.w(), headlineSmall = t.headlineSmall.w(),

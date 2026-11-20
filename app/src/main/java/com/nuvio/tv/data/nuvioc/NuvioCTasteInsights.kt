@@ -432,7 +432,7 @@ internal fun computeTasteInsights(
             if (t != null && t.name.isNotBlank()) {
                 val date = Instant.ofEpochMilli(at).atZone(zone).toLocalDate()
                 out += NuvioCTasteInsight("milestone", "Milestone", "Title ${NF.format(n)}: ${t.name}",
-                    line = "${date.dayOfMonth} ${date.month.getDisplayName(TextStyle.SHORT, Locale.US)} ${date.year}",
+                    line = "${date.dayOfMonth} ${date.month.nuvioC3()} ${date.year}",
                     action = NuvioCTasteAction.Title(t.imdbId ?: "tmdb:${t.tmdbId}", if (t.isShow) "series" else "movie"),
                     keys = firsts.subList((n - 10).coerceAtLeast(0), (n + 10).coerceAtMost(firsts.size)).map { it.key })
             }

@@ -575,10 +575,12 @@ fun MetaDetailsScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     NuvioCTrailerAutostartEffect(viewModel.nuvioCAutostart, childOverlayVisible) // [fork] background-trailer countdown
+    val nuvioCGuard = rememberNuvioCDetailFocusGuard() // [fork] round 54 details_focus_guard
 
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .then(nuvioCGuard.rootModifier)
             .background(NuvioTheme.colors.Background)
             .onPreviewKeyEvent { keyEvent ->
                 if (currentIsTrailerPlaying) {
@@ -854,6 +856,7 @@ fun MetaDetailsScreen(
                 if (playOnLoad && !playOnLoadReturnContentRevealed) {
                     PlaybackHandoffBackdrop(backdropUrl = heroBackdropUrl ?: meta.backdropUrl)
                 }
+                androidx.compose.runtime.CompositionLocalProvider(LocalNuvioCDetailGuard provides nuvioCGuard) { // [fork] round 54
                 MetaDetailsContent(
                     modifier = Modifier.graphicsLayer {
                         alpha = playOnLoadReturnContentAlpha
@@ -1101,6 +1104,7 @@ fun MetaDetailsScreen(
                     onNavigateToDetail = onNavigateToDetail,
                     onPosterLongPress = { item -> viewModel.posterOptions.show(item, null) }
                 )
+                }
             }
         }
 
@@ -2447,6 +2451,7 @@ private fun MetaDetailsContent(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .then(nuvioCDetailListGuardModifier()) // [fork] round 54 details_focus_guard
                 .recompositionHighlighter()
                 .fadeBelowHero(listState, belowHeroAlpha)
                 .onPreviewKeyEvent { event ->

@@ -109,8 +109,8 @@ internal fun tasteAirLabel(next: NuvioCTasteNextAir, nowMs: Long, zone: ZoneId):
     val day = when (days) {
         0L -> if (next.timeKnown && at.hour >= 17) "Tonight" else "Today"
         1L -> "Tomorrow"
-        in 2L..6L -> at.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.US)
-        else -> "${at.dayOfMonth} ${at.month.getDisplayName(TextStyle.SHORT, Locale.US)}"
+        in 2L..6L -> at.dayOfWeek.nuvioC3()
+        else -> "${at.dayOfMonth} ${at.month.nuvioC3()}"
     }
     if (!next.timeKnown) return day
     val h = at.hour % 12

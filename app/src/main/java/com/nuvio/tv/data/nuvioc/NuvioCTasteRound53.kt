@@ -275,7 +275,7 @@ internal fun computeTasteYear(
         .take(5)
         .map { (_, w, s) ->
             val d = at(w).toLocalDate()
-            NuvioCTasteLine(name53(w, titles), (s?.let { "$it/10 · " } ?: "") + d.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.US) + " ${d.dayOfMonth}", d)
+            NuvioCTasteLine(name53(w, titles), (s?.let { "$it/10 · " } ?: "") + d.month.nuvioC3() + " ${d.dayOfMonth}", d)
         }
     val byMonth = IntArray(12)
     lines.forEach { byMonth[at(it).monthValue - 1] += mins53(it, titles) }

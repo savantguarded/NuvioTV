@@ -514,7 +514,7 @@ fun NuvioCTasteScreen(
 ) {
     if (com.nuvio.tv.NuvioCFeatures.TASTE_TABS_V2) { // [fork] round 53: header row, Overview / Discover / Stats / Wrapped
         // [fork] round 53e taste_bold: weights that really draw bold (the app font is variable)
-        if (com.nuvio.tv.NuvioCFeatures.TASTE_BOLD) com.nuvio.tv.ui.theme.NuvioCWeightedFont { NuvioCTasteTabsV2(viewModel, onOpenTitle, onOpenPerson, onOpenRoulette) }
+        if (com.nuvio.tv.NuvioCFeatures.TASTE_BOLD) com.nuvio.tv.ui.theme.NuvioCWeightedFont(calm = com.nuvio.tv.NuvioCFeatures.TASTE_TYPE_CALM) { NuvioCTasteTabsV2(viewModel, onOpenTitle, onOpenPerson, onOpenRoulette) }
         else NuvioCTasteTabsV2(viewModel, onOpenTitle, onOpenPerson, onOpenRoulette)
         return
     }

@@ -1,5 +1,6 @@
 package com.nuvio.tv.ui.screens.taste
 
+import com.nuvio.tv.data.nuvioc.nuvioC3
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
@@ -32,6 +33,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -87,7 +91,7 @@ import java.util.Locale
 // - Pages with nothing to press take no focus; a held Right stops at the last item of a row.
 // - Short, compact copy; colour per card (the profile accent plus teal, amber, rose, violet).
 
-private val C_CARD = Color(0xFF15161B)
+private val C_CARD = if (com.nuvio.tv.NuvioCFeatures.TASTE_BACKDROP) Color(0xD915161B) else Color(0xFF15161B) // [fork] round 54: a touch see-through over the backdrop
 private val C_INNER = Color(0xFF202128)
 private val C_MUTE = Color.White.copy(alpha = 0.64f)
 private val C_TRACK = Color(0xFF2A2B32)
@@ -157,6 +161,16 @@ internal fun NuvioCTasteTabsV2(
     }
 
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF101119), Color(0xFF0B0B0D))))) {
+        // [fork] round 54 taste_backdrop: the profile's top title, decoded small (soft when stretched) and dimmed, under
+        // a dark wash that is heaviest behind the cards
+        val backdropUrl = all?.backdrops?.firstOrNull()
+        if (com.nuvio.tv.NuvioCFeatures.TASTE_BACKDROP && backdropUrl != null) {
+            val bgContext = LocalContext.current
+            val req = remember(backdropUrl) { ImageRequest.Builder(bgContext).data(backdropUrl).size(320, 180).build() }
+            AsyncImage(req, null, contentScale = ContentScale.Crop, alpha = 0.42f, modifier = Modifier.fillMaxSize())
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xB30B0B0F), Color(0xE00B0B0F), Color(0xF20B0B0D)))))
+            Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0x660B0B0F), Color.Transparent, Color(0x660B0B0F)))))
+        }
         if (all == null && com.nuvio.tv.NuvioCFeatures.TASTE_BUILD_ANIM && state.progressTotal > 0) {
             TasteBuilding(state, accent)
             return@Box
@@ -258,7 +272,7 @@ internal fun NuvioCTasteTabsV2(
     }
 }
 
-private fun monthLabel(m: YearMonth) = m.month.getDisplayName(TextStyle.SHORT, Locale.US) + " " + m.year
+private fun monthLabel(m: YearMonth) = m.month.nuvioC3() + " " + m.year
 
 private fun scopeName(key: String): String = when {
     key.startsWith("y:") -> key.drop(2)
@@ -284,7 +298,7 @@ private fun Pill53(label: String, selected: Boolean, accent: Color, modifier: Mo
             focusedBorder = Border(NuvioTheme.focusRing.border(2.dp), shape = RoundedCornerShape(50))
         )
     ) {
-        Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+        Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
             modifier = Modifier.padding(horizontal = 15.dp, vertical = 7.dp), maxLines = 1, softWrap = false)
     }
 }
@@ -320,7 +334,7 @@ private fun Dropdown53(items: List<Pair<String, String?>>, selected: Int, accent
                     )
                 ) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = if (i == selected) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
+                        Text(label, style = MaterialTheme.typography.titleSmall, fontWeight = if (i == selected) FontWeight.Medium else FontWeight.Normal, maxLines = 1)
                         Spacer(Modifier.weight(1f))
                         if (sub != null) Text(sub, style = MaterialTheme.typography.labelMedium, maxLines = 1)
                     }
@@ -350,7 +364,7 @@ private fun hm53(minutes: Int): String {
     }
 }
 
-private fun day53(d: LocalDate): String = "${d.dayOfMonth} " + d.month.getDisplayName(TextStyle.SHORT, Locale.US)
+private fun day53(d: LocalDate): String = "${d.dayOfMonth} " + d.month.nuvioC3()
 
 /**
  * [fork] round 53c: a column that shows only the children that fit whole (top to bottom), so a card never shows a
@@ -418,7 +432,7 @@ private fun Overview53(o: NuvioCTasteOverview, accent: Color) {
             Fact53("Top show", ms?.name ?: "–", ms?.let { "${it.episodes} eps · ${hm53(it.minutes)}" }, C_VIOLET)
             val b = o.biggestDay
             Fact53("Biggest day", b?.let { hm53(it.minutes) } ?: "–",
-                b?.let { listOfNotNull(it.date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.US) + " " + day53(it.date), it.topTitle).joinToString(" · ") }, C_AMBER)
+                b?.let { listOfNotNull(it.date.dayOfWeek.nuvioC3() + " " + day53(it.date), it.topTitle).joinToString(" · ") }, C_AMBER)
             val shows = o.finishedShows + o.inProgressShows + o.upToDateShows
             Fact53("Shows", if (shows == 0) "–" else "${o.finishedShows} finished",
                 if (shows == 0) null else "${o.inProgressShows} ongoing · ${o.upToDateShows} caught up", C_TEAL)
@@ -435,8 +449,8 @@ private fun Overview53(o: NuvioCTasteOverview, accent: Color) {
 private fun RowScope.Tile53(label: String, value: String, sub: String, color: Color) {
     Column(Modifier.weight(1f).fillMaxHeight().background(C_CARD, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 11.dp), verticalArrangement = Arrangement.SpaceBetween) {
         Label53(label, color)
-        Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, softWrap = false)
-        Text(sub, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = color, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+        Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Medium, color = Color.White, maxLines = 1, softWrap = false)
+        Text(sub, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Normal, color = color, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -444,7 +458,7 @@ private fun RowScope.Tile53(label: String, value: String, sub: String, color: Co
 private fun RowScope.Fact53(label: String, main: String, sub: String?, color: Color) {
     Column(Modifier.weight(1f).fillMaxHeight().background(C_CARD, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 11.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Label53(label, color)
-        Text(main, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2, lineHeight = 20.sp, overflow = TextOverflow.Ellipsis)
+        Text(main, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium, color = Color.White, maxLines = 2, lineHeight = 20.sp, overflow = TextOverflow.Ellipsis)
         if (sub != null) Text(sub, style = MaterialTheme.typography.labelMedium, color = C_MUTE, maxLines = 2, lineHeight = 15.sp, overflow = TextOverflow.Ellipsis)
     }
 }
@@ -462,9 +476,9 @@ private fun List53(modifier: Modifier, title: String, sub: String, lines: List<N
         FitColumn53(Modifier.fillMaxWidth().weight(1f), gap = 8.dp) {
             lines.forEach { l ->
                 Row(Modifier.fillMaxWidth()) {
-                    Text(l.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 2, lineHeight = 18.sp,
+                    Text(l.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Normal, color = Color.White, maxLines = 2, lineHeight = 18.sp,
                         modifier = Modifier.weight(1f).alignByBaseline())
-                    Text(l.sub, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = color, maxLines = 1, softWrap = false,
+                    Text(l.sub, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Normal, color = color, maxLines = 1, softWrap = false,
                         modifier = Modifier.padding(start = 12.dp).alignByBaseline())
                     Text(day53(l.date), style = MaterialTheme.typography.labelMedium, color = C_MUTE, maxLines = 1, softWrap = false, textAlign = TextAlign.End,
                         modifier = Modifier.width(50.dp).alignByBaseline())
@@ -483,7 +497,7 @@ private fun Stats53(s: NuvioCTasteStats, f: com.nuvio.tv.data.nuvioc.NuvioCTaste
             Card53(Modifier.weight(2f).fillMaxHeight()) {
                 val peakHour = f.byHour.indices.maxByOrNull { f.byHour[it] }?.takeIf { f.byHour[it] > 0 }
                 val peakDay = com.nuvio.tv.data.nuvioc.tastePeakWeekday(f.byWeekday)
-                Title53("Viewing hours", C_TEAL, listOfNotNull(peakHour?.let { "Peak %02d:00".format(it) }, peakDay?.getDisplayName(TextStyle.SHORT, Locale.US)).joinToString(" · "))
+                Title53("Viewing hours", C_TEAL, listOfNotNull(peakHour?.let { "Peak %02d:00".format(it) }, peakDay?.nuvioC3()).joinToString(" · "))
                 Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                     Column(Modifier.weight(3f).fillMaxHeight()) {
                         Bars53(f.byHour, peakHour, null, Modifier.fillMaxWidth().weight(1f), C_TEAL)
@@ -501,7 +515,7 @@ private fun Stats53(s: NuvioCTasteStats, f: com.nuvio.tv.data.nuvioc.NuvioCTaste
                     Title53("Completion", accent, null)
                     val pct = s.finishedPercent ?: 0
                     Spacer(Modifier.weight(1f))
-                    Text("$pct%", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                    Text("$pct%", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Medium, color = Color.White)
                     Text("of shows started", style = MaterialTheme.typography.labelMedium, color = C_MUTE)
                     Spacer(Modifier.height(8.dp))
                     Box(Modifier.fillMaxWidth().height(8.dp).background(C_TRACK, RoundedCornerShape(4.dp))) {
@@ -555,7 +569,7 @@ private fun RowScope.StripFact53(label: String, value: String?, sub: String?, co
             Label53(label, color)
             // value and note share one baseline
             Row {
-                Text(value ?: "–", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, softWrap = false, modifier = Modifier.alignByBaseline())
+                Text(value ?: "–", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium, color = Color.White, maxLines = 1, softWrap = false, modifier = Modifier.alignByBaseline())
                 if (sub != null) Text("  $sub", style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.alignByBaseline())
             }
         }
@@ -581,7 +595,7 @@ private fun Bars53(counts: List<Int>, highlight: Int?, labels: List<String>?, mo
             Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
                 // bars stand on the baseline: empty space first, then the value, then the bar
                 if (c < max) Spacer(Modifier.weight((1f - c.toFloat() / max).coerceAtLeast(0.0001f)))
-                if (values && c > 0) Text(if (c >= 1000) "${c / 1000}k" else "$c", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, color = C_MUTE, maxLines = 1, softWrap = false, fontSize = 9.sp)
+                if (values && c > 0) Text(if (c >= 1000) "${c / 1000}k" else "$c", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Normal, color = C_MUTE, maxLines = 1, softWrap = false, fontSize = 9.sp)
                 Box(Modifier.fillMaxWidth().weight((c.toFloat() / max).coerceAtLeast(0.02f), fill = true)
                     .background(if (i == highlight) color else color.copy(alpha = 0.32f), RoundedCornerShape(3.dp)))
                 if (labels != null) Text(labels[i], style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, softWrap = false, fontSize = 10.sp)
@@ -594,8 +608,8 @@ private fun Bars53(counts: List<Int>, highlight: Int?, labels: List<String>?, mo
 private fun HBar53(name: String, value: String, share: Float, color: Color) {
     Column(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
         Row(Modifier.fillMaxWidth()) {
-            Text(name, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).alignByBaseline())
-            Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.8f), maxLines = 1, softWrap = false, modifier = Modifier.alignByBaseline())
+            Text(name, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Normal, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).alignByBaseline())
+            Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Normal, color = Color.White.copy(alpha = 0.8f), maxLines = 1, softWrap = false, modifier = Modifier.alignByBaseline())
         }
         Box(Modifier.fillMaxWidth().padding(top = 3.dp).height(4.dp).background(C_TRACK, RoundedCornerShape(2.dp))) {
             Box(Modifier.fillMaxWidth(share.coerceIn(0.02f, 1f)).height(4.dp).background(color, RoundedCornerShape(2.dp)))
@@ -636,7 +650,12 @@ private fun Discover53(
                 onClick = { viewModel.discoverFocusKey = "spin"; onSpin() },
                 modifier = Modifier.width(220.dp).fillMaxHeight().padding(4.dp)
                     .shadow(if (spinFocused) 22.dp else 8.dp, RoundedCornerShape(18.dp), ambientColor = accent, spotColor = accent)
-                    .focusRequester(req("spin")).focusProperties { up = upTarget }
+                    .focusRequester(req("spin")).focusProperties {
+                        up = upTarget
+                        // [fork] round 54: nothing to the left inside the page, so Left never wanders up to the tabs; a held
+                        // Left stops here and a fresh press opens the sidebar (MainActivity)
+                        if (com.nuvio.tv.NuvioCFeatures.TASTE_SPIN_FLOURISH) left = FocusRequester.Cancel
+                    }
                     .onFocusChanged { spinFocused = it.isFocused },
                 shape = CardDefaults.shape(RoundedCornerShape(18.dp)),
                 scale = CardDefaults.scale(focusedScale = 1f),
@@ -650,16 +669,17 @@ private fun Discover53(
                     Modifier.fillMaxSize().background(Brush.radialGradient(listOf(accent.copy(alpha = 0.34f), C_VIOLET.copy(alpha = 0.12f), Color.Transparent), radius = 480f)).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    if (com.nuvio.tv.NuvioCFeatures.TASTE_SPIN_FLOURISH) SpinFlourish53(spinFocused, accent)
+                    else Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         all.spinPosters.take(3).forEach { url ->
                             val r = remember(url) { ImageRequest.Builder(context).data(url).size(80, 120).build() }
                             AsyncImage(r, null, contentScale = ContentScale.Crop, modifier = Modifier.width(36.dp).height(54.dp).clip(RoundedCornerShape(5.dp)).background(C_INNER))
                         }
                     }
                     Spacer(Modifier.weight(1f))
-                    Text("Spin my taste", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1)
+                    Text("Spin my taste", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
                     Text(listOfNotNull(all.genres.getOrNull(0)?.name, all.genres.getOrNull(1)?.name, all.topDecade?.let { "${it}s" }).joinToString(" · "),
-                        style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = accent, maxLines = 1)
+                        style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Normal, color = accent, maxLines = 1)
                     Text("One unseen pick for you", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.75f), maxLines = 1)
                 }
             }
@@ -704,7 +724,7 @@ private fun Discover53(
                 shown.forEachIndexed { i, p ->
                     val key = "p:" + p.person.id
                     val last = i == shown.lastIndex
-                    Face53(p, accent, Modifier.focusRequester(req(key)).focusProperties { if (row == null) up = upTarget; if (last) right = FocusRequester.Cancel }) {
+                    Face53(p, accent, Modifier.focusRequester(req(key)).focusProperties { if (row == null) up = upTarget; if (last) right = FocusRequester.Cancel; if (i == 0 && com.nuvio.tv.NuvioCFeatures.TASTE_SPIN_FLOURISH) left = FocusRequester.Cancel }) {
                         viewModel.discoverFocusKey = key
                         onOpenPerson(p.person.id, p.person.name, p.director)
                     }
@@ -712,6 +732,39 @@ private fun Discover53(
             }
             }
         }
+    }
+}
+
+/**
+ * [fork] round 54 taste_spin_flourish: two accent rings in the card's top-right corner (clipped by the card) and a dice
+ * in the top-left. Focused, the rings turn slowly and the dice tilts; unfocused, everything is still.
+ */
+@Composable
+private fun SpinFlourish53(focused: Boolean, accent: Color) {
+    val turn = if (focused) {
+        val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "spin53")
+        t.animateFloat(initialValue = 0f, targetValue = 360f, animationSpec = androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(9000, easing = androidx.compose.animation.core.LinearEasing)), label = "spin53r").value
+    } else 0f
+    val tilt by androidx.compose.animation.core.animateFloatAsState(if (focused) -14f else 0f, androidx.compose.animation.core.tween(260), label = "dice53")
+    Box(Modifier.fillMaxWidth().height(54.dp)) {
+        androidx.compose.foundation.Canvas(Modifier.matchParentSize()) {
+            val big = 74.dp.toPx(); val small = 44.dp.toPx()
+            val c = androidx.compose.ui.geometry.Offset(size.width + 6.dp.toPx(), -4.dp.toPx())
+            rotate(turn, c) {
+                drawCircle(accent.copy(alpha = 0.30f), big, c, style = androidx.compose.ui.graphics.drawscope.Stroke(10.dp.toPx(),
+                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(60f, 18f))))
+            }
+            rotate(-turn * 1.6f, c) {
+                drawCircle(C_AMBER.copy(alpha = 0.42f), small, c, style = androidx.compose.ui.graphics.drawscope.Stroke(5.dp.toPx(),
+                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(34f, 14f))))
+            }
+        }
+        androidx.compose.material3.Icon(
+            painter = androidx.compose.ui.res.painterResource(com.nuvio.tv.R.drawable.nuvio_c_ic_dice),
+            contentDescription = null,
+            tint = C_AMBER,
+            modifier = Modifier.size(28.dp).graphicsLayer { rotationZ = tilt }
+        )
     }
 }
 
@@ -767,7 +820,7 @@ private fun Face53(p: com.nuvio.tv.data.nuvioc.NuvioCTastePersonStat, accent: Co
         // one line for every name; it scrolls when focused
         FocusMarqueeText(
             text = p.person.name, focused = focused,
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold), color = Color.White, textAlign = TextAlign.Center
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium), color = Color.White, textAlign = TextAlign.Center
         )
         Text(if (p.director) "Director · ${p.count}" else "${p.count} titles", style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, softWrap = false)
     }
@@ -786,7 +839,7 @@ private fun Wrapped53(y: NuvioCTasteYear, accent: Color) {
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("Your ${y.year}" + if (soFar) " so far" else "", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                Text("Your ${y.year}" + if (soFar) " so far" else "", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
                 Row(Modifier.fillMaxWidth()) {
                     Num53("%,d".format(y.hours), "hours", Modifier.weight(1f))
                     Num53("%,d".format(y.titles), "titles", Modifier.weight(1f))
@@ -813,7 +866,7 @@ private fun Wrapped53(y: NuvioCTasteYear, accent: Color) {
         Column(Modifier.weight(1.1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Card53(Modifier.fillMaxWidth().weight(1f)) {
                 val peak = y.busiestMonth
-                Title53("Hours by month", accent, peak?.let { java.time.Month.of(it + 1).getDisplayName(TextStyle.SHORT, Locale.US) + " peak" })
+                Title53("Hours by month", accent, peak?.let { java.time.Month.of(it + 1).nuvioC3() + " peak" })
                 Bars53(y.byMonth.map { it / 60 }, peak, listOf("J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"), Modifier.fillMaxWidth().weight(1f), accent, values = true)
             }
             Card53(Modifier.fillMaxWidth()) {
@@ -830,7 +883,7 @@ private fun Wrapped53(y: NuvioCTasteYear, accent: Color) {
 @Composable
 private fun Num53(value: String, label: String, modifier: Modifier) {
     Column(modifier) {
-        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, softWrap = false)
+        Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Medium, color = Color.White, maxLines = 1, softWrap = false)
         Text(label, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.8f), maxLines = 1)
     }
 }
@@ -847,10 +900,10 @@ private fun Ranked53(modifier: Modifier, title: String, lines: List<NuvioCTasteL
                     // the number sits on the title's first baseline; the note lines up under the title
                     Row(Modifier.fillMaxWidth()) {
                         // same size as the title, fixed-width digits, left aligned: number and title read as one line
-                        Text("${i + 1}", style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.ExtraBold, color = color,
+                        Text("${i + 1}", style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.Medium, color = color,
                             maxLines = 1, softWrap = false, modifier = Modifier.width(18.dp).alignByBaseline())
                         Spacer(Modifier.width(8.dp))
-                        Text(l.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 2, lineHeight = 18.sp,
+                        Text(l.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium, color = Color.White, maxLines = 2, lineHeight = 18.sp,
                             modifier = Modifier.weight(1f).alignByBaseline())
                     }
                     Text(l.sub, style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 26.dp))
@@ -865,7 +918,7 @@ private fun Line53(label: String, value: String?) {
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = C_MUTE, maxLines = 1, softWrap = false, modifier = Modifier.alignByBaseline())
         Spacer(Modifier.width(10.dp))
-        Text(value ?: "–", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1,
+        Text(value ?: "–", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Normal, color = Color.White, maxLines = 1,
             overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End, modifier = Modifier.weight(1f).alignByBaseline())
     }
 }

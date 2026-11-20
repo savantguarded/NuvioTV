@@ -1,5 +1,6 @@
 package com.nuvio.tv.ui.screens.taste
 
+import com.nuvio.tv.data.nuvioc.nuvioC3
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -162,7 +163,7 @@ internal fun NuvioCTasteTabs(
                         TastePillButton("All time", month == null && range == NuvioCTasteRange.ALL, Modifier.padding(start = 6.dp)) { range = NuvioCTasteRange.ALL; monthKey = null }
                         TastePillButton("This year", month == null && range == NuvioCTasteRange.YEAR, Modifier.padding(start = 6.dp)) { range = NuvioCTasteRange.YEAR; monthKey = null }
                         val months = state.months.sortedDescending()
-                        val label = month?.let { "‹ " + it.month.getDisplayName(TextStyle.SHORT, Locale.US) + " " + it.year } ?: "Month"
+                        val label = month?.let { "‹ " + it.month.nuvioC3() + " " + it.year } ?: "Month"
                         if (months.isNotEmpty()) TastePillButton(label, month != null, Modifier.padding(start = 6.dp)) {
                             // first press: the newest month; each press after steps one month back, then wraps
                             val i = month?.let { months.indexOf(it) } ?: -1
@@ -319,7 +320,7 @@ private fun TasteOverview(s: NuvioCTasteStats, f: NuvioCTasteFacts, accent: Colo
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                Text("Best: ${f.longestStreak} days" + (f.biggestDay?.let { (d, m) -> "\nBiggest day " + d.month.getDisplayName(TextStyle.SHORT, Locale.US) + " ${d.dayOfMonth}, ${d.year} · ${hm(m)}" } ?: ""),
+                Text("Best: ${f.longestStreak} days" + (f.biggestDay?.let { (d, m) -> "\nBiggest day " + d.month.nuvioC3() + " ${d.dayOfMonth}, ${d.year} · ${hm(m)}" } ?: ""),
                     style = MaterialTheme.typography.bodySmall, color = MUTE, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
@@ -327,8 +328,8 @@ private fun TasteOverview(s: NuvioCTasteStats, f: NuvioCTasteFacts, accent: Colo
             TasteFact("Avg runtime", f.avgFilmMinutes?.let { "$it min" }, "films")
             TasteFact("Longest film", f.longestFilm?.let { "${it.second} min" }, f.longestFilm?.first)
             TasteFact("Rewatches", "%,d".format(f.rewatches), if (f.plays > 0) "${f.rewatches * 100 / f.plays}% of ${"%,d".format(f.plays)} plays" else null)
-            TasteFact("First watch", f.firstWatch?.second?.let { it.month.getDisplayName(TextStyle.SHORT, Locale.US) + " " + it.year }, f.firstWatch?.first)
-            TasteFact("Latest watch", f.latestWatch?.second?.let { it.month.getDisplayName(TextStyle.SHORT, Locale.US) + " " + it.year }, f.latestWatch?.first)
+            TasteFact("First watch", f.firstWatch?.second?.let { it.month.nuvioC3() + " " + it.year }, f.firstWatch?.first)
+            TasteFact("Latest watch", f.latestWatch?.second?.let { it.month.nuvioC3() + " " + it.year }, f.latestWatch?.first)
         }
     }
 }
@@ -615,7 +616,7 @@ private fun TasteWrappedPage(w: NuvioCTasteWrapped, accent: Color, focus: FocusR
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            fun d(x: java.time.LocalDate?) = x?.let { it.month.getDisplayName(TextStyle.SHORT, Locale.US) + " ${it.dayOfMonth}" }
+            fun d(x: java.time.LocalDate?) = x?.let { it.month.nuvioC3() + " ${it.dayOfMonth}" }
             TasteWrapFact("BIGGEST DAY", d(w.biggestDay), "${w.biggestDayTitles} titles · ${hm(w.biggestDayMinutes)}")
             TasteWrapFact("LONGEST STREAK", "${w.longestStreak} days", listOfNotNull(d(w.streakFrom), d(w.streakTo)).joinToString(" – "))
             TasteWrapFact("YOU WATCH MOST", when (w.peakPart) { 0 -> "Mornings"; 1 -> "Afternoons"; 2 -> "Evenings"; 3 -> "Late at night"; else -> null },

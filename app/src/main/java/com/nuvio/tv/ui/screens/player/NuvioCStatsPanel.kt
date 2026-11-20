@@ -214,27 +214,28 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
     // screen space left, so it always ends with SYSTEM on screen (it used to run off the bottom).
     val fit = com.nuvio.tv.NuvioCFeatures.HUD_FIT
     val big = com.nuvio.tv.NuvioCFeatures.HUD_TEXT_LARGER // [fork] round 53e: easier to read from the sofa
-    val lineH = if (big) 15.sp else if (fit) 12.sp else 13.sp
-    val textSize = if (big) 12.5.sp else 10.5.sp
+    val fixed = com.nuvio.tv.NuvioCFeatures.HUD_FIXED // [fork] round 54: bigger type, tight rows, one fixed box
+    val lineH = if (fixed) 16.sp else if (big) 15.sp else if (fit) 12.sp else 13.sp
+    val textSize = if (fixed) 14.sp else if (big) 12.5.sp else 10.5.sp
     val labelStyle = MaterialTheme.typography.labelSmall.copy(fontSize = textSize, lineHeight = lineH, fontWeight = FontWeight.Medium)
     val valueStyle = MaterialTheme.typography.labelSmall.copy(fontSize = textSize, lineHeight = lineH)
     Column(
         modifier = modifier
             .then(if (fit) Modifier.nuvioCScaleToFitHeight() else Modifier)
-            .width(if (big) 460.dp else 380.dp)
+            .width(if (fixed) 520.dp else if (big) 460.dp else 380.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(Color(0xB8000000))
-            .padding(horizontal = 16.dp, vertical = if (fit) 10.dp else 12.dp),
-        verticalArrangement = Arrangement.spacedBy(if (fit) 1.dp else 2.dp)
+            .padding(horizontal = 16.dp, vertical = if (fixed) 8.dp else if (fit) 10.dp else 12.dp),
+        verticalArrangement = Arrangement.spacedBy(if (fixed) 0.dp else if (fit) 1.dp else 2.dp)
     ) {
         sections.forEachIndexed { i, section ->
             Text(
                 text = section.header,
-                style = MaterialTheme.typography.labelSmall.copy(fontSize = if (big) 10.5.sp else 9.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold),
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = if (fixed) 11.sp else if (big) 10.5.sp else 9.sp, lineHeight = if (fixed) 13.sp else androidx.compose.ui.unit.TextUnit.Unspecified, letterSpacing = 1.5.sp, fontWeight = FontWeight.SemiBold),
                 color = Color.White.copy(alpha = 0.5f),
-                modifier = Modifier.padding(top = if (i == 0) 0.dp else if (fit) 4.dp else 5.dp)
+                modifier = Modifier.padding(top = if (i == 0) 0.dp else if (fixed) 5.dp else if (fit) 4.dp else 5.dp)
             )
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.12f)))
+            Box(Modifier.fillMaxWidth().padding(bottom = if (fixed) 2.dp else 0.dp).height(1.dp).background(Color.White.copy(alpha = 0.12f)))
             section.rows.forEach { row ->
                 Row(verticalAlignment = Alignment.Top) {
                     Text(
@@ -242,7 +243,7 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
                         style = labelStyle,
                         color = Color.White.copy(alpha = 0.55f),
                         maxLines = 1,
-                        modifier = Modifier.width(if (big) 104.dp else 88.dp)
+                        modifier = Modifier.width(if (fixed) 124.dp else if (big) 104.dp else 88.dp)
                     )
                     Text(
                         text = row.value,

@@ -971,4 +971,34 @@ object NuvioCFeatures {
     const val DETAILS_FLUID = true
     // round 53e: player asks for the display mode already active so SurfaceFlinger stops retrying 60 Hz
     const val AFR_LOOP_GUARD = true
+
+    // ---- round 54 ----
+    // subtitles panel: scroll to the active track before focusing it; fall back to the top row
+    const val SUB_PANEL_ENTRY_FIX = true
+    /** New subtitle/audio panels only with the Modern player style; the default style is back to the round 51 panels. */
+    const val PANELS_MODERN_ONLY = true
+    /** Modern panels: the focus bar and the active tab use the theme accent, as the official panels do. */
+    const val PANEL_ACCENT_BAR = true
+    /** Modern panels about 20% narrower (298 dp, was 372). */
+    const val PANEL_NARROWER = true
+    /** Modern panels: tabs change on Select only; Down from any tab enters the active tab's list. */
+    const val PANEL_TABS_ON_SELECT = true
+    /** Modern subtitles: smaller third (description) line. */
+    const val PANEL_DETAIL_SMALLER = true
+    /** Modern OSD: More's focus circle the same 32 dp no-zoom circle as the right pill's buttons. */
+    const val MORE_RING_MATCH = true
+    /** Skip Intro (left) sits just above the seek bar, not above the right-hand time / chapter block. */
+    const val SKIP_AT_BAR = true
+    /** HUD: one fixed box (under the clock to just above the seek bar) whether the controls show or not; 14 sp single-column text, tight rows, 520 dp wide. */
+    const val HUD_FIXED = true
+    /** Taste: bold for headings only; numbers Medium (size and colour carry them), names and notes Regular. */
+    const val TASTE_TYPE_CALM = true
+    /** Taste Watchtime: months as Jan, Feb, Mar... Sep, never four letters. */
+    const val TASTE_MONTHS_3 = true
+    /** Taste: Spin my taste card with accent rings and a dice that turn when focused. */
+    const val TASTE_SPIN_FLOURISH = true
+    /** Taste: a dimmed, blurred-looking backdrop of the profile's top title behind the cards. */
+    const val TASTE_BACKDROP = true
+    /** Details: a safety net that puts focus back on the page (last focused row) when it is lost; logs NuvioCDetailsFocus. */
+    const val DETAILS_FOCUS_GUARD = true
 }

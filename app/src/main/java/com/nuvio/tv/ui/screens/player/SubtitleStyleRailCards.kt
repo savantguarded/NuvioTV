@@ -70,7 +70,7 @@ internal fun SubtitleBackgroundStyleCard(
                     onEvent(PlayerEvent.OnSetSubtitleBackgroundColor(subtitleBackgroundColorFor(Color(color), subtitleStyle.backgroundColor)))
                 }
             )
-            RailStepperLabel(stringResource(if (com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V3) R.string.nuvio_c_sub_background_opacity else R.string.sub_opacity))
+            RailStepperLabel(stringResource(if (NuvioCPanelLook.v3) R.string.nuvio_c_sub_background_opacity else R.string.sub_opacity))
             StepperRow(
                 value = "$opacityPercent%",
                 onDecrease = {
@@ -92,7 +92,7 @@ internal fun SubtitleBackgroundStyleCard(
                 modifier = Modifier.alpha(if (opacityPercent > 0) 1f else 0.35f),
                 verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
             ) {
-                RailStepperLabel(stringResource(if (com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V3) R.string.nuvio_c_sub_background_roundness else R.string.sub_bg_roundness))
+                RailStepperLabel(stringResource(if (NuvioCPanelLook.v3) R.string.nuvio_c_sub_background_roundness else R.string.sub_bg_roundness))
                 StepperRow(
                     value = subtitleStyle.backgroundRadius.toString(),
                     onDecrease = { onEvent(PlayerEvent.OnSetSubtitleBackgroundRadius(subtitleStyle.backgroundRadius - 2)) },
@@ -134,7 +134,7 @@ internal fun SubtitleShadowStyleCard(
                 modifier = Modifier.alpha(if (subtitleStyle.shadowEnabled) 1f else 0.35f),
                 verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
             ) {
-                RailStepperLabel(stringResource(if (com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V3) R.string.nuvio_c_sub_shadow_opacity else R.string.sub_opacity))
+                RailStepperLabel(stringResource(if (NuvioCPanelLook.v3) R.string.nuvio_c_sub_shadow_opacity else R.string.sub_opacity))
                 StepperRow(
                     value = "${subtitleStyle.shadowOpacity}%",
                     onDecrease = {
@@ -152,7 +152,7 @@ internal fun SubtitleShadowStyleCard(
                     incrementFocusKey = StyleFocusKey.ShadowOpacityIncrease,
                     onFocusChanged = onFocused
                 )
-                RailStepperLabel(stringResource(if (com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V3) R.string.nuvio_c_sub_shadow_size else R.string.sub_size))
+                RailStepperLabel(stringResource(if (NuvioCPanelLook.v3) R.string.nuvio_c_sub_shadow_size else R.string.sub_size))
                 StepperRow(
                     value = subtitleStyle.shadowSize.toString(),
                     onDecrease = {
@@ -180,7 +180,7 @@ internal fun RailStepperLabel(text: String) {
     // [fork] round 53 track_panels_v3: same size and colour as every other Style label
     Text(
         text = text,
-        style = if (com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V3) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.labelMedium,
-        color = if (com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V3) Color.White else Color.White.copy(alpha = 0.7f)
+        style = if (NuvioCPanelLook.v3) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.labelMedium,
+        color = if (NuvioCPanelLook.v3) Color.White else Color.White.copy(alpha = 0.7f)
     )
 }

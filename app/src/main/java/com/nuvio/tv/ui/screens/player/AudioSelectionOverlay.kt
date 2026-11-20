@@ -183,7 +183,7 @@ internal fun AudioSelectionOverlay(
         captureKeys = false,
         contentPadding = PaddingValues(start = 44.dp, end = 44.dp, top = 28.dp, bottom = 64.dp)
     ) {
-        if (com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V2) {
+        if (com.nuvio.tv.NuvioCFeatures.TRACK_PANELS_V2 && nuvioCModernPanels()) { // [fork] round 54: new panels in Modern only
             // [fork] round 52 track_panels_v2: one card on the left with Tracks / Sound tabs
             var tab by remember(visible) { mutableStateOf(0) }
             val tabRequesters = remember { List(2) { FocusRequester() } }
@@ -209,13 +209,20 @@ internal fun AudioSelectionOverlay(
                     )
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.nuvioCTabRow { tabRequesters[tab] }) {
-                    NuvioCPanelTab(stringResource(R.string.nuvio_c_panel_tracks), tab == 0, tabRequesters[0], tracksFocusRequester,
-                        onDown = if (NuvioCPanelLook.v3 && tracks.isNotEmpty()) ({
+                    val nuvioCOnSelect = NuvioCPanelLook.v3 && com.nuvio.tv.NuvioCFeatures.PANEL_TABS_ON_SELECT
+                    val audioTracksDown: (() -> Boolean)? = if (NuvioCPanelLook.v3 && tracks.isNotEmpty()) ({
+                            val idx = tracks.indexOfFirst { it.index == selectedIndex }.coerceAtLeast(0)
+                            audioScope.launch { listState.scrollToItem(idx); tracksFocusRequester.requestFocusAfterFrames(1) }
+                            true
+                        }) else null
+                    NuvioCPanelTab(stringResource(R.string.nuvio_c_panel_tracks), tab == 0, tabRequesters[0], if (nuvioCOnSelect && tab == 1) delayMinusFocusRequester else tracksFocusRequester,
+                        onDown = if (nuvioCOnSelect && tab == 1) null else if (NuvioCPanelLook.v3 && tracks.isNotEmpty()) ({
                             val idx = tracks.indexOfFirst { it.index == selectedIndex }.coerceAtLeast(0)
                             audioScope.launch { listState.scrollToItem(idx); tracksFocusRequester.requestFocusAfterFrames(1) }
                             true
                         }) else null) { tab = 0 }
-                    NuvioCPanelTab(stringResource(R.string.nuvio_c_panel_sound), tab == 1, tabRequesters[1], delayMinusFocusRequester) { tab = 1 }
+                    NuvioCPanelTab(stringResource(R.string.nuvio_c_panel_sound), tab == 1, tabRequesters[1], if (nuvioCOnSelect && tab == 0) tracksFocusRequester else delayMinusFocusRequester,
+                        onDown = if (nuvioCOnSelect && tab == 0) audioTracksDown else null) { tab = 1 }
                 }
                 if (tab == 0) {
                     if (tracks.isEmpty()) {

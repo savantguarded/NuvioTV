@@ -787,6 +787,8 @@ internal fun Modifier.nuvioCSeekBarHeight(focused: Boolean): Modifier = layout {
 @Stable
 internal class NuvioCOsdAnchor {
     var seekBarTop by mutableFloatStateOf(Float.NaN)
+    /** [fork] round 54: the bar's own top, without the time / chapter block hanging over its right end. */
+    var barTop by mutableFloatStateOf(Float.NaN)
 }
 
 internal val LocalNuvioCOsdAnchor = staticCompositionLocalOf<NuvioCOsdAnchor?> { null }
@@ -794,12 +796,12 @@ internal val LocalNuvioCOsdAnchor = staticCompositionLocalOf<NuvioCOsdAnchor?> {
 internal fun Modifier.nuvioCSeekBarAnchor(anchor: NuvioCOsdAnchor?, overhang: Boolean = false): Modifier =
     if (anchor == null || !NuvioCFeatures.SKIP_ABOVE_SEEK) this
     // [fork] round 48b: Clean's time may hang above the bar without a row of its own; things anchored above the bar clear it too
-    else onGloballyPositioned { anchor.seekBarTop = it.positionInWindow().y - (if (overhang) NuvioCTimeOverhang.px else 0f) }
+    else onGloballyPositioned { anchor.barTop = it.positionInWindow().y; anchor.seekBarTop = it.positionInWindow().y - (if (overhang) NuvioCTimeOverhang.px else 0f) }
 
 /** Forgets the seek bar position when the controls leave. */
 @Composable
 internal fun NuvioCOsdAnchorReset(anchor: NuvioCOsdAnchor) {
-    DisposableEffect(anchor) { onDispose { anchor.seekBarTop = Float.NaN } }
+    DisposableEffect(anchor) { onDispose { anchor.seekBarTop = Float.NaN; anchor.barTop = Float.NaN } }
 }
 
 /** Gap kept between Skip Intro (focused, 1.1x, ring included) and the top of the seek bar. */
@@ -811,9 +813,11 @@ private val SKIP_SEEK_GAP = 16.dp
  * top plus a 16 dp gap.
  */
 @Composable
-internal fun nuvioCAboveSeekBar(anchor: NuvioCOsdAnchor, controlsVisible: Boolean, official: Dp): Dp {
+internal fun nuvioCAboveSeekBar(anchor: NuvioCOsdAnchor, controlsVisible: Boolean, official: Dp, leftSide: Boolean = false): Dp {
     if (!NuvioCFeatures.SKIP_ABOVE_SEEK || !controlsVisible) return official
-    val top = anchor.seekBarTop
+    // [fork] round 54 skip_at_bar: Skip Intro sits on the left, where the time / chapter block never reaches (the
+    // title block hides while it shows), so it clears the bar only; it had been lifted by the right-hand block's height
+    val top = if (leftSide && NuvioCFeatures.SKIP_AT_BAR && !anchor.barTop.isNaN()) anchor.barTop else anchor.seekBarTop
     if (top.isNaN()) return official
     val windowHeight = LocalView.current.rootView.height
     if (windowHeight <= 0) return official

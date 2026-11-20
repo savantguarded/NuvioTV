@@ -9,6 +9,7 @@ package com.nuvio.tv.ui.screens.taste
 // taste_review       TasteReviewBanner: Month in review above Spotlight.
 // taste_card_titles  TasteTitlesPanel: a spotlight card's titles in a right-side panel (cached facts only, no network).
 
+import com.nuvio.tv.data.nuvioc.nuvioC3
 import android.view.KeyEvent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -270,7 +271,7 @@ internal fun TasteReviewBanner(review: NuvioCTasteReview, accent: Color, modifie
                     review.topGenre?.let { ReviewStat(it, "Top genre") }
                     review.mostWatched?.let { ReviewStat(it, "Most watched", Modifier.widthIn(max = 180.dp)) }
                     review.biggestDay?.let { d ->
-                        ReviewStat(d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.US) + " " + d.dayOfMonth, "Biggest day")
+                        ReviewStat(d.dayOfWeek.nuvioC3() + " " + d.dayOfMonth, "Biggest day")
                     }
                 }
             }
