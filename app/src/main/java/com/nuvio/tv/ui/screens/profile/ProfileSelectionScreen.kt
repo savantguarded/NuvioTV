@@ -957,7 +957,6 @@ private fun ProfileSelectionMainContent(
     onProfileLongPress: (UserProfile) -> Unit,
     onAddProfileClick: () -> Unit
 ) {
-    if (nuvioCProfileRail(isManagementMode)) { NuvioCProfileRail(profiles, activeProfileId, canAddProfile, profilePinEnabled, avatarImageUrlsById, brandWordmarkRes, onProfileFocused, onProfileSelected, onProfileLongPress, onAddProfileClick); return } // [fork] NuvioCProfileLayout.kt
     val nuvioCClean = nuvioCProfileClean(isManagementMode) // [fork] clean profile screen, see NuvioCProfileLayout.kt
     val nuvioCLeft = nuvioCClean && nuvioCProfileLeft() // [fork] profile_left
     Column(
