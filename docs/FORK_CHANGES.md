@@ -12,7 +12,6 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Hourly CI replays the fork onto each official release. Optional patches (trailer layer, IMDb backup, cast filmography) drop alone on conflict. Issue opened when upstream edits OSD files. Repeat conflict mails are quieted.
 - In-app updater points at this repo, offers forced rebuilds and compiles on install: `app/src/full/java/com/nuvio/tv/updater/NuvioCUpdate*.kt`, `UPDATE_REOPEN`.
 - English-only APK (`ENGLISH_ONLY`, `app/build.gradle.kts`), no crash reports to Nuvio (`NO_CRASH_REPORTING`), no launcher channels (`NO_TV_CHANNELS`), debug logs stripped in release (`app/proguard-rules.pro`), fork baseline profile `app/src/main/baselineProfiles/nuvio-c.txt`.
-- ysosrs123 calendar tracking: `.github/workflows/nuvio-c-ysos-watch.yml`, `scripts/nuvio-c-calendar-sync.sh`.
 
 ## Player controls (OSD)
 - Two control styles via Settings "Player controls style" (`OSD_CLEAN`, `OSD_CLEAN_V2`): **Default** (code id `nuvio_c`, official row plus fork tweaks) and **Modern** (code id `clean`, files `NuvioCOsdClean.kt` / `NuvioCCleanLayout.kt`: left pills, centred playback, right icon pill, More sheet, icons `res/drawable/nuvio_c_ic_clean_*`). Code and switches say "Clean"; screens say "Modern".
@@ -81,10 +80,10 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Watched tab, Random pick, list picker with your source first, poster fallback, Back keeps focus.
 - Files: `ui/screens/library/NuvioCLibrary*.kt`, `ui/components/NuvioCLibraryPicker.kt`, `data/nuvioc/NuvioCWatchedLibrary.kt`.
 
-## Calendar and Upcoming (ysosrs123 port)
+## Calendar and Upcoming (from ysosrs123, fully Nuvio C's since 2026-11-20)
 - Calendar page (List / Month), sources TVDB, Trakt, MDBList calendar, TMDB Coming soon (digital only), bells shared with Details, Upcoming row (14 days, future only).
 - Switches: `LIBRARY_CALENDAR`, `CALENDAR_*`, `UPCOMING_*`, `TMDB_SOON_*`, `BELL_SYNC`.
-- Files: `core/calendar/`, `ui/screens/calendar/`, `ui/screens/home/HomeComingUp.kt`, `ui/screens/settings/CalendarSettingsSection.kt`. Ported file list: `scripts/nuvio-c-calendar-files.txt`.
+- Files: `core/calendar/`, `ui/screens/calendar/`, `ui/screens/home/HomeComingUp.kt`, `ui/screens/settings/CalendarSettingsSection.kt`.
 
 ## Roulette (sidebar "Roulette", action "Shuffle")
 - Movies / Shows mood screen over a large raw TMDB pool, Refine dialog (popularity, decade, region, theme…), watched cycle, ratings line, backdrop.

@@ -43,8 +43,6 @@ Root (skip anything marked "ignore"):
 | `app/src/main/res/`, `app/src/main/assets/` | Resources. Fork files are prefixed `nuvio_c_` (icons, fonts, `assets/nuvio_c_subfonts/`). |
 | `app/libs/` | Prebuilt AARs (Media3, libass, QuickJS, Nuvio engine). Ignore unless changing a decoder. |
 | `.github/workflows/nuvio-c.yml` | The Nuvio C build robot. See section 7. |
-| `.github/workflows/nuvio-c-ysos-watch.yml` | Daily check for new ysosrs123 calendar commits (opens issues only). |
-| `scripts/nuvio-c-calendar-sync.sh` | Takes in ysosrs123 calendar code (vendor branch `ysos-calendar`). |
 | `docs/` | These docs, plus upstream's `essential-mode.md` and `architecture/mdblist-library.md`. |
 | `DV7/`, `org/`, `libmpv-android/`, `baselineprofile/`, `.idea/`, `.kotlin/` | Ignore: native/vendored/tooling. |
 
@@ -101,7 +99,7 @@ Details then `ui/screens/stream/StreamScreen.kt` (`StreamRepositoryImpl` asks ad
 `core/tracking/Tracking*Provider.kt` abstract Trakt (`data/repository/Trakt*`), Simkl (`data/simkl/`), MDBList (`data/mdblist/`). Nuvio account sync (library, progress, settings, profiles) in `core/sync/*SyncService.kt` over Supabase (`data/remote/supabase/`). Profiles: `core/profile/ProfileManager.kt`; per-profile stores are profile-scoped.
 
 **Calendar / Upcoming**
-`core/calendar/` (refresh, merge, reminders, TVDB/TVMaze/MDBList/TMDB sources) feeds `ui/screens/calendar/` and the Home Upcoming row (`ui/screens/home/HomeComingUp.kt`). Largely ported from ysosrs123; keep `scripts/nuvio-c-calendar-files.txt` in mind before editing.
+`core/calendar/` (refresh, merge, reminders, TVDB/TVMaze/MDBList/TMDB sources) feeds `ui/screens/calendar/` and the Home Upcoming row (`ui/screens/home/HomeComingUp.kt`). Originally ported from ysosrs123; since 2026-11-20 it is fully Nuvio C code (no longer synced with his fork), edit it like any other fork file.
 
 **Fork-only screens**
 Roulette `ui/screens/shuffle/` + `data/nuvioc/NuvioCShuffle*.kt`, `NuvioCRoulette*.kt`. Taste `ui/screens/taste/` + `data/nuvioc/NuvioCTaste*.kt`. Ratings `data/nuvioc/NuvioCRatingService.kt`.

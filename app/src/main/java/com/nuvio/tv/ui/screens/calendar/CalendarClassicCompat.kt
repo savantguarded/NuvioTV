@@ -41,7 +41,7 @@ import com.nuvio.tv.ui.theme.NuvioTheme
 // This app has no v2 appearance, so here the v2 pieces are stand-ins that never turn on:
 // LocalV2Appearance is always null, so every `if (v2)` branch is skipped and the classic look is drawn.
 // The glass modifiers return the modifier unchanged; nothing blurs, nothing extra is drawn.
-// scripts/nuvio-c-calendar-sync.sh copies his files again and points their imports here.
+// Since 2026-11-20 the Calendar is Nuvio C's own code; his fork is no longer synced.
 
 /** Stand-in for his v2 appearance preferences; never provided, so always null. */
 class CalendarV2Appearance(val settingsBackground: Any? = null)
