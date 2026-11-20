@@ -524,15 +524,14 @@ class NuvioMpvSurfaceView @JvmOverloads constructor(
         if (!initialized) return
         runCatching {
             mpv.setPropertyString("sub-color", toMpvColor(NuvioCHdrDim.dimArgb(style.textColor, factor)))
-            if (com.nuvio.tv.NuvioCFeatures.HDR_DIM_LIGHT) { // background and outline too, like official's HDR style
-                mpv.setPropertyString("sub-back-color", toMpvColor(NuvioCHdrDim.dimArgb(style.backgroundColor, factor)))
-                mpv.setPropertyString("sub-outline-color", toMpvColor(NuvioCHdrDim.dimArgb(style.outlineColor, factor)))
-            }
+            // background and outline too, like official's HDR style
+            mpv.setPropertyString("sub-back-color", toMpvColor(NuvioCHdrDim.dimArgb(style.backgroundColor, factor)))
+            mpv.setPropertyString("sub-outline-color", toMpvColor(NuvioCHdrDim.dimArgb(style.outlineColor, factor)))
         }
     }
 
     private fun nuvioCDimLight(argb: Int): Int =
-        if (com.nuvio.tv.NuvioCFeatures.HDR_DIM_LIGHT) NuvioCHdrDim.dimArgb(argb, nuvioCSubDim) else argb
+        NuvioCHdrDim.dimArgb(argb, nuvioCSubDim)
 
     /** [fork] true for PQ / HLG video as mpv decoded it, null when mpv can't say yet. */
     fun nuvioCIsHdrVideo(): Boolean? {

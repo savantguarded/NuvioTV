@@ -45,15 +45,11 @@ class NuvioCSubtitleLiftLayout @JvmOverloads constructor(
         val changed = f != dimFactor
         dimFactor = f
         applySurfaceDim()
-        if (NuvioCFeatures.HDR_DIM_LIGHT) {
-            if (layerType != LAYER_TYPE_NONE) setLayerType(LAYER_TYPE_NONE, null)
-            if (changed) {
-                modulatePaint = if (f < 1f) nuvioCModulatePaint(f) else null
-                invalidate()
-            }
-            return
+        if (layerType != LAYER_TYPE_NONE) setLayerType(LAYER_TYPE_NONE, null)
+        if (changed) {
+            modulatePaint = if (f < 1f) nuvioCModulatePaint(f) else null
+            invalidate()
         }
-        updateDimLayer(changed)
     }
 
     /** Whether a picture subtitle is on screen (ExoPlayer cues), for the frame around the SubtitleView. */
@@ -67,18 +63,7 @@ class NuvioCSubtitleLiftLayout @JvmOverloads constructor(
         get() = id == com.nuvio.tv.R.id.nuvio_c_subtitle_lift
 
     private fun modulateNow(): Boolean =
-        NuvioCFeatures.HDR_DIM_LIGHT && dimFactor < 1f && hasVisibleChild() && (!isTextFrame || pictureCues)
-
-    // Previous version (switch off): the layer is a full-screen offscreen copy, kept only on a frame
-    // that has something visible in it.
-    private fun updateDimLayer(force: Boolean = false) {
-        val want = dimFactor < 1f && hasVisibleChild()
-        val has = layerType == LAYER_TYPE_HARDWARE
-        when {
-            want && (!has || force) -> setLayerType(LAYER_TYPE_HARDWARE, nuvioCDimPaint(dimFactor))
-            !want && has -> setLayerType(LAYER_TYPE_NONE, null)
-        }
-    }
+        dimFactor < 1f && hasVisibleChild() && (!isTextFrame || pictureCues)
 
     private fun hasVisibleChild(): Boolean {
         for (i in 0 until childCount) if (getChildAt(i).visibility == VISIBLE) return true
@@ -105,12 +90,10 @@ class NuvioCSubtitleLiftLayout @JvmOverloads constructor(
             applySurfaceDim()
             if (liftPx != 0f) { liftPx = 0f; invalidate() }
         }
-        if (dimFactor < 1f && !NuvioCFeatures.HDR_DIM_LIGHT) updateDimLayer()
     }
 
     override fun onViewRemoved(child: android.view.View?) {
         super.onViewRemoved(child)
-        if (dimFactor < 1f && !NuvioCFeatures.HDR_DIM_LIGHT) updateDimLayer()
     }
 
     /** One multiply pass over what the children drew (colour x factor, alpha kept; the video is a separate surface). */

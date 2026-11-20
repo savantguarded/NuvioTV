@@ -21,7 +21,6 @@ package com.nuvio.tv.ui.screens.player
 // Switch: NuvioCFeatures.HDR_DIM.
 
 import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.view.View
 import androidx.compose.runtime.Composable
@@ -38,10 +37,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.offset
 import androidx.media3.ui.PlayerView
 import com.nuvio.tv.NuvioCFeatures
 import com.nuvio.tv.R
@@ -88,20 +85,18 @@ internal fun rememberNuvioCHdrDim(viewModel: PlayerViewModel, uiState: PlayerUiS
     }
     // hdr_dim_light: the exo subtitle frame only needs its multiply pass while a picture cue (PGS /
     // VobSub / DVB) is up; text cues are already drawn in dimmed colours.
-    if (NuvioCFeatures.HDR_DIM_LIGHT) {
-        DisposableEffect(controller, uiState.internalPlayerEngine) {
-            val player = controller.exoPlayer
-            fun update(cues: List<androidx.media3.common.text.Cue>) {
-                val bitmaps = cues.any { it.bitmap != null }
-                (controller.exoPlayerView?.findViewById<View>(R.id.nuvio_c_subtitle_lift) as? NuvioCSubtitleLiftLayout)
-                    ?.setNuvioCPictureCues(bitmaps)
-            }
-            val listener = object : androidx.media3.common.Player.Listener {
-                override fun onCues(cueGroup: androidx.media3.common.text.CueGroup) = update(cueGroup.cues)
-            }
-            player?.addListener(listener)
-            onDispose { player?.removeListener(listener) }
+    DisposableEffect(controller, uiState.internalPlayerEngine) {
+        val player = controller.exoPlayer
+        fun update(cues: List<androidx.media3.common.text.Cue>) {
+            val bitmaps = cues.any { it.bitmap != null }
+            (controller.exoPlayerView?.findViewById<View>(R.id.nuvio_c_subtitle_lift) as? NuvioCSubtitleLiftLayout)
+                ?.setNuvioCPictureCues(bitmaps)
         }
+        val listener = object : androidx.media3.common.Player.Listener {
+            override fun onCues(cueGroup: androidx.media3.common.text.CueGroup) = update(cueGroup.cues)
+        }
+        player?.addListener(listener)
+        onDispose { player?.removeListener(listener) }
     }
     DisposableEffect(controller) {
         onDispose { runCatching { nuvioCApplySubtitleDim(controller, latestUiState, 1f) } }
@@ -141,59 +136,29 @@ private fun PlayerView.nuvioCSetSubtitleDim(factor: Float) {
  * (colour x 0.6, alpha x 1), no offscreen layer. Transparent pixels stay transparent, black scrims
  * stay black, and the video (its own surface below the window) is never touched. [overflow] extends
  * the rectangle past the element's bounds for parts that grow when focused (Skip Intro's 1.1x zoom).
- * Off = the previous offscreen-layer version.
  */
 internal fun Modifier.nuvioCHdrDim(active: Boolean, overflow: Dp = 0.dp, isolated: Boolean = false): Modifier {
     if (!active || !NuvioCFeatures.HDR_DIM) return this
-    if (NuvioCFeatures.HDR_DIM_LIGHT) {
-        // [fork] hdr_dim_isolated (round 21): a full-screen host (pause screen, media info, audio and
-        // subtitle panels, buffering spinner) drew its Modulate rectangle over the whole window, which
-        // also multiplied everything already drawn under it: the OSD fading out behind a panel (and the
-        // subtitles) went from 60% to 36% mid-fade. Isolated = the host draws into its own layer first,
-        // so the dim only touches its own pixels. Costs one layer, only while such a host is on screen.
-        val base = if (isolated && NuvioCFeatures.HDR_DIM_ISOLATED) this.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen } else this
-        return base.drawWithContent {
-            drawContent()
-            val o = overflow.toPx()
-            drawRect(
-                color = NUVIO_C_MODULATE,
-                topLeft = androidx.compose.ui.geometry.Offset(-o, -o),
-                size = androidx.compose.ui.geometry.Size(size.width + 2 * o, size.height + 2 * o),
-                blendMode = BlendMode.Modulate
-            )
-        }
+    // [fork] hdr_dim_isolated (round 21): a full-screen host (pause screen, media info, audio and
+    // subtitle panels, buffering spinner) drew its Modulate rectangle over the whole window, which
+    // also multiplied everything already drawn under it: the OSD fading out behind a panel (and the
+    // subtitles) went from 60% to 36% mid-fade. Isolated = the host draws into its own layer first,
+    // so the dim only touches its own pixels. Costs one layer, only while such a host is on screen.
+    val base = if (isolated && NuvioCFeatures.HDR_DIM_ISOLATED) this.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen } else this
+    return base.drawWithContent {
+        drawContent()
+        val o = overflow.toPx()
+        drawRect(
+            color = NUVIO_C_MODULATE,
+            topLeft = androidx.compose.ui.geometry.Offset(-o, -o),
+            size = androidx.compose.ui.geometry.Size(size.width + 2 * o, size.height + 2 * o),
+            blendMode = BlendMode.Modulate
+        )
     }
-    val shade = Color.Black.copy(alpha = 1f - NuvioCHdrDim.FACTOR)
-    val dimmed = { m: Modifier ->
-        m.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-            .drawWithContent {
-                drawContent()
-                // SrcAtop: only darkens what was drawn, keeps its alpha
-                drawRect(shade, blendMode = BlendMode.SrcAtop)
-            }
-    }
-    if (overflow <= 0.dp) return dimmed(this)
-    return dimmed(this.nuvioCShrinkBy(overflow)).nuvioCGrowBy(overflow)
 }
 
 /** Grey at the HDR-dim factor: Modulate with it scales colour by the factor and keeps alpha. */
 private val NUVIO_C_MODULATE = Color(NuvioCHdrDim.FACTOR, NuvioCHdrDim.FACTOR, NuvioCHdrDim.FACTOR, 1f)
-
-/** Reports the size minus [by] per side and places the (grown) child back over the real spot. */
-private fun Modifier.nuvioCShrinkBy(by: Dp): Modifier = layout { measurable, constraints ->
-    val m = by.roundToPx()
-    val placeable = measurable.measure(constraints.offset(2 * m, 2 * m))
-    val w = (placeable.width - 2 * m).coerceAtLeast(0)
-    val h = (placeable.height - 2 * m).coerceAtLeast(0)
-    layout(w, h) { placeable.place(-m, -m) }
-}
-
-/** Reports the size plus [by] per side, with the content centred, so the layer above has room. */
-private fun Modifier.nuvioCGrowBy(by: Dp): Modifier = layout { measurable, constraints ->
-    val m = by.roundToPx()
-    val placeable = measurable.measure(constraints.offset(-2 * m, -2 * m))
-    layout(placeable.width + 2 * m, placeable.height + 2 * m) { placeable.place(m, m) }
-}
 
 /**
  * HDR dim for the player controls without any layer (2026-10-11): the colours themselves are drawn
@@ -247,11 +212,6 @@ private val NUVIO_C_DIM_FILTER: ColorFilter = NuvioCHdrDim.FACTOR.let { f ->
 internal fun nuvioCOsdShade(): Color? =
     if (LocalNuvioCHdrDim.current && NuvioCFeatures.HDR_DIM) Color.Black.copy(alpha = 1f - NuvioCHdrDim.FACTOR) else null
 
-/** Colour filter for a subtitle frame (Android view layer). */
-internal fun nuvioCDimPaint(factor: Float): Paint = Paint().apply {
-    colorFilter = ColorMatrixColorFilter(ColorMatrix().apply { setScale(factor, factor, factor, 1f) })
-}
-
 /**
  * hdr_dim_light: the ExoPlayer text-subtitle style with text, background and outline colours at
  * [NuvioCHdrDim.FACTOR] brightness while [hdr] (what official's HDR subtitle style does). Off or SDR =
@@ -261,7 +221,7 @@ internal fun nuvioCHdrSubtitleStyle(
     style: com.nuvio.tv.data.local.SubtitleStyleSettings,
     hdr: Boolean
 ): com.nuvio.tv.data.local.SubtitleStyleSettings {
-    if (!hdr || !NuvioCFeatures.HDR_DIM || !NuvioCFeatures.HDR_DIM_LIGHT) return style
+    if (!hdr || !NuvioCFeatures.HDR_DIM) return style
     val f = NuvioCHdrDim.FACTOR
     return style.copy(
         textColor = NuvioCHdrDim.dimArgb(style.textColor, f),

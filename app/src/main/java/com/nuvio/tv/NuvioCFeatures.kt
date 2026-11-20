@@ -178,8 +178,6 @@ object NuvioCFeatures {
     const val PLAYER_MEMORY_TRIM = true
     /** The shared trailer player is not rebuilt behind the full-screen film (only post-play, which asks explicitly). */
     const val TRAILER_POOL_GUARD = true
-    /** HDR dim, same coverage, lighter method: subtitle text / background / outline in dimmed colours, and one "multiply" pass over each dimmed element instead of an offscreen copy (GPU time per frame had doubled against official). Off = previous layers. */
-    const val HDR_DIM_LIGHT = true
     /** Subtitle lift: bottom subtitles move above the OSD in one step when it opens (and back when it closes) instead of a 200 ms slide that redrew the whole subtitle area twice every frame. */
     const val OSD_LIFT_SNAP = true
     /** OSD focus label (the button name under the focused button): only the focused button carries the text measurer, timer and draw step; the other buttons add nothing. */
