@@ -4,7 +4,7 @@ How Nuvio C differs from official NuvioTV, grouped by area: what you see, the sw
 Per-switch detail: every switch in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt` has a one-line comment. This file is the overview, not a copy of that list.
 Paths below are relative to `app/src/main/java/com/nuvio/tv/` unless they start with `app/`, `.github/` or `scripts/`.
 
-Base: official `1.2.0-beta.3` (`552cacf5`). Fork footprint vs that tag: 410 files added, 177 official files edited, about 68,700 lines added. 431 switches, 0 off.
+Base: official `1.2.0-beta.3` (`552cacf5`). Fork footprint vs that tag: 410 files added, 177 official files edited, about 68,700 lines added. 406 switches, 0 off.
 Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream merge).
 
 ## Build and distribution
@@ -14,7 +14,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - English-only APK (`ENGLISH_ONLY`, `app/build.gradle.kts`), no crash reports to Nuvio (`NO_CRASH_REPORTING`), no launcher channels (`NO_TV_CHANNELS`), debug logs stripped in release (`app/proguard-rules.pro`), fork baseline profile `app/src/main/baselineProfiles/nuvio-c.txt`.
 
 ## Player controls (OSD)
-- Two control styles via Settings "Player controls style" (`OSD_CLEAN`, `OSD_CLEAN_V2`): **Default** (code id `nuvio_c`, official row plus fork tweaks) and **Modern** (code id `clean`, files `NuvioCOsdClean.kt` / `NuvioCCleanLayout.kt`: left pills, centred playback, right icon pill, More sheet, icons `res/drawable/nuvio_c_ic_clean_*`). Code and switches say "Clean"; screens say "Modern".
+- Two control styles via Settings "Player controls style" (`OSD_CLEAN`): **Default** (code id `nuvio_c`, official row plus fork tweaks) and **Modern** (code id `clean`, files `NuvioCOsdClean.kt` / `NuvioCCleanLayout.kt`: left pills, centred playback, right icon pill, More sheet, icons `res/drawable/nuvio_c_ic_clean_*`). Code and switches say "Clean"; screens say "Modern".
 - Clearlogo top-left, badges (resolution / HDR / audio / size, full Dolby names), focused-button label, Start over (then Previous episode), Next label with episode name, chapter double-press jump, 8 s timeout, YouTube-style seek bar, shades, Watch Party in More, button order setting.
 - Cast / About / crew side panel (`OSD_CAST*`, `OSD_ABOUT*`, `OSD_CREW`), Auto-skip-intro switch, Skip Intro sits above the seek bar.
 - Files: `ui/screens/player/NuvioCOsd*.kt`, `NuvioCCleanLayout.kt`, `NuvioCFocusReturn.kt`, `NuvioCOsdTimeout.kt`, `NuvioCPreviousEpisode.kt`, hooks in `PlayerScreen.kt` (`PlayerControlsOverlay`). Settings: `ui/screens/settings/NuvioCOsdButtonsSettings.kt`.
@@ -81,7 +81,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Files: `ui/screens/library/NuvioCLibrary*.kt`, `ui/components/NuvioCLibraryPicker.kt`, `data/nuvioc/NuvioCWatchedLibrary.kt`.
 
 ## Calendar and Upcoming (from ysosrs123, fully Nuvio C's since 2026-11-20)
-- Calendar page (List / Month), sources TVDB, Trakt, MDBList calendar, TMDB Coming soon (digital only), bells shared with Details, Upcoming row (14 days, future only).
+- Calendar page (List / Month; the Week view was removed), sources TVDB, Trakt, MDBList calendar, TMDB Coming soon (digital only), bells shared with Details, Upcoming row (14 days, future only).
 - Switches: `LIBRARY_CALENDAR`, `CALENDAR_*`, `UPCOMING_*`, `TMDB_SOON_*`, `BELL_SYNC`.
 - Files: `core/calendar/`, `ui/screens/calendar/`, `ui/screens/home/HomeComingUp.kt`, `ui/screens/settings/CalendarSettingsSection.kt`.
 
@@ -102,7 +102,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Files: `core/NuvioCPerf.kt`, `core/NuvioCPlayerMemory.kt`, `core/nuvioc/NuvioCStartupQueue.kt`, `ui/screens/home/NuvioCHomeCatalogSweep.kt`.
 
 ## Switched off (reverted, code still present: cleanup candidates)
-None. The 2026-11-20 cleanup removed every reverted tweak and every switch nothing read (22 switches). Older versions kept as fallbacks behind newer ones (start-up loader / halo, Calendar Week view, older Taste and panel versions) are listed in `docs/STATUS.md` for a later decision.
+None. The 2026-11-20 cleanups removed every reverted tweak, every switch nothing read, and the older versions kept as fallbacks behind newer ones (start-up loader / halo, Calendar Week view, Taste rounds 39 to 52, round 52 panels, round 46 controls, the old HDR dim layer): 47 switches in all.
 
 ## Keeping this file true
 Add, change or remove a line here in the same commit as any feature that is added, reworked or removed. Removed tweaks leave this file entirely. Update the Base line after each upstream merge.

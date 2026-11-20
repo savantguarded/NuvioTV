@@ -25,9 +25,8 @@ Updated: 2026-11-20 (evening)
 - Watchly C lives in its own repo, not here.
 
 ## Cleanup (branch `cleanup-ab`, NOT compiled yet)
-- Groups A and B approved by Charles and done as 17 commits on branch `cleanup-ab` (on top of `nuvio-c` d9b6eff0): 22 switches and their dead code removed, 6 unused strings removed, CI now skips removed switch names in `NUVIO_C_OFF` instead of failing.
-- Next build session: compile and test `cleanup-ab` first. If green, fast-forward `nuvio-c` to it (`git merge --ff-only origin/cleanup-ab`), then do the new work on top.
-- Group C (older versions kept as fallbacks: start-up loader / halo, older Taste, panel and OSD versions): list each case for Charles to pick. The Calendar Week view is a candidate too (the Calendar no longer follows ysosrs123).
+- All approved cleanups are on branch `cleanup-ab` (Groups A, B and C): 47 dead switches and their code removed (reverted tweaks, switches nothing read, and older versions kept as fallbacks: start-up loader / halo, Calendar Week view, Taste rounds 39 to 52, round 52 Modern panels, round 46 Modern controls, old HDR dim layer), about 4,500 lines, plus unused strings and the tests that only covered removed code. CI skips removed switch names in `NUVIO_C_OFF`.
+- Next build session: compile and test `cleanup-ab` first and fix anything the compiler finds (the cleanup was done without a compile). If green, fast-forward `nuvio-c` to it (`git merge --ff-only origin/cleanup-ab`), then do the new work on top.
 
 ## Start of every build session
 1. Read `docs/ARCHITECTURE.md`, `docs/FORK_CHANGES.md` and this file.
