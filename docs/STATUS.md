@@ -27,7 +27,7 @@ Updated: 2026-11-20
 ## Cleanup (branch `cleanup-ab`, NOT compiled yet)
 - Groups A and B (approved by Charles) are done on branch `cleanup-ab`: 22 dead switches and their code removed, 6 unused strings removed, CI skips removed switch names in `NUVIO_C_OFF`. That branch's docs already reflect the cleanup.
 - Next build session: compile and test `cleanup-ab` first. If green, fast-forward `nuvio-c` to it (`git merge --ff-only origin/cleanup-ab`), then build the new work on top.
-- Group C (older versions kept as fallbacks: start-up loader / halo, older Taste, panel and OSD versions): list each case for Charles to pick. Keep the Calendar Week view (ysosrs123 code).
+- Group C (older versions kept as fallbacks: start-up loader / halo, older Taste, panel and OSD versions): list each case for Charles to pick. The Calendar Week view is a candidate too (the Calendar no longer follows ysosrs123).
 
 ## Start of every build session
 1. Read `docs/ARCHITECTURE.md`, `docs/FORK_CHANGES.md` and this file.
