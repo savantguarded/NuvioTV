@@ -62,7 +62,7 @@ internal fun PlayerRuntimeController.preparePlaybackBeforeStart(
                     "TRACK_PREF load: contentId=$id S${currentSeason}E${currentEpisode} " +
                         "result=${if (loaded == null) "null (no saved preference)" else "audio=${loaded.audio?.language}/${loaded.audio?.name} subtitle=${loaded.subtitle?.javaClass?.simpleName}"}"
                 )
-                persistedTrackPreference = NuvioCSubtitleSession.filterSaved(this@preparePlaybackBeforeStart, loaded) // [fork] was loaded
+                persistedTrackPreference = loaded
                 loadedTrackPreference = loaded
             } ?: Log.d(PlayerRuntimeController.TAG, "TRACK_PREF load: skipped (contentId is null)")
             // Subtitle delay is keyed per-videoId, so it is loaded separately

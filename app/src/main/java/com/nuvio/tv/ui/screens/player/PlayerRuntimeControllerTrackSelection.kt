@@ -240,7 +240,6 @@ internal fun PlayerRuntimeController.rememberInternalSubtitleSelection(trackInde
     )
     val basePreference = currentTrackPreferenceForPersistence()
     isUserExplicitSubtitleSelection = true
-    NuvioCSubtitleSession.forget(this) // [fork] manual pick ends the session auto pick
     clearPendingEngineSwitchTrackPreference()
     persistedTrackPreference = null
     subtitleDisabledByPersistedPreference = false
@@ -367,7 +366,6 @@ internal fun PlayerRuntimeController.rememberSubtitleDisabled() {
     )
     val basePreference = currentTrackPreferenceForPersistence()
     isUserExplicitSubtitleSelection = true
-    NuvioCSubtitleSession.forget(this) // [fork] manual pick ends the session auto pick
     clearPendingEngineSwitchTrackPreference()
     persistedTrackPreference = null
     subtitleDisabledByPersistedPreference = false
@@ -654,7 +652,6 @@ internal fun PlayerRuntimeController.rememberAddonSubtitleSelection(subtitle: Su
     )
     val basePreference = currentTrackPreferenceForPersistence()
     isUserExplicitSubtitleSelection = true
-    NuvioCSubtitleSession.forget(this) // [fork] manual pick ends the session auto pick
     clearPendingEngineSwitchTrackPreference()
     persistedTrackPreference = null
     subtitleDisabledByPersistedPreference = false

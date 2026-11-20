@@ -116,8 +116,6 @@ object NuvioCFeatures {
     const val LOGO_TRIM = true
     /** Player: Next / auto-play shows the episode name the details page had (your meta add-on), never a blank or the previous episode's. Round 7: when no details page left names (Continue Watching, app restarted) the player looks them up itself: your meta add-on by IMDb id, then TMDB, names only. */
     const val NEXT_EP_TITLE = true
-    /** Player: the automatic subtitle pick (Prefer SDH included) carries to the next episode in the same session instead of the series' older saved pick; a manual pick still wins and is saved. */
-    const val SDH_SESSION_PICK = false // round 37 (Charles): your saved subtitle wins on Next; Prefer SDH only when the saved one can't be matched (official order)
     /** Add to library dialog (details, Home, poster menu): your Library source's lists first, no focus zoom so nothing clips at the top or bottom, a check at the end for selected lists. */
     const val LIBRARY_PICKER = true
     /** Player OSD: badges in a row under the title block (movies: "Title (2008)" with the year in the title), file size on a solid light tile. Off = badges bottom-right as before. */

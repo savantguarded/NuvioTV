@@ -338,7 +338,6 @@ class PlayerViewModel @Inject constructor(
     override fun onCleared() {
         postPlayRecommendationController.stop()
         controller.onCleared()
-        NuvioCSubtitleSession.end(controller) // [fork] the automatic-pick carry-over never outlives this player
         com.nuvio.tv.core.NuvioCPlayback.onPlayerClosed() // [fork] round 14
         // Allow the trailer player to be re-created when returning to home screen.
         trailerPlayerPool.reclaim()
