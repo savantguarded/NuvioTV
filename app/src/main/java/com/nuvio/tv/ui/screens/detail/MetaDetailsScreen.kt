@@ -2445,6 +2445,41 @@ private fun MetaDetailsContent(
                 detailPageBringIntoViewSpec
             }
         ) {
+        // [fork] round 54b details_focus_guard: the same row -> entry requester map the hold-scroll landing uses, for the
+        // guard to put focus back on the row nearest the middle of the screen
+        fun nuvioCRowRequester(key: Any?): FocusRequester? {
+            val name = key as? String ?: return null
+            return when {
+                name == "hero" -> heroPlayButtonFocusRequester
+                name == "season_tabs" -> selectedSeasonFocusRequester
+                name.startsWith("episodes_") ->
+                    seasonDownFocusRequester ?: selectedSeasonFocusRequester
+                name == "cast_more_like_tabs" -> activePeopleTabFocusRequester
+                name == "cast_or_more_like" -> when (activePeopleTab) {
+                    PeopleSectionTab.CAST -> castSectionFocusRequester
+                    PeopleSectionTab.MORE_LIKE_THIS -> moreLikeSectionFocusRequester
+                    PeopleSectionTab.TRAILER -> trailerSectionFocusRequester
+                    PeopleSectionTab.COLLECTION -> collectionSectionFocusRequester
+                    PeopleSectionTab.RATINGS -> ratingsContentFocusRequester
+                }
+                name == "collection_section" -> collectionSectionFocusRequester
+                name == "trakt_comments" -> when {
+                    comments.isNotEmpty() -> commentsRowEntryFocusRequester
+                    canToggleEpisodeComments -> commentsSelectedModeFocusRequester
+                    else -> commentsRowEntryFocusRequester
+                }
+                name == "networks" -> networkSectionFocusRequester
+                name == "production" -> productionSectionFocusRequester
+                else -> null
+            }
+        }
+        val nuvioCGuardHere = LocalNuvioCDetailGuard.current
+        if (nuvioCGuardHere != null) nuvioCGuardHere.rowsOnScreen = {
+            val info = listState.layoutInfo
+            val mid = (info.viewportStartOffset + info.viewportEndOffset) / 2
+            info.visibleItemsInfo.sortedBy { kotlin.math.abs(it.offset + it.size / 2 - mid) }.mapNotNull { nuvioCRowRequester(it.key) } +
+                listOf(heroPlayButtonFocusRequester)
+        }
         val nuvioCRateFocus = remember { FocusRequester() } // [fork] Rate button + dialog
         val nuvioCRating = rememberNuvioCRating(meta, nuvioCRateFocus) // [fork]
         val nuvioCBell = com.nuvio.tv.ui.screens.calendar.rememberNuvioCDetailBell(meta) // [fork] round 38 detail_bell

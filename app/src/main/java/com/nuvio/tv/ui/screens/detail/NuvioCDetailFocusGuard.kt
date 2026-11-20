@@ -31,17 +31,25 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.foundation.onFocusedBoundsChanged
 
 @Stable
 internal class NuvioCDetailFocusGuard {
     var hasFocus by mutableStateOf(false)
     val list = FocusRequester()
     var listAttached = false
-    /** Bumped every time the focused row or card changes (a successful move). */
-    var moves = 0
+    var stepping = false
+    /** Entry requesters of the rows on screen, nearest the middle first (set by the page). */
+    var rowsOnScreen: () -> List<FocusRequester> = { emptyList() }
+
+    /** Focus the last focused row if the list can restore it, else the row nearest the middle, else Play. */
+    fun recover(): Boolean {
+        for (r in rowsOnScreen()) {
+            if (runCatching { r.requestFocus() }.getOrDefault(false)) return true
+        }
+        return listAttached && runCatching { list.requestFocus() }.getOrDefault(false)
+    }
     val rootModifier: Modifier
         get() = if (!NuvioCFeatures.DETAILS_FOCUS_GUARD) Modifier else Modifier.onFocusChanged { hasFocus = it.hasFocus }
 }
@@ -60,20 +68,18 @@ internal fun rememberNuvioCDetailFocusGuard(): NuvioCDetailFocusGuard {
         snapshotFlow { guard.hasFocus }.first { it }
         while (true) {
             snapshotFlow { guard.hasFocus }.first { !it }
-            delay(300)
+            delay(150)
             if (guard.hasFocus) continue
             if (sidebarOpen || !view.hasWindowFocus() || !lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
                 // focus went somewhere legitimate; wait for it to come back before watching again
                 snapshotFlow { guard.hasFocus }.first { it }
                 continue
             }
-            val ok = guard.listAttached && runCatching { guard.list.requestFocus() }.getOrDefault(false)
+            var ok = guard.recover()
+            var tries = 0
+            while (!ok && tries < 10) { androidx.compose.runtime.withFrameNanos { }; ok = guard.hasFocus || guard.recover(); tries++ }
             Log.w("NuvioCDetailsFocus", "page lost focus; restored=$ok")
-            if (!ok) {
-                delay(300)
-                if (!guard.hasFocus && guard.listAttached) runCatching { guard.list.requestFocus() }
-            }
-            delay(200)
+            delay(100)
         }
     }
     return guard
@@ -86,7 +92,6 @@ internal fun rememberNuvioCDetailFocusGuard(): NuvioCDetailFocusGuard {
  * press hasn't moved focus within 120 ms and nothing is scrolling, the list glides a step that way and the move is
  * retried (up to three steps).
  */
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun nuvioCDetailListGuardModifier(listState: androidx.compose.foundation.lazy.LazyListState): Modifier {
     if (!NuvioCFeatures.DETAILS_FOCUS_GUARD) return Modifier
@@ -97,25 +102,29 @@ internal fun nuvioCDetailListGuardModifier(listState: androidx.compose.foundatio
     val stepPx = with(androidx.compose.ui.platform.LocalDensity.current) { 200.dp.toPx() }
     return Modifier
         .focusRequester(guard.list).focusRestorer()
-        .onFocusedBoundsChanged { guard.moves++ }
-        .onPreviewKeyEvent { e ->
+        // bubble phase: only Up / Down that nothing on the page handled reach here; make the move ourselves so a blocked
+        // move (target row not loaded) is seen, then glide a step toward it and retry
+        .onKeyEvent { e ->
             val code = e.nativeKeyEvent.keyCode
-            if (e.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
-            if (code != android.view.KeyEvent.KEYCODE_DPAD_UP && code != android.view.KeyEvent.KEYCODE_DPAD_DOWN) return@onPreviewKeyEvent false
-            val before = guard.moves
+            if (code != android.view.KeyEvent.KEYCODE_DPAD_UP && code != android.view.KeyEvent.KEYCODE_DPAD_DOWN) return@onKeyEvent false
+            if (e.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return@onKeyEvent false
             val up = code == android.view.KeyEvent.KEYCODE_DPAD_UP
+            val dir = if (up) androidx.compose.ui.focus.FocusDirection.Up else androidx.compose.ui.focus.FocusDirection.Down
+            if (runCatching { focusManager.moveFocus(dir) }.getOrDefault(false)) return@onKeyEvent true
+            if (up && !listState.canScrollBackward || !up && !listState.canScrollForward) return@onKeyEvent true
+            if (guard.stepping) return@onKeyEvent true
+            guard.stepping = true
+            Log.w("NuvioCDetailsFocus", "${if (up) "Up" else "Down"} blocked; stepping")
             scope.launch {
-                delay(120)
-                repeat(3) { attempt ->
-                    if (guard.moves != before || listState.isScrollInProgress || !guard.hasFocus) return@launch
-                    if (up && !listState.canScrollBackward || !up && !listState.canScrollForward) return@launch
-                    Log.w("NuvioCDetailsFocus", "key ${if (up) "Up" else "Down"} didn't move focus; stepping (${attempt + 1})")
-                    runCatching { listState.animateScrollBy(if (up) -stepPx else stepPx) }
-                    androidx.compose.runtime.withFrameNanos { }
-                    if (guard.moves != before) return@launch
-                    if (runCatching { focusManager.moveFocus(if (up) androidx.compose.ui.focus.FocusDirection.Up else androidx.compose.ui.focus.FocusDirection.Down) }.getOrDefault(false)) return@launch
-                }
+                try {
+                    repeat(4) {
+                        runCatching { listState.animateScrollBy(if (up) -stepPx else stepPx) }
+                        androidx.compose.runtime.withFrameNanos { }
+                        if (runCatching { focusManager.moveFocus(dir) }.getOrDefault(false)) return@launch
+                        if (up && !listState.canScrollBackward || !up && !listState.canScrollForward) return@launch
+                    }
+                } finally { guard.stepping = false }
             }
-            false
+            true
         }
 }

@@ -2532,16 +2532,21 @@ internal fun NuvioCPanelTab(
     onDown: (() -> Boolean)? = null,
     onFocused: () -> Unit
 ) {
+    // [fork] round 54b: the key handler and focus properties are always in the chain and read the current values; adding
+    // or removing them when the active tab changed (tabs on Select) rebuilt the pressed tab and dropped its focus
+    val currentOnDown by androidx.compose.runtime.rememberUpdatedState(onDown)
+    val currentDown by androidx.compose.runtime.rememberUpdatedState(down)
     androidx.tv.material3.Surface(
         onClick = onFocused,
         modifier = Modifier
             .focusRequester(focusRequester)
-            .then(if (onDown != null) Modifier.onPreviewKeyEvent { e ->
+            .onPreviewKeyEvent { e ->
+                val od = currentOnDown ?: return@onPreviewKeyEvent false
                 if (e.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN) {
-                    if (e.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) onDown() else true
+                    if (e.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) od() else true
                 } else false
-            } else Modifier)
-            .then(if (down != null) Modifier.focusProperties { this.down = down } else Modifier)
+            }
+            .focusProperties { currentDown?.let { this.down = it } }
             .onFocusChanged { if (it.isFocused && !(NuvioCPanelLook.v3 && com.nuvio.tv.NuvioCFeatures.PANEL_TABS_ON_SELECT)) onFocused() }, // [fork] round 54: Modern tabs switch on Select only
         shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
         scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
@@ -2579,11 +2584,14 @@ internal fun NuvioCPanelRow(
 ) {
     var focused by remember { mutableStateOf(false) }
     val v3 = NuvioCPanelLook.v3
+    // [fork] round 54b: always one requester in the chain (the shared "active row" one, or this row's own); moving the
+    // shared one between rows used to add / remove a modifier and rebuild the row that was just pressed, losing focus
+    val ownRequester = remember { FocusRequester() }
     Card(
         onClick = onClick,
         modifier = modifier
             .fillMaxWidth()
-            .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
+            .focusRequester(focusRequester ?: ownRequester)
             .onFocusChanged { focused = it.isFocused },
         colors = CardDefaults.colors(
             containerColor = if (selected) Color.White.copy(alpha = if (v3) 0.14f else 0.10f) else Color.Transparent,
