@@ -170,8 +170,6 @@ object NuvioCFeatures {
     const val FEATURED_ROWS_LIGHT = true
     /** Player: official's subtitle lift (Skip Intro, next-episode card, seek-only bar) no longer rebuilds the whole player screen each time it moves; only the Nuvio C lift reacts, and mpv is re-told only on 2 px steps. Off = previous wiring. */
     const val PLAYER_LIFT_LIGHT = true
-    /** Retired in round 14 (the IMDb backup no longer uses a hidden browser). Kept so an old NUVIO_C_OFF list still builds; does nothing. */
-    const val IMDB_QUIET_START = true
 
     // ---- Round 14 (2026-10-21): stability and smoothness, measured over adb on the TCL C655 ----
     /** IMDb trailer backup without a hidden browser: one request to IMDb's own data service. The browser's renderer was killed for memory during 4K playback and took the app with it (the crash at ~80% of an episode). Also: no IMDb lookups at all while the player is open. Off = no-op (the browser code is gone). */
@@ -695,8 +693,6 @@ object NuvioCFeatures {
     const val HERO_SYNOPSIS_WIDE = true
     /** Details Information as fixed slots (films 8, shows 10, a dim dash when missing), nothing that the top of the page already shows; adds Country, Based on, Last aired, Episodes, Episode length. Off = round 39 block. */
     const val DETAIL_INFO_SLOTS = true
-    /** Details Awards: one fixed line per major body (Oscars / Emmys, Golden Globes, BAFTA, Festivals for films) from Wikidata, plus Overall from OMDb. Needs DETAIL_INFO_SLOTS. Off = no Awards lines. */
-    const val DETAIL_AWARDS_BODIES = false // round 43c: removed (inaccurate)
     /** Details episodes: a Find chip at the end of the season tabs; search by number (12, e12, s3e5, 3x05) or name across all seasons. Off = official tabs. */
     const val EPISODE_FIND = true
     // [fork] round 43b

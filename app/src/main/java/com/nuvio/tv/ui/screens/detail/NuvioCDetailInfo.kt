@@ -107,7 +107,7 @@ data class NuvioCDetailInfo(
     val metaId: String,
     val rows: List<NuvioCInfoRow> = emptyList(),
     val next: NuvioCNextEpisode? = null,
-    // [fork] round 43 detail_info_slots / detail_awards_bodies
+    // [fork] round 43 detail_info_slots
     val show: Boolean = false,
     val loaded: Boolean = false,
     val awards: NuvioCAwards? = null,

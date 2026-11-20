@@ -350,8 +350,9 @@ jobs:
             name="$(echo "$raw" | tr '[:lower:]-' '[:upper:]_' | tr -cd 'A-Z0-9_')"
             [ -n "$name" ] || continue
             if ! grep -q "const val ${name} = " "$f"; then
-              echo "::error::Unknown Nuvio C switch '${raw}'. Valid: $(grep -oP 'const val \K[A-Z0-9_]+' "$f" | tr 'A-Z' 'a-z' | paste -sd, -)"
-              exit 1
+              # A removed switch has no code left, so it is already "off": warn and carry on.
+              echo "::warning::Nuvio C switch '${raw}' no longer exists (removed in a cleanup), skipped. Take it out of NUVIO_C_OFF."
+              continue
             fi
             sed -i -E "s/const val ${name} = (true|false)/const val ${name} = false/" "$f"
             off="${off:+$off, }$(echo "$name" | tr 'A-Z' 'a-z')"

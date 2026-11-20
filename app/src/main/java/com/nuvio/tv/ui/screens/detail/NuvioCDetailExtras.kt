@@ -1,6 +1,6 @@
 package com.nuvio.tv.ui.screens.detail
 
-// [fork] Nuvio C round 43 (switches `detail_info_slots`, `detail_awards_bodies`, `detail_guide`).
+// [fork] Nuvio C round 43 (switch `detail_info_slots`; Awards since round 47, `detail_awards_wins`).
 //
 // The Information block as fixed slots: every label always in the same place for films (8) and shows (10), a dim
 // dash where a value is missing, so the eye always finds the same thing in the same spot. Anything the top of the
@@ -258,13 +258,7 @@ internal fun NuvioCInfoSlots(info: NuvioCDetailInfo, margin: Dp) {
         val nuvioCWins = NuvioCAwardBodies.winsText(info.awards, nuvioCAwardNames)
         if (com.nuvio.tv.NuvioCFeatures.DETAIL_AWARDS_WINS && (!hideEmpty || !nuvioCWins.isNullOrBlank())) { // [fork] round 47: major wins only, full width, wraps
             Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
-            val names = mapOf(
-                NuvioCAwardBody.OSCARS to stringResource(R.string.nuvio_c_award_oscars),
-                NuvioCAwardBody.EMMYS to stringResource(R.string.nuvio_c_award_emmys),
-                NuvioCAwardBody.GLOBES to stringResource(R.string.nuvio_c_award_globes),
-                NuvioCAwardBody.BAFTA to stringResource(R.string.nuvio_c_award_bafta)
-            )
-            SlotLine(stringResource(R.string.nuvio_c_info_awards), NuvioCAwardBodies.winsText(info.awards, names), Modifier.fillMaxWidth(), maxLines = Int.MAX_VALUE)
+            SlotLine(stringResource(R.string.nuvio_c_info_awards), nuvioCWins, Modifier.fillMaxWidth(), maxLines = Int.MAX_VALUE)
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(hairline))
     }
