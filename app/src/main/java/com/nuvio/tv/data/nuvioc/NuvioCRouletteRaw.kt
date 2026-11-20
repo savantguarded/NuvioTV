@@ -125,14 +125,18 @@ internal class NuvioCRouletteRaw(
     // ---- 30-day memory -------------------------------------------------------------------------------
     private val seenPrefs by lazy { context.getSharedPreferences("nuvio_c_roulette_seen", Context.MODE_PRIVATE) }
 
+    /** [fork] round 56 profile_local_history: each profile has its own 30-day memory ("p2:movie:123"). */
+    private fun seenKey(identity: String) =
+        if (com.nuvio.tv.NuvioCFeatures.PROFILE_LOCAL_HISTORY) "p${com.nuvio.tv.core.nuvioc.NuvioCActiveProfile.id()}:$identity" else identity
+
     fun seenRecently(identity: String): Boolean {
-        val at = seenPrefs.getLong(identity, 0L)
+        val at = seenPrefs.getLong(seenKey(identity), 0L)
         return at > 0L && System.currentTimeMillis() - at < SEEN_MS
     }
 
     fun markSeen(identity: String) {
         val now = System.currentTimeMillis()
-        val editor = seenPrefs.edit().putLong(identity, now)
+        val editor = seenPrefs.edit().putLong(seenKey(identity), now)
         val all = seenPrefs.all
         if (all.size > SEEN_CAP) {
             all.entries.filter { (it.value as? Long ?: 0L) < now - SEEN_MS }.forEach { editor.remove(it.key) }

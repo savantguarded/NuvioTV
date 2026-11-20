@@ -92,9 +92,14 @@ class NuvioCCloudSettings @Inject constructor(
         }
     }
 
+    // [fork] round 56 cloud_settings_per_profile: the profile whose settings are in the TV's stores right now
+    @Volatile private var loadedFor: Int? = null
+
     private suspend fun reconcile(profile: Int, remote: String?) = mutex.withLock {
+        if (NuvioCFeatures.CLOUD_SETTINGS_PER_PROFILE && loadedFor != profile) switchTo(profile, remote)
         val cal = calendar.current(profile)
         val local = encode(localValues(cal))
+        if (NuvioCFeatures.CLOUD_SETTINGS_PER_PROFILE) prefs.edit { putString(localKey(profile), encode(localValues(cal) + localOnly())) }
         val lastKey = "cloud_last_p$profile"
         val last = prefs.getString(lastKey, null)
         when {
@@ -109,6 +114,10 @@ class NuvioCCloudSettings @Inject constructor(
                 val values = decode(remote) ?: return@withLock
                 prefs.edit { putString(lastKey, remote) }
                 apply(values)
+                if (NuvioCFeatures.CLOUD_SETTINGS_PER_PROFILE) {
+                    reloadCaches()
+                    prefs.edit { putString(localKey(profile), encode(localValues(calendar.current(profile)) + localOnly())) }
+                }
                 Log.i(TAG, "p$profile: applied Nuvio C settings from the cloud")
             }
             remote != local -> {
@@ -119,6 +128,45 @@ class NuvioCCloudSettings @Inject constructor(
             last != remote -> prefs.edit { putString(lastKey, remote) }
         }
     }
+
+    /**
+     * [fork] round 56 cloud_settings_per_profile. The fork's stores hold one set for the TV, so before this every profile
+     * switch compared the new profile's cloud copy with the previous profile's values and uploaded those into it. Now
+     * each profile keeps its own copy on this TV ("local_p<id>"), taken while it is active; on a switch that copy (else
+     * the profile's cloud copy, else this TV's values the first time, else defaults) is put into the stores before any
+     * comparison, and the player's remembered choices are read again. Calendar and Roulette choices were already per
+     * profile, so a seed never touches them.
+     */
+    private suspend fun switchTo(profile: Int, remote: String?) {
+        val own = prefs.getString(localKey(profile), null)
+        val migrated = prefs.getBoolean(MIGRATED, false)
+        val values = seedFor(own, remote, migrated)
+        if (values != null) {
+            apply(values)
+            applyLocalOnly(values)
+        }
+        if (!migrated) prefs.edit { putBoolean(MIGRATED, true) }
+        loadedFor = profile
+        reloadCaches()
+        Log.i(TAG, "p$profile: settings loaded from " + when { own != null -> "this TV's copy"; remote != null -> "the cloud"; !migrated -> "this TV (first run)"; else -> "defaults" })
+    }
+
+    /** Values kept per profile on this TV but never uploaded (the saved night mode level). */
+    private fun localOnly(): Map<String, JsonPrimitive> =
+        mapOf("local_night_level" to JsonPrimitive(audioPrefs.getString("night_mode", "") ?: ""))
+
+    private fun applyLocalOnly(v: Map<String, JsonPrimitive>) {
+        v["local_night_level"]?.contentOrNull?.let { lvl -> audioPrefs.edit { if (lvl.isBlank()) remove("night_mode") else putString("night_mode", lvl) } }
+    }
+
+    private fun reloadCaches() = runCatching {
+        com.nuvio.tv.ui.screens.player.NuvioCOsdStyle.reload(context)
+        com.nuvio.tv.ui.screens.player.NuvioCOsdOrder.reload(context)
+        com.nuvio.tv.ui.screens.player.NuvioCCleanOrder.reload(context)
+        com.nuvio.tv.ui.screens.player.NuvioCNight.reload(context)
+    }.onFailure { Log.w(TAG, "cache reload", it) }
+
+    private fun localKey(profile: Int) = "local_p$profile"
 
     private suspend fun write(profile: Int, value: String) {
         factory.get(profile, LAYOUT).edit { it[ENTRY] = value }
@@ -222,6 +270,7 @@ class NuvioCCloudSettings @Inject constructor(
         private const val VIEW_PREFS = "nuvio_c_calendar_view"
         private const val LAYOUT = "layout_settings"
         private val ENTRY = stringPreferencesKey("nuvio_c_settings")
+        private const val MIGRATED = "per_profile_migrated" // [fork] round 56
 
         /** Same keys and order every time, so equal settings give an equal string. */
         fun encode(values: Map<String, JsonPrimitive>): String =
@@ -230,6 +279,18 @@ class NuvioCCloudSettings @Inject constructor(
         fun decode(text: String): Map<String, JsonPrimitive>? = runCatching {
             (Json.parseToJsonElement(text) as JsonObject).mapNotNull { (k, v) -> (v as? JsonPrimitive)?.let { k to it } }.toMap()
         }.getOrNull()
+
+        /**
+         * [fork] round 56: what a profile's settings start from when it becomes active: its own copy on this TV, else
+         * its cloud copy, else (first run with this build) nothing, so this TV's current values stay, else the defaults
+         * without Calendar and Roulette keys (those stores are already per profile). Pure, for tests.
+         */
+        fun seedFor(own: String?, remote: String?, migrated: Boolean): Map<String, JsonPrimitive>? = when {
+            own != null -> decode(own)
+            remote != null -> decode(remote)
+            !migrated -> null
+            else -> decode(DEFAULTS)?.filterKeys { !it.startsWith("calendar_") && !it.startsWith("roulette_") }
+        }
 
         /** Every travelling setting at its default (fresh install). */
         val DEFAULTS: String = encode(
@@ -269,7 +330,7 @@ class NuvioCCloudSettings @Inject constructor(
 
         private fun prefsTicks(p: SharedPreferences) = callbackFlow {
             val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-                if (key == null || !key.startsWith("cloud_last_")) trySend(Unit)
+                if (key == null || !(key.startsWith("cloud_last_") || key.startsWith("local_p") || key == MIGRATED)) trySend(Unit)
             }
             p.registerOnSharedPreferenceChangeListener(listener)
             awaitClose { p.unregisterOnSharedPreferenceChangeListener(listener) }

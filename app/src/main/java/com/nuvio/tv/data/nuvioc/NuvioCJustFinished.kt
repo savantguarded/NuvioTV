@@ -17,6 +17,7 @@ object NuvioCJustFinished {
     private const val PREFS = "nuvio_c_just_finished"
     @Volatile private var ids: Set<String> = emptySet()
     @Volatile private var at = 0L
+    @Volatile private var profile = 0 // [fork] round 56 profile_local_history: the profile that finished the film
     @Volatile private var context: Context? = null
 
     fun init(app: Context) {
@@ -26,6 +27,7 @@ object NuvioCJustFinished {
             val p = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             ids = p.getStringSet("ids", emptySet()).orEmpty().toSet()
             at = p.getLong("at", 0L)
+            profile = p.getInt("profile", 0)
         }
     }
 
@@ -36,6 +38,7 @@ object NuvioCJustFinished {
     fun mark(contentId: String, extra: Collection<String?> = emptyList()) {
         ids = (listOf(contentId) + extra).filterNotNull().filter { it.isNotBlank() }.flatMap(::variants).toSet()
         at = System.currentTimeMillis()
+        profile = com.nuvio.tv.core.nuvioc.NuvioCActiveProfile.id()
         save()
         log("marked ${ids.joinToString(",")}")
     }
@@ -56,6 +59,10 @@ object NuvioCJustFinished {
         if (System.currentTimeMillis() - at > window) {
             log("expired ${pending.joinToString(",")}")
             clear()
+            return false
+        }
+        if (com.nuvio.tv.NuvioCFeatures.PROFILE_LOCAL_HISTORY && profile != 0 && profile != com.nuvio.tv.core.nuvioc.NuvioCActiveProfile.id()) {
+            log("finished on profile $profile, not this one")
             return false
         }
         val mine = candidates.filterNotNull().filter { it.isNotBlank() }.flatMap(::variants).toSet()
@@ -88,7 +95,7 @@ object NuvioCJustFinished {
         if (!com.nuvio.tv.NuvioCFeatures.RATING_RELIABLE) return
         val c = context ?: return
         runCatching {
-            c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putStringSet("ids", ids).putLong("at", at).apply()
+            c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putStringSet("ids", ids).putLong("at", at).putInt("profile", profile).apply()
         }
     }
 }

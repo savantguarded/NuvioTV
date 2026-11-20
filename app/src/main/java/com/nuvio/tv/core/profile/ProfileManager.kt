@@ -38,6 +38,7 @@ class ProfileManager @Inject constructor(
     init {
         // [fork] round 53 passthrough_per_profile: the soundbar format switches follow the active profile
         com.nuvio.tv.ui.screens.player.NuvioCPassthrough.profileIdProvider = { activeProfileId.value }
+        com.nuvio.tv.core.nuvioc.NuvioCActiveProfile.id = { activeProfileId.value } // [fork] round 56
     }
 
     val activeProfileReady: StateFlow<Boolean> = profileDataStore.activeProfileId
