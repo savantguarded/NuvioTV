@@ -737,8 +737,6 @@ object NuvioCFeatures {
     const val CATALOG_REFRESH = true
     /** Playback loading screen: official's "Show loading status" text shows again, small, under the filename in the bottom band. Off = round 36 (no status text). */
     const val LOADING_STATUS_BAND = true
-    /** Clean controls v2: Left (Subtitles, Audio pills) / Centre always mid-screen (Start over, Play, Next; empty slots keep Play centred) / Right (Sources, Details, Episodes pills, then the More icon); compact (32 dp pills, 48 dp Play, 46 dp row); buttons that don't fit a side go into More; Clean has its own Player buttons list (zones); More drops subtitle style and the two delays, arrows on lines that open a page. Off = round 46b Clean. */
-    const val OSD_CLEAN_V2 = true
     /** Stream info page: the HUD button is always offered; on a box without the Info key setting it turns that per-device setting on first. Off = official (button only once the setting is on). */
     const val HUD_ANY_DEVICE = true
     // [fork] round 47b

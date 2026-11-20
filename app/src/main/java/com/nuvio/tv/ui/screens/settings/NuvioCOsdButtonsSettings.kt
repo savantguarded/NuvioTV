@@ -90,7 +90,7 @@ internal fun NuvioCOsdButtonsRow() {
     val context = LocalContext.current
     LaunchedEffect(Unit) { com.nuvio.tv.ui.screens.player.NuvioCOsdStyle.load(context) }
     val style by com.nuvio.tv.ui.screens.player.NuvioCOsdStyle.style.collectAsState()
-    val clean = NuvioCFeatures.OSD_CLEAN && NuvioCFeatures.OSD_CLEAN_V2 && style == com.nuvio.tv.ui.screens.player.NuvioCOsdStyle.CLEAN
+    val clean = NuvioCFeatures.OSD_CLEAN && style == com.nuvio.tv.ui.screens.player.NuvioCOsdStyle.CLEAN
     SettingsActionRow(
         title = stringResource(R.string.nuvio_c_osd_buttons),
         subtitle = stringResource(if (clean) R.string.nuvio_c_osd_buttons_clean_sub else R.string.nuvio_c_osd_buttons_sub),

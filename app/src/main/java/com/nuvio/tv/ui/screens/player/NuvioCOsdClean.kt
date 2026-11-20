@@ -117,7 +117,7 @@ internal fun NuvioCOsdPill(
     Surface(
         onClick = { memory?.onClick(label); onClick() },
         modifier = Modifier
-            .height(if (NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH) 36.dp else if (NuvioCFeatures.OSD_CLEAN_V2) 32.dp else 38.dp) // [fork] round 47: compact; round 53b: as tall as the right pill
+            .height(if (NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH) 36.dp else 32.dp) // [fork] round 47: compact; round 53b: as tall as the right pill
             .then(if (requester != null) Modifier.focusRequester(requester) else Modifier)
             .then(if (upFocusRequester != null) Modifier.focusProperties { up = upFocusRequester } else Modifier)
             .onPreviewKeyEvent { e ->
@@ -136,7 +136,7 @@ internal fun NuvioCOsdPill(
                 focused = it.isFocused
                 if (it.isFocused) onFocused()
             },
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(if (NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH) 18.dp else if (NuvioCFeatures.OSD_CLEAN_V2) 16.dp else 19.dp)),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(if (NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH) 18.dp else 16.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = nuvioCOsd(Color(0xFF3A3A3A)).copy(alpha = 0.72f),
@@ -145,7 +145,7 @@ internal fun NuvioCOsdPill(
             focusedContentColor = Color.Black
         )
     ) {
-        val compact = NuvioCFeatures.OSD_CLEAN_V2
+        val compact = true // round 47 compact pills (the round 46 sizes were removed 2026-11-20)
         Row(
             Modifier.padding(start = if (NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH) 12.dp else if (compact) 10.dp else 11.dp, end = if (NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH) 14.dp else if (compact) 12.dp else 14.dp).fillMaxHeight(),
             verticalAlignment = Alignment.CenterVertically,
