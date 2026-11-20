@@ -29,12 +29,19 @@ import com.nuvio.tv.LocalSidebarExpanded
 import com.nuvio.tv.NuvioCFeatures
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.onFocusedBoundsChanged
 
 @Stable
 internal class NuvioCDetailFocusGuard {
     var hasFocus by mutableStateOf(false)
     val list = FocusRequester()
     var listAttached = false
+    /** Bumped every time the focused row or card changes (a successful move). */
+    var moves = 0
     val rootModifier: Modifier
         get() = if (!NuvioCFeatures.DETAILS_FOCUS_GUARD) Modifier else Modifier.onFocusChanged { hasFocus = it.hasFocus }
 }
@@ -72,11 +79,43 @@ internal fun rememberNuvioCDetailFocusGuard(): NuvioCDetailFocusGuard {
     return guard
 }
 
-/** On the details list: a requester the guard can call, and a restorer so that call lands on the last focused row. */
+/**
+ * On the details list: a requester the guard can call, a restorer so that call lands on the last focused row, and the
+ * stuck-key fix. Many rows point Up / Down at a requester on another row; when that row has scrolled off it isn't
+ * composed, Compose cancels the move ("FocusRequester is not initialized") and the remote seems dead. If an Up / Down
+ * press hasn't moved focus within 120 ms and nothing is scrolling, the list glides a step that way and the move is
+ * retried (up to three steps).
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-internal fun nuvioCDetailListGuardModifier(): Modifier {
+internal fun nuvioCDetailListGuardModifier(listState: androidx.compose.foundation.lazy.LazyListState): Modifier {
     if (!NuvioCFeatures.DETAILS_FOCUS_GUARD) return Modifier
     val guard = LocalNuvioCDetailGuard.current ?: return Modifier
     guard.listAttached = true
-    return Modifier.focusRequester(guard.list).focusRestorer()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val stepPx = with(androidx.compose.ui.platform.LocalDensity.current) { 200.dp.toPx() }
+    return Modifier
+        .focusRequester(guard.list).focusRestorer()
+        .onFocusedBoundsChanged { guard.moves++ }
+        .onPreviewKeyEvent { e ->
+            val code = e.nativeKeyEvent.keyCode
+            if (e.nativeKeyEvent.action != android.view.KeyEvent.ACTION_DOWN) return@onPreviewKeyEvent false
+            if (code != android.view.KeyEvent.KEYCODE_DPAD_UP && code != android.view.KeyEvent.KEYCODE_DPAD_DOWN) return@onPreviewKeyEvent false
+            val before = guard.moves
+            val up = code == android.view.KeyEvent.KEYCODE_DPAD_UP
+            scope.launch {
+                delay(120)
+                repeat(3) { attempt ->
+                    if (guard.moves != before || listState.isScrollInProgress || !guard.hasFocus) return@launch
+                    if (up && !listState.canScrollBackward || !up && !listState.canScrollForward) return@launch
+                    Log.w("NuvioCDetailsFocus", "key ${if (up) "Up" else "Down"} didn't move focus; stepping (${attempt + 1})")
+                    runCatching { listState.animateScrollBy(if (up) -stepPx else stepPx) }
+                    androidx.compose.runtime.withFrameNanos { }
+                    if (guard.moves != before) return@launch
+                    if (runCatching { focusManager.moveFocus(if (up) androidx.compose.ui.focus.FocusDirection.Up else androidx.compose.ui.focus.FocusDirection.Down) }.getOrDefault(false)) return@launch
+                }
+            }
+            false
+        }
 }

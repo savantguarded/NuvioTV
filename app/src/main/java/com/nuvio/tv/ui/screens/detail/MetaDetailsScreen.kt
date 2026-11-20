@@ -2451,7 +2451,7 @@ private fun MetaDetailsContent(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .then(nuvioCDetailListGuardModifier()) // [fork] round 54 details_focus_guard
+                .then(nuvioCDetailListGuardModifier(listState)) // [fork] round 54 details_focus_guard
                 .recompositionHighlighter()
                 .fadeBelowHero(listState, belowHeroAlpha)
                 .onPreviewKeyEvent { event ->
