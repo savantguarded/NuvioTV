@@ -7,12 +7,6 @@
     <string name="calendar_view_list">Λίστα</string>
     <string name="calendar_view_month">Μήνας</string>
     <string name="calendar_view_week">Εβδομάδα</string>
-    <string name="calendar_filter_all">Όλα</string>
-    <string name="calendar_filter_shows">Σειρές</string>
-    <string name="calendar_filter_films">Ταινίες</string>
-    <string name="calendar_week_empty">Τίποτα αυτή την εβδομάδα</string>
-    <string name="calendar_cd_week_previous">Προηγούμενη εβδομάδα</string>
-    <string name="calendar_cd_week_next">Επόμενη εβδομάδα</string>
     <string name="calendar_next_from">Επόμενα από %1$s</string>
     <string name="calendar_times_in">Ώρες σε %1$s</string>
     <string name="calendar_zone_with_city">%1$s (%2$s)</string>
@@ -26,7 +20,6 @@
     <string name="calendar_section_no_date">Χωρίς ημερομηνία</string>
     <string name="calendar_section_no_date_hint">Επιστρέφουν ή σε παραγωγή</string>
     <string name="calendar_episode_code">S%1$d E%2$d</string>
-    <string name="calendar_episode_range">S%1$d E%2$d–E%3$d</string>
     <string name="calendar_line_join">%1$s · %2$s</string>
     <string name="calendar_film_cinema">Στα σινεμά</string>
     <string name="calendar_film_digital">Streaming και ψηφιακή κυκλοφορία</string>
@@ -109,7 +102,6 @@
     <string name="calendar_setting_coming_up">Σειρά «Νέα και επερχόμενα»</string>
     <string name="calendar_setting_coming_up_sub">Μια σειρά μετά τη Συνέχεια παρακολούθησης με νέα και επερχόμενα επεισόδια και ταινίες από το Ημερολόγιο</string>
     <string name="calendar_coming_up_title">Νέα και επερχόμενα</string>
-    <string name="calendar_coming_up_takes_upcoming">Όσο η σειρά «Νέα και επερχόμενα» του Ημερολογίου είναι ενεργή, αυτά τα επεισόδια εμφανίζονται εκεί.</string>
     <string name="calendar_coming_up_new">Νέο</string>
     <string name="calendar_coming_up_today_at">Σήμερα στις %1$s</string>
     <string name="calendar_coming_up_tonight_at">Απόψε στις %1$s</string>

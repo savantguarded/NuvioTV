@@ -7,12 +7,6 @@
     <string name="calendar_view_list">リスト</string>
     <string name="calendar_view_month">月</string>
     <string name="calendar_view_week">週</string>
-    <string name="calendar_filter_all">すべて</string>
-    <string name="calendar_filter_shows">番組</string>
-    <string name="calendar_filter_films">映画</string>
-    <string name="calendar_week_empty">今週は予定なし</string>
-    <string name="calendar_cd_week_previous">前の週</string>
-    <string name="calendar_cd_week_next">次の週</string>
     <string name="calendar_next_from">%1$sの次回</string>
     <string name="calendar_times_in">%1$s の時刻で表示</string>
     <string name="calendar_zone_with_city">%1$s (%2$s)</string>
@@ -26,7 +20,6 @@
     <string name="calendar_section_no_date">日付未定</string>
     <string name="calendar_section_no_date_hint">継続予定または製作中</string>
     <string name="calendar_episode_code">S%1$d E%2$d</string>
-    <string name="calendar_episode_range">S%1$d E%2$d–E%3$d</string>
     <string name="calendar_line_join">%1$s · %2$s</string>
     <string name="calendar_film_cinema">劇場公開</string>
     <string name="calendar_film_digital">配信・デジタル公開</string>
@@ -109,7 +102,6 @@
     <string name="calendar_setting_coming_up">「今後の予定」の行</string>
     <string name="calendar_setting_coming_up_sub">視聴を続けるの後に、カレンダーの新着や近日公開のエピソードと映画を表示する行</string>
     <string name="calendar_coming_up_title">今後の予定</string>
-    <string name="calendar_coming_up_takes_upcoming">カレンダーの「今後の予定」の行がオンの間は、これらのエピソードは代わりに「今後の予定」に表示されます。</string>
     <string name="calendar_coming_up_new">新着</string>
     <string name="calendar_coming_up_today_at">今日 %1$s</string>
     <string name="calendar_coming_up_tonight_at">今夜 %1$s</string>

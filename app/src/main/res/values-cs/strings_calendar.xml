@@ -7,12 +7,6 @@
     <string name="calendar_view_list">Seznam</string>
     <string name="calendar_view_month">Měsíc</string>
     <string name="calendar_view_week">Týden</string>
-    <string name="calendar_filter_all">Vše</string>
-    <string name="calendar_filter_shows">Seriály</string>
-    <string name="calendar_filter_films">Filmy</string>
-    <string name="calendar_week_empty">Tento týden nic</string>
-    <string name="calendar_cd_week_previous">Předchozí týden</string>
-    <string name="calendar_cd_week_next">Další týden</string>
     <string name="calendar_next_from">Další z: %1$s</string>
     <string name="calendar_times_in">Časy v pásmu %1$s</string>
     <string name="calendar_zone_with_city">%1$s (%2$s)</string>
@@ -26,7 +20,6 @@
     <string name="calendar_section_no_date">Zatím bez data</string>
     <string name="calendar_section_no_date_hint">Vrací se nebo ve výrobě</string>
     <string name="calendar_episode_code">S%1$d E%2$d</string>
-    <string name="calendar_episode_range">S%1$d E%2$d–E%3$d</string>
     <string name="calendar_line_join">%1$s · %2$s</string>
     <string name="calendar_film_cinema">V kinech</string>
     <string name="calendar_film_digital">Streamování a digitální vydání</string>
@@ -121,7 +114,6 @@
     <string name="calendar_setting_coming_up">Řádek Již brzy</string>
     <string name="calendar_setting_coming_up_sub">Řádek za Pokračovat ve sledování s novými a chystanými epizodami a filmy z Kalendáře</string>
     <string name="calendar_coming_up_title">Již brzy</string>
-    <string name="calendar_coming_up_takes_upcoming">Když je zapnutý řádek Již brzy v Kalendáři, zobrazují se tyto epizody v něm.</string>
     <string name="calendar_coming_up_new">Nový</string>
     <string name="calendar_coming_up_today_at">Dnes %1$s</string>
     <string name="calendar_coming_up_tonight_at">Dnes večer %1$s</string>

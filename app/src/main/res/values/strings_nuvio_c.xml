@@ -395,9 +395,7 @@
     <string name="nuvio_c_osd_style_clean_desc">Subtitles and Audio left, playback in the middle, Sources and Details right, everything else behind the gear.</string>
     <string name="nuvio_c_osd_style_nuvio_c">Default</string>
     <string name="nuvio_c_osd_style_clean">Modern</string>
-    <string name="nuvio_c_osd_info_key">Info button</string>
     <string name="nuvio_c_more_playback">Playback</string>
-    <string name="nuvio_c_more_tracks">Subtitles and audio</string>
     <string name="nuvio_c_more_player">Player</string>
     <!-- [fork] round 48 -->
     <string name="nuvio_c_next_label">Next · S%1$d E%2$d</string>

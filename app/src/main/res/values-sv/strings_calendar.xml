@@ -7,12 +7,6 @@
     <string name="calendar_view_list">Lista</string>
     <string name="calendar_view_month">Månad</string>
     <string name="calendar_view_week">Vecka</string>
-    <string name="calendar_filter_all">Alla</string>
-    <string name="calendar_filter_shows">Serier</string>
-    <string name="calendar_filter_films">Filmer</string>
-    <string name="calendar_week_empty">Inget denna vecka</string>
-    <string name="calendar_cd_week_previous">Föregående vecka</string>
-    <string name="calendar_cd_week_next">Nästa vecka</string>
     <string name="calendar_next_from">Nästa från %1$s</string>
     <string name="calendar_times_in">Tider i %1$s</string>
     <string name="calendar_zone_with_city">%1$s (%2$s)</string>
@@ -26,7 +20,6 @@
     <string name="calendar_section_no_date">Inget datum än</string>
     <string name="calendar_section_no_date_hint">Återkommer eller i produktion</string>
     <string name="calendar_episode_code">S%1$d E%2$d</string>
-    <string name="calendar_episode_range">S%1$d E%2$d–E%3$d</string>
     <string name="calendar_line_join">%1$s · %2$s</string>
     <string name="calendar_film_cinema">På bio</string>
     <string name="calendar_film_digital">Streaming och digital release</string>
@@ -109,7 +102,6 @@
     <string name="calendar_setting_coming_up">Raden På gång</string>
     <string name="calendar_setting_coming_up_sub">En rad efter Fortsätt titta med nya och kommande avsnitt och filmer från din Kalender</string>
     <string name="calendar_coming_up_title">På gång</string>
-    <string name="calendar_coming_up_takes_upcoming">Så länge raden På gång i Kalendern är på visas de här avsnitten i På gång i stället.</string>
     <string name="calendar_coming_up_new">Nyhet</string>
     <string name="calendar_coming_up_today_at">Idag %1$s</string>
     <string name="calendar_coming_up_tonight_at">I kväll %1$s</string>

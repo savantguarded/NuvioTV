@@ -7,12 +7,6 @@
     <string name="calendar_view_list">Zoznam</string>
     <string name="calendar_view_month">Mesiac</string>
     <string name="calendar_view_week">Týždeň</string>
-    <string name="calendar_filter_all">Všetko</string>
-    <string name="calendar_filter_shows">Seriály</string>
-    <string name="calendar_filter_films">Filmy</string>
-    <string name="calendar_week_empty">Tento týždeň nič</string>
-    <string name="calendar_cd_week_previous">Predchádzajúci týždeň</string>
-    <string name="calendar_cd_week_next">Nasledujúci týždeň</string>
     <string name="calendar_next_from">Ďalšie z: %1$s</string>
     <string name="calendar_times_in">Časy v pásme %1$s</string>
     <string name="calendar_zone_with_city">%1$s (%2$s)</string>
@@ -26,7 +20,6 @@
     <string name="calendar_section_no_date">Zatiaľ bez dátumu</string>
     <string name="calendar_section_no_date_hint">Vracia sa alebo vo výrobe</string>
     <string name="calendar_episode_code">S%1$d E%2$d</string>
-    <string name="calendar_episode_range">S%1$d E%2$d–E%3$d</string>
     <string name="calendar_line_join">%1$s · %2$s</string>
     <string name="calendar_film_cinema">V kinách</string>
     <string name="calendar_film_digital">Streamovanie a digitálne vydanie</string>
@@ -121,7 +114,6 @@
     <string name="calendar_setting_coming_up">Riadok Na obzore</string>
     <string name="calendar_setting_coming_up_sub">Riadok za Pokračovať v sledovaní s novými a chystanými epizódami a filmami z Kalendára</string>
     <string name="calendar_coming_up_title">Na obzore</string>
-    <string name="calendar_coming_up_takes_upcoming">Keď je zapnutý riadok Na obzore v Kalendári, tieto epizódy sa zobrazujú v ňom.</string>
     <string name="calendar_coming_up_new">Nové</string>
     <string name="calendar_coming_up_today_at">Dnes %1$s</string>
     <string name="calendar_coming_up_tonight_at">Dnes večer %1$s</string>
