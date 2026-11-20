@@ -425,7 +425,7 @@ internal fun NuvioCDetailInfoBlock(metaId: String) {
             Modifier
                 .fillMaxWidth()
                 .bringIntoViewRequester(top)
-                .then(if (NuvioCFeatures.DETAILS_FLUID && NuvioCFeatures.DETAIL_INFO_STOP) Modifier.onPreviewKeyEvent { e ->
+                .then(if (NuvioCFeatures.INFO_UP_HANDLER && NuvioCFeatures.DETAIL_INFO_STOP) Modifier.onPreviewKeyEvent { e ->
                     // [fork] round 53e details_fluid: Up from the Information stop first brings the block's top (and the
                     // row above it) back on screen, then moves up; the tall stop's top used to be off screen with the row
                     // above not laid out, so Up found nothing and stuck

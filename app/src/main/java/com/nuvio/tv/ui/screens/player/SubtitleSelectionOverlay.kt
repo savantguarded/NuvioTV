@@ -2534,19 +2534,32 @@ internal fun NuvioCPanelTab(
 ) {
     // [fork] round 54b: the key handler and focus properties are always in the chain and read the current values; adding
     // or removing them when the active tab changed (tabs on Select) rebuilt the pressed tab and dropped its focus
+    // [fork] round 54c: with tabs on Select, where Down goes changes while this tab is focused. Changing the focused
+    // node's focusProperties (down = ...) dropped focus on the TV (Style / Sound tab), so Down is handled here in the
+    // key handler instead and no focus property ever changes; after Select, focus is put back on this tab.
     val currentOnDown by androidx.compose.runtime.rememberUpdatedState(onDown)
     val currentDown by androidx.compose.runtime.rememberUpdatedState(down)
+    val onSelectOnly = NuvioCPanelLook.v3 && com.nuvio.tv.NuvioCFeatures.PANEL_TABS_ON_SELECT
+    val tabScope = androidx.compose.runtime.rememberCoroutineScope()
     androidx.tv.material3.Surface(
-        onClick = onFocused,
+        onClick = {
+            onFocused()
+            if (onSelectOnly) tabScope.launch { focusRequester.requestFocusAfterFrames(frames = 1) }
+        },
         modifier = Modifier
             .focusRequester(focusRequester)
             .onPreviewKeyEvent { e ->
-                val od = currentOnDown ?: return@onPreviewKeyEvent false
-                if (e.nativeKeyEvent.keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN) {
-                    if (e.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) od() else true
-                } else false
+                if (e.nativeKeyEvent.keyCode != android.view.KeyEvent.KEYCODE_DPAD_DOWN) return@onPreviewKeyEvent false
+                val od = currentOnDown
+                if (od != null) return@onPreviewKeyEvent if (e.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) od() else true
+                if (!onSelectOnly) return@onPreviewKeyEvent false
+                val target = currentDown ?: return@onPreviewKeyEvent false
+                if (e.nativeKeyEvent.action == android.view.KeyEvent.ACTION_DOWN) {
+                    tabScope.launch { target.requestFocusAfterFrames(frames = 1) }
+                }
+                true
             }
-            .focusProperties { currentDown?.let { this.down = it } }
+            .then(if (onSelectOnly) Modifier else Modifier.focusProperties { down?.let { this.down = it } })
             .onFocusChanged { if (it.isFocused && !(NuvioCPanelLook.v3 && com.nuvio.tv.NuvioCFeatures.PANEL_TABS_ON_SELECT)) onFocused() }, // [fork] round 54: Modern tabs switch on Select only
         shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
         scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1f),
