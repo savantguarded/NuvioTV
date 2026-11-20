@@ -132,6 +132,7 @@ Manual build: `gh workflow run nuvio-c.yml -R savantguarded/NuvioTV --ref nuvio-
 - **Markers**: fork edits inside official files carry a `// [fork]` comment (about 2,400 of them). New fork files are named `NuvioC*.kt`; fork resources `nuvio_c_*`; fork UI text in `app/src/main/res/values/strings_nuvio_c.xml`.
 - **Keep official files lean**: put fork logic in a `NuvioC*` file and call it from the official file with a small hook. Fewer edited lines = easier upstream merges.
 - **Commits**: `Nuvio C: <what>` or `Nuvio C round N: <what>`; upstream merges as `Merge official <tag> into Nuvio C`. One commit per item where possible.
+- **Git**: upstream's `.gitignore` ignores `docs/` and `scripts/*`, so new files there need `git add -f`.
 - **Tests**: fork tests are `NuvioC*Test.kt` mirroring the source package.
 - **Per profile**: anything personal (Taste, ratings, Roulette history) must be keyed by profile and work for Nuvio-Sync-only profiles.
 - **Never**: touch decoder selection for fork features; change official sync payloads; ship partial builds of an approved round.
