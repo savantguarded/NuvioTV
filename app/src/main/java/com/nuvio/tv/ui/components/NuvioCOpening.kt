@@ -48,6 +48,8 @@ object NuvioCOpening {
 /** The still logo on black, exactly where the start-up screen draws it. */
 @Composable
 fun NuvioCOpeningLogo(modifier: Modifier = Modifier) {
+    // [fork] round 57 startup_profiles_first: plain black, no logo, while the profile screen builds under it
+    if (NuvioCFeatures.STARTUP_PROFILES_FIRST) { Box(modifier.fillMaxSize().background(Color.Black)); return }
     Box(modifier.fillMaxSize().background(Color.Black)) {
         NuvioCStartupStatic(
             logoRes = NuvioTheme.currentTheme.brandWordmarkResource,

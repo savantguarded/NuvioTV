@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -53,6 +54,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
@@ -149,6 +151,16 @@ internal fun NuvioCOsdPill(
         )
     ) {
         val compact = true // round 47 compact pills (the round 46 sizes were removed 2026-11-20)
+        // [fork] round 57 `CLEAN_PILL_TEXT_ONLY`: no icon, the label centred in a pill at least 88 dp wide
+        if (NuvioCFeatures.CLEAN_PILL_TEXT_ONLY) {
+            Box(
+                Modifier.widthIn(min = 88.dp).padding(horizontal = 18.dp).fillMaxHeight(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp, lineHeight = 18.sp), fontWeight = FontWeight.Medium, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
+            return@Surface
+        }
         Row(
             Modifier.padding(start = if (NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH) 12.dp else if (compact) 10.dp else 11.dp, end = if (NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH) 14.dp else if (compact) 12.dp else 14.dp).fillMaxHeight(),
             verticalAlignment = Alignment.CenterVertically,

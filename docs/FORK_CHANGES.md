@@ -4,7 +4,7 @@ How Nuvio C differs from official NuvioTV, grouped by area: what you see, the sw
 Per-switch detail: every switch in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt` has a one-line comment. This file is the overview, not a copy of that list.
 Paths below are relative to `app/src/main/java/com/nuvio/tv/` unless they start with `app/`, `.github/` or `scripts/`.
 
-Base: official `1.2.0-beta.3` (`552cacf5`). Fork footprint vs that tag: 404 files added, 174 official files edited, about 62,300 lines added. 407 switches, 0 off.
+Base: official `1.2.0-beta.3` (`552cacf5`). Fork footprint vs that tag: 404 files added, 175 official files edited, about 62,800 lines added. 416 switches, 0 off.
 Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream merge).
 
 ## Build and distribution
@@ -17,6 +17,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Two control styles via Settings "Player controls style" (`OSD_CLEAN`): **Default** (code id `nuvio_c`, official row plus fork tweaks) and **Modern** (code id `clean`, files `NuvioCOsdClean.kt` / `NuvioCCleanLayout.kt`: left pills, centred playback, right icon pill, More sheet, icons `res/drawable/nuvio_c_ic_clean_*`). Code and switches say "Clean"; screens say "Modern".
 - Clearlogo top-left, badges (resolution / HDR / audio / size, full Dolby names), focused-button label, Start over (then Previous episode), Next label with episode name, chapter double-press jump, 8 s timeout, YouTube-style seek bar, shades, Watch Party in More, button order setting.
 - Cast / About / crew side panel (`OSD_CAST*`, `OSD_ABOUT*`, `OSD_CREW`), Auto-skip-intro switch, Skip Intro sits above the seek bar.
+- Modern left pills are text only, centred, 15 sp, at least 88 dp wide (`CLEAN_PILL_TEXT_ONLY`). The More sheet has a Sound section: Night mode, Amplification, Dialogue (centre mix), Audio delay, Keep for next titles (`MORE_SOUND`); the Modern Audio panel is tracks only (`AUDIO_PANEL_NO_TABS`).
 - Files: `ui/screens/player/NuvioCOsd*.kt`, `NuvioCCleanLayout.kt`, `NuvioCFocusReturn.kt`, `NuvioCOsdTimeout.kt`, `NuvioCPreviousEpisode.kt`, hooks in `PlayerScreen.kt` (`PlayerControlsOverlay`). Settings: `ui/screens/settings/NuvioCOsdButtonsSettings.kt`.
 
 ## Subtitles
@@ -25,7 +26,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Files: `player/NuvioCSubtitle*.kt`, `NuvioCStyledLift.kt`, `NuvioCSdh.kt`, `NuvioCTrackNames.kt`, `SubtitleSelectionOverlay.kt`, `ui/screens/settings/NuvioCSubtitleSettings.kt`.
 
 ## Audio
-- Night mode (compressor) with schedule and toast, per-format passthrough switches per profile (formats switched off are decoded on the TV as multichannel PCM).
+- Night mode (compressor) with schedule and toast (also in the Modern More sheet's Sound section), per-format passthrough switches per profile (formats switched off are decoded on the TV as multichannel PCM).
 - Switches: `NIGHT_MODE*`, `NIGHT_SCHEDULE`, `PASSTHROUGH_FORMATS`, `PASSTHROUGH_PER_PROFILE`, `DECODED_*`.
 - Files: `player/NuvioCNightMode.kt`, `NuvioCNightToast.kt`, `NuvioCPassthrough.kt`, `GainAudioProcessor.kt`, `AudioSelectionOverlay.kt`, `ui/screens/settings/NuvioCNightScheduleSettings.kt`.
 
@@ -35,7 +36,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Files: `player/NuvioCHdrDim.kt`, `NuvioCDecodedColor.kt`, `NuvioCSpsColor.kt`, `NuvioCPlaybackLog.kt`.
 
 ## Loading, pause, stats
-- Loading screen: provider line, filename, ratings and synopsis in a bottom band. Netflix-style pause screen. Placeholder-clip detection opens Sources.
+- Loading screen: provider line, filename, ratings and synopsis in a bottom band; quiet version (`LOADING_QUIET`): lower and dimmer, synopsis 11 sp / 3 lines, filename on one line cut in the middle under a FILENAME label. Netflix-style pause screen. Placeholder-clip detection opens Sources.
 - Stream info HUD on the right (ysosrs123 style), fixed box, larger text.
 - Files: `player/NuvioCLoading*.kt`, `NuvioCPauseScreen.kt`, `NuvioCPlaceholder.kt`, `NuvioCStatsPanel.kt`, `NuvioCPlayerInfo.kt`, `NuvioCPlaybackStats.kt`.
 
@@ -44,6 +45,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Files: `player/NuvioCEpisodeTitles.kt`, `NuvioCFinishTracker.kt`, `PlayerRuntimeControllerStreams.kt`, `StreamSourcesSidePanel.kt`, `ui/screens/stream/`.
 
 ## Details page
+- Back from Sources (Play / Play manually) jumps straight to the saved spot and holds Play; Back on the play options returns to Play (`DETAIL_RETURN_FOCUS`).
 - Hero spec (logo box, facts line above, wider synopsis, tagline), round Shuffle / Rate / Bell buttons with focus labels, Information ledger with fixed slots (Awards wins via OMDb), collection on its own row (episode Find was removed in round 56: it caused the lost focus on series pages), smoother scrolling and focus.
 - Files: `ui/screens/detail/NuvioCDetail*.kt`, `NuvioCCredits.kt`, `HeroSection.kt`, `MetaDetailsScreen.kt`, `EpisodesSection.kt`, `ui/screens/calendar/NuvioCDetailBell.kt`.
 
@@ -62,6 +64,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Files: `ui/screens/cast/NuvioCCast*.kt`, `core/tmdb/NuvioCFilmography.kt`.
 
 ## Home
+- Continue Watching / Upcoming landscape cards: title and episode name scroll on focus, taking turns (`CW_TURN_MARQUEE`, `ui/components/ContinueWatchingSection.kt`).
 - Fourth layout "Featured" (full-screen carousel, contextual tags, split arrows, top-3 ratings), hero pool shuffle, auto-advance, synopsis fit, Extra large card size, Grid hidden, offline card, clock, poster glow.
 - Switches: `HOME_FEATURED`, `FEATURED_*`, `HERO_*`, `CARD_SIZE_XL`, `NO_GRID_LAYOUT`, `OFFLINE_*`, `BROWSE_CLOCK`, `POSTER_GLOW*`.
 - Files: `ui/screens/home/NuvioC*.kt`, `ModernHomeHero.kt`, `ModernHomeContent.kt`, `ui/components/NuvioCCardSize.kt`, `NuvioCHeroSpec.kt`, `NuvioCClock.kt`, `NuvioCPosterGlow.kt`, `core/nuvioc/NuvioCFeaturedTags.kt`, `core/di/NuvioCFeaturedModule.kt`.
@@ -73,7 +76,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 ## Sidebar, profile screen, start-up
 - Slim Modern sidebar with dim and smooth close, Up to profile.
 - Profile screen: no "Who's watching", centred block, greeting, check badge, built-in TMDB background (optionally from catalogs).
-- Start-up: still logo straight onto profiles, waits for profiles, sync and Home to settle, background job queue.
+- Start-up: no Nuvio logo on a cold start to profiles; the profile list saved on the last run draws the profile screen from the first frame (`STARTUP_PROFILES_FIRST`, `data/local/ProfileDataStore.kt` mirror, `core/profile/ProfileManager.kt`); still logo only on the Home path, waits for profiles, sync and Home to settle, background job queue.
 - Files: `ui/components/SidebarNavigation.kt`, `NuvioCSidebarSettle.kt`, `ui/screens/profile/NuvioCProfile*.kt`, `ProfileSelectionScreen.kt`, `ui/components/NuvioCProfileBg.kt`, `NuvioCOpening.kt`, `core/nuvioc/NuvioCStartup*.kt`, `MainActivity.kt`.
 
 ## Library
@@ -86,11 +89,13 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Files: `core/calendar/`, `ui/screens/calendar/`, `ui/screens/home/HomeComingUp.kt`, `ui/screens/settings/CalendarSettingsSection.kt`.
 
 ## Roulette (sidebar "Roulette", action "Shuffle")
+- On the reel / result, changing filters never spins; an amber dot and "Filters changed" sit on Shuffle again (`ROULETTE_HOLD`).
 - Movies / Shows mood screen over a large raw TMDB pool, Refine dialog (popularity, decade, region, theme…), watched cycle, ratings line, backdrop.
 - Files: `ui/screens/shuffle/`, `data/nuvioc/NuvioCShuffle*.kt`, `NuvioCRoulette*.kt`, `ui/screens/settings/NuvioCShuffleSettings.kt`.
 
 ## Taste page
-- Per-profile stats and discovery: Overview / Discover / Stats tabs, Spotlight cards, recaps, month views.
+- Per-profile stats and discovery: Overview / Discover / Stats / Wrapped tabs.
+- Round 57 look (`TASTE_V57`): one loading screen (placeholders + progress) until the tab list and opening tab are ready, then one fade; flat cards with caps labels, tabular numbers, poster thumbnails; Overview / Wrapped rows open their title; focus rings in the app theme accent (not the profile colour).
 - Files: `ui/screens/taste/`, `data/nuvioc/NuvioCTaste*.kt`. Rule: strictly per profile.
 
 ## Trackers and sync

@@ -163,6 +163,20 @@ class ProfileDataStore @Inject constructor(
         return listOf(defaultPrimaryProfile()) + nonEmpty
     }
 
+    // ---- [fork] round 57 startup_profiles_first: a plain copy of the profile list for the very first frame ----
+    private val nuvioCMirror by lazy { context.getSharedPreferences("nuvioc_profiles_mirror", Context.MODE_PRIVATE) }
+
+    /** The profile list saved on the last run (read straight from disk, no waiting), or null if none yet. */
+    fun nuvioCMirroredProfiles(): List<UserProfile>? = runCatching {
+        nuvioCMirror.getString("profiles", null)?.takeIf { it.isNotBlank() }?.let { parseProfiles(it) }
+    }.getOrNull()
+
+    fun nuvioCMirroredActiveId(): Int? = nuvioCMirror.getInt("active", -1).takeIf { it > 0 }
+
+    fun nuvioCMirror(profiles: List<UserProfile>, activeId: Int) {
+        runCatching { nuvioCMirror.edit().putString("profiles", serializeProfiles(profiles)).putInt("active", activeId).apply() }
+    }
+
     private fun serializeProfiles(profiles: List<UserProfile>): String {
         val adapter = moshi.adapter<List<ProfileJson>>(profileListType)
         return adapter.toJson(profiles.map { ProfileJson.fromDomain(it) })

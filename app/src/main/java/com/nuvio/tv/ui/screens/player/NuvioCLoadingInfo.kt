@@ -150,7 +150,7 @@ private fun NuvioCLoadingBand(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(start = 48.dp, end = 48.dp, bottom = 32.dp)
+                .padding(start = 48.dp, end = 48.dp, bottom = if (com.nuvio.tv.NuvioCFeatures.LOADING_QUIET) 22.dp else 32.dp) // [fork] round 57 loading_quiet: lower
                 .graphicsLayer {
                     this.alpha = alpha.value
                     translationY = (1f - alpha.value) * shift
@@ -158,8 +158,8 @@ private fun NuvioCLoadingBand(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom
         ) {
-            Column(Modifier.widthIn(max = 470.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.widthIn(max = if (com.nuvio.tv.NuvioCFeatures.LOADING_QUIET) 520.dp else 470.dp), verticalArrangement = Arrangement.spacedBy(if (com.nuvio.tv.NuvioCFeatures.LOADING_QUIET) 4.dp else 6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.graphicsLayer { this.alpha = if (com.nuvio.tv.NuvioCFeatures.LOADING_QUIET) 0.62f else 1f }) {
                     if (line.isNotBlank()) {
                         Text(
                             text = line,
@@ -181,19 +181,44 @@ private fun NuvioCLoadingBand(
                 synopsis?.takeIf { it.isNotBlank() }?.let {
                     Text(
                         text = it,
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 17.sp),
-                        color = Color.White.copy(alpha = 0.62f),
+                        style = if (com.nuvio.tv.NuvioCFeatures.LOADING_QUIET) MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp, lineHeight = 15.sp) else MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 17.sp),
+                        color = Color.White.copy(alpha = if (com.nuvio.tv.NuvioCFeatures.LOADING_QUIET) 0.42f else 0.62f),
                         maxLines = 3,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
             }
             if (filename != null || status != null) Column(
-                modifier = Modifier.padding(start = 40.dp).widthIn(max = 330.dp),
+                modifier = Modifier.padding(start = 40.dp).widthIn(max = if (com.nuvio.tv.NuvioCFeatures.LOADING_QUIET) 300.dp else 330.dp),
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-            if (filename != null) {
+            if (filename != null && com.nuvio.tv.NuvioCFeatures.LOADING_QUIET) {
+                // [fork] round 57 loading_quiet: a FILENAME label, then the name on one line, cut in the middle so the
+                // release group and the extension stay; dim so it never competes with the logo
+                val (base, ext) = remember(filename) { NuvioCLoadingLaneText.splitExtension(filename) }
+                val text = remember(base, ext) {
+                    androidx.compose.ui.text.buildAnnotatedString {
+                        append(base)
+                        if (ext != null) withStyle(androidx.compose.ui.text.SpanStyle(color = Color.White.copy(alpha = 0.22f))) { append(ext) }
+                    }
+                }
+                Text(
+                    text = androidx.compose.ui.res.stringResource(com.nuvio.tv.R.string.nuvio_c_loading_filename_label),
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 8.sp, lineHeight = 10.sp, letterSpacing = 1.2.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+                    color = Color.White.copy(alpha = 0.28f),
+                    maxLines = 1
+                )
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.5.sp, lineHeight = 13.sp, letterSpacing = 0.15.sp, fontFeatureSettings = "tnum"),
+                    color = Color.White.copy(alpha = 0.38f),
+                    textAlign = TextAlign.End,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.MiddleEllipsis
+                )
+            } else if (filename != null) {
                 val (base, ext) = remember(filename) { NuvioCLoadingLaneText.splitExtension(filename) }
                 val text = remember(base, ext) {
                     androidx.compose.ui.text.buildAnnotatedString {

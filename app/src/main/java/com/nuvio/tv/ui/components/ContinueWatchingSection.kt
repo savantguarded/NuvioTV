@@ -1099,6 +1099,17 @@ private fun ContinueWatchingCardText(
         )
     }
 
+    // [fork] round 57 `CW_TURN_MARQUEE`: title and episode name both scroll on focus when cut, taking turns (title,
+    // then episode name), as the cast filmography cards do. Same for Continue Watching and Upcoming cards.
+    if (com.nuvio.tv.NuvioCFeatures.CW_TURN_MARQUEE && !episodeTitle.isNullOrBlank()) {
+        NuvioCTurnMarquee(
+            first = NuvioCMarqueeSpec(titleText, titleStyle, NuvioTheme.colors.TextPrimary),
+            second = NuvioCMarqueeSpec(episodeTitle, MaterialTheme.typography.bodySmall, NuvioTheme.extendedColors.textSecondary),
+            focused = titleMarqueeActive
+        )
+        return
+    }
+
     FocusMarqueeText(
         text = titleText,
         focused = titleMarqueeActive,

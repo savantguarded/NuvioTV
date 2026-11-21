@@ -9,6 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -32,8 +33,13 @@ class ProfileManager @Inject constructor(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    // [fork] round 57 startup_profiles_first: start from the copy saved on the last run, so the profile screen can be
+    // drawn on the first frame; the real values replace it as soon as the DataStore is read (normally the same).
+    private val nuvioCMirrored = if (com.nuvio.tv.NuvioCFeatures.STARTUP_PROFILES_FIRST) profileDataStore.nuvioCMirroredProfiles() else null
+    private val nuvioCMirroredActive = if (nuvioCMirrored != null) profileDataStore.nuvioCMirroredActiveId() else null
+
     val activeProfileId: StateFlow<Int> = profileDataStore.activeProfileId
-        .stateIn(scope, SharingStarted.Eagerly, 1)
+        .stateIn(scope, SharingStarted.Eagerly, nuvioCMirroredActive ?: 1)
 
     init {
         // [fork] round 53 passthrough_per_profile: the soundbar format switches follow the active profile
@@ -60,12 +66,20 @@ class ProfileManager @Inject constructor(
     /** [fork] round 40 startup_profile_gate: true once the saved profiles have actually been read (not the stand-in default). */
     val profilesLoaded: StateFlow<Boolean> = profileDataStore.profilesList
         .map { true }
-        .stateIn(scope, SharingStarted.Eagerly, false)
+        .stateIn(scope, SharingStarted.Eagerly, nuvioCMirrored != null)
 
     val profiles: StateFlow<List<UserProfile>> = profileDataStore.profilesList
-        .stateIn(scope, SharingStarted.Eagerly, listOf(
+        .stateIn(scope, SharingStarted.Eagerly, nuvioCMirrored ?: listOf(
             UserProfile(id = 1, name = context.getString(R.string.profile_default_name, 1), avatarColorHex = "#1E88E5")
         ))
+
+    init {
+        // [fork] round 57 startup_profiles_first: keep the plain copy current
+        if (com.nuvio.tv.NuvioCFeatures.STARTUP_PROFILES_FIRST) scope.launch {
+            kotlinx.coroutines.flow.combine(profileDataStore.profilesList, profileDataStore.activeProfileId) { list, id -> list to id }
+                .collect { (list, id) -> profileDataStore.nuvioCMirror(list, id) }
+        }
+    }
 
     val activeProfile: UserProfile?
         get() = profiles.value.find { it.id == activeProfileId.value }

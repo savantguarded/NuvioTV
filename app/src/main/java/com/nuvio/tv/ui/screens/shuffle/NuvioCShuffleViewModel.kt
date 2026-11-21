@@ -72,7 +72,9 @@ data class NuvioCShuffleUi(
     val spins: Int = 0,
     val poolSize: Int? = null,
     /** [fork] round 37 roulette_refine: Refine panel choices (pool size included). */
-    val refine: com.nuvio.tv.data.nuvioc.NuvioCRouletteRefine = com.nuvio.tv.data.nuvioc.NuvioCRouletteRefine()
+    val refine: com.nuvio.tv.data.nuvioc.NuvioCRouletteRefine = com.nuvio.tv.data.nuvioc.NuvioCRouletteRefine(),
+    /** [fork] round 57 roulette_hold: the filters differ from the ones the shown pick was spun with (Shuffle again uses them). */
+    val changed: Boolean = false
 )
 
 /** The backdrop request used both to fetch it early (during the reel) and to draw it, so it's a memory hit. */
@@ -176,6 +178,16 @@ class NuvioCShuffleViewModel @Inject constructor(
 
     fun refreshSourcesCount() = _ui.update { fromPrefs(it) }
 
+    // ---- [fork] round 57 `ROULETTE_HOLD`: on the reel / result, changing the filters never spins; Shuffle again does ----
+    private var spunWith: List<Any?>? = null
+    private fun filtersOf(u: NuvioCShuffleUi): List<Any?> = listOf(u.kind, u.mood, u.watchFilter, u.unwatched, u.refine)
+    private fun holding(): Boolean = com.nuvio.tv.NuvioCFeatures.ROULETTE_HOLD && _ui.value.phase != NuvioCShufflePhase.MOOD
+    /** After a filter change: spin (old behaviour) or just mark the change. */
+    private fun rollOrHold(reroll: Boolean) {
+        if (holding()) _ui.update { it.copy(changed = spunWith != null && filtersOf(it) != spunWith) }
+        else if (reroll) roll()
+    }
+
     fun chooseKind(kind: NuvioCShuffleKind) {
         if (com.nuvio.tv.NuvioCFeatures.ROULETTE_REFINE_RESET && kind != _ui.value.kind) {
             // [fork] round 39: each type keeps its own Refine for this visit
@@ -187,13 +199,13 @@ class NuvioCShuffleViewModel @Inject constructor(
         }
         prefs.setKind(kind)
         _ui.update { it.copy(kind = kind) }
-        roll()
+        if (holding()) rollOrHold(true) else roll()
     }
 
     fun setMood(mood: NuvioCShuffleMood, reroll: Boolean = false) {
         prefs.setMood(mood)
         _ui.update { it.copy(mood = mood, nothingLeft = false) }
-        if (reroll) roll()
+        rollOrHold(reroll)
     }
 
     fun toggleUnwatched(reroll: Boolean = false) {
@@ -202,13 +214,13 @@ class NuvioCShuffleViewModel @Inject constructor(
             val next = _ui.value.watchFilter.next()
             prefs.setWatchFilter(next)
             _ui.update { it.copy(watchFilter = next, unwatched = next == com.nuvio.tv.data.nuvioc.NuvioCWatchFilter.UNWATCHED, nothingLeft = false) }
-            if (reroll) roll()
+            rollOrHold(reroll)
             return
         }
         val on = !_ui.value.unwatched
         prefs.setUnwatched(on)
         _ui.update { it.copy(unwatched = on, nothingLeft = false) }
-        if (reroll) roll()
+        rollOrHold(reroll)
     }
 
     /** [fork] round 37 roulette_refine: new Refine choices; on the result screen they roll again. */
@@ -216,7 +228,7 @@ class NuvioCShuffleViewModel @Inject constructor(
         if (refine == _ui.value.refine) return
         prefs.setRefine(refine)
         _ui.update { it.copy(refine = refine, nothingLeft = false, empty = null) }
-        if (reroll) roll()
+        rollOrHold(reroll)
     }
 
     fun cycleKind() {
@@ -235,6 +247,7 @@ class NuvioCShuffleViewModel @Inject constructor(
     fun roll() {
         rollJob?.cancel()
         val state = _ui.value
+        spunWith = filtersOf(state) // [fork] round 57 roulette_hold
         val myToken = ++token
         val from = state.pick?.item?.poster ?: state.fans[state.kind]?.firstOrNull()
         _ui.update {
@@ -244,6 +257,7 @@ class NuvioCShuffleViewModel @Inject constructor(
                 nothingLeft = false,
                 empty = null,
                 spin = NuvioCReelSpin(-myToken, listOf(from), 0), // still frame while the pick is found
+                changed = false,
                 spins = it.spins + 1, // [fork] round 36 roulette_copy
                 poolSize = null
             )
@@ -319,7 +333,7 @@ class NuvioCShuffleViewModel @Inject constructor(
     fun backToMood() {
         rollJob?.cancel()
         token++
-        _ui.update { it.copy(phase = NuvioCShufflePhase.MOOD, landed = false, spin = null) }
+        _ui.update { it.copy(phase = NuvioCShufflePhase.MOOD, landed = false, spin = null, changed = false) }
     }
 
     /** The details page is opening for the pick; coming back keeps the result. */

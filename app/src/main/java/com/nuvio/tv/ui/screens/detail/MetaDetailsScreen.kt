@@ -1764,9 +1764,16 @@ private fun MetaDetailsContent(
         val index = savedRestoreScrollIndex
         val offset = savedRestoreScrollOffset
         val bumpCompany = pendingRestoreType == RestoreTarget.COMPANY_OR_NETWORK
+        // [fork] round 57 `DETAIL_RETURN_FOCUS`: coming back from Sources (Play / Play manually), jump straight to the
+        // saved spot and hold the Play button while the page settles, so focus can't wander to the season tabs
+        // during an animated scroll.
+        val nuvioCHero = com.nuvio.tv.NuvioCFeatures.DETAIL_RETURN_FOCUS && pendingRestoreType == RestoreTarget.HERO
+        val nuvioCInstant = com.nuvio.tv.NuvioCFeatures.DETAIL_RETURN_FOCUS &&
+            (pendingRestoreType == RestoreTarget.HERO || pendingRestoreType == RestoreTarget.EPISODE)
         coroutineScope.launch {
+            if (nuvioCHero) heroPlayButtonFocusRequester.requestFocusAfterFrames(1)
             if (index >= 0) {
-                animateDetailScrollTo(index, offset)
+                if (nuvioCInstant) listState.scrollToItem(index, offset) else animateDetailScrollTo(index, offset)
             }
             if (bumpCompany) {
                 companyRestoreToken += 1
@@ -3285,7 +3292,11 @@ private fun MetaDetailsContent(
             PlayManualOverrideDialog(
                 title = meta.name,
                 subtitle = nextToWatch?.displayText ?: stringResource(R.string.hero_play),
-                onDismiss = { showHeroPlayOptionsDialog = false },
+                onDismiss = {
+                    showHeroPlayOptionsDialog = false
+                    // [fork] round 57 `DETAIL_RETURN_FOCUS`: Back on the play options goes back to Play, not the first thing found
+                    if (com.nuvio.tv.NuvioCFeatures.DETAIL_RETURN_FOCUS) coroutineScope.launch { heroPlayButtonFocusRequester.requestFocusAfterFrames() }
+                },
                 showPlayManually = showManualPlayOption,
                 onPlayManually = {
                     showHeroPlayOptionsDialog = false

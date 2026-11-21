@@ -393,6 +393,14 @@
     <string name="nuvio_c_more_playback">Playback</string>
     <string name="nuvio_c_more_subtitle_delay">Subtitle delay</string>
     <string name="nuvio_c_more_player">Player</string>
+    <!-- [fork] round 57 more_sound -->
+    <string name="nuvio_c_more_sound">Sound</string>
+    <string name="nuvio_c_more_amplification">Amplification</string>
+    <string name="nuvio_c_more_dialogue">Dialogue (centre mix)</string>
+    <string name="nuvio_c_more_audio_delay">Audio delay</string>
+    <string name="nuvio_c_more_keep_sound">Keep for next titles</string>
+    <string name="nuvio_c_loading_filename_label">FILENAME</string>
+    <string name="nuvio_c_roulette_changed">Filters changed · Shuffle again uses them</string>
     <!-- [fork] round 48 -->
     <string name="nuvio_c_next_label">Next · S%1$d E%2$d</string>
     <string name="nuvio_c_finding_streams">Finding streams</string>

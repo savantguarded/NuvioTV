@@ -3941,6 +3941,12 @@ private fun NuvioCCleanControlsV2(
     val secPlayback = stringResource(R.string.nuvio_c_more_playback)
     val subDelayLabel = stringResource(R.string.nuvio_c_more_subtitle_delay) // [fork] round 56
     val secPlayer = stringResource(R.string.nuvio_c_more_player)
+    val secSound = stringResource(R.string.nuvio_c_more_sound) // [fork] round 57 more_sound
+    val ampLabel = stringResource(R.string.nuvio_c_more_amplification)
+    val dialogueLabel = stringResource(R.string.nuvio_c_more_dialogue)
+    val audioDelayLabel = stringResource(R.string.nuvio_c_more_audio_delay)
+    val keepSoundLabel = stringResource(R.string.nuvio_c_more_keep_sound)
+    val nightEnabled by NuvioCNight.enabled.collectAsState()
     val nightActive = remember { NuvioCNight.active(context) }
     val nightLevel by NuvioCNight.level.collectAsState()
     val nightLabels = com.nuvio.tv.data.local.NightModeLevel.entries.associateWith { stringResource(nuvioCNightLabel(it)) }
@@ -4067,6 +4073,41 @@ private fun NuvioCCleanControlsV2(
             onClick = { viewModel.onEvent(PlayerEvent.OnShowSubtitleDelayOverlay) }, arrow = true
         ))
         // (no Subtitles / Audio lines: those buttons always sit on a side and their panels hold style and delays)
+        // [fork] round 57 more_sound: the Audio panel's Sound tab lives here now (the panel is tracks only)
+        if (com.nuvio.tv.NuvioCFeatures.MORE_SOUND) {
+            if (com.nuvio.tv.NuvioCFeatures.NIGHT_MODE && nightActive && nightEnabled) add(NuvioCMoreItem.Choice(
+                "night", nightLabel, secSound, nightLabels.getValue(nightLevel),
+                com.nuvio.tv.data.local.NightModeLevel.entries.map { l -> NuvioCMoreOption(nightLabels.getValue(l), l == nightLevel) { viewModel.controller.nuvioCApplyNightMode(l) } }
+            ))
+            if (uiState.isAudioAmplificationAvailable) {
+                val db = uiState.audioAmplificationDb.coerceIn(AUDIO_AMPLIFICATION_MIN_DB, AUDIO_AMPLIFICATION_MAX_DB)
+                add(NuvioCMoreItem.Stepper(
+                    "amp", ampLabel, secSound, "$db dB",
+                    onDecrease = { if (db > AUDIO_AMPLIFICATION_MIN_DB) viewModel.onEvent(PlayerEvent.OnSetAudioAmplificationDb(db - 1)) },
+                    onIncrease = { if (db < AUDIO_AMPLIFICATION_MAX_DB) viewModel.onEvent(PlayerEvent.OnSetAudioAmplificationDb(db + 1)) },
+                    onReset = { viewModel.onEvent(PlayerEvent.OnSetAudioAmplificationDb(0)) }
+                ))
+            }
+            if (uiState.isCenterMixAvailable) {
+                val db = uiState.centerMixLevelDb.coerceIn(CENTER_MIX_LEVEL_MIN_DB, CENTER_MIX_LEVEL_MAX_DB)
+                add(NuvioCMoreItem.Stepper(
+                    "center", dialogueLabel, secSound, if (db > 0) "+$db dB" else "$db dB",
+                    onDecrease = { if (db > CENTER_MIX_LEVEL_MIN_DB) viewModel.onEvent(PlayerEvent.OnSetCenterMixLevelDb(db - 1)) },
+                    onIncrease = { if (db < CENTER_MIX_LEVEL_MAX_DB) viewModel.onEvent(PlayerEvent.OnSetCenterMixLevelDb(db + 1)) },
+                    onReset = { viewModel.onEvent(PlayerEvent.OnSetCenterMixLevelDb(0)) }
+                ))
+            }
+            val delay = uiState.audioDelayMs.coerceIn(AUDIO_DELAY_MIN_MS, AUDIO_DELAY_MAX_MS)
+            add(NuvioCMoreItem.Stepper(
+                "audio_delay", audioDelayLabel, secSound, if (delay > 0) "+$delay ms" else "$delay ms",
+                onDecrease = { viewModel.onEvent(PlayerEvent.OnSetAudioDelayMs((delay - AUDIO_DELAY_STEP_MS).coerceAtLeast(AUDIO_DELAY_MIN_MS))) },
+                onIncrease = { viewModel.onEvent(PlayerEvent.OnSetAudioDelayMs((delay + AUDIO_DELAY_STEP_MS).coerceAtMost(AUDIO_DELAY_MAX_MS))) },
+                onReset = { viewModel.onEvent(PlayerEvent.OnSetAudioDelayMs(0)) }
+            ))
+            if (uiState.isAudioAmplificationAvailable) add(NuvioCMoreItem.Toggle(
+                "keep_sound", keepSoundLabel, secSound, uiState.persistAudioAmplification
+            ) { viewModel.onEvent(PlayerEvent.OnSetPersistAudioAmplification(!uiState.persistAudioAmplification)) })
+        }
         // Player
         if (inMore(NuvioCOsdButton.SOURCES)) add(NuvioCMoreItem.Action("sources", sourcesLabel, secPlayer, arrow = true, onClick = onShowSourcesPanel))
         if (detailsAvailable && inMore(NuvioCOsdButton.CAST)) add(NuvioCMoreItem.Action("details", detailsLabel, secPlayer, onClick = { castState?.open = true }, arrow = true))

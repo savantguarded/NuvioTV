@@ -915,4 +915,29 @@ object NuvioCFeatures {
     const val CLOUD_SETTINGS_PER_PROFILE = true
     /** Roulette's "seen recently" list and the post-play rating marker are kept per Nuvio profile. Off = one for the TV. */
     const val PROFILE_LOCAL_HISTORY = true
+
+    // ---- round 57 (2026-11-21) ----
+    /** Modern OSD: the left pills (Subtitles / Audio / Sources) show text only, centred, 15 sp Medium, at least 88 dp wide. Off = icon + text. */
+    const val CLEAN_PILL_TEXT_ONLY = true
+    /** Modern OSD More sheet: a Sound section (Night mode, Amplification, Dialogue, Audio delay, Keep for next titles). Left / Right step, OK resets. Off = only in the Audio panel's Sound tab. */
+    const val MORE_SOUND = true
+    /** Modern Audio panel: tracks only, no Tracks / Sound tabs (keep it with MORE_SOUND, else the Sound settings have no home). Off = round 52 tabs. */
+    const val AUDIO_PANEL_NO_TABS = true
+    /** Loading band: lower (22 dp) and dimmer; synopsis 11 sp, 3 lines, 520 dp; filename 9.5 sp on one line (300 dp, cut in the middle) under a small FILENAME label. Off = round 36 band. */
+    const val LOADING_QUIET = true
+    /** Cold start to the profile screen with no Nuvio logo: the profile list (and last active profile) saved on the last run is used from the first frame, so the profile screen draws at once; a plain black cover holds while its background loads, then the intro fades up. The real list replaces the copy as soon as it is read. Off = the still logo while profiles load. */
+    const val STARTUP_PROFILES_FIRST = true
+    /** Continue Watching / Upcoming landscape cards: the title and the episode name both scroll on focus when cut, taking turns (title first). Off = title only, episode name cut. */
+    const val CW_TURN_MARQUEE = true
+    /** Details page: back from Sources (Play / Play manually) jumps straight to the saved spot (no animated scroll) and holds Play while it settles; Back on the play options dialog returns to Play. Off = official restore. */
+    const val DETAIL_RETURN_FOCUS = true
+    /** Roulette: on the reel or a result, changing Movies / Shows, mood, Watched / Unwatched or Refine never spins; the pick stays and an amber dot plus "Filters changed" sit on Shuffle again until the next spin (gone if you set things back). Off = every change spins. */
+    const val ROULETTE_HOLD = true
+    /**
+     * Taste redesign: one loading screen (placeholders + progress) until the tab list and the opening tab are ready, then a
+     * single fade (no Overview flash); flat cards with caps labels, big tabular numbers, poster thumbnails; Overview /
+     * Wrapped rows open their title; larger Discover posters and faces; every focus ring in the app theme's accent.
+     * Off = round 53 look with the profile colour.
+     */
+    const val TASTE_V57 = true
 }

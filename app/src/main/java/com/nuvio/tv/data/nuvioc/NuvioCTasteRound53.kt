@@ -20,7 +20,7 @@ data class NuvioCTasteScopeData(
     val strip: NuvioCTasteStatsStrip
 )
 
-data class NuvioCTasteLine(val name: String, val sub: String, val date: LocalDate)
+data class NuvioCTasteLine(val name: String, val sub: String, val date: LocalDate, /** [fork] round 57: thumbnail */ val poster: String? = null, /** [fork] round 57: opens the title */ val id: String? = null, val type: String? = null)
 
 data class NuvioCTasteOverview(
     val minutes: Int,
@@ -50,7 +50,7 @@ data class NuvioCTasteOverview(
     val empty: Boolean get() = titles == 0
 }
 
-data class NuvioCTasteMostShow(val name: String, val episodes: Int, val minutes: Int, val last: LocalDate)
+data class NuvioCTasteMostShow(val name: String, val episodes: Int, val minutes: Int, val last: LocalDate, /** [fork] round 57 */ val poster: String? = null, val id: String? = null)
 data class NuvioCTasteBigDay(val date: LocalDate, val minutes: Int, val topTitle: String?, val topCount: Int, val topIsShow: Boolean)
 
 data class NuvioCTasteStatsStrip(
@@ -96,6 +96,13 @@ private fun usable53(w: WatchedItem) = w.contentId.startsWith("tt") || w.content
 private fun isShow53(w: WatchedItem) = w.season != null || w.contentType.equals("series", true) || w.contentType.equals("tv", true)
 private fun mins53(w: WatchedItem, titles: Map<String, NuvioCTasteTitle>): Int =
     titles[tasteKeyOf(w)]?.runtime?.takeIf { it > 0 } ?: if (isShow53(w)) 40 else 110
+/** [fork] round 57 taste_v3: the title's poster for row thumbnails. */
+private fun poster53(w: WatchedItem, titles: Map<String, NuvioCTasteTitle>): String? =
+    titles[tasteKeyOf(w)]?.poster?.takeIf { it.isNotBlank() } ?: w.poster?.takeIf { it.isNotBlank() }
+/** [fork] round 57 taste_v3: the id and type that open the title's details. */
+private fun id53(w: WatchedItem): String = w.contentId.trim().let { if (it.startsWith("tmdb:")) it else it.substringBefore(':') }
+private fun type53(w: WatchedItem): String = if (isShow53(w)) "series" else "movie"
+
 private fun name53(w: WatchedItem, titles: Map<String, NuvioCTasteTitle>): String =
     titles[tasteKeyOf(w)]?.name?.takeIf { it.isNotBlank() } ?: w.title
 
@@ -148,7 +155,7 @@ internal fun computeTasteOverview(
     val byShow = eps.groupBy(::tasteKeyOf)
     val most = byShow.maxWithOrNull(compareBy<Map.Entry<String, List<WatchedItem>>> { e -> e.value.count { it.season != null } }
         .thenBy { e -> e.value.sumOf { mins53(it, titles) } })
-        ?.let { (_, l) -> NuvioCTasteMostShow(name53(l.first(), titles), l.count { it.season != null }, l.sumOf { mins53(it, titles) }, day(l.maxBy { it.watchedAt })) }
+        ?.let { (_, l) -> NuvioCTasteMostShow(name53(l.first(), titles), l.count { it.season != null }, l.sumOf { mins53(it, titles) }, day(l.maxBy { it.watchedAt }), poster53(l.first(), titles), id53(l.first())) }
 
     // biggest day and what filled it
     val perDay = lines.groupBy(::day)
@@ -170,7 +177,7 @@ internal fun computeTasteOverview(
             total == null || total <= 0 -> inProgress++
             seen >= total && t!!.ended -> {
                 finished++
-                byShow[k]?.maxByOrNull { it.watchedAt }?.let { finishedLines += NuvioCTasteLine(name53(it, titles), "$total eps", day(it)) }
+                byShow[k]?.maxByOrNull { it.watchedAt }?.let { finishedLines += NuvioCTasteLine(name53(it, titles), "$total eps", day(it), poster53(it, titles), id53(it), type53(it)) }
             }
             seen >= total -> upToDate++
             else -> inProgress++
@@ -178,7 +185,7 @@ internal fun computeTasteOverview(
     }
     films.groupBy(::tasteKeyOf).forEach { (k, l) ->
         val last = l.maxBy { it.watchedAt }
-        finishedLines += NuvioCTasteLine(name53(last, titles), (titles[k]?.year?.let { "Film · $it" } ?: "Film"), day(last))
+        finishedLines += NuvioCTasteLine(name53(last, titles), (titles[k]?.year?.let { "Film · $it" } ?: "Film"), day(last), poster53(last, titles), id53(last), type53(last))
     }
 
     // fresh vs catalogue: watched within the release year or the year after
@@ -195,7 +202,7 @@ internal fun computeTasteOverview(
         .filter { it.third.size >= 2 }
         .sortedWith(compareByDescending<Triple<String, LocalDate, List<WatchedItem>>> { it.third.size }.thenByDescending { it.second })
         .take(5)
-        .map { (_, d, l) -> NuvioCTasteLine(name53(l.first(), titles), "${l.size} eps", d) }
+        .map { (_, d, l) -> NuvioCTasteLine(name53(l.first(), titles), "${l.size} eps", d, poster53(l.first(), titles), id53(l.first()), type53(l.first())) }
 
     return NuvioCTasteOverview(
         minutes = minutes,
@@ -269,13 +276,13 @@ internal fun computeTasteYear(
         val n = l.count { it.season != null }
         Triple(l, n, l.sumOf { mins53(it, titles) })
     }.sortedWith(compareByDescending<Triple<List<WatchedItem>, Int, Int>> { it.second }.thenByDescending { it.third }).take(5)
-        .map { (l, n, m) -> NuvioCTasteLine(name53(l.first(), titles), "$n eps · ${m / 60}h", at(l.maxBy { it.watchedAt }).toLocalDate()) }
+        .map { (l, n, m) -> NuvioCTasteLine(name53(l.first(), titles), "$n eps · ${m / 60}h", at(l.maxBy { it.watchedAt }).toLocalDate(), poster53(l.first(), titles), id53(l.first()), type53(l.first())) }
     val topFilms = films.groupBy(::tasteKeyOf).map { (k, l) -> Triple(k, l.maxBy { it.watchedAt }, tasteScoreFor(k, titles, scores)) }
         .sortedWith(compareByDescending<Triple<String, WatchedItem, Int?>> { it.third ?: -1 }.thenByDescending { it.second.watchedAt })
         .take(5)
         .map { (_, w, s) ->
             val d = at(w).toLocalDate()
-            NuvioCTasteLine(name53(w, titles), (s?.let { "$it/10 · " } ?: "") + d.month.nuvioC3() + " ${d.dayOfMonth}", d)
+            NuvioCTasteLine(name53(w, titles), (s?.let { "$it/10 · " } ?: "") + d.month.nuvioC3() + " ${d.dayOfMonth}", d, poster53(w, titles), id53(w), type53(w))
         }
     val byMonth = IntArray(12)
     lines.forEach { byMonth[at(it).monthValue - 1] += mins53(it, titles) }

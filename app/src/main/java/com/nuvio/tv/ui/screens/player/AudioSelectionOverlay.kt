@@ -208,7 +208,9 @@ internal fun AudioSelectionOverlay(
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(start = 16.dp)
                     )
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.nuvioCTabRow { tabRequesters[tab] }) {
+                // [fork] round 57 `AUDIO_PANEL_NO_TABS`: tracks only; the Sound settings live in the More sheet
+                val noTabs = com.nuvio.tv.NuvioCFeatures.AUDIO_PANEL_NO_TABS
+                if (!noTabs) Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.nuvioCTabRow { tabRequesters[tab] }) {
                     val nuvioCOnSelect = com.nuvio.tv.NuvioCFeatures.PANEL_TABS_ON_SELECT
                     val audioTracksDown: (() -> Boolean)? = if (tracks.isNotEmpty()) ({
                             val idx = tracks.indexOfFirst { it.index == selectedIndex }.coerceAtLeast(0)
@@ -224,7 +226,7 @@ internal fun AudioSelectionOverlay(
                     NuvioCPanelTab(stringResource(R.string.nuvio_c_panel_sound), tab == 1, tabRequesters[1], if (nuvioCOnSelect && tab == 0) tracksFocusRequester else delayMinusFocusRequester,
                         onDown = if (nuvioCOnSelect && tab == 0) audioTracksDown else null) { tab = 1 }
                 }
-                if (tab == 0) {
+                if (tab == 0 || noTabs) {
                     if (tracks.isEmpty()) {
                         Text(stringResource(R.string.audio_lang_default), style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.7f))
                     } else LazyColumn(
@@ -244,7 +246,7 @@ internal fun AudioSelectionOverlay(
                                 focusRequester = if (track.index == selectedIndex || (selectedIndex < 0 && track == tracks.firstOrNull())) tracksFocusRequester else null,
                                 onClick = { onTrackSelected(track.index) },
                                 modifier = Modifier.focusRequester(audioRowFocus.getOrPut(rowIndex) { FocusRequester() })
-                                    .nuvioCRowUp(rowIndex, audioRowFocus, listState, tabRequesters[0], audioScope)
+                                    .nuvioCRowUp(rowIndex, audioRowFocus, listState, if (noTabs) audioRowFocus.getOrPut(rowIndex) { FocusRequester() } else tabRequesters[0], audioScope)
                             )
                         }
                     }

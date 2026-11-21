@@ -100,6 +100,7 @@ private val C_AMBER = Color(0xFFF6B44B)
 private val C_ROSE = Color(0xFFF47C8C)
 private val C_VIOLET = Color(0xFFA78BFA)
 private const val STATS_MIN = 10
+private val C_EDGE = Color.White.copy(alpha = 0.07f) // [fork] round 57 taste_v3: hairline card edge
 
 private enum class Tab53(val label: String) { OVERVIEW("Overview"), DISCOVER("Discover"), STATS("Stats"), WRAPPED("Wrapped") }
 
@@ -125,7 +126,9 @@ internal fun NuvioCTasteTabsV2(
     LaunchedEffect(state.builtAt, key) { if (state.builtAt > 0) viewModel.loadScope(key) }
     LaunchedEffect(state.builtAt, viewModel.tasteYear) { if (state.builtAt > 0) viewModel.loadYear(viewModel.tasteYear) }
 
-    val accent = remember { viewModel.accent }
+    // [fork] round 57 taste_v3: the app theme's accent (focus colour), not the profile's avatar colour
+    val accent = if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) NuvioTheme.colors.FocusRing else remember { viewModel.accent }
+    val yearsLoaded by viewModel.yearsLoaded.collectAsState()
     val empty = all == null || all.empty
     val tabs = buildList {
         add(Tab53.OVERVIEW)
@@ -141,13 +144,30 @@ internal fun NuvioCTasteTabsV2(
     val monthPill = remember { FocusRequester() }
     val wrappedPill = remember { FocusRequester() }
     var menu by remember { mutableStateOf(Menu53.NONE) }
+    val overviewFirstRow = remember { FocusRequester() } // [fork] round 57 taste_v3: Overview rows open their title
+    val wrappedFirstRow = remember { FocusRequester() }
     val downTarget: FocusRequester = when {
         empty && current == Tab53.OVERVIEW -> newProfileFocus
         current == Tab53.DISCOVER -> spinFocus
+        com.nuvio.tv.NuvioCFeatures.TASTE_V57 && current == Tab53.OVERVIEW && (scope?.overview?.recentFinished?.isNotEmpty() == true || scope?.overview?.binges?.isNotEmpty() == true) -> overviewFirstRow
+        com.nuvio.tv.NuvioCFeatures.TASTE_V57 && current == Tab53.WRAPPED && (yearData?.topShows?.isNotEmpty() == true || yearData?.topFilms?.isNotEmpty() == true) -> wrappedFirstRow
         else -> FocusRequester.Cancel
     }
-    LaunchedEffect(all != null) {
-        if (all == null) return@LaunchedEffect
+    // [fork] round 57 taste_v3: one loading screen until the tab list is final and the opening tab's data is in, then
+    // the page fades in once (no Overview drawn first and swapped for the saved tab, no "Reading" text in between).
+    var nuvioCShown by remember { mutableStateOf(!com.nuvio.tv.NuvioCFeatures.TASTE_V57) }
+    var nuvioCGiveUp by remember { mutableStateOf(false) }
+    LaunchedEffect(all != null) { if (all != null) { kotlinx.coroutines.delay(4_000); nuvioCGiveUp = true } }
+    val nuvioCReady = all != null && (empty || nuvioCGiveUp || (yearsLoaded && when (current) {
+        Tab53.OVERVIEW, Tab53.STATS -> scope != null
+        Tab53.WRAPPED -> yearData != null
+        Tab53.DISCOVER -> true
+    }))
+    LaunchedEffect(nuvioCReady) { if (nuvioCReady) nuvioCShown = true }
+    val nuvioCFade = remember { androidx.compose.animation.core.Animatable(if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) 0f else 1f) }
+    LaunchedEffect(nuvioCShown) { if (nuvioCShown && nuvioCFade.value < 1f) nuvioCFade.animateTo(1f, tween(220)) }
+    LaunchedEffect(all != null, nuvioCShown) {
+        if (all == null || !nuvioCShown) return@LaunchedEffect
         if (current == Tab53.DISCOVER && viewModel.discoverFocusKey != null) return@LaunchedEffect
         tabFocus.getValue(current).requestFocusAfterFrames()
     }
@@ -171,11 +191,15 @@ internal fun NuvioCTasteTabsV2(
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xB30B0B0F), Color(0xE00B0B0F), Color(0xF20B0B0D)))))
             Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0x660B0B0F), Color.Transparent, Color(0x660B0B0F)))))
         }
+        if (com.nuvio.tv.NuvioCFeatures.TASTE_V57 && !nuvioCShown) {
+            NuvioCTasteLoading57(state, accent)
+            return@Box
+        }
         if (all == null && com.nuvio.tv.NuvioCFeatures.TASTE_BUILD_ANIM && state.progressTotal > 0) {
             TasteBuilding(state, accent)
             return@Box
         }
-        Column(Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 18.dp, bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(Modifier.fillMaxSize().graphicsLayer { alpha = nuvioCFade.value }.padding(start = 40.dp, end = 40.dp, top = 18.dp, bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
                 tabs.forEachIndexed { i, tab ->
                     // OK picks a tab; passing over it only moves focus, so Right reaches the scope pills
@@ -216,7 +240,7 @@ internal fun NuvioCTasteTabsV2(
                         tab == Tab53.OVERVIEW -> when {
                             sc == null -> Center53("Reading your history")
                             sc.overview.empty -> Center53("Nothing watched in ${scopeName(key)}")
-                            else -> Overview53(sc.overview, accent)
+                            else -> Overview53(sc.overview, accent, overviewFirstRow, tabFocus.getValue(Tab53.OVERVIEW), onOpenTitle)
                         }
                         tab == Tab53.STATS -> when {
                             all.titles < STATS_MIN -> Center53("Stats unlock at $STATS_MIN titles · ${STATS_MIN - all.titles} to go")
@@ -236,7 +260,7 @@ internal fun NuvioCTasteTabsV2(
                             onOpenTitle = onOpenTitle,
                             onOpenPerson = onOpenPerson
                         )
-                        else -> yearData?.let { Wrapped53(it, accent) } ?: Center53("Reading your history")
+                        else -> yearData?.let { Wrapped53(it, accent, wrappedFirstRow, tabFocus.getValue(Tab53.WRAPPED), onOpenTitle) } ?: Center53("Reading your history")
                     }
                 }
             }
@@ -288,14 +312,16 @@ private fun Pill53(label: String, selected: Boolean, accent: Color, modifier: Mo
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(50)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (selected) accent.copy(alpha = 0.22f) else if (quiet) Color.Transparent else Color(0xFF1F2027),
+            containerColor = if (selected) (if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) Color.White.copy(alpha = 0.16f) else accent.copy(alpha = 0.22f)) else if (quiet) Color.Transparent else Color(0xFF1F2027),
             contentColor = if (selected) Color.White else Color.White.copy(alpha = 0.86f),
             focusedContainerColor = Color.White,
             focusedContentColor = Color.Black
         ),
         border = ClickableSurfaceDefaults.border(
-            border = if (selected) Border(BorderStroke(1.5.dp, accent), shape = RoundedCornerShape(50)) else Border.None,
-            focusedBorder = Border(NuvioTheme.focusRing.border(2.dp), shape = RoundedCornerShape(50))
+            border = if (selected && !com.nuvio.tv.NuvioCFeatures.TASTE_V57) Border(BorderStroke(1.5.dp, accent), shape = RoundedCornerShape(50)) else Border.None,
+            // [fork] round 57 taste_v3: white pill with an accent ring just outside it (same shape)
+            focusedBorder = if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) Border(BorderStroke(2.dp, accent), inset = (-3).dp, shape = RoundedCornerShape(50))
+                else Border(NuvioTheme.focusRing.border(2.dp), shape = RoundedCornerShape(50))
         )
     ) {
         Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
@@ -351,7 +377,8 @@ private fun Center53(text: String) {
 
 @Composable
 private fun Card53(modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier.background(C_CARD, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 12.dp), content = content)
+    if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) Column(modifier.background(C_CARD, RoundedCornerShape(14.dp)).border(1.dp, C_EDGE, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 14.dp), content = content)
+    else Column(modifier.background(C_CARD, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 12.dp), content = content)
 }
 
 private fun hm53(minutes: Int): String {
@@ -395,6 +422,7 @@ private fun FitColumn53(modifier: Modifier = Modifier, gap: androidx.compose.ui.
 /** Card heading: colour dot and a bold title. */
 @Composable
 private fun Heading53(text: String, color: Color) {
+    if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) { Label53(text, color); return } // [fork] round 57 taste_v3: one quiet caps label style on every card
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(8.dp).background(color, CircleShape))
         Spacer(Modifier.width(8.dp))
@@ -406,18 +434,18 @@ private fun Heading53(text: String, color: Color) {
 @Composable
 private fun Label53(text: String, color: Color) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(6.dp).background(color, CircleShape))
-        Spacer(Modifier.width(6.dp))
-        Text(text.uppercase(), style = MaterialTheme.typography.labelSmall, color = C_MUTE, letterSpacing = 1.1.sp, maxLines = 1, softWrap = false)
+        Box(Modifier.size(if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) 7.dp else 6.dp).background(color, CircleShape))
+        Spacer(Modifier.width(if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) 8.dp else 6.dp))
+        Text(text.uppercase(), style = MaterialTheme.typography.labelSmall, fontWeight = if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) FontWeight.SemiBold else null, color = C_MUTE, letterSpacing = 1.1.sp, maxLines = 1, softWrap = false)
     }
 }
 
 // ---- Overview ------------------------------------------------------------------------------------------------
 
 @Composable
-private fun Overview53(o: NuvioCTasteOverview, accent: Color) {
+private fun Overview53(o: NuvioCTasteOverview, accent: Color, firstRow: FocusRequester? = null, tab: FocusRequester? = null, onOpen: (String, String) -> Unit = { _, _ -> }) {
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(Modifier.fillMaxWidth().height(92.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth().height(if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) 84.dp else 92.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             val delta = o.prevMinutes?.let { p ->
                 val pct = ((o.minutes - p) * 100.0 / p).toInt()
                 (if (pct >= 0) "+$pct%" else "$pct%") + " vs ${o.prevLabel?.take(4)}"
@@ -427,26 +455,42 @@ private fun Overview53(o: NuvioCTasteOverview, accent: Color) {
             Tile53("Episodes", "%,d".format(o.episodes), if (o.shows > 0) "${o.shows} shows" else "No shows", C_AMBER)
             Tile53("Active days", "%,d".format(o.daysWatched), "of ${o.daysInRange} · best run ${o.longestStreak}", C_ROSE)
         }
-        Row(Modifier.fillMaxWidth().height(116.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth().height(if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) 84.dp else 116.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             val ms = o.mostShow
-            Fact53("Top show", ms?.name ?: "–", ms?.let { "${it.episodes} eps · ${hm53(it.minutes)}" }, C_VIOLET)
+            Fact53("Top show", ms?.name ?: "–", ms?.let { "${it.episodes} eps · ${hm53(it.minutes)}" }, C_VIOLET, thumb = ms?.poster)
             val b = o.biggestDay
             Fact53("Biggest day", b?.let { hm53(it.minutes) } ?: "–",
                 b?.let { listOfNotNull(it.date.dayOfWeek.nuvioC3() + " " + day53(it.date), it.topTitle).joinToString(" · ") }, C_AMBER)
             val shows = o.finishedShows + o.inProgressShows + o.upToDateShows
             Fact53("Shows", if (shows == 0) "–" else "${o.finishedShows} finished",
                 if (shows == 0) null else "${o.inProgressShows} ongoing · ${o.upToDateShows} caught up", C_TEAL)
-            Fact53("New releases", o.freshPercent?.let { "$it%" } ?: "–", o.oldest?.let { "Oldest: ${it.first}, ${it.second}" }, C_ROSE)
+            Fact53("New releases", o.freshPercent?.let { "$it%" } ?: "–", o.oldest?.let { "Oldest: ${it.first}, ${it.second}" }, C_ROSE, ring = o.freshPercent)
         }
         Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) {
+                val rightFirst = remember { FocusRequester() }
+                Rows57(Modifier.weight(1f).fillMaxHeight(), "Recently finished", "Films & shows", o.recentFinished, "Nothing finished yet", C_TEAL, accent,
+                    first = if (o.recentFinished.isNotEmpty()) firstRow else null, up = tab, rightOut = rightFirst.takeIf { o.binges.isNotEmpty() }, onOpen = onOpen) { l -> l.sub + " · " + day53(l.date) }
+                Rows57(Modifier.weight(1f).fillMaxHeight(), "Binges", "Most eps in a day", o.binges, "No binge days yet", C_AMBER, accent,
+                    first = if (o.recentFinished.isEmpty()) firstRow else rightFirst, up = tab, lastColumn = true, onOpen = onOpen) { l -> l.sub + " · " + day53(l.date) }
+            } else {
             List53(Modifier.weight(1f).fillMaxHeight(), "Recently finished", "Films & shows", o.recentFinished, "Nothing finished yet", accent)
             List53(Modifier.weight(1f).fillMaxHeight(), "Binges", "Most eps in a day", o.binges, "No binge days yet", C_AMBER)
+            }
         }
     }
 }
 
 @Composable
 private fun RowScope.Tile53(label: String, value: String, sub: String, color: Color) {
+    if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) { // [fork] round 57 taste_v3: label, big number, quiet note; even padding
+        Column(Modifier.weight(1f).fillMaxHeight().background(C_CARD, RoundedCornerShape(14.dp)).border(1.dp, C_EDGE, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.SpaceBetween) {
+            Label53(label, color)
+            Text(value, style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, softWrap = false)
+            Text(sub, style = MaterialTheme.typography.labelMedium, color = C_MUTE, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+        }
+        return
+    }
     Column(Modifier.weight(1f).fillMaxHeight().background(C_CARD, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 11.dp), verticalArrangement = Arrangement.SpaceBetween) {
         Label53(label, color)
         Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Medium, color = Color.White, maxLines = 1, softWrap = false)
@@ -455,7 +499,29 @@ private fun RowScope.Tile53(label: String, value: String, sub: String, color: Co
 }
 
 @Composable
-private fun RowScope.Fact53(label: String, main: String, sub: String?, color: Color) {
+private fun RowScope.Fact53(label: String, main: String, sub: String?, color: Color, thumb: String? = null, ring: Int? = null) {
+    if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) { // [fork] round 57 taste_v3: one-line value, optional poster or ring on the right
+        Row(Modifier.weight(1f).fillMaxHeight().background(C_CARD, RoundedCornerShape(14.dp)).border(1.dp, C_EDGE, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
+                Label53(label, color)
+                Text(main, style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(sub ?: "", style = MaterialTheme.typography.labelMedium, color = C_MUTE, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (thumb != null) {
+                val context = LocalContext.current
+                val r = remember(thumb) { ImageRequest.Builder(context).data(thumb).size(80, 120).build() }
+                AsyncImage(r, null, contentScale = ContentScale.Crop, modifier = Modifier.width(40.dp).height(60.dp).clip(RoundedCornerShape(6.dp)).background(C_INNER))
+            } else if (ring != null) {
+                androidx.compose.foundation.Canvas(Modifier.size(46.dp)) {
+                    val w = 5.dp.toPx()
+                    drawArc(C_TRACK, 0f, 360f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(w), topLeft = androidx.compose.ui.geometry.Offset(w / 2, w / 2), size = androidx.compose.ui.geometry.Size(size.width - w, size.height - w))
+                    drawArc(color, -90f, 360f * ring.coerceIn(0, 100) / 100f, false, style = androidx.compose.ui.graphics.drawscope.Stroke(w, cap = androidx.compose.ui.graphics.StrokeCap.Round), topLeft = androidx.compose.ui.geometry.Offset(w / 2, w / 2), size = androidx.compose.ui.geometry.Size(size.width - w, size.height - w))
+                }
+            }
+        }
+        return
+    }
     Column(Modifier.weight(1f).fillMaxHeight().background(C_CARD, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 11.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Label53(label, color)
         Text(main, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium, color = Color.White, maxLines = 2, lineHeight = 20.sp, overflow = TextOverflow.Ellipsis)
@@ -644,7 +710,7 @@ private fun Discover53(
     }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // top: a compact Spin card beside the picks; bottom: the faces across the full width
-        Row(Modifier.fillMaxWidth().height(196.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(Modifier.fillMaxWidth().height(if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) 228.dp else 196.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             var spinFocused by remember { mutableStateOf(false) }
             Card(
                 onClick = { viewModel.discoverFocusKey = "spin"; onSpin() },
@@ -662,7 +728,7 @@ private fun Discover53(
                 colors = CardDefaults.colors(containerColor = Color(0xFF1C2233), focusedContainerColor = Color(0xFF243052)),
                 border = CardDefaults.border(
                     border = Border(BorderStroke(2.dp, accent.copy(alpha = 0.55f)), shape = RoundedCornerShape(18.dp)),
-                    focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = RoundedCornerShape(18.dp))
+                    focusedBorder = Border(BorderStroke(3.dp, if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) accent else Color.White), shape = RoundedCornerShape(18.dp))
                 )
             ) {
                 Column(
@@ -691,7 +757,7 @@ private fun Discover53(
                             val key = "t:" + item.id
                             val last = i == row.items.lastIndex
                             // a held Right stops on the last poster
-                            Poster53(item, Modifier.focusRequester(req(key)).focusProperties { up = upTarget; if (last) right = FocusRequester.Cancel }
+                            Poster53(item, accent, Modifier.focusRequester(req(key)).focusProperties { up = upTarget; if (last) right = FocusRequester.Cancel }
                                 .onPreviewKeyEvent { e ->
                                     // held Left walks the posters one by one (scrolling first) and stops on Spin my taste,
                                     // never on a face below or the sidebar
@@ -769,16 +835,18 @@ private fun SpinFlourish53(focused: Boolean, accent: Color) {
 }
 
 @Composable
-private fun Poster53(item: com.nuvio.tv.data.nuvioc.NuvioCTasteShelfItem, modifier: Modifier, onClick: () -> Unit) {
+private fun Poster53(item: com.nuvio.tv.data.nuvioc.NuvioCTasteShelfItem, accent: Color, modifier: Modifier, onClick: () -> Unit) {
     val context = LocalContext.current
     var focused by remember { mutableStateOf(false) }
-    Column(Modifier.width(92.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+    val v3 = com.nuvio.tv.NuvioCFeatures.TASTE_V57 // [fork] round 57 taste_v3: larger posters, accent ring
+    val w = if (v3) 104.dp else 92.dp
+    Column(Modifier.width(w), verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Card(
             onClick = onClick,
-            modifier = modifier.width(92.dp).height(138.dp).onFocusChanged { focused = it.isFocused },
+            modifier = modifier.width(w).height(if (v3) 156.dp else 138.dp).onFocusChanged { focused = it.isFocused },
             shape = CardDefaults.shape(RoundedCornerShape(10.dp)),
             scale = CardDefaults.scale(focusedScale = 1f),
-            border = CardDefaults.border(focusedBorder = Border(BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(10.dp))),
+            border = CardDefaults.border(focusedBorder = Border(BorderStroke(if (v3) 3.dp else 2.dp, if (v3) accent else Color.White), shape = RoundedCornerShape(10.dp))),
             colors = CardDefaults.colors(containerColor = C_INNER),
             glow = com.nuvio.tv.ui.components.nuvioCPosterCardGlow() // [fork] round 53 poster_glow_everywhere
         ) {
@@ -800,13 +868,13 @@ private fun Face53(p: com.nuvio.tv.data.nuvioc.NuvioCTastePersonStat, accent: Co
     Column(Modifier.width(104.dp).padding(vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Surface(
             onClick = onClick,
-            modifier = modifier.size(76.dp).onFocusChanged { focused = it.isFocused },
+            modifier = modifier.size(if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) 84.dp else 76.dp).onFocusChanged { focused = it.isFocused },
             shape = ClickableSurfaceDefaults.shape(CircleShape),
             scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
             colors = ClickableSurfaceDefaults.colors(containerColor = C_INNER, focusedContainerColor = C_INNER),
             border = ClickableSurfaceDefaults.border(
                 border = Border(BorderStroke(1.5.dp, accent.copy(alpha = 0.45f)), shape = CircleShape),
-                focusedBorder = Border(BorderStroke(3.dp, Color.White), shape = CircleShape)
+                focusedBorder = Border(BorderStroke(3.dp, if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) accent else Color.White), shape = CircleShape)
             )
         ) {
             val photo = p.person.photo
@@ -829,7 +897,8 @@ private fun Face53(p: com.nuvio.tv.data.nuvioc.NuvioCTastePersonStat, accent: Co
 // ---- Wrapped -------------------------------------------------------------------------------------------------
 
 @Composable
-private fun Wrapped53(y: NuvioCTasteYear, accent: Color) {
+private fun Wrapped53(y: NuvioCTasteYear, accent: Color, firstRow: FocusRequester? = null, tab: FocusRequester? = null, onOpen: (String, String) -> Unit = { _, _ -> }) {
+    if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) { Wrapped57(y, accent, firstRow, tab, onOpen); return }
     val today = LocalDate.now()
     val soFar = y.year == today.year && today.monthValue < 12
     Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -931,5 +1000,205 @@ private fun NewProfile53(focus: FocusRequester, accent: Color, onSpin: () -> Uni
         Text("Stats appear as you watch on this profile.", style = MaterialTheme.typography.bodyMedium, color = C_MUTE)
         Spacer(Modifier.height(14.dp))
         Pill53("Spin something", false, accent, Modifier.focusRequester(focus)) { onSpin() }
+    }
+}
+
+
+// ---- [fork] round 57 `taste_v3` ---------------------------------------------------------------------------------
+// Flat cards with a quiet caps label, big tabular numbers, poster thumbnails on list rows. Rows open their title and
+// take an accent focus ring (same corner shape as the row, drawn inside the card so it never clips). Rows spread to
+// fill their card; only rows that fit whole are shown; long names are cut to one line. A held Down stops on the last
+// row, a held Right on the right-hand column.
+
+@Composable
+private fun Rows57(
+    modifier: Modifier,
+    title: String,
+    sub: String?,
+    lines: List<NuvioCTasteLine>,
+    emptyText: String,
+    color: Color,
+    accent: Color,
+    first: FocusRequester?,
+    up: FocusRequester?,
+    rightOut: FocusRequester? = null,
+    lastColumn: Boolean = false,
+    numbered: Boolean = false,
+    onOpen: (String, String) -> Unit,
+    meta: (NuvioCTasteLine) -> String
+) {
+    Column(modifier.background(C_CARD, RoundedCornerShape(14.dp)).border(1.dp, C_EDGE, RoundedCornerShape(14.dp)).padding(horizontal = 8.dp, vertical = 12.dp)) {
+        Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Label53(title, color)
+            Spacer(Modifier.weight(1f))
+            if (!sub.isNullOrBlank()) Text(sub, style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, softWrap = false)
+        }
+        if (lines.isEmpty()) {
+            Text(emptyText, style = MaterialTheme.typography.bodySmall, color = C_MUTE, modifier = Modifier.padding(horizontal = 8.dp))
+            return@Column
+        }
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+            val fit = (maxHeight / 40.dp).toInt().coerceAtLeast(1)
+            val shown = lines.take(fit)
+            Column(Modifier.fillMaxSize()) {
+                shown.forEachIndexed { i, l ->
+                    Row57(
+                        line = l, index = if (numbered) i + 1 else null, meta = meta(l), accent = accent, rankColor = color,
+                        modifier = Modifier.fillMaxWidth().weight(1f)
+                            .then(if (i == 0 && first != null) Modifier.focusRequester(first) else Modifier)
+                            .focusProperties {
+                                if (i == 0 && up != null) this.up = up
+                                if (i == shown.lastIndex) down = FocusRequester.Cancel
+                                if (lastColumn) right = FocusRequester.Cancel
+                                else if (rightOut != null && i == 0) right = rightOut
+                            },
+                        onOpen = onOpen
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Row57(line: NuvioCTasteLine, index: Int?, meta: String, accent: Color, rankColor: Color, modifier: Modifier, onOpen: (String, String) -> Unit) {
+    val context = LocalContext.current
+    Surface(
+        onClick = { val id = line.id; val type = line.type; if (id != null && type != null) onOpen(id, type) },
+        modifier = modifier,
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(9.dp)),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color.Transparent, contentColor = Color.White,
+            focusedContainerColor = Color.White.copy(alpha = 0.08f), focusedContentColor = Color.White
+        ),
+        border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, accent), shape = RoundedCornerShape(9.dp)))
+    ) {
+        Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (index != null) Text("$index", style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"), color = rankColor, maxLines = 1, modifier = Modifier.width(12.dp))
+            val p = line.poster
+            if (p != null) {
+                val r = remember(p) { ImageRequest.Builder(context).data(p).size(48, 72).build() }
+                AsyncImage(r, null, contentScale = ContentScale.Crop, modifier = Modifier.width(20.dp).height(30.dp).clip(RoundedCornerShape(4.dp)).background(C_INNER))
+            } else Box(Modifier.width(20.dp).height(30.dp).clip(RoundedCornerShape(4.dp)).background(C_INNER))
+            Text(line.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text(meta, style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"), color = C_MUTE, maxLines = 1, softWrap = false)
+        }
+    }
+}
+
+/** Label / value lines spread down the card, hairlines between, values right-aligned and cut to one line. */
+@Composable
+private fun Ledger57(modifier: Modifier, title: String, color: Color, lines: List<Pair<String, String?>>) {
+    Card53(modifier) {
+        Label53(title, color)
+        Spacer(Modifier.height(6.dp))
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+            val shown = lines.take((maxHeight / 26.dp).toInt().coerceAtLeast(1))
+            Column(Modifier.fillMaxSize()) {
+                shown.forEachIndexed { i, (label, value) ->
+                    Row(Modifier.fillMaxWidth().weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                        Text(label, style = MaterialTheme.typography.labelMedium, color = C_MUTE, maxLines = 1, softWrap = false)
+                        Spacer(Modifier.width(12.dp))
+                        Text(value ?: "–", style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.SemiBold, color = Color.White,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
+                    }
+                    if (i < shown.lastIndex) Box(Modifier.fillMaxWidth().height(1.dp).background(C_EDGE))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun Wrapped57(y: NuvioCTasteYear, accent: Color, firstRow: FocusRequester?, tab: FocusRequester?, onOpen: (String, String) -> Unit) {
+    val today = LocalDate.now()
+    val soFar = y.year == today.year && today.monthValue < 12
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth().weight(0.42f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Card53(Modifier.weight(1f).fillMaxHeight()) {
+                Label53("Your ${y.year}" + if (soFar) " so far" else "", C_VIOLET)
+                Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.SpaceEvenly) {
+                    Row(Modifier.fillMaxWidth()) { Num57("%,d".format(y.hours), "hours watched", Modifier.weight(1f)); Num57("%,d".format(y.titles), "titles", Modifier.weight(1f)) }
+                    Row(Modifier.fillMaxWidth()) { Num57("%,d".format(y.films), "films", Modifier.weight(1f)); Num57("%,d".format(y.episodes), "episodes", Modifier.weight(1f)) }
+                }
+            }
+            Rows57(Modifier.weight(1f).fillMaxHeight(), "Top films", null, y.topFilms, "No films this year", C_AMBER, accent,
+                first = if (y.topFilms.isNotEmpty()) firstRow else null, up = tab, onOpen = onOpen) { it.sub }
+            Card53(Modifier.weight(1f).fillMaxHeight()) {
+                val peak = y.busiestMonth
+                Title53("Hours by month", accent, peak?.let { java.time.Month.of(it + 1).nuvioC3() + " peak" })
+                Bars53(y.byMonth.map { it / 60 }, peak, listOf("J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"), Modifier.fillMaxWidth().weight(1f), accent, values = true)
+            }
+        }
+        Row(Modifier.fillMaxWidth().weight(0.58f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Rows57(Modifier.weight(1f).fillMaxHeight(), "Top shows", "By episodes", y.topShows, "No shows this year", C_TEAL, accent,
+                first = if (y.topFilms.isEmpty()) firstRow else null, up = if (y.topFilms.isNotEmpty()) firstRow else tab, numbered = true, onOpen = onOpen) { it.sub }
+            Ledger57(Modifier.weight(1f).fillMaxHeight(), "Highlights", C_ROSE, listOf(
+                "Top genre" to y.topGenre,
+                "Most seen face" to y.topFace?.let { "${it.first} · ${it.second}" },
+                "Biggest day" to y.biggestDay?.let { day53(it) + " · " + hm53(y.biggestDayMinutes) },
+                "Longest streak" to y.longestStreak.takeIf { it > 0 }?.let { "$it days" },
+                "Usually" to when (y.peakPart) { 0 -> "Mornings"; 1 -> "Afternoons"; 2 -> "Evenings"; 3 -> "Late nights"; else -> null },
+                "Average rating" to y.avgRating?.let { "%.1f · %d rated".format(it, y.rated) }
+            ))
+            Ledger57(Modifier.weight(1f).fillMaxHeight(), "Firsts", C_VIOLET, listOf(
+                "First watch" to y.firstTitle?.let { "${it.first} · ${day53(it.second)}" },
+                (if (soFar) "Latest" else "Last watch") to y.lastTitle?.let { "${it.first} · ${day53(it.second)}" },
+                "New shows" to "%,d".format(y.newShows),
+                "New directors" to "%,d".format(y.newDirectors)
+            ))
+        }
+    }
+}
+
+@Composable
+private fun Num57(value: String, label: String, modifier: Modifier) {
+    Column(modifier) {
+        Text(value, style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, softWrap = false)
+        Text(label, style = MaterialTheme.typography.labelMedium, color = C_MUTE, maxLines = 1)
+    }
+}
+
+/** One loading screen: grey placeholders where the Overview cards go, and a small progress card in the middle. */
+@Composable
+internal fun NuvioCTasteLoading57(state: com.nuvio.tv.data.nuvioc.NuvioCTasteState, accent: Color) {
+    val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "taste57")
+    val pulse by t.animateFloat(0.5f, 1f, androidx.compose.animation.core.infiniteRepeatable(tween(900), androidx.compose.animation.core.RepeatMode.Reverse), label = "taste57p")
+    val sk = Color(0xFF1F2026)
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 18.dp, bottom = 20.dp).graphicsLayer { alpha = pulse }, verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(92, 92, 72, 90).forEach { w -> Box(Modifier.width(w.dp).height(34.dp).background(sk, RoundedCornerShape(50))) }
+            }
+            Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                repeat(2) {
+                    Row(Modifier.fillMaxWidth().height(84.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        repeat(4) { Box(Modifier.weight(1f).fillMaxHeight().background(C_CARD, RoundedCornerShape(14.dp)).border(1.dp, C_EDGE, RoundedCornerShape(14.dp))) }
+                    }
+                }
+                Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    repeat(2) { Box(Modifier.weight(1f).fillMaxHeight().background(C_CARD, RoundedCornerShape(14.dp)).border(1.dp, C_EDGE, RoundedCornerShape(14.dp))) }
+                }
+            }
+        }
+        val total = state.progressTotal
+        Column(
+            Modifier.align(Alignment.Center).width(300.dp).background(Color(0xF20B0B0D), RoundedCornerShape(16.dp)).border(1.dp, C_EDGE, RoundedCornerShape(16.dp)).padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("Reading your history", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1)
+            if (total > 0) {
+                val done = (total - state.pending).coerceIn(0, total)
+                Text("%,d of %,d titles".format(done, total), style = MaterialTheme.typography.labelMedium, color = C_MUTE, maxLines = 1)
+                Box(Modifier.fillMaxWidth().height(4.dp).background(C_TRACK, RoundedCornerShape(2.dp))) {
+                    Box(Modifier.fillMaxWidth(done.toFloat() / total).height(4.dp).background(accent, RoundedCornerShape(2.dp)))
+                }
+            } else {
+                Box(Modifier.fillMaxWidth().height(4.dp).background(C_TRACK, RoundedCornerShape(2.dp))) {
+                    Box(Modifier.fillMaxWidth(pulse).height(4.dp).background(accent.copy(alpha = 0.8f), RoundedCornerShape(2.dp)))
+                }
+            }
+        }
     }
 }

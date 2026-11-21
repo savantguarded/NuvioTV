@@ -2,28 +2,33 @@
 
 Rewrite this file at the end of every build session (do not append). History lives in git log.
 
-Updated: 2026-11-20 (round 56)
+Updated: 2026-11-21 (round 57)
 
 ## Where things stand
-- Branch `nuvio-c` = round 56 on official `1.2.0-beta.3`. Official `1.1.1` (2026-11-21) is a hotfix whose three fixes are already in beta.3; CI now picks the highest version, so it no longer tries 1.1.1.
-- Only branch left: `nuvio-c` (old branches deleted 2026-11-21).
-- Cleanup Groups A, B and C are merged into `nuvio-c`. Compiling it found that the Week view removal had taken four pieces Month / List still use; they now live in `ui/screens/calendar/CalendarShared.kt`.
+- Branch `nuvio-c` = round 57 on official `1.2.0-beta.3`. Official `1.1.1` (2026-11-21) is a hotfix whose three fixes are already in beta.3; CI now picks the highest version, not the newest date.
+- Only branch left: `nuvio-c`. Personal details were scrubbed from code and docs (old commits still hold them).
 - 549 `NuvioC*` / `Calendar*` unit tests pass locally.
-- Round 56:
-  - Modern Subtitles panel: no tabs, two-line rows (pill; language, with SDH / Forced / CC on built-in tracks). Subtitle delay is a line in the Modern More sheet (shown while a subtitle is on).
-  - Episode Find removed completely (the series details page lost focus around it).
-  - Fork settings per profile: each profile keeps its own copy on the TV, loaded on every switch before syncing; the player's cached choices (controls style, button orders, night mode) reload. Roulette's seen list and the post-play rating marker are per profile.
+- Round 57 (mockups: claude.ai canvas "Nuvio C Round 57 mockups"; plan: the claude.ai project doc "round57-plan"):
+  - Modern OSD: text-only left pills; Sound section in the More sheet; Audio panel tracks only.
+  - Loading band quieter and lower, FILENAME label, one-line filename cut in the middle.
+  - Cold start: no Nuvio logo before profiles; profile list mirrored on disk and drawn from the first frame.
+  - Continue Watching / Upcoming cards: title and episode name take turns scrolling.
+  - Details: back from Sources lands on the saved spot without an animated scroll; Back on play options returns to Play.
+  - Roulette: filter changes on a result never spin (dot + "Filters changed" on Shuffle again).
+  - Taste round 57 look (`TASTE_V57`): loading screen, flat cards, thumbnails, rows open titles, app-theme accent rings.
 
 ## Still to check on the TV
-- Series details page: focus never lost, scrolling always works (Find gone).
-- Modern Subtitles panel opens on the active track; Up on the top row stays put; More > Subtitle delay opens the delay bar.
-- Profiles: change a fork setting on profile A, switch to B, B unchanged; back to A, A's value back. Profiles whose cloud copy already holds another profile's values (from the old leak) need their settings checked once by hand.
-- Cast page: bottom clipping. Episode rating panel. Trailers: countdown, mute and fade, hold, resume, Home handoff. Post-play rating prompt.
+- Cold start: black, then the profile screen, no logo. A profile added or renamed on another device appears a moment later.
+- Details: Play manually, then Back from Sources (movie hero and an episode): focus on Play / the episode, never the season tabs.
+- More sheet Sound lines: Left / Right steps, OK resets; Dialogue / Amplification only while the TV decodes the sound.
+- Taste: opening on each saved tab (no Overview flash); rows open titles; held Down stops on the last row; nothing clipped.
+- Upcoming card marquee; Roulette Watched / Unwatched on a result keeps the pick.
+- Earlier: series details focus with Find gone, Modern Subtitles panel, per-profile settings, cast page bottom clipping.
 
 ## Open ideas (not approved for building)
-- Seek thumbnails on the device, no external API (AIOStreams app's version works on the TV). Investigating only.
+- Seek thumbnails on the device, no external API. Investigating only.
 - On-the-fly episode ordering per show (Miami Vice S1, Kengan Ashura) with correct scrobbling.
-- MDBList API call growth during playback (raised 2026-10-31). Current status unknown, re-check with a request log.
+- MDBList API call growth during playback (raised 2026-10-31). Re-check with a request log.
 - Watchly C lives in its own repo, not here.
 
 ## Start of every build session

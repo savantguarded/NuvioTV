@@ -58,6 +58,9 @@ class NuvioCTasteViewModel @Inject constructor(
     val facts: StateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteFacts?> = _facts.asStateFlow()
     private val _wrappedYears = MutableStateFlow<List<Int>>(emptyList())
     val wrappedYears: StateFlow<List<Int>> = _wrappedYears.asStateFlow()
+    /** [fork] round 57 taste_v3: the Wrapped years have been read at least once this visit (so the tab list is final). */
+    private val _yearsLoaded = MutableStateFlow(false)
+    val yearsLoaded: StateFlow<Boolean> = _yearsLoaded.asStateFlow()
     private val _wrapped = MutableStateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteWrapped?>(null)
     val wrapped: StateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteWrapped?> = _wrapped.asStateFlow()
 
@@ -122,6 +125,7 @@ class NuvioCTasteViewModel @Inject constructor(
         viewModelScope.launch {
             val years = repository.wrappedYears()
             _wrappedYears.value = years
+            _yearsLoaded.value = true
             val y = year?.takeIf { it in years } ?: years.firstOrNull()
             _year.value = y?.let { repository.year(it) }
         }
@@ -134,7 +138,7 @@ class NuvioCTasteViewModel @Inject constructor(
             if (openedProfile != null) {
                 opened = false
                 _rows.value = emptyList(); _review.value = null; _panel.value = null; _monthData.value = null; _live.value = null
-                _facts.value = null; _wrapped.value = null; _wrappedYears.value = emptyList(); tasteTab = 0 // [fork] round 52
+                _facts.value = null; _wrapped.value = null; _wrappedYears.value = emptyList(); _yearsLoaded.value = false; tasteTab = 0 // [fork] round 52
                 _overview.value = null; _strip.value = null; _year.value = null; _scope.value = null; tasteScopeKey = "all"; tasteRange = NuvioCTasteRange.ALL; tasteMonth = null; tasteYear = null; discoverFocusKey = null; discoverListState = androidx.compose.foundation.lazy.LazyListState() // [fork] round 53
                 memories.clear(); spotlightCache.clear(); changedIds = emptySet(); lastArea = null; monthFrom = null; panelFrom = null
                 lensFor = null; lens = null; _monthTitles.value = emptyList()

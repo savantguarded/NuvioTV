@@ -687,9 +687,14 @@ private fun ShuffleStage(
                         Icon(painterResource(R.drawable.nuvio_c_ic_shuffle), contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(stringResource(R.string.nuvio_c_shuffle_again))
+                        if (ui.changed) { // [fork] round 57 roulette_hold: unused filter changes
+                            Spacer(Modifier.width(8.dp))
+                            Box(Modifier.size(7.dp).background(Color(0xFFE8B04B), androidx.compose.foundation.shape.CircleShape))
+                        }
                     }
                 }
-                if (com.nuvio.tv.NuvioCFeatures.ROULETTE_COPY) NuvioCRouletteCopy.spinsLine(ui)?.let { // [fork] round 36: quiet line after a few spins
+                if (ui.changed) Text(stringResource(R.string.nuvio_c_roulette_changed), style = MaterialTheme.typography.bodySmall, color = Color(0xFFE8B04B), maxLines = 1) // [fork] round 57
+                else if (com.nuvio.tv.NuvioCFeatures.ROULETTE_COPY) NuvioCRouletteCopy.spinsLine(ui)?.let { // [fork] round 36: quiet line after a few spins
                     Text(it, style = MaterialTheme.typography.bodySmall, color = NuvioTheme.colors.TextTertiary, maxLines = 1)
                 }
             }
