@@ -60,7 +60,9 @@ data class NuvioCTasteStatsStrip(
     val topCountries: List<String>,
     val avgFilmMinutes: Int?,
     val longestFilm: Pair<String, Int>?,
-    val avgEpisodeMinutes: Int?
+    val avgEpisodeMinutes: Int?,
+    /** [fork] round 59: shows behind the average episode */
+    val showCount: Int = 0
 )
 
 data class NuvioCTasteYear(
@@ -253,7 +255,8 @@ internal fun computeTasteStatsStrip(history: List<WatchedItem>, titles: Map<Stri
         topCountries = topCountries,
         avgFilmMinutes = films.takeIf { it.isNotEmpty() }?.map { it.runtime!! }?.average()?.toInt(),
         longestFilm = films.maxByOrNull { it.runtime!! }?.let { it.name to it.runtime!! },
-        avgEpisodeMinutes = shows.takeIf { it.isNotEmpty() }?.map { it.runtime!! }?.average()?.toInt()
+        avgEpisodeMinutes = shows.takeIf { it.isNotEmpty() }?.map { it.runtime!! }?.average()?.toInt(),
+        showCount = shows.size
     )
 }
 
@@ -282,7 +285,7 @@ internal fun computeTasteYear(
         .take(5)
         .map { (_, w, s) ->
             val d = at(w).toLocalDate()
-            NuvioCTasteLine(name53(w, titles), (s?.let { "$it/10 · " } ?: "") + d.month.nuvioC3() + " ${d.dayOfMonth}", d, poster53(w, titles), id53(w), type53(w))
+            NuvioCTasteLine(name53(w, titles), (s?.let { "$it/10 · " } ?: "") + if (com.nuvio.tv.NuvioCFeatures.TASTE_V59) "${d.dayOfMonth} " + d.month.nuvioC3() else d.month.nuvioC3() + " ${d.dayOfMonth}", d, poster53(w, titles), id53(w), type53(w))
         }
     val byMonth = IntArray(12)
     lines.forEach { byMonth[at(it).monthValue - 1] += mins53(it, titles) }

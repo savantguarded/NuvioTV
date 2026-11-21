@@ -2,7 +2,7 @@
 
 Rewrite this file at the end of every build session (do not append). History lives in git log.
 
-Updated: 2026-11-21 (round 58)
+Updated: 2026-11-21 (round 59)
 
 ## Where things stand
 - Branch `nuvio-c` = round 58 on official `1.2.0-beta.3` (still the newest official tag; `1.1.1` is an older-numbered hotfix already in beta.3). CI picks the highest version.
@@ -14,9 +14,11 @@ Updated: 2026-11-21 (round 58)
   - Modern OSD right icons larger inside the same 36 dp pill (`CLEAN_ICONS_LARGER`).
   - Taste (`TASTE_V58`): Month / Year / All time, opens on This month every time, empty month offers last month; New releases without chart; wider Discover posters; Languages card in Stats; Wrapped re-laid with Top films top five beside Top shows and Firsts in the top row.
   - `DETAIL_FOCUS_LOG` switched off.
+- Round 59 (boards 18 to 20 on the canvas, after the TV screenshots): Taste two-line names and rows, Wrapped chart headroom and "11 Nov" dates, Stats bottom strip as four aligned cards (`TASTE_V59`).
 
 ## Still to check on the TV
 - Library on Nuvio Sync: list picker shows Library / Watched; Watched newest first, Movies / Series filter, Back keeps focus; posters fill in for history items without one.
+- Taste round 59: Top show / Biggest day / New releases with a long name (two lines, nothing clipped in the 84 dp cards); list rows readable at two lines; 269-style peak number on Hours by month not clipped; bottom strip cards line up with the cards above.
 - Taste: sidebar entry opens on This month even after leaving it on All time; Stats four cards fit without clipping; Discover faces row not squeezed by the taller posters; Wrapped Firsts fits its shorter card.
 - Modern OSD: right icons larger, focus circle not clipped.
 - Earlier: cold start (black, then profiles); More sheet Sound lines; Upcoming marquee; Roulette filter hold.

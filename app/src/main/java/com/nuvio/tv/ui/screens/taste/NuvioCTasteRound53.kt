@@ -488,14 +488,16 @@ private fun Overview53(o: NuvioCTasteOverview, accent: Color, firstRow: FocusReq
         }
         Row(Modifier.fillMaxWidth().height(if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) 84.dp else 116.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             val ms = o.mostShow
-            Fact53("Top show", ms?.name ?: "–", ms?.let { "${it.episodes} eps · ${hm53(it.minutes)}" }, C_VIOLET, thumb = ms?.poster)
+            Fact53("Top show", ms?.name ?: "–", ms?.let { "${it.episodes} eps · ${hm53(it.minutes)}" }, C_VIOLET, thumb = ms?.poster, twoLines = true)
             val b = o.biggestDay
             Fact53("Biggest day", b?.let { hm53(it.minutes) } ?: "–",
-                b?.let { listOfNotNull(it.date.dayOfWeek.nuvioC3() + " " + day53(it.date), it.topTitle).joinToString(" · ") }, C_AMBER)
+                if (com.nuvio.tv.NuvioCFeatures.TASTE_V59) b?.topTitle else b?.let { listOfNotNull(it.date.dayOfWeek.nuvioC3() + " " + day53(it.date), it.topTitle).joinToString(" · ") }, C_AMBER,
+                aside = b?.let { it.date.dayOfWeek.nuvioC3() + " " + day53(it.date) }, twoLines = true)
             val shows = o.finishedShows + o.inProgressShows + o.upToDateShows
             Fact53("Shows", if (shows == 0) "–" else "${o.finishedShows} finished",
                 if (shows == 0) null else "${o.inProgressShows} ongoing · ${o.upToDateShows} caught up", C_TEAL)
-            Fact53("New releases", o.freshPercent?.let { "$it%" } ?: "–", o.oldest?.let { "Oldest: ${it.first}, ${it.second}" }, C_ROSE, ring = if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) null else o.freshPercent) // [fork] round 58: no chart
+            Fact53("New releases", o.freshPercent?.let { "$it%" } ?: "–", o.oldest?.let { if (com.nuvio.tv.NuvioCFeatures.TASTE_V59) it.first else "Oldest: ${it.first}, ${it.second}" }, C_ROSE, ring = if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) null else o.freshPercent,
+                aside = o.oldest?.let { "oldest from ${it.second}" }, twoLines = true) // [fork] round 58: no chart
         }
         Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) {
@@ -530,7 +532,8 @@ private fun RowScope.Tile53(label: String, value: String, sub: String, color: Co
 }
 
 @Composable
-private fun RowScope.Fact53(label: String, main: String, sub: String?, color: Color, thumb: String? = null, ring: Int? = null) {
+private fun RowScope.Fact53(label: String, main: String, sub: String?, color: Color, thumb: String? = null, ring: Int? = null, aside: String? = null, twoLines: Boolean = false) {
+    if (com.nuvio.tv.NuvioCFeatures.TASTE_V59 && twoLines) { Fact59(label, main, sub, color, thumb, aside); return }
     if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) { // [fork] round 57 taste_v3: one-line value, optional poster or ring on the right
         Row(Modifier.weight(1f).fillMaxHeight().background(C_CARD, RoundedCornerShape(14.dp)).border(1.dp, C_EDGE, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -557,6 +560,36 @@ private fun RowScope.Fact53(label: String, main: String, sub: String?, color: Co
         Label53(label, color)
         Text(main, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium, color = Color.White, maxLines = 2, lineHeight = 20.sp, overflow = TextOverflow.Ellipsis)
         if (sub != null) Text(sub, style = MaterialTheme.typography.labelMedium, color = C_MUTE, maxLines = 2, lineHeight = 15.sp, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/**
+ * [fork] round 59: long names get two lines. With a poster (Top show) the name itself wraps to two lines and
+ * the note stays one line; without one (Biggest day, New releases) the short aside (date / year) sits beside
+ * the number and the note below gets two lines.
+ */
+@Composable
+private fun RowScope.Fact59(label: String, main: String, sub: String?, color: Color, thumb: String?, aside: String?) {
+    Row(Modifier.weight(1f).fillMaxHeight().background(C_CARD, RoundedCornerShape(14.dp)).border(1.dp, C_EDGE, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
+            Label53(label, color)
+            if (thumb != null || aside == null && sub == null) {
+                Text(main, style = MaterialTheme.typography.titleSmall.copy(fontSize = 14.sp, lineHeight = 16.sp), fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(sub ?: "", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), fontWeight = FontWeight.Normal, color = C_MUTE, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            } else {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(main, style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, softWrap = false, modifier = Modifier.alignByBaseline())
+                    if (aside != null) Text("  $aside", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp), color = C_MUTE, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.alignByBaseline())
+                }
+                Text(sub ?: "", style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, lineHeight = 13.sp), fontWeight = FontWeight.Normal, color = C_MUTE, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        if (thumb != null) {
+            val context = LocalContext.current
+            val r = remember(thumb) { ImageRequest.Builder(context).data(thumb).size(80, 120).build() }
+            AsyncImage(r, null, contentScale = ContentScale.Crop, modifier = Modifier.width(40.dp).height(60.dp).clip(RoundedCornerShape(6.dp)).background(C_INNER))
+        }
     }
 }
 
@@ -654,6 +687,12 @@ private fun Stats53(s: NuvioCTasteStats, f: com.nuvio.tv.data.nuvioc.NuvioCTaste
                 FitColumn53(Modifier.fillMaxWidth().weight(1f)) { lang.forEach { (name, pct) -> HBar53(name, "$pct%", pct.toFloat() / max, C_TEAL) } }
             }
         }
+        if (com.nuvio.tv.NuvioCFeatures.TASTE_V59) Row(Modifier.fillMaxWidth().height(64.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) { // [fork] round 59: four cards under the four above
+            StripCard59("Countries", strip.countries.takeIf { it > 0 }?.toString(), strip.topCountries.takeIf { it.isNotEmpty() }?.joinToString(" · "), C_AMBER)
+            StripCard59("Avg film", strip.avgFilmMinutes?.let { hm53(it) }, strip.longestFilm?.let { "Longest ${hm53(it.second)}" }, C_ROSE)
+            StripCard59("Avg episode", strip.avgEpisodeMinutes?.let { hm53(it) }, strip.showCount.takeIf { it > 0 }?.let { "Across %,d shows".format(it) }, C_VIOLET)
+            StripCard59("vs TMDB", s.vsCrowd?.let { "%+.1f".format(it) }, s.vsCrowd?.let { if (it >= 0) "You rate higher" else "You rate lower" } ?: "Needs 10 ratings", accent)
+        } else
         Row(Modifier.fillMaxWidth().height(64.dp).background(C_CARD, RoundedCornerShape(14.dp)).padding(vertical = 10.dp)) {
             val lang = strip.languages
             if (!com.nuvio.tv.NuvioCFeatures.TASTE_V58) StripFact53("Language", lang.firstOrNull()?.let { "${it.second}% ${it.first}" }, lang.drop(1).takeIf { it.isNotEmpty() }?.joinToString(", ", prefix = "+ ") { it.first }, C_TEAL, first = true)
@@ -661,6 +700,18 @@ private fun Stats53(s: NuvioCTasteStats, f: com.nuvio.tv.data.nuvioc.NuvioCTaste
             StripFact53("Avg film", strip.avgFilmMinutes?.let { hm53(it) }, strip.longestFilm?.let { "Longest ${hm53(it.second)}" }, C_ROSE)
             StripFact53("Avg episode", strip.avgEpisodeMinutes?.let { hm53(it) }, null, C_VIOLET)
             StripFact53("vs TMDB", s.vsCrowd?.let { "%+.1f".format(it) }, s.vsCrowd?.let { if (it >= 0) "You rate higher" else "You rate lower" } ?: "Needs 10 ratings", accent)
+        }
+    }
+}
+
+@Composable
+private fun RowScope.StripCard59(label: String, value: String?, sub: String?, color: Color) {
+    Column(Modifier.weight(1f).fillMaxHeight().background(C_CARD, RoundedCornerShape(14.dp)).border(1.dp, C_EDGE, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)) {
+        Label53(label, color)
+        Row {
+            Text(value ?: "–", style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, softWrap = false, modifier = Modifier.alignByBaseline())
+            if (sub != null) Text("  $sub", style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.alignByBaseline())
         }
     }
 }
@@ -697,6 +748,8 @@ private fun Bars53(counts: List<Int>, highlight: Int?, labels: List<String>?, mo
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(if (counts.size > 12) 3.dp else 5.dp), verticalAlignment = Alignment.Bottom) {
         counts.forEachIndexed { i, c ->
             Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
+                // [fork] round 59: a reserved line on top so the tallest bar's number is never clipped
+                if (com.nuvio.tv.NuvioCFeatures.TASTE_V59 && values) Spacer(Modifier.height(13.dp))
                 // bars stand on the baseline: empty space first, then the value, then the bar
                 if (c < max) Spacer(Modifier.weight((1f - c.toFloat() / max).coerceAtLeast(0.0001f)))
                 if (values && c > 0) Text(if (c >= 1000) "${c / 1000}k" else "$c", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Normal, color = C_MUTE, maxLines = 1, softWrap = false, fontSize = 9.sp)
@@ -1119,8 +1172,13 @@ private fun Row57(line: NuvioCTasteLine, index: Int?, meta: String, accent: Colo
                 val r = remember(p) { ImageRequest.Builder(context).data(p).size(48, 72).build() }
                 AsyncImage(r, null, contentScale = ContentScale.Crop, modifier = Modifier.width(20.dp).height(30.dp).clip(RoundedCornerShape(4.dp)).background(C_INNER))
             } else Box(Modifier.width(20.dp).height(30.dp).clip(RoundedCornerShape(4.dp)).background(C_INNER))
+            if (com.nuvio.tv.NuvioCFeatures.TASTE_V59) Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) { // [fork] round 59: title line + details line
+                Text(line.name, style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 15.sp), fontWeight = FontWeight.Normal, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(meta, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 13.sp, fontFeatureSettings = "tnum"), fontWeight = FontWeight.Normal, color = C_MUTE, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            } else {
             Text(line.name, style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 16.sp), fontWeight = FontWeight.Normal, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             Text(meta, style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontFeatureSettings = "tnum"), fontWeight = FontWeight.Normal, color = C_MUTE, maxLines = 1, softWrap = false)
+            }
         }
     }
 }

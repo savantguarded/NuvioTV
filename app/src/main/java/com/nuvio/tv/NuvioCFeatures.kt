@@ -86,6 +86,8 @@ object NuvioCFeatures {
     const val CLEAN_ICONS_LARGER = true
     /** [fork] round 58 taste_v58: New releases without ring, wider Discover posters, Languages card in Stats, Wrapped re-laid, This month first and default, early-month hint. */
     const val TASTE_V58 = true
+    /** [fork] round 59 taste_v59: long names get two lines (Top show, Biggest day, New releases, list rows), Wrapped chart headroom and "11 Nov" dates, Stats bottom strip as four aligned cards. */
+    const val TASTE_V59 = true
     /** Subtitles: "Font" picker (player subtitle style panel and Settings) with the app's extra fonts. Off = official default font. */
     const val SUBTITLE_FONT = true
     /** Profile screen: official layout without "Who's watching?", the hold hint, star and Primary text; Add Profile as a button under the profiles. Manage profiles stays official. */

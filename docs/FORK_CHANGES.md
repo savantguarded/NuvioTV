@@ -4,7 +4,7 @@ How Nuvio C differs from official NuvioTV, grouped by area: what you see, the sw
 Per-switch detail: every switch in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt` has a one-line comment. This file is the overview, not a copy of that list.
 Paths below are relative to `app/src/main/java/com/nuvio/tv/` unless they start with `app/`, `.github/` or `scripts/`.
 
-Base: official `1.2.0-beta.3` (`552cacf5`). Fork footprint vs that tag: 404 files added, 175 official files edited, about 62,800 lines added. 428 switches, 1 off.
+Base: official `1.2.0-beta.3` (`552cacf5`). Fork footprint vs that tag: 404 files added, 175 official files edited, about 62,800 lines added. 429 switches, 1 off.
 Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream merge).
 
 ## Build and distribution
@@ -99,6 +99,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Per-profile stats and discovery: Overview / Discover / Stats / Wrapped tabs.
 - Round 57 look (`TASTE_V57`): one loading screen (placeholders + progress) until the tab list and opening tab are ready, then one fade; flat cards with caps labels, tabular numbers, poster thumbnails; Overview / Wrapped rows open their title; card headers bold, big numbers extra bold, titles regular and smaller; tabs fill with the app theme accent when focused, other focus rings in the accent (not the profile colour); months as three letters; backdrop decoded larger and softly blurred (`BACKDROP_SMOOTH`).
 - Round 58 (`TASTE_V58`): scope pills Month / Year / All time, and the page opens on This month every time (sidebar entry resets it); an empty This month offers last month; New releases without its ring chart; Discover posters 120 x 170 dp; Stats has Languages as its own card (top five) beside Genres / Decades / Studios, bottom strip four tiles; Wrapped top row totals / Hours by month / Firsts, bottom row Top shows / Top films (top five by rating) / Highlights.
+- Round 59 (`TASTE_V59`): long names get two lines: Top show name wraps (note one line); Biggest day / New releases put the date / oldest year beside the number and the title gets two lines below; list rows (Recently finished, Binges, Top shows, Top films) are title line + details line. Wrapped chart keeps a line above the bars for the peak number; Wrapped dates read "11 Nov". Stats bottom strip is four cards lined up under the four cards above; Avg episode notes how many shows.
 - Files: `ui/screens/taste/`, `data/nuvioc/NuvioCTaste*.kt`. Rule: strictly per profile.
 
 ## Trackers and sync
