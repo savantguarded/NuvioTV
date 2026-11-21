@@ -956,4 +956,8 @@ object NuvioCFeatures {
     const val DETAIL_FOCUS_LOG = true
     /** Roulette mood screen: the Movies / Shows cards get no glow and no fill on focus (white edge and lift only). Off = round 53d glow. */
     const val ROULETTE_TILE_NO_GLOW = true
+    /** Details: the episode restore lock never makes a card unfocusable once the restore id is cleared (the restored card lost focus to the season tabs in that frame). Off = official lock. */
+    const val EPISODE_LOCK_RACE = true
+    /** Details: back from Sources opened from the Play / Resume pill returns to that pill (and keeps the season you were on) instead of jumping to the played episode. Off = official episode return. */
+    const val DETAIL_HERO_RETURN = true
 }

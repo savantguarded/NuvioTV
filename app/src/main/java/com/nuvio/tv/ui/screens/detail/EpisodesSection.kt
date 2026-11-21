@@ -705,7 +705,12 @@ fun EpisodesRow(
                 upFocusRequester = upFocusRequester,
                 downFocusRequester = downFocusRequester,
                 focusRequester = episodeFocusRequester,
-                isFocusEnabled = if (com.nuvio.tv.NuvioCFeatures.DETAILS_FLUID) !restoreLock || isRestoreTarget else restoreEpisodeId.isNullOrBlank() || isRestoreTarget,
+                // [fork] round 57c `EPISODE_LOCK_RACE`: the lock only applies while a restore id is set. When the restored card
+                // took focus, the restore was cleared (id gone) one frame before the lock lifted; for that frame the focused
+                // card itself was unfocusable, so Compose threw focus to the season tabs (seen over adb on MobLand S2E10).
+                isFocusEnabled = if (com.nuvio.tv.NuvioCFeatures.DETAILS_FLUID) !restoreLock || isRestoreTarget ||
+                    (com.nuvio.tv.NuvioCFeatures.EPISODE_LOCK_RACE && restoreEpisodeId.isNullOrBlank())
+                    else restoreEpisodeId.isNullOrBlank() || isRestoreTarget,
                 onFocused = episodeOnFocused,
                 onFocusRestored = episodeOnFocusRestored
             )

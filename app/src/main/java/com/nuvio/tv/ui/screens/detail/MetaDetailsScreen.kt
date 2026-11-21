@@ -1489,6 +1489,7 @@ private fun MetaDetailsContent(
     var commentsEntryFocusToken by rememberSaveable { mutableIntStateOf(0) }
     var companyRestoreToken by rememberSaveable { mutableIntStateOf(0) }
     var restoreOnNextResume by rememberSaveable { mutableStateOf(false) }
+    var nuvioCHeroManual by rememberSaveable { mutableStateOf(false) } // [fork] round 57c: Sources opened by hand from the hero pill
     var consumeReturnEpisodeFocusOnClear by rememberSaveable(meta.id) { mutableStateOf(false) }
     var initialHeroFocusRequested by rememberSaveable(meta.id) { mutableStateOf(false) }
     var showHeroPlayOptionsDialog by rememberSaveable(meta.id) { mutableStateOf(false) }
@@ -1871,6 +1872,15 @@ private fun MetaDetailsContent(
         if (request?.season == null || request.episode == null) {
             return@LaunchedEffect
         }
+        // [fork] round 57c `DETAIL_HERO_RETURN`: Sources opened from the Play / Resume pill (Play manually included)
+        // come back to that pill. The episode return step used to take over: it jumped to the played episode's season
+        // (Season 1 for "Play S1 E1"), then lost focus to the season tabs (seen over adb on MobLand).
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_HERO_RETURN && pendingRestoreType == RestoreTarget.HERO && nuvioCHeroManual) {
+            NuvioCFocusLog.i("return step skipped: hero restore pending")
+            initialHeroFocusRequested = true
+            onDetailReturnEpisodeFocusConsumed()
+            return@LaunchedEffect
+        }
         val targetEpisode = resolveDetailReturnEpisodeFocusTarget(
             meta = meta,
             request = request
@@ -1915,6 +1925,7 @@ private fun MetaDetailsContent(
                     initialHeroFocusRequested = true
                     consumeReturnEpisodeFocusOnClear = step.consumeRequest
                     markEpisodeRestore(step.episodeId, restoreOnResume = false)
+                    NuvioCDetailReturnGuard.arm() // [fork] round 57c: the return from Sources goes this way too
                     restoreFocusToken += 1
                     if (seasons.isNotEmpty()) {
                         // Ensure the episodes row is composed before requesting focus on a card.
@@ -2246,6 +2257,7 @@ private fun MetaDetailsContent(
     // Stable hero play callback
     val heroPlayClick = remember(heroVideo, meta.id, onEpisodeClick, onPlayClick, isPlayEnabled) {
         {
+            nuvioCHeroManual = false
             if (isPlayEnabled) markHeroRestore()
             if (heroVideo != null) {
                 onEpisodeClick(heroVideo)
@@ -2256,6 +2268,7 @@ private fun MetaDetailsContent(
     }
     val heroPlayManualClick = remember(heroVideo, meta.id, onEpisodeManualPlayClick, onPlayManuallyClick, isPlayEnabled) {
         {
+            nuvioCHeroManual = true
             if (isPlayEnabled) markHeroRestore()
             if (heroVideo != null) {
                 onEpisodeManualPlayClick(heroVideo)
