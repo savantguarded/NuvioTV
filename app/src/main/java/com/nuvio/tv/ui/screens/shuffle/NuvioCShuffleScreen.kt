@@ -45,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -110,6 +111,7 @@ fun NuvioCShuffleScreen(
                 onKind = viewModel::chooseKind,
                 onMood = { viewModel.setMood(it) },
                 onUnwatched = { viewModel.toggleUnwatched() },
+                onWatch = { viewModel.setWatchFilter(it) },
                 onSources = { sourcesOpen = true },
                 onRefine = { refineOpen = true }
             )
@@ -120,6 +122,7 @@ fun NuvioCShuffleScreen(
                 onCycleKind = viewModel::cycleKind,
                 onCycleMood = viewModel::cycleMood,
                 onUnwatched = { viewModel.toggleUnwatched(reroll = true) },
+                onWatch = { viewModel.setWatchFilter(it, reroll = true) },
                 onAgain = viewModel::roll,
                 onOpen = {
                     val item = ui.pick?.item ?: return@ShuffleStage
@@ -180,6 +183,7 @@ private fun ShuffleMood(
     onKind: (NuvioCShuffleKind) -> Unit,
     onMood: (NuvioCShuffleMood) -> Unit,
     onUnwatched: () -> Unit,
+    onWatch: (com.nuvio.tv.data.nuvioc.NuvioCWatchFilter) -> Unit = {},
     onSources: () -> Unit,
     onRefine: () -> Unit = {}
 ) {
@@ -201,7 +205,7 @@ private fun ShuffleMood(
             Spacer(Modifier.weight(1f))
             // [fork] roulette_page: Unwatched and Blend sit top right
             if (com.nuvio.tv.NuvioCFeatures.ROULETTE_CHIPS) { // [fork] round 37: clear on / off toggle
-                RouletteWatchChip(ui, onUnwatched) // [fork] round 39: Unwatched / Watched / All titles
+                RouletteWatchChip(ui, onUnwatched, onWatch) // [fork] round 39: Unwatched / Watched / All titles
             } else {
             ShuffleChip(label = stringResource(R.string.nuvio_c_shuffle_unwatched), selected = ui.unwatched, dot = ui.unwatched, onClick = onUnwatched)
             }
@@ -427,6 +431,7 @@ private fun ShuffleStage(
     onCycleKind: () -> Unit,
     onCycleMood: () -> Unit,
     onUnwatched: () -> Unit,
+    onWatch: (com.nuvio.tv.data.nuvioc.NuvioCWatchFilter) -> Unit = {},
     onAgain: () -> Unit,
     onOpen: () -> Unit,
     onKind: (NuvioCShuffleKind) -> Unit = {},
@@ -543,7 +548,7 @@ private fun ShuffleStage(
                     selected = ui.mood,
                     onSelect = { if (it != ui.mood) onMood(it) }
                 )
-                RouletteWatchChip(ui, onUnwatched) // [fork] round 39
+                RouletteWatchChip(ui, onUnwatched, onWatch) // [fork] round 39
                 if (nuvioCRefineOn) RouletteRefineChip(refine = ui.refine, onClick = onRefine)
             } else {
             ShuffleChip(label = kindLabel(ui.kind), selected = true, onClick = onCycleKind)
@@ -693,8 +698,7 @@ private fun ShuffleStage(
                         }
                     }
                 }
-                if (ui.changed) Text(stringResource(R.string.nuvio_c_roulette_changed), style = MaterialTheme.typography.bodySmall, color = Color(0xFFE8B04B), maxLines = 1) // [fork] round 57
-                else if (com.nuvio.tv.NuvioCFeatures.ROULETTE_COPY) NuvioCRouletteCopy.spinsLine(ui)?.let { // [fork] round 36: quiet line after a few spins
+                if (com.nuvio.tv.NuvioCFeatures.ROULETTE_COPY) NuvioCRouletteCopy.spinsLine(ui)?.let { // [fork] round 36: quiet line after a few spins
                     Text(it, style = MaterialTheme.typography.bodySmall, color = NuvioTheme.colors.TextTertiary, maxLines = 1)
                 }
             }
@@ -786,7 +790,25 @@ private fun Modifier.nuvioCHoldRightStop(atLast: () -> Boolean): Modifier =
 
 /** Unwatched -> Watched -> All titles. Lit while it narrows the pick (Unwatched or Watched). */
 @Composable
-internal fun RouletteWatchChip(ui: NuvioCShuffleUi, onClick: () -> Unit) {
+internal fun RouletteWatchChip(ui: NuvioCShuffleUi, onClick: () -> Unit, onSelect: ((com.nuvio.tv.data.nuvioc.NuvioCWatchFilter) -> Unit)? = null) {
+    if (com.nuvio.tv.NuvioCFeatures.ROULETTE_WATCH_DROPDOWN && com.nuvio.tv.NuvioCFeatures.ROULETTE_WATCHED_CYCLE && onSelect != null) {
+        // [fork] round 57b: a list like Movies / Shows and the mood, instead of a chip that cycles on every press
+        val labels = com.nuvio.tv.data.nuvioc.NuvioCWatchFilter.entries.associateWith { f ->
+            stringResource(when (f) {
+                com.nuvio.tv.data.nuvioc.NuvioCWatchFilter.UNWATCHED -> R.string.nuvio_c_shuffle_unwatched
+                com.nuvio.tv.data.nuvioc.NuvioCWatchFilter.WATCHED -> R.string.nuvio_c_shuffle_watched
+                com.nuvio.tv.data.nuvioc.NuvioCWatchFilter.ALL -> R.string.nuvio_c_shuffle_all_titles
+            })
+        }
+        RouletteDropdownChip(
+            value = labels.getValue(ui.watchFilter),
+            options = listOf(com.nuvio.tv.data.nuvioc.NuvioCWatchFilter.UNWATCHED, com.nuvio.tv.data.nuvioc.NuvioCWatchFilter.WATCHED, com.nuvio.tv.data.nuvioc.NuvioCWatchFilter.ALL)
+                .map { RouletteOption(labels.getValue(it), it) },
+            selected = ui.watchFilter,
+            onSelect = onSelect
+        )
+        return
+    }
     if (!com.nuvio.tv.NuvioCFeatures.ROULETTE_WATCHED_CYCLE) {
         RouletteToggleChip(label = stringResource(R.string.nuvio_c_shuffle_unwatched), on = ui.unwatched, onClick = onClick)
         return
@@ -835,14 +857,19 @@ private fun RouletteMoodBackdrop(url: String?) {
     androidx.compose.animation.Crossfade(targetState = url, animationSpec = androidx.compose.animation.core.tween(500), label = "rouletteBackdrop") { u ->
         if (u != null) {
             val request = remember(u) {
-                ImageRequest.Builder(context).data(u).size(48, 72).memoryCacheKey("nuvioc_roulette_bg_$u").crossfade(false).build()
+                // [fork] round 57b `BACKDROP_SMOOTH`: a larger decode, smooth scaling and a real blur (Android 12+) instead
+                // of a 48 x 72 picture stretched with nearest-pixel scaling, which showed as big square blocks
+                if (com.nuvio.tv.NuvioCFeatures.BACKDROP_SMOOTH) ImageRequest.Builder(context).data(u).size(160, 240).memoryCacheKey("nuvioc_roulette_bg2_$u").crossfade(false).build()
+                else ImageRequest.Builder(context).data(u).size(48, 72).memoryCacheKey("nuvioc_roulette_bg_$u").crossfade(false).build()
             }
             AsyncImage(
                 model = request,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                filterQuality = androidx.compose.ui.graphics.FilterQuality.Low,
-                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = 0.32f }
+                filterQuality = if (com.nuvio.tv.NuvioCFeatures.BACKDROP_SMOOTH) androidx.compose.ui.graphics.FilterQuality.High else androidx.compose.ui.graphics.FilterQuality.Low,
+                modifier = Modifier.fillMaxSize()
+                    .then(if (com.nuvio.tv.NuvioCFeatures.BACKDROP_SMOOTH && android.os.Build.VERSION.SDK_INT >= 31) Modifier.blur(28.dp, androidx.compose.ui.draw.BlurredEdgeTreatment.Rectangle) else Modifier)
+                    .graphicsLayer { alpha = 0.32f }
             )
         }
     }

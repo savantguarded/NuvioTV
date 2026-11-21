@@ -223,6 +223,14 @@ class NuvioCShuffleViewModel @Inject constructor(
         rollOrHold(reroll)
     }
 
+    /** [fork] round 57b `ROULETTE_WATCH_DROPDOWN`: Unwatched / Watched / All titles picked from a list. */
+    fun setWatchFilter(filter: com.nuvio.tv.data.nuvioc.NuvioCWatchFilter, reroll: Boolean = false) {
+        if (filter == _ui.value.watchFilter) return
+        prefs.setWatchFilter(filter)
+        _ui.update { it.copy(watchFilter = filter, unwatched = filter == com.nuvio.tv.data.nuvioc.NuvioCWatchFilter.UNWATCHED, nothingLeft = false) }
+        rollOrHold(reroll)
+    }
+
     /** [fork] round 37 roulette_refine: new Refine choices; on the result screen they roll again. */
     fun setRefine(refine: com.nuvio.tv.data.nuvioc.NuvioCRouletteRefine, reroll: Boolean = false) {
         if (refine == _ui.value.refine) return

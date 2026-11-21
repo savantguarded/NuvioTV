@@ -1770,6 +1770,11 @@ private fun MetaDetailsContent(
         val nuvioCHero = com.nuvio.tv.NuvioCFeatures.DETAIL_RETURN_FOCUS && pendingRestoreType == RestoreTarget.HERO
         val nuvioCInstant = com.nuvio.tv.NuvioCFeatures.DETAIL_RETURN_FOCUS &&
             (pendingRestoreType == RestoreTarget.HERO || pendingRestoreType == RestoreTarget.EPISODE)
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_RETURN_GUARD && (pendingRestoreType == RestoreTarget.HERO || pendingRestoreType == RestoreTarget.EPISODE)) NuvioCDetailReturnGuard.arm()
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_RETURN_GUARD && nuvioCHero) coroutineScope.launch {
+            heroPlayButtonFocusRequester.requestFocusAfterFrames(1)
+            NuvioCDetailReturnGuard.hold { heroPlayButtonFocusRequester } // [fork] round 57b: a row rebuild can't take it away
+        }
         coroutineScope.launch {
             if (nuvioCHero) heroPlayButtonFocusRequester.requestFocusAfterFrames(1)
             if (index >= 0) {
@@ -3295,7 +3300,10 @@ private fun MetaDetailsContent(
                 onDismiss = {
                     showHeroPlayOptionsDialog = false
                     // [fork] round 57 `DETAIL_RETURN_FOCUS`: Back on the play options goes back to Play, not the first thing found
-                    if (com.nuvio.tv.NuvioCFeatures.DETAIL_RETURN_FOCUS) coroutineScope.launch { heroPlayButtonFocusRequester.requestFocusAfterFrames() }
+                    if (com.nuvio.tv.NuvioCFeatures.DETAIL_RETURN_FOCUS) coroutineScope.launch {
+                        heroPlayButtonFocusRequester.requestFocusAfterFrames()
+                        NuvioCDetailReturnGuard.arm(900); NuvioCDetailReturnGuard.hold { heroPlayButtonFocusRequester }
+                    }
                 },
                 showPlayManually = showManualPlayOption,
                 onPlayManually = {

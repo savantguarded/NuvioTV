@@ -594,6 +594,11 @@ fun EpisodesRow(
         repeat(EPISODE_RESTORE_FOCUS_ATTEMPTS) {
             val requester = episodeFocusRequesters[restoreEpisodeId]
             if (requester != null && requester.requestFocusAfterFrames(frames = 1)) {
+                // [fork] round 57b detail_return_guard: keep the card focused while the row settles after a return
+                if (com.nuvio.tv.NuvioCFeatures.DETAIL_RETURN_GUARD && NuvioCDetailReturnGuard.active) {
+                    val id = restoreEpisodeId
+                    NuvioCDetailReturnGuard.hold { episodeFocusRequesters[id] }
+                }
                 delay(EPISODE_RESTORE_FALLBACK_MS)
                 onRestoreFocusHandled()
                 return@LaunchedEffect

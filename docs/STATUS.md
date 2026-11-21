@@ -2,7 +2,7 @@
 
 Rewrite this file at the end of every build session (do not append). History lives in git log.
 
-Updated: 2026-11-21 (round 57)
+Updated: 2026-11-21 (round 57b)
 
 ## Where things stand
 - Branch `nuvio-c` = round 57 on official `1.2.0-beta.3`. Official `1.1.1` (2026-11-21) is a hotfix whose three fixes are already in beta.3; CI now picks the highest version, not the newest date.
@@ -16,6 +16,7 @@ Updated: 2026-11-21 (round 57)
   - Details: back from Sources lands on the saved spot without an animated scroll; Back on play options returns to Play.
   - Roulette: filter changes on a result never spin (dot + "Filters changed" on Shuffle again).
   - Taste round 57 look (`TASTE_V57`): loading screen, flat cards, thumbnails, rows open titles, app-theme accent rings.
+- Round 57b (after the TV check): start-up logo held back while the profile screen is ahead; details return guard (Play / episode keep focus for 2.5 s or until a key press); More sheet lists every Sound line (Downmix, Amplification, Persist; Unavailable during passthrough); pills 13 sp; Taste bold only on headers, tabs fill with the accent, months three letters; Roulette watch filter is a dropdown, no "Filters changed" text; Taste / Roulette backdrops no longer pixelated.
 
 ## Still to check on the TV
 - Cold start: black, then the profile screen, no logo. A profile added or renamed on another device appears a moment later.

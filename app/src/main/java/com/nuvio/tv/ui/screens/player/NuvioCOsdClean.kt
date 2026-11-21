@@ -154,10 +154,10 @@ internal fun NuvioCOsdPill(
         // [fork] round 57 `CLEAN_PILL_TEXT_ONLY`: no icon, the label centred in a pill at least 88 dp wide
         if (NuvioCFeatures.CLEAN_PILL_TEXT_ONLY) {
             Box(
-                Modifier.widthIn(min = 88.dp).padding(horizontal = 18.dp).fillMaxHeight(),
+                Modifier.widthIn(min = 80.dp).padding(horizontal = 16.dp).fillMaxHeight(),
                 contentAlignment = Alignment.Center
             ) {
-                Text(label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 15.sp, lineHeight = 18.sp), fontWeight = FontWeight.Medium, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Text(label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, lineHeight = 16.sp), fontWeight = FontWeight.Medium, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
             return@Surface
         }

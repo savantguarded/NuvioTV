@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -49,6 +50,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.layout.ContentScale
 import kotlinx.coroutines.launch
@@ -186,8 +188,13 @@ internal fun NuvioCTasteTabsV2(
         val backdropUrl = all?.backdrops?.firstOrNull()
         if (com.nuvio.tv.NuvioCFeatures.TASTE_BACKDROP && backdropUrl != null) {
             val bgContext = LocalContext.current
-            val req = remember(backdropUrl) { ImageRequest.Builder(bgContext).data(backdropUrl).size(320, 180).build() }
-            AsyncImage(req, null, contentScale = ContentScale.Crop, alpha = 0.42f, modifier = Modifier.fillMaxSize())
+            // [fork] round 57b `BACKDROP_SMOOTH`: decoded large enough and smoothly scaled (with a soft blur on Android 12+);
+            // the 320 x 180 decode stretched over the screen looked pixelated
+            val smooth = com.nuvio.tv.NuvioCFeatures.BACKDROP_SMOOTH
+            val req = remember(backdropUrl) { ImageRequest.Builder(bgContext).data(backdropUrl).size(if (smooth) 960 else 320, if (smooth) 540 else 180).build() }
+            AsyncImage(req, null, contentScale = ContentScale.Crop, alpha = 0.42f,
+                filterQuality = if (smooth) androidx.compose.ui.graphics.FilterQuality.High else androidx.compose.ui.graphics.drawscope.DrawScope.DefaultFilterQuality,
+                modifier = Modifier.fillMaxSize().then(if (smooth && android.os.Build.VERSION.SDK_INT >= 31) Modifier.blur(10.dp, androidx.compose.ui.draw.BlurredEdgeTreatment.Rectangle) else Modifier))
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xB30B0B0F), Color(0xE00B0B0F), Color(0xF20B0B0D)))))
             Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0x660B0B0F), Color.Transparent, Color(0x660B0B0F)))))
         }
@@ -314,13 +321,13 @@ private fun Pill53(label: String, selected: Boolean, accent: Color, modifier: Mo
         colors = ClickableSurfaceDefaults.colors(
             containerColor = if (selected) (if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) Color.White.copy(alpha = 0.16f) else accent.copy(alpha = 0.22f)) else if (quiet) Color.Transparent else Color(0xFF1F2027),
             contentColor = if (selected) Color.White else Color.White.copy(alpha = 0.86f),
-            focusedContainerColor = Color.White,
-            focusedContentColor = Color.Black
+            focusedContainerColor = if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) accent else Color.White,
+            focusedContentColor = if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) (if (accent.luminance() > 0.6f) Color.Black else Color.White) else Color.Black
         ),
         border = ClickableSurfaceDefaults.border(
             border = if (selected && !com.nuvio.tv.NuvioCFeatures.TASTE_V57) Border(BorderStroke(1.5.dp, accent), shape = RoundedCornerShape(50)) else Border.None,
             // [fork] round 57 taste_v3: white pill with an accent ring just outside it (same shape)
-            focusedBorder = if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) Border(BorderStroke(2.dp, accent), inset = (-3).dp, shape = RoundedCornerShape(50))
+            focusedBorder = if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) Border.None
                 else Border(NuvioTheme.focusRing.border(2.dp), shape = RoundedCornerShape(50))
         )
     ) {
@@ -436,7 +443,7 @@ private fun Label53(text: String, color: Color) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) 7.dp else 6.dp).background(color, CircleShape))
         Spacer(Modifier.width(if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) 8.dp else 6.dp))
-        Text(text.uppercase(), style = MaterialTheme.typography.labelSmall, fontWeight = if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) FontWeight.SemiBold else null, color = C_MUTE, letterSpacing = 1.1.sp, maxLines = 1, softWrap = false)
+        Text(text.uppercase(), style = MaterialTheme.typography.labelSmall, fontWeight = if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) FontWeight.Bold else null, color = C_MUTE, letterSpacing = 1.1.sp, maxLines = 1, softWrap = false)
     }
 }
 
@@ -448,7 +455,7 @@ private fun Overview53(o: NuvioCTasteOverview, accent: Color, firstRow: FocusReq
         Row(Modifier.fillMaxWidth().height(if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) 84.dp else 92.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             val delta = o.prevMinutes?.let { p ->
                 val pct = ((o.minutes - p) * 100.0 / p).toInt()
-                (if (pct >= 0) "+$pct%" else "$pct%") + " vs ${o.prevLabel?.take(4)}"
+                (if (pct >= 0) "+$pct%" else "$pct%") + " vs ${o.prevLabel?.let { l -> if (l.all { it.isDigit() }) l else l.take(3) }}"
             }
             Tile53("Watch time", hm53(o.minutes), delta ?: "${o.daysWatched} active days", accent)
             Tile53("Titles", "%,d".format(o.titles), "${o.films} films · ${o.shows} shows", C_TEAL)
@@ -486,8 +493,8 @@ private fun RowScope.Tile53(label: String, value: String, sub: String, color: Co
     if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) { // [fork] round 57 taste_v3: label, big number, quiet note; even padding
         Column(Modifier.weight(1f).fillMaxHeight().background(C_CARD, RoundedCornerShape(14.dp)).border(1.dp, C_EDGE, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Label53(label, color)
-            Text(value, style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, softWrap = false)
-            Text(sub, style = MaterialTheme.typography.labelMedium, color = C_MUTE, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+            Text(value, style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.Normal, color = Color.White, maxLines = 1, softWrap = false)
+            Text(sub, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Normal, color = C_MUTE, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
         }
         return
     }
@@ -505,8 +512,8 @@ private fun RowScope.Fact53(label: String, main: String, sub: String?, color: Co
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
                 Label53(label, color)
-                Text(main, style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(sub ?: "", style = MaterialTheme.typography.labelMedium, color = C_MUTE, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(main, style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.Normal, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(sub ?: "", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Normal, color = C_MUTE, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             if (thumb != null) {
                 val context = LocalContext.current
@@ -581,7 +588,7 @@ private fun Stats53(s: NuvioCTasteStats, f: com.nuvio.tv.data.nuvioc.NuvioCTaste
                     Title53("Completion", accent, null)
                     val pct = s.finishedPercent ?: 0
                     Spacer(Modifier.weight(1f))
-                    Text("$pct%", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Medium, color = Color.White)
+                    Text("$pct%", style = MaterialTheme.typography.displaySmall, fontWeight = if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) FontWeight.Normal else FontWeight.Medium, color = Color.White)
                     Text("of shows started", style = MaterialTheme.typography.labelMedium, color = C_MUTE)
                     Spacer(Modifier.height(8.dp))
                     Box(Modifier.fillMaxWidth().height(8.dp).background(C_TRACK, RoundedCornerShape(4.dp))) {
@@ -635,7 +642,7 @@ private fun RowScope.StripFact53(label: String, value: String?, sub: String?, co
             Label53(label, color)
             // value and note share one baseline
             Row {
-                Text(value ?: "–", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium, color = Color.White, maxLines = 1, softWrap = false, modifier = Modifier.alignByBaseline())
+                Text(value ?: "–", style = MaterialTheme.typography.titleMedium, fontWeight = if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) FontWeight.Normal else FontWeight.Medium, color = Color.White, maxLines = 1, softWrap = false, modifier = Modifier.alignByBaseline())
                 if (sub != null) Text("  $sub", style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.alignByBaseline())
             }
         }
@@ -888,7 +895,7 @@ private fun Face53(p: com.nuvio.tv.data.nuvioc.NuvioCTastePersonStat, accent: Co
         // one line for every name; it scrolls when focused
         FocusMarqueeText(
             text = p.person.name, focused = focused,
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium), color = Color.White, textAlign = TextAlign.Center
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) FontWeight.Normal else FontWeight.Medium), color = Color.White, textAlign = TextAlign.Center
         )
         Text(if (p.director) "Director · ${p.count}" else "${p.count} titles", style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, softWrap = false)
     }
@@ -1075,14 +1082,14 @@ private fun Row57(line: NuvioCTasteLine, index: Int?, meta: String, accent: Colo
         border = ClickableSurfaceDefaults.border(focusedBorder = Border(BorderStroke(2.dp, accent), shape = RoundedCornerShape(9.dp)))
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (index != null) Text("$index", style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"), color = rankColor, maxLines = 1, modifier = Modifier.width(12.dp))
+            if (index != null) Text("$index", style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.Normal, color = rankColor, maxLines = 1, modifier = Modifier.width(12.dp))
             val p = line.poster
             if (p != null) {
                 val r = remember(p) { ImageRequest.Builder(context).data(p).size(48, 72).build() }
                 AsyncImage(r, null, contentScale = ContentScale.Crop, modifier = Modifier.width(20.dp).height(30.dp).clip(RoundedCornerShape(4.dp)).background(C_INNER))
             } else Box(Modifier.width(20.dp).height(30.dp).clip(RoundedCornerShape(4.dp)).background(C_INNER))
-            Text(line.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            Text(meta, style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"), color = C_MUTE, maxLines = 1, softWrap = false)
+            Text(line.name, style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp, lineHeight = 17.sp), fontWeight = FontWeight.Normal, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text(meta, style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp, fontFeatureSettings = "tnum"), fontWeight = FontWeight.Normal, color = C_MUTE, maxLines = 1, softWrap = false)
         }
     }
 }
@@ -1098,9 +1105,9 @@ private fun Ledger57(modifier: Modifier, title: String, color: Color, lines: Lis
             Column(Modifier.fillMaxSize()) {
                 shown.forEachIndexed { i, (label, value) ->
                     Row(Modifier.fillMaxWidth().weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                        Text(label, style = MaterialTheme.typography.labelMedium, color = C_MUTE, maxLines = 1, softWrap = false)
+                        Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Normal, color = C_MUTE, maxLines = 1, softWrap = false)
                         Spacer(Modifier.width(12.dp))
-                        Text(value ?: "–", style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.SemiBold, color = Color.White,
+                        Text(value ?: "–", style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp, fontFeatureSettings = "tnum"), fontWeight = FontWeight.Normal, color = Color.White,
                             maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
                     }
                     if (i < shown.lastIndex) Box(Modifier.fillMaxWidth().height(1.dp).background(C_EDGE))
@@ -1155,8 +1162,8 @@ private fun Wrapped57(y: NuvioCTasteYear, accent: Color, firstRow: FocusRequeste
 @Composable
 private fun Num57(value: String, label: String, modifier: Modifier) {
     Column(modifier) {
-        Text(value, style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, softWrap = false)
-        Text(label, style = MaterialTheme.typography.labelMedium, color = C_MUTE, maxLines = 1)
+        Text(value, style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.Normal, color = Color.White, maxLines = 1, softWrap = false)
+        Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Normal, color = C_MUTE, maxLines = 1)
     }
 }
 

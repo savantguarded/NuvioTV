@@ -940,4 +940,12 @@ object NuvioCFeatures {
      * Off = round 53 look with the profile colour.
      */
     const val TASTE_V57 = true
+
+    // ---- round 57b (2026-11-21) ----
+    /** Details page: for 2.5 s after coming back from Sources (or until the first key press), Play / the episode card keeps focus even if a row rebuilds; the play options dialog closing holds Play the same way. Off = one restore attempt. */
+    const val DETAIL_RETURN_GUARD = true
+    /** Taste and Roulette backdrops: decoded larger, smoothly scaled and softly blurred (Android 12+) instead of a tiny picture stretched into blocks. Off = round 54 / 30 backdrops. */
+    const val BACKDROP_SMOOTH = true
+    /** Roulette: Unwatched / Watched / All titles is a dropdown like Movies / Shows and the mood. Off = a chip that cycles. */
+    const val ROULETTE_WATCH_DROPDOWN = true
 }

@@ -1483,7 +1483,11 @@ open class MainActivity : ComponentActivity() {
                         enabled = startupSplashEnabled,
                         complete = startupLoadingState.complete && nuvioCSettled, // [fork] startup_settle
                         destination = startupDestination
-                    ) && (nuvioCPickerWaitOver || splashTriggered || hasSelectedProfileThisSession) // [fork] startup_to_profiles
+                    ) && (nuvioCPickerWaitOver || splashTriggered || hasSelectedProfileThisSession) && // [fork] startup_to_profiles
+                        // [fork] round 57b startup_profiles_first: while the profile screen is still ahead (more than one
+                        // saved profile, none picked yet), the start-up logo never shows; it only covers Home loading
+                        !(com.nuvio.tv.NuvioCFeatures.STARTUP_PROFILES_FIRST && !splashTriggered && !hasSelectedProfileThisSession &&
+                            !shouldAutoSelectProfile && (profiles.size > 1 || activeProfileHasPin))
                     // [fork] round 27c badge_prefetch: once start-up has settled, get every badge logo ready (again when the pack changes)
                     // [fork] round 39 taste_page: the Taste numbers are refreshed quietly once a day, a few minutes after
                     // start-up and only while nothing is playing, so the page usually opens on fresh numbers.
@@ -1661,6 +1665,7 @@ open class MainActivity : ComponentActivity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN) com.nuvio.tv.ui.screens.detail.NuvioCDetailReturnGuard.cancel() // [fork] round 57b
         if (com.nuvio.tv.NuvioCFeatures.STARTUP_SETTLE && com.nuvio.tv.core.nuvioc.NuvioCStartup.holdingKeys) return true // [fork] startup_settle
         if (ambientIdleController.consumeKeyEvent(event)) return true
         // [fork] calendar_bells: Menu while the corner message shows opens the reminder card.
