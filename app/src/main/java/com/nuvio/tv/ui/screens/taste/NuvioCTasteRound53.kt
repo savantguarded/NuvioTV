@@ -121,6 +121,8 @@ internal fun NuvioCTasteTabsV2(
     val yearData by viewModel.year.collectAsState()
     val years by viewModel.wrappedYears.collectAsState()
     val key = viewModel.tasteScopeKey
+    val thisMonthKey = remember { "m:" + YearMonth.now() }
+    val earlyPill = remember { FocusRequester() } // [fork] round 58: "Nothing yet this month" jump
 
     LaunchedEffect(Unit) { viewModel.open() }
     val all = state.all[NuvioCTasteRange.ALL]
@@ -151,6 +153,7 @@ internal fun NuvioCTasteTabsV2(
     val downTarget: FocusRequester = when {
         empty && current == Tab53.OVERVIEW -> newProfileFocus
         current == Tab53.DISCOVER -> spinFocus
+        com.nuvio.tv.NuvioCFeatures.TASTE_V58 && key == thisMonthKey && (current == Tab53.OVERVIEW && scope?.overview?.empty == true || current == Tab53.STATS && scope?.stats?.empty == true) -> earlyPill
         com.nuvio.tv.NuvioCFeatures.TASTE_V57 && current == Tab53.OVERVIEW && (scope?.overview?.recentFinished?.isNotEmpty() == true || scope?.overview?.binges?.isNotEmpty() == true) -> overviewFirstRow
         com.nuvio.tv.NuvioCFeatures.TASTE_V57 && current == Tab53.WRAPPED && (yearData?.topShows?.isNotEmpty() == true || yearData?.topFilms?.isNotEmpty() == true) -> wrappedFirstRow
         else -> FocusRequester.Cancel
@@ -227,11 +230,16 @@ internal fun NuvioCTasteTabsV2(
                 } else if (!empty) {
                     Row(Modifier.background(C_CARD, RoundedCornerShape(50)).padding(3.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         val m = Modifier.focusProperties { down = downTarget }
-                        Pill53("All time", key == "all", accent, m, quiet = true) { viewModel.tasteScopeKey = "all"; menu = Menu53.NONE }
+                        if (!com.nuvio.tv.NuvioCFeatures.TASTE_V58) Pill53("All time", key == "all", accent, m, quiet = true) { viewModel.tasteScopeKey = "all"; menu = Menu53.NONE }
+                        if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) Pill53( // [fork] round 58: Month first, "This month" when it is
+                            if (key == thisMonthKey) "This month  ▾" else if (key.startsWith("m:")) runCatching { YearMonth.parse(key.drop(2)) }.getOrNull()?.let { monthLabel(it) + "  ▾" } ?: "Month  ▾" else "Month  ▾",
+                            key.startsWith("m:"), accent, m.focusRequester(monthPill), quiet = true
+                        ) { menu = if (menu == Menu53.MONTH) Menu53.NONE else Menu53.MONTH }
                         if (scopeYears.isNotEmpty()) Pill53(
                             if (key.startsWith("y:")) key.drop(2) + "  ▾" else "Year  ▾", key.startsWith("y:"), accent, m.focusRequester(yearPill), quiet = true
                         ) { menu = if (menu == Menu53.YEAR) Menu53.NONE else Menu53.YEAR }
-                        if (months.isNotEmpty()) Pill53(
+                        if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) Pill53("All time", key == "all", accent, m.focusProperties { right = FocusRequester.Cancel }, quiet = true) { viewModel.tasteScopeKey = "all"; menu = Menu53.NONE }
+                        if (!com.nuvio.tv.NuvioCFeatures.TASTE_V58 && months.isNotEmpty()) Pill53(
                             if (key.startsWith("m:")) runCatching { YearMonth.parse(key.drop(2)) }.getOrNull()?.let { monthLabel(it) + "  ▾" } ?: "Month  ▾" else "Month  ▾",
                             key.startsWith("m:"), accent, m.focusRequester(monthPill).focusProperties { right = FocusRequester.Cancel }, quiet = true
                         ) { menu = if (menu == Menu53.MONTH) Menu53.NONE else Menu53.MONTH }
@@ -246,12 +254,14 @@ internal fun NuvioCTasteTabsV2(
                         empty && tab == Tab53.OVERVIEW -> NewProfile53(newProfileFocus, accent) { spin(null, null) }
                         tab == Tab53.OVERVIEW -> when {
                             sc == null -> Center53("Reading your history")
+                            sc.overview.empty && com.nuvio.tv.NuvioCFeatures.TASTE_V58 && key == thisMonthKey -> EarlyMonth58(accent, earlyPill, tabFocus.getValue(current)) { viewModel.tasteScopeKey = "m:" + YearMonth.now().minusMonths(1) }
                             sc.overview.empty -> Center53("Nothing watched in ${scopeName(key)}")
                             else -> Overview53(sc.overview, accent, overviewFirstRow, tabFocus.getValue(Tab53.OVERVIEW), onOpenTitle)
                         }
                         tab == Tab53.STATS -> when {
                             all.titles < STATS_MIN -> Center53("Stats unlock at $STATS_MIN titles · ${STATS_MIN - all.titles} to go")
                             sc == null -> Center53("Reading your history")
+                            sc.stats.empty && com.nuvio.tv.NuvioCFeatures.TASTE_V58 && key == thisMonthKey -> EarlyMonth58(accent, earlyPill, tabFocus.getValue(current)) { viewModel.tasteScopeKey = "m:" + YearMonth.now().minusMonths(1) }
                             sc.stats.empty -> Center53("Nothing watched in ${scopeName(key)}")
                             else -> Stats53(sc.stats, sc.facts, sc.strip, accent)
                         }
@@ -377,6 +387,20 @@ private fun Dropdown53(items: List<Pair<String, String?>>, selected: Int, accent
     }
 }
 
+/** [fork] round 58: an empty "This month" offers last month instead of a blank page. */
+@Composable
+private fun EarlyMonth58(accent: Color, focus: FocusRequester, up: FocusRequester, onLastMonth: () -> Unit) {
+    val last = YearMonth.now().minusMonths(1)
+    Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Text("Nothing yet this month", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+        Spacer(Modifier.height(6.dp))
+        Text("Your numbers fill in as you watch.", style = MaterialTheme.typography.bodySmall, color = C_MUTE, maxLines = 1)
+        Spacer(Modifier.height(16.dp))
+        Pill53("See " + last.month.getDisplayName(TextStyle.FULL, Locale.US), false, accent,
+            Modifier.focusRequester(focus).focusProperties { this.up = up; left = FocusRequester.Cancel; right = FocusRequester.Cancel; down = FocusRequester.Cancel }) { onLastMonth() }
+    }
+}
+
 @Composable
 private fun Center53(text: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(text, style = MaterialTheme.typography.titleMedium, color = C_MUTE) }
@@ -471,7 +495,7 @@ private fun Overview53(o: NuvioCTasteOverview, accent: Color, firstRow: FocusReq
             val shows = o.finishedShows + o.inProgressShows + o.upToDateShows
             Fact53("Shows", if (shows == 0) "–" else "${o.finishedShows} finished",
                 if (shows == 0) null else "${o.inProgressShows} ongoing · ${o.upToDateShows} caught up", C_TEAL)
-            Fact53("New releases", o.freshPercent?.let { "$it%" } ?: "–", o.oldest?.let { "Oldest: ${it.first}, ${it.second}" }, C_ROSE, ring = o.freshPercent)
+            Fact53("New releases", o.freshPercent?.let { "$it%" } ?: "–", o.oldest?.let { "Oldest: ${it.first}, ${it.second}" }, C_ROSE, ring = if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) null else o.freshPercent) // [fork] round 58: no chart
         }
         Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) {
@@ -622,11 +646,18 @@ private fun Stats53(s: NuvioCTasteStats, f: com.nuvio.tv.data.nuvioc.NuvioCTaste
                 if (f.studios.isEmpty()) Text("Not enough data yet", style = MaterialTheme.typography.bodySmall, color = C_MUTE)
                 FitColumn53(Modifier.fillMaxWidth().weight(1f)) { f.studios.forEach { (name, n) -> HBar53(name, n.toString(), n.toFloat() / max, C_ROSE) } }
             }
+            if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) Card53(Modifier.weight(1f).fillMaxHeight()) { // [fork] round 58: Languages gets its own card
+                Title53("Languages", C_TEAL, "Share of titles")
+                val lang = strip.languages
+                val max = lang.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1
+                if (lang.isEmpty()) Text("Not enough data yet", style = MaterialTheme.typography.bodySmall, color = C_MUTE)
+                FitColumn53(Modifier.fillMaxWidth().weight(1f)) { lang.forEach { (name, pct) -> HBar53(name, "$pct%", pct.toFloat() / max, C_TEAL) } }
+            }
         }
         Row(Modifier.fillMaxWidth().height(64.dp).background(C_CARD, RoundedCornerShape(14.dp)).padding(vertical = 10.dp)) {
             val lang = strip.languages
-            StripFact53("Language", lang.firstOrNull()?.let { "${it.second}% ${it.first}" }, lang.drop(1).takeIf { it.isNotEmpty() }?.joinToString(", ", prefix = "+ ") { it.first }, C_TEAL, first = true)
-            StripFact53("Countries", strip.countries.takeIf { it > 0 }?.toString(), strip.topCountries.takeIf { it.isNotEmpty() }?.joinToString(" · "), C_AMBER)
+            if (!com.nuvio.tv.NuvioCFeatures.TASTE_V58) StripFact53("Language", lang.firstOrNull()?.let { "${it.second}% ${it.first}" }, lang.drop(1).takeIf { it.isNotEmpty() }?.joinToString(", ", prefix = "+ ") { it.first }, C_TEAL, first = true)
+            StripFact53("Countries", strip.countries.takeIf { it > 0 }?.toString(), strip.topCountries.takeIf { it.isNotEmpty() }?.joinToString(" · "), C_AMBER, first = com.nuvio.tv.NuvioCFeatures.TASTE_V58)
             StripFact53("Avg film", strip.avgFilmMinutes?.let { hm53(it) }, strip.longestFilm?.let { "Longest ${hm53(it.second)}" }, C_ROSE)
             StripFact53("Avg episode", strip.avgEpisodeMinutes?.let { hm53(it) }, null, C_VIOLET)
             StripFact53("vs TMDB", s.vsCrowd?.let { "%+.1f".format(it) }, s.vsCrowd?.let { if (it >= 0) "You rate higher" else "You rate lower" } ?: "Needs 10 ratings", accent)
@@ -717,11 +748,11 @@ private fun Discover53(
     }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // top: a compact Spin card beside the picks; bottom: the faces across the full width
-        Row(Modifier.fillMaxWidth().height(if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) 228.dp else 196.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(Modifier.fillMaxWidth().height(if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) 242.dp else if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) 228.dp else 196.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             var spinFocused by remember { mutableStateOf(false) }
             Card(
                 onClick = { viewModel.discoverFocusKey = "spin"; onSpin() },
-                modifier = Modifier.width(220.dp).fillMaxHeight().padding(4.dp)
+                modifier = Modifier.width(if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) 204.dp else 220.dp).fillMaxHeight().padding(4.dp)
                     .shadow(if (spinFocused) 22.dp else 8.dp, RoundedCornerShape(18.dp), ambientColor = accent, spotColor = accent)
                     .focusRequester(req("spin")).focusProperties {
                         up = upTarget
@@ -846,11 +877,11 @@ private fun Poster53(item: com.nuvio.tv.data.nuvioc.NuvioCTasteShelfItem, accent
     val context = LocalContext.current
     var focused by remember { mutableStateOf(false) }
     val v3 = com.nuvio.tv.NuvioCFeatures.TASTE_V57 // [fork] round 57 taste_v3: larger posters, accent ring
-    val w = if (v3) 104.dp else 92.dp
+    val w = if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) 120.dp else if (v3) 104.dp else 92.dp // [fork] round 58: wider posters
     Column(Modifier.width(w), verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Card(
             onClick = onClick,
-            modifier = modifier.width(w).height(if (v3) 156.dp else 138.dp).onFocusChanged { focused = it.isFocused },
+            modifier = modifier.width(w).height(if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) 170.dp else if (v3) 156.dp else 138.dp).onFocusChanged { focused = it.isFocused },
             shape = CardDefaults.shape(RoundedCornerShape(10.dp)),
             scale = CardDefaults.scale(focusedScale = 1f),
             border = CardDefaults.border(focusedBorder = Border(BorderStroke(if (v3) 3.dp else 2.dp, if (v3) accent else Color.White), shape = RoundedCornerShape(10.dp))),
@@ -1117,10 +1148,53 @@ private fun Ledger57(modifier: Modifier, title: String, color: Color, lines: Lis
     }
 }
 
+/** [fork] round 58: top row totals / hours by month / Firsts; bottom row Top shows / Top films (top five) / Highlights. */
+@Composable
+private fun Wrapped58(y: NuvioCTasteYear, accent: Color, firstRow: FocusRequester?, tab: FocusRequester?, onOpen: (String, String) -> Unit, soFar: Boolean) {
+    Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth().weight(0.42f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Card53(Modifier.weight(1f).fillMaxHeight()) {
+                Label53("Your ${y.year}" + if (soFar) " so far" else "", C_VIOLET)
+                Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.SpaceEvenly) {
+                    Row(Modifier.fillMaxWidth()) { Num57("%,d".format(y.hours), "hours watched", Modifier.weight(1f)); Num57("%,d".format(y.titles), "titles", Modifier.weight(1f)) }
+                    Row(Modifier.fillMaxWidth()) { Num57("%,d".format(y.films), "films", Modifier.weight(1f)); Num57("%,d".format(y.episodes), "episodes", Modifier.weight(1f)) }
+                }
+            }
+            Card53(Modifier.weight(1f).fillMaxHeight()) {
+                val peak = y.busiestMonth
+                Title53("Hours by month", accent, peak?.let { java.time.Month.of(it + 1).nuvioC3() + " peak" })
+                Bars53(y.byMonth.map { it / 60 }, peak, listOf("J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"), Modifier.fillMaxWidth().weight(1f), accent, values = true)
+            }
+            Ledger57(Modifier.weight(1f).fillMaxHeight(), "Firsts", C_VIOLET, listOf(
+                "First watch" to y.firstTitle?.let { "${it.first} · ${day53(it.second)}" },
+                (if (soFar) "Latest" else "Last watch") to y.lastTitle?.let { "${it.first} · ${day53(it.second)}" },
+                "New shows" to "%,d".format(y.newShows),
+                "New directors" to "%,d".format(y.newDirectors)
+            ))
+        }
+        Row(Modifier.fillMaxWidth().weight(0.58f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            val showsFirst = y.topShows.isNotEmpty()
+            Rows57(Modifier.weight(1f).fillMaxHeight(), "Top shows", "By episodes", y.topShows, "No shows this year", C_TEAL, accent,
+                first = if (showsFirst) firstRow else null, up = tab, numbered = true, onOpen = onOpen) { it.sub }
+            Rows57(Modifier.weight(1f).fillMaxHeight(), "Top films", "By rating", y.topFilms, "No films this year", C_AMBER, accent,
+                first = if (!showsFirst && y.topFilms.isNotEmpty()) firstRow else null, up = tab, numbered = true, onOpen = onOpen) { it.sub }
+            Ledger57(Modifier.weight(1f).fillMaxHeight(), "Highlights", C_ROSE, listOf(
+                "Top genre" to y.topGenre,
+                "Most seen face" to y.topFace?.let { "${it.first} · ${it.second}" },
+                "Biggest day" to y.biggestDay?.let { day53(it) + " · " + hm53(y.biggestDayMinutes) },
+                "Longest streak" to y.longestStreak.takeIf { it > 0 }?.let { "$it days" },
+                "Usually" to when (y.peakPart) { 0 -> "Mornings"; 1 -> "Afternoons"; 2 -> "Evenings"; 3 -> "Late nights"; else -> null },
+                "Average rating" to y.avgRating?.let { "%.1f · %d rated".format(it, y.rated) }
+            ))
+        }
+    }
+}
+
 @Composable
 private fun Wrapped57(y: NuvioCTasteYear, accent: Color, firstRow: FocusRequester?, tab: FocusRequester?, onOpen: (String, String) -> Unit) {
     val today = LocalDate.now()
     val soFar = y.year == today.year && today.monthValue < 12
+    if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) { Wrapped58(y, accent, firstRow, tab, onOpen, soFar); return }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth().weight(0.42f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Card53(Modifier.weight(1f).fillMaxHeight()) {

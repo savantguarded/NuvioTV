@@ -80,6 +80,12 @@ object NuvioCFeatures {
     const val DETAIL_RATING = true
     /** Library: read-only "Watched" tab for Trakt and MDBList (newest first, Movies / Series filter); Simkl's Completed tab is named Watched. */
     const val LIBRARY_WATCHED = true
+    /** [fork] round 58 library_watched_local: Nuvio Sync source gets the Library / Watched list picker too (Watched from Nuvio watch history). */
+    const val LIBRARY_WATCHED_LOCAL = true
+    /** [fork] round 58 clean_icons_larger: right group glyphs 60% -> 72% of the 32 dp button; button, focus circle and pill unchanged. */
+    const val CLEAN_ICONS_LARGER = true
+    /** [fork] round 58 taste_v58: New releases without ring, wider Discover posters, Languages card in Stats, Wrapped re-laid, This month first and default, early-month hint. */
+    const val TASTE_V58 = true
     /** Subtitles: "Font" picker (player subtitle style panel and Settings) with the app's extra fonts. Off = official default font. */
     const val SUBTITLE_FONT = true
     /** Profile screen: official layout without "Who's watching?", the hold hint, star and Primary text; Add Profile as a button under the profiles. Manage profiles stays official. */
@@ -953,7 +959,7 @@ object NuvioCFeatures {
     /** Details: each episode card always uses the page's current focus requester, and requesters are never dropped. A card kept a stale one after the page rebuilt on a return from Sources, so focus was lost and the cards couldn't be reached. Off = official. */
     const val EPISODE_REQUESTER_LIVE = true
     /** Details: info-level "NuvioCFocus" log lines tracing the focus restore (read with adb logcat). Diagnostics only. */
-    const val DETAIL_FOCUS_LOG = true
+    const val DETAIL_FOCUS_LOG = false
     /** Roulette mood screen: the Movies / Shows cards get no glow and no fill on focus (white edge and lift only). Off = round 53d glow. */
     const val ROULETTE_TILE_NO_GLOW = true
     /** Details: the episode restore lock never makes a card unfocusable once the restore id is cleared (the restored card lost focus to the season tabs in that frame). Off = official lock. */

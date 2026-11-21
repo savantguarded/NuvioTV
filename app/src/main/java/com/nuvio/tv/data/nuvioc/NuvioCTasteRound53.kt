@@ -241,7 +241,7 @@ internal fun computeTasteStatsStrip(history: List<WatchedItem>, titles: Map<Stri
     val keys = history.filter { usable53(it) && it.watchedAt in window }.map(::tasteKeyOf).toSet()
     val facts = keys.mapNotNull { titles[it] }
     val langs = facts.mapNotNull { it.lang?.takeIf { l -> l.isNotBlank() } }
-    val langShare = langs.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.take(3)
+    val langShare = langs.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.take(if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) 5 else 3) // [fork] round 58: Languages card shows five
         .map { tasteLanguageName(it.key) to (it.value * 100 / langs.size.coerceAtLeast(1)) }
     val countries = facts.flatMap { it.countries.distinct() }
     val topCountries = countries.groupingBy { it }.eachCount().entries.sortedByDescending { it.value }.take(3).map { it.key }

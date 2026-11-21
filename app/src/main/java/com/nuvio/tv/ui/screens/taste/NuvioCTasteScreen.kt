@@ -93,7 +93,10 @@ class NuvioCTasteViewModel @Inject constructor(
     var discoverListState = androidx.compose.foundation.lazy.LazyListState()
 
     // ---- [fork] round 53b taste_scope: "all", "y:2026" or "m:2026-11", shared by Overview / Discover / Stats ----
-    var tasteScopeKey by mutableStateOf("all")
+    var tasteScopeKey by mutableStateOf(nuvioCDefaultScope())
+    /** [fork] round 58: Taste opens on this month (Month first, All time last). */
+    fun nuvioCDefaultScope(): String = if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) "m:" + java.time.YearMonth.now() else "all"
+    fun nuvioCOpenFresh() { if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) { tasteScopeKey = nuvioCDefaultScope(); discoverFocusKey = null } }
     private val _scope = MutableStateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteScopeData?>(null)
     val scope: StateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteScopeData?> = _scope.asStateFlow()
     private var scopeJob: kotlinx.coroutines.Job? = null
@@ -139,7 +142,7 @@ class NuvioCTasteViewModel @Inject constructor(
                 opened = false
                 _rows.value = emptyList(); _review.value = null; _panel.value = null; _monthData.value = null; _live.value = null
                 _facts.value = null; _wrapped.value = null; _wrappedYears.value = emptyList(); _yearsLoaded.value = false; tasteTab = 0 // [fork] round 52
-                _overview.value = null; _strip.value = null; _year.value = null; _scope.value = null; tasteScopeKey = "all"; tasteRange = NuvioCTasteRange.ALL; tasteMonth = null; tasteYear = null; discoverFocusKey = null; discoverListState = androidx.compose.foundation.lazy.LazyListState() // [fork] round 53
+                _overview.value = null; _strip.value = null; _year.value = null; _scope.value = null; tasteScopeKey = nuvioCDefaultScope(); tasteRange = NuvioCTasteRange.ALL; tasteMonth = null; tasteYear = null; discoverFocusKey = null; discoverListState = androidx.compose.foundation.lazy.LazyListState() // [fork] round 53
                 memories.clear(); spotlightCache.clear(); changedIds = emptySet(); lastArea = null; monthFrom = null; panelFrom = null
                 lensFor = null; lens = null; _monthTitles.value = emptyList()
                 countUp = true

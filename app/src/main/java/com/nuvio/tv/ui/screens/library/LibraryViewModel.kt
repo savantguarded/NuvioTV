@@ -259,6 +259,29 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
+    private fun LibraryUiState.nuvioCLocalWatchedOrder(): Comparator<LibraryEntry>? {
+        val key = com.nuvio.tv.data.nuvioc.NUVIO_C_LOCAL_WATCHED_KEY
+        if (selectedListKey != key || !com.nuvio.tv.data.nuvioc.NuvioCWatchedLibrary.localActive(sourceMode)) return null
+        return when (selectedSortOption) {
+            LibrarySortOption.ADDED_DESC -> compareBy { it.listRanks[key] ?: Int.MAX_VALUE }
+            LibrarySortOption.ADDED_ASC -> compareByDescending { it.listRanks[key] ?: Int.MIN_VALUE }
+            else -> null
+        }
+    }
+
+    // [fork] round 58 library_watched_local: the Nuvio Sync source gets "Library" and "Watched" lists.
+    private fun nuvioCLocalItems() = libraryRepository.sourceMode.flatMapLatest { mode ->
+        if (com.nuvio.tv.data.nuvioc.NuvioCWatchedLibrary.localActive(mode)) combine(libraryRepository.libraryItems, watchProgressRepository.watchedItems) { saved, history ->
+            com.nuvio.tv.data.nuvioc.NuvioCWatchedLibrary.localItems(saved, history)
+        } else libraryRepository.libraryItems
+    }.distinctUntilChanged()
+
+    private fun nuvioCLocalTabs() = combine(libraryRepository.sourceMode, libraryRepository.listTabs) { mode, tabs ->
+        if (com.nuvio.tv.data.nuvioc.NuvioCWatchedLibrary.localActive(mode) && tabs.isEmpty()) com.nuvio.tv.data.nuvioc.NuvioCWatchedLibrary.localTabs(
+            context.getString(R.string.library_title), context.getString(R.string.nuvio_c_library_watched)
+        ) else tabs
+    }.distinctUntilChanged()
+
     fun onSelectListTab(listKey: String) {
         _uiState.update { current ->
             val updated = current.copy(selectedListKey = listKey).nuvioCJumpToFirst(current.selectedListKey != listKey) // [fork] library_list_first
@@ -641,8 +664,8 @@ class LibraryViewModel @Inject constructor(
             combine(
                 libraryRepository.sourceMode,
                 libraryRepository.isSyncing,
-                libraryRepository.libraryItems,
-                libraryRepository.listTabs,
+                nuvioCLocalItems(), // [fork] round 58 library_watched_local
+                nuvioCLocalTabs(),
                 libraryPreferences.sortOption,
                 authManager.authState,
                 selectedProviderAuthenticated,
@@ -676,7 +699,7 @@ class LibraryViewModel @Inject constructor(
                 if (_uiState.value.sourceMode != sourceMode || !isTrackingAuthenticated) onCloseManageLists()
                 _uiState.update { current ->
                     val nextSelectedList = when {
-                        sourceMode.providerId != null && isTrackingAuthenticated -> {
+                        (sourceMode.providerId != null || com.nuvio.tv.data.nuvioc.NuvioCWatchedLibrary.localActive(sourceMode)) && isTrackingAuthenticated -> { // [fork] round 58
                             current.selectedListKey
                                 ?.takeIf { key -> listTabs.any { it.key == key } }
                                 ?: persistedListKey?.takeIf { key -> listTabs.any { it.key == key } }
@@ -912,7 +935,7 @@ class LibraryViewModel @Inject constructor(
         releaseInfo?.let { YEAR_REGEX.find(it)?.value }
 
     private fun LibraryUiState.withVisibleItems(): LibraryUiState {
-        val listFiltered = if (sourceMode.providerId != null) {
+        val listFiltered = if (sourceMode.providerId != null || (com.nuvio.tv.data.nuvioc.NuvioCWatchedLibrary.localActive(sourceMode) && listTabs.isNotEmpty())) { // [fork] round 58
             val listKey = selectedListKey ?: ""
             allItems.filter { entry -> entry.listKeys.contains(listKey) }
         } else {
@@ -1006,7 +1029,7 @@ class LibraryViewModel @Inject constructor(
         // Step 6: Sort
         val providerOrder = providerSortOrder?.takeIf {
             it.source == sourceMode && it.listKey == selectedListKey && it.sortOption == selectedSortOption
-        }?.comparator()
+        }?.comparator() ?: nuvioCLocalWatchedOrder() // [fork] round 58: Watched (Nuvio Sync) dates = when watched
         val sorted = when (selectedSortOption) {
             LibrarySortOption.DEFAULT -> when {
                 sourceMode.providerId != null -> watchedFiltered.sortedWith(

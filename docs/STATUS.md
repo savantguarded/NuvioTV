@@ -2,30 +2,24 @@
 
 Rewrite this file at the end of every build session (do not append). History lives in git log.
 
-Updated: 2026-11-21 (round 57d)
+Updated: 2026-11-21 (round 58)
 
 ## Where things stand
-- Branch `nuvio-c` = round 57 on official `1.2.0-beta.3`. Official `1.1.1` (2026-11-21) is a hotfix whose three fixes are already in beta.3; CI now picks the highest version, not the newest date.
+- Branch `nuvio-c` = round 58 on official `1.2.0-beta.3` (still the newest official tag; `1.1.1` is an older-numbered hotfix already in beta.3). CI picks the highest version.
 - Only branch left: `nuvio-c`. Personal details were scrubbed from code and docs (old commits still hold them).
-- 549 `NuvioC*` / `Calendar*` unit tests pass locally.
-- Round 57 (mockups: claude.ai canvas "Nuvio C Round 57 mockups"; plan: the claude.ai project doc "round57-plan"):
-  - Modern OSD: text-only left pills; Sound section in the More sheet; Audio panel tracks only.
-  - Loading band quieter and lower, FILENAME label, one-line filename cut in the middle.
-  - Cold start: no Nuvio logo before profiles; profile list mirrored on disk and drawn from the first frame.
-  - Continue Watching / Upcoming cards: title and episode name take turns scrolling.
-  - Details: back from Sources lands on the saved spot without an animated scroll; Back on play options returns to Play.
-  - Roulette: filter changes on a result never spin (dot + "Filters changed" on Shuffle again).
-  - Taste round 57 look (`TASTE_V57`): loading screen, flat cards, thumbnails, rows open titles, app-theme accent rings.
-- Round 57b (after the TV check): start-up logo held back while the profile screen is ahead; details return guard (Play / episode keep focus for 2.5 s or until a key press); More sheet lists every Sound line (Downmix, Amplification, Persist; Unavailable during passthrough); pills 13 sp; Taste bold only on headers, tabs fill with the accent, months three letters; Roulette watch filter is a dropdown, no "Filters changed" text; Taste / Roulette backdrops no longer pixelated.
-- Round 57c: episode cards keep the page's live focus requester (root cause of focus lost after Play manually -> Back on MobLand S2E10, reproduced over adb); Taste big numbers extra bold, titles a size smaller; Roulette Movies / Shows cards without glow fill. Also fixed after reading the adb trace: the restore lock dropped the just-restored card's focus (`EPISODE_LOCK_RACE`), and the hero pill's manual Sources return jumped to the played episode's season (`DETAIL_HERO_RETURN`). Round 57d: Up from the rows below the episodes (or Down from the tabs) with the row scrolled right aimed at episode 1, which wasn't laid out; focus sat on an invisible spot and the next Up hit the season tabs (reproduced over adb, MobLand S2 scrolled to E10). Now the last focused / nearest visible card takes it (`EPISODE_ENTRY_FALLBACK`). `DETAIL_FOCUS_LOG` is on for checking; switch it off once the restore is confirmed.
+- 550 `NuvioC*` / `Calendar*` unit tests pass locally.
+- Rounds 57 to 57d (see git log and FORK_CHANGES): Modern OSD text pills and Sound in More, quiet loading band, profiles before any logo, CW marquee, details focus fixes confirmed on the TV (MobLand S2E10 manual Sources, hero Play, scrolling up into the episodes), Roulette dropdown and hold, Taste round 57 look.
+- Round 58 (mockups: boards 12 to 17 on the claude.ai canvas "Nuvio C mockups"):
+  - Library: Nuvio Sync gets "Library" and "Watched" lists (`LIBRARY_WATCHED_LOCAL`), same picker, filters, sorts and focus as the trackers.
+  - Modern OSD right icons larger inside the same 36 dp pill (`CLEAN_ICONS_LARGER`).
+  - Taste (`TASTE_V58`): Month / Year / All time, opens on This month every time, empty month offers last month; New releases without chart; wider Discover posters; Languages card in Stats; Wrapped re-laid with Top films top five beside Top shows and Firsts in the top row.
+  - `DETAIL_FOCUS_LOG` switched off.
 
 ## Still to check on the TV
-- Cold start: black, then the profile screen, no logo. A profile added or renamed on another device appears a moment later.
-- Details: Play manually, then Back from Sources (movie hero and an episode): focus on Play / the episode, never the season tabs.
-- More sheet Sound lines: Left / Right steps, OK resets; Dialogue / Amplification only while the TV decodes the sound.
-- Taste: opening on each saved tab (no Overview flash); rows open titles; held Down stops on the last row; nothing clipped.
-- Upcoming card marquee; Roulette Watched / Unwatched on a result keeps the pick.
-- Earlier: series details focus with Find gone, Modern Subtitles panel, per-profile settings, cast page bottom clipping.
+- Library on Nuvio Sync: list picker shows Library / Watched; Watched newest first, Movies / Series filter, Back keeps focus; posters fill in for history items without one.
+- Taste: sidebar entry opens on This month even after leaving it on All time; Stats four cards fit without clipping; Discover faces row not squeezed by the taller posters; Wrapped Firsts fits its shorter card.
+- Modern OSD: right icons larger, focus circle not clipped.
+- Earlier: cold start (black, then profiles); More sheet Sound lines; Upcoming marquee; Roulette filter hold.
 
 ## Open ideas (not approved for building)
 - Seek thumbnails on the device, no external API. Investigating only.

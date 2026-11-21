@@ -102,7 +102,10 @@ Details then `ui/screens/stream/StreamScreen.kt` (`StreamRepositoryImpl` asks ad
 `core/calendar/` (refresh, merge, reminders, TVDB/TVMaze/MDBList/TMDB sources) feeds `ui/screens/calendar/` and the Home Upcoming row (`ui/screens/home/HomeComingUp.kt`). Originally ported from ysosrs123; since 2026-11-20 it is fully Nuvio C code (no longer synced with his fork), edit it like any other fork file.
 
 **Fork-only screens**
-Roulette `ui/screens/shuffle/` + `data/nuvioc/NuvioCShuffle*.kt`, `NuvioCRoulette*.kt`. Taste `ui/screens/taste/` + `data/nuvioc/NuvioCTaste*.kt`. Ratings `data/nuvioc/NuvioCRatingService.kt`.
+Roulette `ui/screens/shuffle/` + `data/nuvioc/NuvioCShuffle*.kt`, `NuvioCRoulette*.kt`. Taste `ui/screens/taste/` + `data/nuvioc/NuvioCTaste*.kt`. Ratings `data/nuvioc/NuvioCRatingService.kt`. Sidebar pages keep their view model between visits (`restoreState`); to reset one on a fresh sidebar entry, reach its view model from the back stack entry in `MainActivity` after `navigate` (Taste resets to This month that way; Calendar does the same for "today" on a repeat press).
+
+**Library lists for Nuvio Sync**
+Official gives the local (Nuvio Sync) source no list tabs. `LibraryViewModel` swaps in two (`NuvioCWatchedLibrary.localTabs`: "Library" uses the official local list key "local", "Watched" the key "nuvioc:watched:local") and tags items via `localItems` (saved items + `WatchProgressRepository.watchedItems`). The repository is untouched, so Roulette / Taste / Shuffle still read only saved items.
 
 ## 7. Build, run, test
 

@@ -1242,7 +1242,8 @@ private fun LibrarySelectorsRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
         ) {
-            if (sourceMode != LibrarySourceMode.LOCAL) {
+            val nuvioCShowList = sourceMode != LibrarySourceMode.LOCAL || (com.nuvio.tv.NuvioCFeatures.LIBRARY_WATCHED_LOCAL && listTabs.isNotEmpty()) // [fork] round 58
+            if (nuvioCShowList) {
                 LibraryDropdownPicker(
                     modifier = Modifier
                         .weight(1f)
@@ -1259,7 +1260,7 @@ private fun LibrarySelectorsRow(
             }
 
             LibraryDropdownPicker(
-                modifier = if (sourceMode != LibrarySourceMode.LOCAL) {
+                modifier = if (nuvioCShowList) {
                     Modifier.weight(1f)
                 } else {
                     Modifier

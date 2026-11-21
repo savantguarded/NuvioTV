@@ -4,7 +4,7 @@ How Nuvio C differs from official NuvioTV, grouped by area: what you see, the sw
 Per-switch detail: every switch in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt` has a one-line comment. This file is the overview, not a copy of that list.
 Paths below are relative to `app/src/main/java/com/nuvio/tv/` unless they start with `app/`, `.github/` or `scripts/`.
 
-Base: official `1.2.0-beta.3` (`552cacf5`). Fork footprint vs that tag: 404 files added, 175 official files edited, about 62,800 lines added. 425 switches, 0 off.
+Base: official `1.2.0-beta.3` (`552cacf5`). Fork footprint vs that tag: 404 files added, 175 official files edited, about 62,800 lines added. 428 switches, 1 off.
 Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream merge).
 
 ## Build and distribution
@@ -17,6 +17,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Two control styles via Settings "Player controls style" (`OSD_CLEAN`): **Default** (code id `nuvio_c`, official row plus fork tweaks) and **Modern** (code id `clean`, files `NuvioCOsdClean.kt` / `NuvioCCleanLayout.kt`: left pills, centred playback, right icon pill, More sheet, icons `res/drawable/nuvio_c_ic_clean_*`). Code and switches say "Clean"; screens say "Modern".
 - Clearlogo top-left, badges (resolution / HDR / audio / size, full Dolby names), focused-button label, Start over (then Previous episode), Next label with episode name, chapter double-press jump, 8 s timeout, YouTube-style seek bar, shades, Watch Party in More, button order setting.
 - Cast / About / crew side panel (`OSD_CAST*`, `OSD_ABOUT*`, `OSD_CREW`), Auto-skip-intro switch, Skip Intro sits above the seek bar.
+- Modern right icon group: glyphs 72% of the 32 dp button (was 60%); pill, button and focus circle unchanged (`CLEAN_ICONS_LARGER`).
 - Modern left pills are text only, centred, 13 sp, at least 80 dp wide (`CLEAN_PILL_TEXT_ONLY`). The More sheet has a Sound section with every line of the old Sound tab: Audio delay, Amplification (PCM), Downmix centre mix level, Night mode, Persist between sessions; decode-only lines read Unavailable during passthrough (`MORE_SOUND`); the Modern Audio panel is tracks only (`AUDIO_PANEL_NO_TABS`).
 - Files: `ui/screens/player/NuvioCOsd*.kt`, `NuvioCCleanLayout.kt`, `NuvioCFocusReturn.kt`, `NuvioCOsdTimeout.kt`, `NuvioCPreviousEpisode.kt`, hooks in `PlayerScreen.kt` (`PlayerControlsOverlay`). Settings: `ui/screens/settings/NuvioCOsdButtonsSettings.kt`.
 
@@ -81,6 +82,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 
 ## Library
 - Watched tab, Random pick, list picker with your source first, poster fallback, Back keeps focus.
+- Nuvio Sync source gets the list picker too: "Library" (saved items) and "Watched" (Nuvio watch history, one card per film / show, newest first; date sorts use when it was watched). Same filters, sorts, poster fallback and focus handling as the tracker sources (`LIBRARY_WATCHED_LOCAL`).
 - Files: `ui/screens/library/NuvioCLibrary*.kt`, `ui/components/NuvioCLibraryPicker.kt`, `data/nuvioc/NuvioCWatchedLibrary.kt`.
 
 ## Calendar and Upcoming (from ysosrs123, fully Nuvio C's since 2026-11-20)
@@ -96,6 +98,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 ## Taste page
 - Per-profile stats and discovery: Overview / Discover / Stats / Wrapped tabs.
 - Round 57 look (`TASTE_V57`): one loading screen (placeholders + progress) until the tab list and opening tab are ready, then one fade; flat cards with caps labels, tabular numbers, poster thumbnails; Overview / Wrapped rows open their title; card headers bold, big numbers extra bold, titles regular and smaller; tabs fill with the app theme accent when focused, other focus rings in the accent (not the profile colour); months as three letters; backdrop decoded larger and softly blurred (`BACKDROP_SMOOTH`).
+- Round 58 (`TASTE_V58`): scope pills Month / Year / All time, and the page opens on This month every time (sidebar entry resets it); an empty This month offers last month; New releases without its ring chart; Discover posters 120 x 170 dp; Stats has Languages as its own card (top five) beside Genres / Decades / Studios, bottom strip four tiles; Wrapped top row totals / Hours by month / Firsts, bottom row Top shows / Top films (top five by rating) / Highlights.
 - Files: `ui/screens/taste/`, `data/nuvioc/NuvioCTaste*.kt`. Rule: strictly per profile.
 
 ## Trackers and sync
@@ -107,7 +110,9 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Files: `core/NuvioCPerf.kt`, `core/NuvioCPlayerMemory.kt`, `core/nuvioc/NuvioCStartupQueue.kt`, `ui/screens/home/NuvioCHomeCatalogSweep.kt`.
 
 ## Switched off (reverted, code still present: cleanup candidates)
-None. The 2026-11-20 cleanups removed every reverted tweak, every switch nothing read, and the older versions kept as fallbacks behind newer ones (start-up loader / halo, Calendar Week view, Taste rounds 39 to 52, round 52 panels, round 46 controls, the old HDR dim layer): 47 switches in all.
+- `DETAIL_FOCUS_LOG`: diagnostics only ("NuvioCFocus" log lines for the details focus restore). Off since round 58 once the restore was confirmed; turn on to trace a focus bug over adb.
+
+Before that, none. The 2026-11-20 cleanups removed every reverted tweak, every switch nothing read, and the older versions kept as fallbacks behind newer ones (start-up loader / halo, Calendar Week view, Taste rounds 39 to 52, round 52 panels, round 46 controls, the old HDR dim layer): 47 switches in all.
 
 ## Keeping this file true
 Add, change or remove a line here in the same commit as any feature that is added, reworked or removed. Removed tweaks leave this file entirely. Update the Base line after each upstream merge.

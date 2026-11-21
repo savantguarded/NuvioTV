@@ -2852,6 +2852,12 @@ private fun navigateToDrawerRoute(
             launchSingleTop = true
             restoreState = true
         }
+        if (targetRoute == Screen.Taste.route && com.nuvio.tv.NuvioCFeatures.TASTE_V58) runCatching { // [fork] round 58: Taste always opens on this month
+            val tasteEntry = navController.getBackStackEntry(Screen.Taste.route)
+            androidx.lifecycle.ViewModelProvider(tasteEntry)[
+                com.nuvio.tv.ui.screens.taste.NuvioCTasteViewModel::class.java
+            ].nuvioCOpenFresh()
+        }
     } catch (e: IllegalArgumentException) {
         Log.w("NuvioNavigation", "Route not found in nav graph: $targetRoute", e)
     }

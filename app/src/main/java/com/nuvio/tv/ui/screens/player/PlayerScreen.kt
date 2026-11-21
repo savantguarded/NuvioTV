@@ -4518,13 +4518,13 @@ private fun ControlButton(
             Icon(
                 painter = iconPainter,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(LocalNuvioCPillButton.current?.let { it * 0.6f } ?: nuvioCGlyph ?: nuvioCSize?.let { it * 0.5f } ?: NuvioTheme.spacing.xl) // [fork] 46b: scales with a set size; round 49: or set
+                modifier = Modifier.size(LocalNuvioCPillButton.current?.let { it * (if (com.nuvio.tv.NuvioCFeatures.CLEAN_ICONS_LARGER) 0.72f else 0.6f) } ?: nuvioCGlyph ?: nuvioCSize?.let { it * 0.5f } ?: NuvioTheme.spacing.xl) // [fork] 46b: scales with a set size; round 49: or set
             )
         } else {
             Icon(
                 imageVector = icon,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(LocalNuvioCPillButton.current?.let { it * 0.6f } ?: nuvioCGlyph ?: nuvioCSize?.let { it * 0.55f } ?: 28.dp) // [fork] 46b; round 49
+                modifier = Modifier.size(LocalNuvioCPillButton.current?.let { it * (if (com.nuvio.tv.NuvioCFeatures.CLEAN_ICONS_LARGER) 0.72f else 0.6f) } ?: nuvioCGlyph ?: nuvioCSize?.let { it * 0.55f } ?: 28.dp) // [fork] 46b; round 49
             )
         }
     }

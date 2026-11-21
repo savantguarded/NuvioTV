@@ -45,6 +45,7 @@ import kotlinx.coroutines.sync.withLock
 private const val TAG = "NuvioCWatched"
 const val NUVIO_C_TRAKT_WATCHED_KEY = "nuvioc:watched:trakt"
 const val NUVIO_C_MDBLIST_WATCHED_KEY = "nuvioc:watched:mdblist"
+const val NUVIO_C_LOCAL_WATCHED_KEY = "nuvioc:watched:local"
 private const val TRAKT_TTL_MS = 15 * 60 * 1000L
 
 @Singleton
@@ -183,6 +184,66 @@ class NuvioCWatchedLibrary @Inject constructor(
     }
 
     internal companion object {
+        // ---- Nuvio Sync (local source) : round 58 library_watched_local ----
+        // Local mode has no list picker in official; we give it two lists, "Library" (the saved items,
+        // key LOCAL_LIBRARY_LIST_KEY) and "Watched" (Nuvio's own watch history), so the screen uses the
+        // same picker, filters, sorts, poster fallback and focus handling as the tracker sources.
+
+        fun localActive(mode: com.nuvio.tv.domain.model.LibrarySourceMode): Boolean =
+            NuvioCFeatures.LIBRARY_WATCHED_LOCAL && NuvioCFeatures.LIBRARY_WATCHED &&
+                mode == com.nuvio.tv.domain.model.LibrarySourceMode.LOCAL
+
+        fun localTabs(libraryTitle: String, watchedTitle: String): List<LibraryListTab> = listOf(
+            LibraryListTab(
+                key = com.nuvio.tv.core.tracking.LOCAL_LIBRARY_LIST_KEY, title = libraryTitle,
+                type = LibraryListTab.Type.STATUS, supportedContentTypes = setOf("movie", "series"),
+                isMembershipDestination = false
+            ),
+            LibraryListTab(
+                key = NUVIO_C_LOCAL_WATCHED_KEY, title = watchedTitle,
+                type = LibraryListTab.Type.STATUS, supportedContentTypes = setOf("movie", "series"),
+                isMembershipDestination = false
+            )
+        )
+
+        /** Saved items tagged as the Library list, plus one entry per watched film / show (newest first). */
+        fun localItems(saved: List<LibraryEntry>, history: List<com.nuvio.tv.domain.model.WatchedItem>): List<LibraryEntry> {
+            val libKey = com.nuvio.tv.core.tracking.LOCAL_LIBRARY_LIST_KEY
+            val tagged = saved.map { it.copy(listKeys = it.listKeys + libKey) }
+            return merge(tagged, projectLocal(history), NUVIO_C_LOCAL_WATCHED_KEY)
+        }
+
+        fun localBaseId(id: String): String {
+            val t = id.trim()
+            return if (t.startsWith("tmdb:", true) || t.startsWith("tvdb:", true) || t.startsWith("kitsu:", true) || t.startsWith("mal:", true))
+                t.split(':').take(2).joinToString(":") else t.substringBefore(':')
+        }
+
+        fun projectLocal(history: List<com.nuvio.tv.domain.model.WatchedItem>): List<LibraryEntry> {
+            if (history.isEmpty()) return emptyList()
+            val latest = LinkedHashMap<String, com.nuvio.tv.domain.model.WatchedItem>()
+            val posters = HashMap<String, String>()
+            for (w in history) {
+                val show = w.season != null || w.episode != null || w.contentType.equals("series", true) || w.contentType.equals("tv", true)
+                val type = if (show) "series" else w.contentType.lowercase().ifBlank { "movie" }
+                val id = localBaseId(w.contentId).takeIf { it.isNotBlank() } ?: continue
+                val key = "$type|$id"
+                w.poster?.takeIf { it.isNotBlank() }?.let { posters.putIfAbsent(key, it) }
+                val prev = latest[key]
+                if (prev == null || w.watchedAt > prev.watchedAt) latest[key] = w.copy(contentId = id, contentType = type)
+            }
+            val out = latest.map { (key, w) ->
+                val poster = w.poster?.takeIf { it.isNotBlank() } ?: posters[key]
+                LibraryEntry(
+                    id = w.contentId, type = w.contentType, name = w.title.ifBlank { w.contentId },
+                    poster = poster, background = null, logo = null, description = null,
+                    releaseInfo = w.releaseInfo, imdbRating = null, genres = emptyList(), addonBaseUrl = null,
+                    imdbId = w.contentId.takeIf { it.startsWith("tt") }, rawPosterUrl = poster
+                ) to w.watchedAt
+            }
+            return ranked(out, NUVIO_C_LOCAL_WATCHED_KEY)
+        }
+
         /** Newest first: rank 0 = last watched; listedAt = when it was watched (for the date sorts). */
         fun ranked(items: List<Pair<LibraryEntry, Long>>, key: String): List<LibraryEntry> =
             items.sortedByDescending { it.second }.mapIndexed { i, (e, at) ->

@@ -46,4 +46,26 @@ class NuvioCWatchedLibraryTest {
         assertEquals(0L, NuvioCWatchedLibrary.millis(null))
         assertEquals(1_000L, NuvioCWatchedLibrary.millis("1970-01-01T00:00:01Z"))
     }
+
+    @Test
+    fun localWatchedOnePerTitleNewestFirst() {
+        fun w(id: String, type: String, at: Long, s: Int? = null, ep: Int? = null, poster: String? = null) =
+            com.nuvio.tv.domain.model.WatchedItem(contentId = id, contentType = type, title = id, season = s, episode = ep, watchedAt = at, poster = poster)
+        val history = listOf(
+            w("tt1", "movie", 10L),
+            w("tt2", "series", 20L, 1, 1, poster = "p2"),
+            w("tt2:1:2", "series", 50L, 1, 2),
+            w("tmdb:9", "movie", 30L)
+        )
+        val saved = listOf(e("tt1"), e("tt5"))
+        val out = NuvioCWatchedLibrary.localItems(saved, history)
+        val lib = com.nuvio.tv.core.tracking.LOCAL_LIBRARY_LIST_KEY
+        val wk = NUVIO_C_LOCAL_WATCHED_KEY
+        assertEquals(setOf("tt1", "tt5"), out.filter { lib in it.listKeys }.map { it.id }.toSet())
+        val watched = out.filter { wk in it.listKeys }.sortedBy { it.listRanks[wk] }
+        assertEquals(listOf("tt2", "tmdb:9", "tt1"), watched.map { it.id })
+        assertEquals("series", watched.first().type)
+        assertEquals("p2", watched.first().poster)
+        assertEquals(4, out.size) // tt1 stays one card in both lists
+    }
 }
