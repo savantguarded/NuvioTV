@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 
-// [fork] Nuvio C: details tagline, style A (Charles 2026-10-14). Italic in the app font, 14/19 sp at 88%
+// [fork] Nuvio C: details tagline, style A (owner 2026-10-14). Italic in the app font, 14/19 sp at 88%
 // white, curly quotes at 45% with the opening one hanging in the left margin, so the words line up with
 // the synopsis below. Same width as the synopsis block, two lines at most, balanced line breaks.
 // Quotes TMDB already put around the text are stripped first, so they are never doubled.

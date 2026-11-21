@@ -6,7 +6,7 @@ package com.nuvio.tv.data.nuvioc
 // this TV per Nuvio profile, so the star shows as rated and the dialog reopens on it.
 // Simkl (round 19, switch RATING_SIMKL): movies and shows only, same 1-10 body on Simkl's
 // /sync/ratings. Simkl adds a title that isn't on your list yet (released movie -> completed);
-// Charles only rates what he has watched, so that's fine. Your Simkl score is read from Nuvio's own
+// the owner only rates what they have watched, so that's fine. Your Simkl score is read from Nuvio's own
 // Simkl sync copy on the TV (user_rating), no extra request.
 //
 // Trakt pull (2026-10-11): your Trakt movie and show ratings are kept on the TV per Nuvio profile,

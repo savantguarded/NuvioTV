@@ -1,6 +1,6 @@
 package com.nuvio.tv.ui.screens.shuffle
 
-// [fork] Nuvio C round 36 `roulette_copy` (Charles approved the canvas "Nuvio C Round 36", Roulette copy sheet):
+// [fork] Nuvio C round 36 `roulette_copy` (owner approved the canvas "Nuvio C Round 36", Roulette copy sheet):
 // lines that rotate per visit (mood screen line, tile hints), spin captions with the real TMDB pool size or the
 // mood, a kicker above the result logo, a quiet line after a few spins, and two "nothing left" messages.
 // Actions keep their names (Shuffle, Shuffle again, Open). Consecutive visits never repeat a line.

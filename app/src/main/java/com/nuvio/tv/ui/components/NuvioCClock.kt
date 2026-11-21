@@ -1,7 +1,7 @@
 package com.nuvio.tv.ui.components
 
 // [fork] Nuvio C clock (2026-10-11): a small persistent clock top-right while browsing catalogs,
-// like Plex. Shown on Home and inside collection folders only (Charles's pick); the player has its
+// like Plex. Shown on Home and inside collection folders only (owner's pick); the player has its
 // own clock. Updates once a minute on the minute, follows the TV's 12 / 24-hour setting
 // with AM / PM like the player clock, on a see-through rounded square.
 // Hooked with one line in MainActivity over the navigation host. Switch: NuvioCFeatures.BROWSE_CLOCK.

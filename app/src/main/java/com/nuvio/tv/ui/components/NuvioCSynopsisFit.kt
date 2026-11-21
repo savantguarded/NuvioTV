@@ -33,9 +33,9 @@ object NuvioCSynopsisFit {
     const val OFFICIAL_FRACTION = 0.42f
     val EXTRA_WIDTH: Dp = 80.dp
     val MIN_LOGO_HEIGHT: Dp = 48.dp
-    const val MAX_LINES = 5 // round 7 (Charles 2026-10-13): was 6
+    const val MAX_LINES = 5 // round 7 (owner 2026-10-13): was 6
 
-    // [fork] round 35 `home_desc_narrow` (Charles 2026-11-08): Home hero text about 20% narrower and never more
+    // [fork] round 35 `home_desc_narrow` (owner 2026-11-08): Home hero text about 20% narrower and never more
     // than 4 lines. With official's auto-scroll on, longer text scrolls (no ellipsis); off, it ends in an ellipsis.
     const val HOME_NARROW_FACTOR = 0.8f
     const val HOME_MAX_LINES = 4
@@ -68,7 +68,7 @@ object NuvioCSynopsisFit {
     const val SHORT_LINES = 2
 
     /**
-     * Round 7 (2026-10-13, Charles: "three lines could have handled it, but it's squished into five,
+     * Round 7 (2026-10-13, owner: "three lines could have handled it, but it's squished into five,
      * and the logo comes out small"): the narrowest width that showed everything won, even when a
      * wider step needed 2 lines fewer, and every extra line came out of the logo's height.
      * Now the width with the FEWEST lines wins; among equal counts the narrowest. Text that already

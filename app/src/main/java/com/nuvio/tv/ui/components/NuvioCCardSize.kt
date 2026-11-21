@@ -13,7 +13,7 @@ import com.nuvio.tv.NuvioCFeatures
 //  | Large 140 (today) | 140 x 210 | 127 x 190                  | 233 x 131                   |
 //  | Extra large 156   | 148 x 222 | 141 x 212                  | 276 x 156                   |
 //
-// Round 22 (Charles): Huge (172) is gone; a profile still saved at 172 x 258 reads as Extra large
+// Round 22 (owner): Huge (172) is gone; a profile still saved at 172 x 258 reads as Extra large
 // (LayoutPreferenceDataStore, never written back). The rows area stays exactly Large's height
 // (52% portrait / 49% landscape), so the hero's logo, synopsis lines and width match Large; the
 // bigger cards fit through tighter spacing only: title-to-poster gap 14 -> 8 dp, gap between rows

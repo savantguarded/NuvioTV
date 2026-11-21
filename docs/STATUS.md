@@ -27,14 +27,14 @@ Updated: 2026-11-20 (round 56)
 
 ## Start of every build session
 1. Read `docs/ARCHITECTURE.md`, `docs/FORK_CHANGES.md` and this file.
-2. Upstream check: `git ls-remote --tags https://github.com/NuvioMedia/NuvioTV`. Newer than `1.2.0-beta.3`? Scan it for new servers / hosts / secrets, then merge it first. Ask Charles before keeping or dropping any fork or official feature.
+2. Upstream check: `git ls-remote --tags https://github.com/NuvioMedia/NuvioTV`. Newer than `1.2.0-beta.3`? Scan it for new servers / hosts / secrets, then merge it first. Ask the owner before keeping or dropping any fork or official feature.
 3. Environment and commands: `docs/ARCHITECTURE.md` section 7. Attach the repo with push access, clone `nuvio-c`. Tests need `--max-workers=1` and `-Xmx4g` (the test run ran out of memory at 5g / 2 workers).
 
 ## End of every build session
 1. Compile, run `NuvioC*` and `Calendar*` tests, forced GitHub build.
 2. Update `docs/FORK_CHANGES.md` and `docs/ARCHITECTURE.md` if anything changed, rewrite this file, run `scripts/check-docs.py`, commit with the code.
 
-## Standing rules (Charles)
+## Standing rules (owner)
 - Mockups before building anything new; no dead space or clipping in designs.
 - An approved round is built in full in one build; if something can't be done, say so before building.
 - Every tweak behind its own switch; never touch decoder selection.

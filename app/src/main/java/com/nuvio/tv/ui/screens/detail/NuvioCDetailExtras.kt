@@ -9,7 +9,7 @@ package com.nuvio.tv.ui.screens.detail
 // Round 43b layout, one full-width column. Round 47: an Awards line: major wins only (Oscars, Emmys, Golden Globes, BAFTA, main festival prizes) from Wikidata by IMDb id (the
 // title and people "for" it), 7 days on disk. No nominations, no OMDb. A dash means "no major win found".
 //
-// 2026-11-20: Parental guidance, Themes, Keywords and Original title removed (Charles).
+// 2026-11-20: Parental guidance, Themes, Keywords and Original title removed (owner).
 //
 // The whole block is one quiet focus stop (detail_info_stop) below the last row; late data never moves anything above it.
 

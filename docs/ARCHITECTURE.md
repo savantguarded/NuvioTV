@@ -8,7 +8,7 @@ Last verified against: branch `nuvio-c` @ `67bc6021`, official base `1.2.0-beta.
 
 ## 1. What this is
 
-- Nuvio C = Charles's fork of official NuvioTV (Android TV app, `NuvioMedia/NuvioTV`).
+- Nuvio C = savantguarded's fork of official NuvioTV (Android TV app, `NuvioMedia/NuvioTV`).
 - Target device: TCL C655, Android 12, 2 GB RAM, `armeabi-v7a`.
 - Installs beside the official app: package `com.nuvio.tv.c`, label "Nuvio C". Both are set at build time by CI, not in the source (source still says `com.nuvio.tv`).
 - Uses official Nuvio's backend (Supabase sync, QR login) with the Nuvio team's approval.
@@ -122,7 +122,7 @@ Manual build: `gh workflow run nuvio-c.yml -R savantguarded/NuvioTV --ref nuvio-
 - Tests (same flags): `:app:testFullDebugUnitTest --tests '*NuvioC*' --tests '*Calendar*'`
 - Known noise: Maven Central 429 on cold cache (retry, `--max-workers=1`); `checkFullDebugAarMetadata` "path is null" once (retry).
 
-**TV checks**: adb from Charles's PC folder `nuvio-debug`, TV `192.168.100.5:5555`, `adb connect` on every call.
+**TV checks**: adb from the owner's PC folder `nuvio-debug`, TV `<TV LAN address>:5555`, `adb connect` on every call.
 
 ## 8. Conventions
 

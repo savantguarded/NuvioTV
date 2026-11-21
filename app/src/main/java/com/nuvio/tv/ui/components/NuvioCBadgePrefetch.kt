@@ -9,7 +9,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 
-// [fork] Nuvio C round 27c `badge_prefetch`. The imported badge pack is a small, fixed set of logos (Charles's
+// [fork] Nuvio C round 27c `badge_prefetch`. The imported badge pack is a small, fixed set of logos (owner's
 // pack: about 49 PNGs, ~300 KB on his Vercel site), but the sources list fetched them card by card, on demand,
 // often while a film was downloading in the same connection. Some timed out and stayed blank on one card while
 // the same logo showed on the next. Now, once the app has settled after start-up (and whenever the pack changes),

@@ -125,7 +125,7 @@ internal fun NuvioCLoadingInfo(viewModel: PlayerViewModel, uiState: PlayerUiStat
 }
 
 /**
- * [fork] round 36 `loading_band` (Charles picked mockup B, 2026-11-08): the logo stays alone in official's centred
+ * [fork] round 36 `loading_band` (owner picked mockup B, 2026-11-08): the logo stays alone in official's centred
  * column so nothing can push it; the episode line, rating and synopsis (left) and the filename (right) sit in a band
  * along the bottom that slides up 14 dp as it fades in. Small type throughout; no buffering text.
  */

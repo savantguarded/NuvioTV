@@ -27,7 +27,7 @@ import com.nuvio.tv.domain.model.MetaPreview
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
-// [fork] Nuvio C featured_badges (2026-10-17, Charles picked A + B from the round 12 mockups).
+// [fork] Nuvio C featured_badges (2026-10-17, owner picked A + B from the round 12 mockups).
 // A: "#3 in Top 20" eyebrow above the logo when the title came from a ranked hero catalog
 //    (name says top / trending / popular / hot / most watched), ranks 1-20; red TOP 10 tile for 1-10.
 // B: one white NEW / NEW SEASON chip at the start of the meta line, aired in the last 60 days.

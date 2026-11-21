@@ -840,7 +840,7 @@ object NuvioCFeatures {
     const val PROFILE_BG_TEXT_V2 = true
     /** Calendar List: tags (New show, Premiere...) sit on line two before the episode, so every row is two lines; line two scrolls on focus. Off = tag on its own line. */
     const val CALENDAR_TAG_LINE2 = true
-    /** Audio, while some formats are switched off (decoded on the TV): a larger PCM output buffer (0.5 to 1 s instead of 0.25 to 0.75 s; passthrough untouched), the lift's state kept through a flush with the same format (no dip after a seek), a 25 ms fade-in after a flush, and an `NuvioCAudio` log line per AudioTrack underrun. "Surround channels" stays the user's choice (Charles's tests showed no link to the dropouts). Off = round 52. */
+    /** Audio, while some formats are switched off (decoded on the TV): a larger PCM output buffer (0.5 to 1 s instead of 0.25 to 0.75 s; passthrough untouched), the lift's state kept through a flush with the same format (no dip after a seek), a 25 ms fade-in after a flush, and an `NuvioCAudio` log line per AudioTrack underrun. "Surround channels" stays the user's choice (TV tests showed no link to the dropouts). Off = round 52. */
     const val DECODED_AUDIO_STEADY = true
     /** Audio: "Formats sent to the soundbar" switches are kept per profile on this TV (never synced); today's values are copied once into each profile; the player reads the active profile's at playback start. Off = one set for the TV. */
     const val PASSTHROUGH_PER_PROFILE = true

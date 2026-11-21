@@ -18,7 +18,7 @@ import com.nuvio.tv.core.nuvioc.nuvioCStartupSettled
 // [fork] Nuvio C round 26b `startup_sweep` and `startup_settle`. See core/nuvioc/NuvioCStartup.kt.
 
 /**
- * [fork] round 27 startup_static (27d: Charles still saw the turning arc stutter on the 2 GB TV, so nothing moves):
+ * [fork] round 27 startup_static (27d: the owner still saw the turning arc stutter on the 2 GB TV, so nothing moves):
  * the still logo only, the same smooth bitmap, size and centre as round 26c. With nothing animating there is
  * nothing that can hitch while the app works behind it.
  */

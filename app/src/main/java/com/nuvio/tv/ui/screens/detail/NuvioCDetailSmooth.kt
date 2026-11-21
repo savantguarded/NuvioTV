@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.nuvio.tv.NuvioCFeatures
 
 // [fork] Nuvio C: details page sections without a whole-page rebuild (switch `detail_section_smooth`,
-// 2026-10-17). Charles: a hitch moving hero -> episodes -> cast and back, with or without a trailer.
+// 2026-10-17). owner: a hitch moving hero -> episodes -> cast and back, with or without a trailer.
 //
 // Causes (official code):
 // 1. Every episode focus wrote the last-focused episode into a snapshot map that the page body read

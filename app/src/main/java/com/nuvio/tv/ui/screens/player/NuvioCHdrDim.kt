@@ -47,7 +47,7 @@ import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
 internal object NuvioCHdrDim {
-    /** Brightness kept while HDR plays (Charles: 60%). */
+    /** Brightness kept while HDR plays (owner: 60%). */
     const val FACTOR = 0.6f
     private const val POLL_MS = 1_000L
 

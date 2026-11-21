@@ -29,7 +29,7 @@ import kotlinx.coroutines.withContext
 // branding. Sits under official's version line; official credits, privacy policy and licences
 // stay as they are (GPL-3.0: modified version, upstream notices kept). Not focusable, so focus
 // order on the page is unchanged.
-private const val NUVIO_C_MAINTAINER = "Charles"
+private const val NUVIO_C_MAINTAINER = "savantguarded"
 private const val NUVIO_C_GITHUB = "github.com/savantguarded"
 
 @Composable

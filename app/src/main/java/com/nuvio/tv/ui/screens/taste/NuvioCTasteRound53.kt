@@ -83,7 +83,7 @@ import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
 
-// [fork] Nuvio C round 53 `taste_tabs_v2` (53b rework after Charles's TV check):
+// [fork] Nuvio C round 53 `taste_tabs_v2` (53b rework after the TV check):
 // - Tabs are picked with OK, not by passing over them, so Right from Overview reaches the scope pills instead of
 //   switching tab on the way (that is why the range could never be picked in round 53). The scope is All time /
 //   Year ▾ / Month ▾ (dropdowns with every year and month that has history), shared by Overview, Discover, Stats.
