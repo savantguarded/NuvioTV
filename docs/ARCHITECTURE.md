@@ -107,7 +107,7 @@ Roulette `ui/screens/shuffle/` + `data/nuvioc/NuvioCShuffle*.kt`, `NuvioCRoulett
 ## 7. Build, run, test
 
 **How releases are made (CI, `nuvio-c.yml`)**
-1. Hourly (or manual "force"): reads the newest official release tag.
+1. Hourly (or manual "force"): reads the official release with the highest version number (betas included; not the newest by date, so a hotfix on an older line such as 1.1.1 is ignored).
 2. Takes the diff of `nuvio-c` against official and replays it onto that release as patches: a core patch plus three optional patches (trailer, IMDb backup, cast filmography; file lists in the workflow's `TRAILER_PATHS` / `IMDB_PATHS` / `FILMOGRAPHY_PATHS`). An optional patch that conflicts is dropped, not the build.
 3. Applies branding (name, `com.nuvio.tv.c`, updater points at this repo, `armeabi-v7a` only) and the `NUVIO_C_OFF` switch list.
 4. `./gradlew :app:assembleFullRelease`, publishes release tag `<official>+nuvioc` with the APK.

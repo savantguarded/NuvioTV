@@ -5,8 +5,9 @@ Rewrite this file at the end of every build session (do not append). History liv
 Updated: 2026-11-20 (round 56)
 
 ## Where things stand
-- Branch `nuvio-c` = round 56 on official `1.2.0-beta.3` (no newer official release on 2026-11-20).
-- Cleanup Groups A, B and C are merged into `nuvio-c` (branch `cleanup-ab` is done and can be deleted). Compiling it found that the Week view removal had taken four pieces Month / List still use; they now live in `ui/screens/calendar/CalendarShared.kt`.
+- Branch `nuvio-c` = round 56 on official `1.2.0-beta.3`. Official `1.1.1` (2026-11-21) is a hotfix whose three fixes are already in beta.3; CI now picks the highest version, so it no longer tries 1.1.1.
+- Only branch left: `nuvio-c` (old branches deleted 2026-11-21).
+- Cleanup Groups A, B and C are merged into `nuvio-c`. Compiling it found that the Week view removal had taken four pieces Month / List still use; they now live in `ui/screens/calendar/CalendarShared.kt`.
 - 549 `NuvioC*` / `Calendar*` unit tests pass locally.
 - Round 56:
   - Modern Subtitles panel: no tabs, two-line rows (pill; language, with SDH / Forced / CC on built-in tracks). Subtitle delay is a line in the Modern More sheet (shown while a subtitle is on).

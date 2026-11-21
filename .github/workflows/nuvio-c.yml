@@ -109,8 +109,19 @@ jobs:
         run: |
           set -euo pipefail
           # Newest published official release, pre-releases included (drafts never are public)
-          release="$(gh api "repos/${UPSTREAM_SLUG}/releases?per_page=20" \
-            --jq '[.[] | select(.draft | not)] | sort_by(.published_at) | last | .tag_name // ""')"
+          # [fork] 2026-11-21 `ci_highest_version`: the HIGHEST version wins, not the newest date, so a hotfix on an
+          # older line (1.1.1 published after 1.2.0-beta.3) never moves Nuvio C back. 1.2.0-beta.3 < 1.2.0 < 1.2.1.
+          release="$(gh api "repos/${UPSTREAM_SLUG}/releases?per_page=30" \
+            --jq '.[] | select(.draft | not) | .tag_name' | python3 -c '
+          import re, sys
+          def key(t):
+              m = re.match(r"v?(\d+)\.(\d+)\.(\d+)(?:-[A-Za-z]+\.?(\d+))?", t)
+              if not m: return None
+              a, b, c, pre = m.groups()
+              return (int(a), int(b), int(c), 0 if pre is not None else 1, int(pre or 0))
+          tags = [(key(t), t) for t in sys.stdin.read().split() if key(t)]
+          print(max(tags)[1] if tags else "")
+          ')"
           if [ -z "$release" ]; then
             echo "::error::Could not read the official release list."
             exit 1
