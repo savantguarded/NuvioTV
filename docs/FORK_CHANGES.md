@@ -4,7 +4,7 @@ How Nuvio C differs from official NuvioTV, grouped by area: what you see, the sw
 Per-switch detail: every switch in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt` has a one-line comment. This file is the overview, not a copy of that list.
 Paths below are relative to `app/src/main/java/com/nuvio/tv/` unless they start with `app/`, `.github/` or `scripts/`.
 
-Base: official `1.2.0-beta.3` (`552cacf5`). Fork footprint vs that tag: 404 files added, 175 official files edited, about 62,800 lines added. 424 switches, 0 off.
+Base: official `1.2.0-beta.3` (`552cacf5`). Fork footprint vs that tag: 404 files added, 175 official files edited, about 62,800 lines added. 425 switches, 0 off.
 Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream merge).
 
 ## Build and distribution
@@ -45,7 +45,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Files: `player/NuvioCEpisodeTitles.kt`, `NuvioCFinishTracker.kt`, `PlayerRuntimeControllerStreams.kt`, `StreamSourcesSidePanel.kt`, `ui/screens/stream/`.
 
 ## Details page
-- Back from Sources (Play / Play manually / a held episode card) jumps straight to the saved spot; for 2.5 s or until a key press, Play or the episode card keeps asking for focus so a row rebuild can't move it (`DETAIL_RETURN_FOCUS`, `DETAIL_RETURN_GUARD`, `ui/screens/detail/NuvioCDetailReturnGuard.kt`). Back on the play options returns to Play. Episode cards always use the page's current focus requester and none are dropped, so focus can reach them after a return (`EPISODE_REQUESTER_LIVE`); `DETAIL_FOCUS_LOG` writes info lines tagged NuvioCFocus for adb checks. The restore lock never blocks a card once the restore id is cleared (the restored card lost focus in that frame, `EPISODE_LOCK_RACE`). Sources opened by hand from the Play / Resume pill return to the pill and keep the season (`DETAIL_HERO_RETURN`).
+- Back from Sources (Play / Play manually / a held episode card) jumps straight to the saved spot; for 2.5 s or until a key press, Play or the episode card keeps asking for focus so a row rebuild can't move it (`DETAIL_RETURN_FOCUS`, `DETAIL_RETURN_GUARD`, `ui/screens/detail/NuvioCDetailReturnGuard.kt`). Back on the play options returns to Play. Episode cards always use the page's current focus requester and none are dropped, so focus can reach them after a return (`EPISODE_REQUESTER_LIVE`); `DETAIL_FOCUS_LOG` writes info lines tagged NuvioCFocus for adb checks. The restore lock never blocks a card once the restore id is cleared (the restored card lost focus in that frame, `EPISODE_LOCK_RACE`). Sources opened by hand from the Play / Resume pill return to the pill and keep the season (`DETAIL_HERO_RETURN`). Focus arriving at the episodes row goes to the card last focused in that season, or the nearest card on screen, never an invisible spot (`EPISODE_ENTRY_FALLBACK`, `NuvioCDetailSmooth.kt`).
 - Hero spec (logo box, facts line above, wider synopsis, tagline), round Shuffle / Rate / Bell buttons with focus labels, Information ledger with fixed slots (Awards wins via OMDb), collection on its own row (episode Find was removed in round 56: it caused the lost focus on series pages), smoother scrolling and focus.
 - Files: `ui/screens/detail/NuvioCDetail*.kt`, `NuvioCCredits.kt`, `HeroSection.kt`, `MetaDetailsScreen.kt`, `EpisodesSection.kt`, `ui/screens/calendar/NuvioCDetailBell.kt`.
 

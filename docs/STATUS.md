@@ -2,7 +2,7 @@
 
 Rewrite this file at the end of every build session (do not append). History lives in git log.
 
-Updated: 2026-11-21 (round 57c)
+Updated: 2026-11-21 (round 57d)
 
 ## Where things stand
 - Branch `nuvio-c` = round 57 on official `1.2.0-beta.3`. Official `1.1.1` (2026-11-21) is a hotfix whose three fixes are already in beta.3; CI now picks the highest version, not the newest date.
@@ -17,7 +17,7 @@ Updated: 2026-11-21 (round 57c)
   - Roulette: filter changes on a result never spin (dot + "Filters changed" on Shuffle again).
   - Taste round 57 look (`TASTE_V57`): loading screen, flat cards, thumbnails, rows open titles, app-theme accent rings.
 - Round 57b (after the TV check): start-up logo held back while the profile screen is ahead; details return guard (Play / episode keep focus for 2.5 s or until a key press); More sheet lists every Sound line (Downmix, Amplification, Persist; Unavailable during passthrough); pills 13 sp; Taste bold only on headers, tabs fill with the accent, months three letters; Roulette watch filter is a dropdown, no "Filters changed" text; Taste / Roulette backdrops no longer pixelated.
-- Round 57c: episode cards keep the page's live focus requester (root cause of focus lost after Play manually -> Back on MobLand S2E10, reproduced over adb); Taste big numbers extra bold, titles a size smaller; Roulette Movies / Shows cards without glow fill. Also fixed after reading the adb trace: the restore lock dropped the just-restored card's focus (`EPISODE_LOCK_RACE`), and the hero pill's manual Sources return jumped to the played episode's season (`DETAIL_HERO_RETURN`). `DETAIL_FOCUS_LOG` is on for checking; switch it off once the restore is confirmed.
+- Round 57c: episode cards keep the page's live focus requester (root cause of focus lost after Play manually -> Back on MobLand S2E10, reproduced over adb); Taste big numbers extra bold, titles a size smaller; Roulette Movies / Shows cards without glow fill. Also fixed after reading the adb trace: the restore lock dropped the just-restored card's focus (`EPISODE_LOCK_RACE`), and the hero pill's manual Sources return jumped to the played episode's season (`DETAIL_HERO_RETURN`). Round 57d: Up from the rows below the episodes (or Down from the tabs) with the row scrolled right aimed at episode 1, which wasn't laid out; focus sat on an invisible spot and the next Up hit the season tabs (reproduced over adb, MobLand S2 scrolled to E10). Now the last focused / nearest visible card takes it (`EPISODE_ENTRY_FALLBACK`). `DETAIL_FOCUS_LOG` is on for checking; switch it off once the restore is confirmed.
 
 ## Still to check on the TV
 - Cold start: black, then the profile screen, no logo. A profile added or renamed on another device appears a moment later.

@@ -2165,6 +2165,15 @@ private fun MetaDetailsContent(
     // [fork] detail_section_smooth: one stable entry point into the episodes row (NuvioCEpisodeEntry) picks the
     // episode when focus arrives, so the page no longer reads the last-focused episode (rebuilt on every focus).
     val nuvioCEpisodeEntry = remember(meta.id) { FocusRequester() }
+    // [fork] round 57d `EPISODE_ENTRY_FALLBACK`: the card last focused in each season (the official map isn't filled any more)
+    val nuvioCLastEpisode = remember(meta.id) { androidx.compose.runtime.mutableStateMapOf<Int, String>() }
+    val nuvioCEntryCandidates by rememberUpdatedState(newValue = {
+        val ids = episodesForSeason.map { it.id }
+        val anchor = (nuvioCLastEpisode[selectedSeason] ?: lastFocusedEpisodeIdBySeason[selectedSeason]
+            ?: nextToWatch?.nextVideoId)?.let { ids.indexOf(it) }?.takeIf { it >= 0 } ?: 0
+        ids.indices.sortedBy { kotlin.math.abs(it - anchor) * 2 + (if (it < anchor) 1 else 0) }
+            .mapNotNull { seasonEpisodeFocusRequesters[ids[it]] }
+    })
     val nuvioCResolveEpisode by rememberUpdatedState(newValue = {
         val nextEpisodeId = if (pendingRestoreType == RestoreTarget.EPISODE) {
             null
@@ -2799,7 +2808,7 @@ private fun MetaDetailsContent(
                         null
                     }
                     Box(modifier = Modifier.bringIntoViewResponder(episodeRowStayVerticalResponder)) {
-                        if (NuvioCDetailSmooth.enabled) NuvioCEpisodeEntry(nuvioCEpisodeEntry) { nuvioCResolveEpisode() } // [fork]
+                        if (NuvioCDetailSmooth.enabled) NuvioCEpisodeEntry(nuvioCEpisodeEntry, candidates = { nuvioCEntryCandidates() }) { nuvioCResolveEpisode() } // [fork]
                         EpisodesRow(
                             episodes = episodesForSeason,
                             episodeProgressMap = episodeProgressMap,
@@ -2842,6 +2851,7 @@ private fun MetaDetailsContent(
                                 }
                             },
                             onEpisodeFocused = { episodeId ->
+                                nuvioCLastEpisode[selectedSeason] = episodeId // [fork] round 57d
                                 if ((if (NuvioCDetailSmooth.enabled) tapScroll.lastKey else lastDetailDpadKey) == KeyEvent.KEYCODE_DPAD_UP) {
                                     val episodeListItemIndex = 1 + if (showSeasonTabs) 1 else 0
                                     val episodeItem = listState.layoutInfo.visibleItemsInfo

@@ -960,4 +960,8 @@ object NuvioCFeatures {
     const val EPISODE_LOCK_RACE = true
     /** Details: back from Sources opened from the Play / Resume pill returns to that pill (and keeps the season you were on) instead of jumping to the played episode. Off = official episode return. */
     const val DETAIL_HERO_RETURN = true
+
+    // ---- round 57d (2026-11-21) ----
+    /** Details: focus arriving at the episodes row (Up from the rows below, Down from the season tabs) goes to the card last focused in that season, or the nearest card that is actually on screen, instead of a scrolled-away card (which left focus on an invisible spot, so the next Up jumped to the season tabs). Off = round 57c. */
+    const val EPISODE_ENTRY_FALLBACK = true
 }

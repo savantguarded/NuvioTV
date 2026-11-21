@@ -46,7 +46,7 @@ internal class NuvioCSizeHolder { var px: Int = 0 }
  * episode isn't laid out.
  */
 @Composable
-internal fun NuvioCEpisodeEntry(requester: FocusRequester, resolve: () -> FocusRequester?) {
+internal fun NuvioCEpisodeEntry(requester: FocusRequester, candidates: () -> List<FocusRequester> = { emptyList() }, resolve: () -> FocusRequester?) {
     val focusManager = LocalFocusManager.current
     Box(
         modifier = Modifier
@@ -54,7 +54,14 @@ internal fun NuvioCEpisodeEntry(requester: FocusRequester, resolve: () -> FocusR
             .focusRequester(requester)
             .onFocusChanged { state ->
                 if (!state.isFocused) return@onFocusChanged
-                val moved = resolve()?.let { target -> runCatching { target.requestFocus() }.isSuccess } == true
+                // [fork] round 57d `EPISODE_ENTRY_FALLBACK`: requestFocus() returns false (it doesn't throw) when the card
+                // isn't laid out (scrolled out of the row); that used to count as "moved" and focus sat on this invisible
+                // box: lost on the page, and the next Up went to the season tabs. Try the candidates in order (last
+                // focused, then the nearest cards) until one really takes focus.
+                val list = if (com.nuvio.tv.NuvioCFeatures.EPISODE_ENTRY_FALLBACK) candidates() else emptyList()
+                val moved = if (list.isNotEmpty()) list.any { target -> runCatching { target.requestFocus() }.getOrDefault(false) }
+                    else resolve()?.let { target -> runCatching { target.requestFocus() }.getOrDefault(false) } == true
+                com.nuvio.tv.ui.screens.detail.NuvioCFocusLog.i("entry moved=$moved candidates=${list.size}")
                 if (!moved) focusManager.moveFocus(FocusDirection.Right)
             }
             .focusable()
