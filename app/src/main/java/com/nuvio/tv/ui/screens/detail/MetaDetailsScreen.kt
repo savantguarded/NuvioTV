@@ -1662,6 +1662,7 @@ private fun MetaDetailsContent(
     }
 
     fun clearPendingRestore() {
+        NuvioCFocusLog.i("clearPendingRestore type=$pendingRestoreType ep=$pendingRestoreEpisodeId")
         savedRestoreScrollIndex = -1
         savedRestoreScrollOffset = 0
         val shouldConsumeReturnFocus = consumeReturnEpisodeFocusOnClear
@@ -1691,6 +1692,7 @@ private fun MetaDetailsContent(
     }
 
     fun markEpisodeRestore(episodeId: String, restoreOnResume: Boolean = true) {
+        NuvioCFocusLog.i("markEpisodeRestore ep=$episodeId onResume=$restoreOnResume state=${lifecycleOwner.lifecycle.currentState}")
         restoreOnNextResume = restoreOnResume &&
             lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
         restoreFocusToken = 0
@@ -1758,6 +1760,7 @@ private fun MetaDetailsContent(
 
     val childOverlayVisible = LocalDetailChildOverlayVisible.current
     fun launchPendingFocusRestore() {
+        NuvioCFocusLog.i("launchPendingFocusRestore child=$childOverlayVisible onResume=$restoreOnNextResume type=$pendingRestoreType ep=$pendingRestoreEpisodeId idx=$savedRestoreScrollIndex")
         if (childOverlayVisible) return
         if (!restoreOnNextResume || pendingRestoreType == null) return
         restoreOnNextResume = false
@@ -2143,7 +2146,9 @@ private fun MetaDetailsContent(
                 byEpisodeId[episode.id] = FocusRequester()
             }
         }
-        byEpisodeId.keys.retainAll(episodesForSeason.map { it.id }.toSet())
+        // [fork] round 57c `EPISODE_REQUESTER_LIVE`: never drop a requester (a list briefly missing an episode while the
+        // page rebuilt dropped the one its card still held)
+        if (!com.nuvio.tv.NuvioCFeatures.EPISODE_REQUESTER_LIVE) byEpisodeId.keys.retainAll(episodesForSeason.map { it.id }.toSet())
         byEpisodeId
     }
     // [fork] detail_section_smooth: one stable entry point into the episodes row (NuvioCEpisodeEntry) picks the
@@ -2159,6 +2164,7 @@ private fun MetaDetailsContent(
         }
         val preferredEpisodeId = lastFocusedEpisodeIdBySeason[selectedSeason]
             ?: nextEpisodeId?.takeIf { episodesForSeason.any { ep -> ep.id == it } }
+        NuvioCFocusLog.i("entry resolve season=$selectedSeason preferred=$preferredEpisodeId has=${preferredEpisodeId?.let { seasonEpisodeFocusRequesters.containsKey(it) }} type=$pendingRestoreType")
         (preferredEpisodeId?.let { seasonEpisodeFocusRequesters[it] })
             ?: episodesForSeason.firstOrNull()?.id?.let { seasonEpisodeFocusRequesters[it] }
     })
@@ -2812,6 +2818,7 @@ private fun MetaDetailsContent(
                             restoreEpisodeId = visibleEpisodeRestoreId,
                             restoreFocusToken = if (pendingRestoreType == RestoreTarget.EPISODE) restoreFocusToken else 0,
                             onRestoreFocusHandled = {
+                                NuvioCFocusLog.i("episode onRestoreFocusHandled pending=$pendingRestoreEpisodeId visible=$visibleEpisodeRestoreId")
                                 val isStaleEpisodeRestore =
                                     pendingRestoreType == RestoreTarget.EPISODE &&
                                         pendingRestoreEpisodeId != null &&

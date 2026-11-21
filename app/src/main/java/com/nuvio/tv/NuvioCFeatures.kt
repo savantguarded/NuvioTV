@@ -948,4 +948,12 @@ object NuvioCFeatures {
     const val BACKDROP_SMOOTH = true
     /** Roulette: Unwatched / Watched / All titles is a dropdown like Movies / Shows and the mood. Off = a chip that cycles. */
     const val ROULETTE_WATCH_DROPDOWN = true
+
+    // ---- round 57c (2026-11-21) ----
+    /** Details: each episode card always uses the page's current focus requester, and requesters are never dropped. A card kept a stale one after the page rebuilt on a return from Sources, so focus was lost and the cards couldn't be reached. Off = official. */
+    const val EPISODE_REQUESTER_LIVE = true
+    /** Details: info-level "NuvioCFocus" log lines tracing the focus restore (read with adb logcat). Diagnostics only. */
+    const val DETAIL_FOCUS_LOG = true
+    /** Roulette mood screen: the Movies / Shows cards get no glow and no fill on focus (white edge and lift only). Off = round 53d glow. */
+    const val ROULETTE_TILE_NO_GLOW = true
 }

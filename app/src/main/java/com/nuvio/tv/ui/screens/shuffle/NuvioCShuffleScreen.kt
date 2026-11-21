@@ -310,13 +310,15 @@ private fun ShuffleTile(
         scale = CardDefaults.scale(focusedScale = 1.04f),
         colors = CardDefaults.colors(
             containerColor = Color.White.copy(alpha = 0.05f),
-            focusedContainerColor = Color.White.copy(alpha = 0.11f)
+            // [fork] round 57c `ROULETTE_TILE_NO_GLOW`: no tinted glow showing through the see-through card (it read as a
+            // coloured fill); focus is the white edge and the slight lift only
+            focusedContainerColor = Color.White.copy(alpha = if (com.nuvio.tv.NuvioCFeatures.ROULETTE_TILE_NO_GLOW) 0.05f else 0.11f)
         ),
         border = CardDefaults.border(
             border = Border(androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.07f)), shape = shape),
             focusedBorder = Border(androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)), shape = shape)
         ),
-        glow = if (com.nuvio.tv.NuvioCFeatures.POSTER_GLOW_EVERYWHERE) com.nuvio.tv.ui.components.nuvioCPosterCardGlow() else CardDefaults.glow() // [fork] round 53d: Roulette cards glow like posters
+        glow = if (com.nuvio.tv.NuvioCFeatures.POSTER_GLOW_EVERYWHERE && !com.nuvio.tv.NuvioCFeatures.ROULETTE_TILE_NO_GLOW) com.nuvio.tv.ui.components.nuvioCPosterCardGlow() else CardDefaults.glow() // [fork] round 53d: Roulette cards glow like posters
     ) {
         Column(
             Modifier

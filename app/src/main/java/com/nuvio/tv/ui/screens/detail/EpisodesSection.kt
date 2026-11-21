@@ -557,8 +557,9 @@ fun EpisodesRow(
     // for more than 2 s). A restore id left behind with no token (after Find, or a tab switch) used to keep every other
     // card unfocusable, which is how the episode row got stuck.
     var restoreLock by remember { mutableStateOf(false) }
-    LaunchedEffect(restoreLock) { if (restoreLock) { delay(2_000); restoreLock = false } }
+    LaunchedEffect(restoreLock) { NuvioCFocusLog.i("restoreLock=$restoreLock"); if (restoreLock) { delay(2_000); restoreLock = false } }
     LaunchedEffect(restoreFocusToken, restoreEpisodeId, dedupedEpisodes) {
+        NuvioCFocusLog.i("episode restore effect token=$restoreFocusToken ep=$restoreEpisodeId list=${dedupedEpisodes.size} inList=${dedupedEpisodes.any { it.id == restoreEpisodeId }}")
         if (restoreFocusToken <= 0 || restoreEpisodeId.isNullOrBlank()) { restoreLock = false; return@LaunchedEffect }
         restoreLock = true
         try {
@@ -591,9 +592,11 @@ fun EpisodesRow(
             val offsetPx = with(density) { (cardMetrics.cardWidth * 2f / 3f - cardMetrics.itemSpacing).roundToPx() }
             lazyListState.scrollToItem(index, scrollOffset = -offsetPx)
         }
-        repeat(EPISODE_RESTORE_FOCUS_ATTEMPTS) {
+        repeat(EPISODE_RESTORE_FOCUS_ATTEMPTS) { attempt ->
             val requester = episodeFocusRequesters[restoreEpisodeId]
-            if (requester != null && requester.requestFocusAfterFrames(frames = 1)) {
+            val ok = requester != null && requester.requestFocusAfterFrames(frames = 1)
+            NuvioCFocusLog.i("episode restore attempt=$attempt requester=${requester != null} ok=$ok")
+            if (ok) {
                 // [fork] round 57b detail_return_guard: keep the card focused while the row settles after a return
                 if (com.nuvio.tv.NuvioCFeatures.DETAIL_RETURN_GUARD && NuvioCDetailReturnGuard.active) {
                     val id = restoreEpisodeId
@@ -677,7 +680,11 @@ fun EpisodesRow(
             val progress = remember(seasonEp, episodeProgressMap) { seasonEp?.let { episodeProgressMap[it] } }
             val imdbRating = remember(seasonEp, episodeRatings) { seasonEp?.let { episodeRatings[it] } }
             val isMarkedWatched = remember(seasonEp, watchedEpisodes) { seasonEp?.let { watchedEpisodes.contains(it) } ?: false }
-            val episodeFocusRequester = remember(episode.id) { episodeFocusRequesters.getOrPut(episode.id) { FocusRequester() } }
+            // [fork] round 57c `EPISODE_REQUESTER_LIVE`: always the page's current requester for this episode. Remembered
+            // per id, a card kept an old requester after the page rebuilt its map on a return from Sources; every restore
+            // and every Down from the season tabs then aimed at a requester no card held, and focus was lost.
+            val episodeFocusRequester = if (com.nuvio.tv.NuvioCFeatures.EPISODE_REQUESTER_LIVE) episodeFocusRequesters.getOrPut(episode.id) { FocusRequester() }
+                else remember(episode.id) { episodeFocusRequesters.getOrPut(episode.id) { FocusRequester() } }
             val episodeOnClick = remember(episode, onEpisodeClick) { { onEpisodeClick(episode) } }
             val episodeOnLongPress = remember(episode.id) { { optionsEpisode = episode } }
             val episodeOnFocused = remember(episode.id) { { onEpisodeFocused(episode.id) } }
