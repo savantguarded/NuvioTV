@@ -156,7 +156,10 @@ class TitleQualityRepository @Inject constructor(
                 when (o.str("status")) {
                     "ready" -> {
                         val tokens = (o["tokens"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
-                        val next = o.str("next_refresh_at")?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
+                        // Unix seconds (a float), sometimes years ahead: kept at most 30 days
+                        val next = o.str("next_refresh_at")?.let { raw ->
+                            raw.toDoubleOrNull()?.let { (it * 1000).toLong() } ?: runCatching { Instant.parse(raw).toEpochMilli() }.getOrNull()
+                        }?.coerceAtMost(System.currentTimeMillis() + MAX_KEEP_MS)
                         TitleQualityParser.fromTokens(tokens)?.let { SourceAnswer.Usable(it, next) } ?: SourceAnswer.Empty
                     }
                     "empty" -> SourceAnswer.Empty
@@ -176,5 +179,6 @@ class TitleQualityRepository @Inject constructor(
         const val TIMEOUT_S = 5L
         const val COOLDOWN_MS = 15 * 60_000L
         const val REPOLL_MS = 20_000L
+        const val MAX_KEEP_MS = 30L * 24 * 60 * 60_000L
     }
 }
