@@ -60,6 +60,7 @@ import com.nuvio.tv.domain.model.Meta
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -88,17 +89,13 @@ class NuvioCQualityViewModel @Inject constructor(
     private var bound: String? = null
     private var job: Job? = null
 
-    init { viewModelScope.launch(Dispatchers.IO) { repo.cache.warm() } }
-
-    /** What the first frame shows, without waiting for anything. */
+    /**
+     * What the first frame shows: O(1), no planning, no disk (round 60c). Absent when there is no usable ID; a result
+     * already seen this run; otherwise Checking, which draws nothing (the space is held).
+     */
     fun initial(t: QualityTitle): QualityLineState {
-        val today = LocalDate.now()
-        return when (val p = TitleQualityPlanner.plan(t, today)) {
-            QualityPlan.NoLine -> QualityLineState.Absent
-            QualityPlan.NotYetReleased -> QualityLineState.Dim(QualityLineState.NOT_YET_RELEASED)
-            is QualityPlan.NeedsImdb -> QualityLineState.Checking
-            is QualityPlan.Lookup -> repo.cache.peek(p.cacheKey)?.toState() ?: QualityLineState.Checking
-        }
+        if (TitleQualityPlanner.imdbOf(t) == null && TitleQualityPlanner.tmdbOf(t) == null) return QualityLineState.Absent
+        return repo.cache.peekMeta(t.id)?.toState() ?: QualityLineState.Checking
     }
 
     fun bind(t: QualityTitle) {
@@ -112,30 +109,40 @@ class NuvioCQualityViewModel @Inject constructor(
 
     private suspend fun run(t: QualityTitle) {
         val today = LocalDate.now()
-        var plan = TitleQualityPlanner.plan(t, today)
+        // planning walks the episode list: off the main thread
+        var plan = withContext(Dispatchers.Default) { TitleQualityPlanner.plan(t, today) }
+        if (plan == QualityPlan.NotYetReleased) { publish(t, QualityLineState.Dim(QualityLineState.NOT_YET_RELEASED)); return }
+        val cachedHit = (plan as? QualityPlan.Lookup)?.let { l -> withContext(Dispatchers.IO) { repo.cache.get(l.cacheKey) } }
+        if (cachedHit != null) { repo.cache.rememberMeta(t.id, cachedHit); publish(t, cachedHit.toState()); return }
+        // a layer like the ratings: nothing goes out until the page has opened and settled
+        delay(SETTLE_MS)
         val needs = plan as? QualityPlan.NeedsImdb
         if (needs != null) {
             val imdb = withTimeoutOrNull(5_000) {
                 runCatching { tmdbService.tmdbToImdb(needs.tmdbId, if (t.isSeries) "series" else "movie") }.getOrNull()
             }
             plan = if (imdb.isNullOrBlank()) { publish(t, QualityLineState.Dim(QualityLineState.UNAVAILABLE)); return }
-            else TitleQualityPlanner.plan(t, today, imdbOverride = imdb)
+            else withContext(Dispatchers.Default) { TitleQualityPlanner.plan(t, today, imdbOverride = imdb) }
+            if (plan == QualityPlan.NotYetReleased) { publish(t, QualityLineState.Dim(QualityLineState.NOT_YET_RELEASED)); return }
         }
         val lookup = plan as? QualityPlan.Lookup ?: return
-        withContext(Dispatchers.IO) { repo.cache.get(lookup.cacheKey) }?.let { publish(t, it.toState()); return }
-        val (result, nextRefresh) = repo.lookup(lookup.targets, lookup.year) { /* pending: ghosts stay for the re-poll */ }
+        withContext(Dispatchers.IO) { repo.cache.get(lookup.cacheKey) }?.let { repo.cache.rememberMeta(t.id, it); publish(t, it.toState()); return }
+        val (result, nextRefresh) = repo.lookup(lookup.targets, lookup.year)
         val now = System.currentTimeMillis()
         when (result) {
             is QualityLookup.Found -> {
-                repo.cache.put(lookup.cacheKey, CachedQuality(CachedKind.FOUND, result.quality, now,
-                    TitleQualityPlanner.expiry(now, lookup.releaseDate, today, nextRefresh)))
+                val c = CachedQuality(CachedKind.FOUND, result.quality, now, TitleQualityPlanner.expiry(now, lookup.releaseDate, today, nextRefresh))
+                withContext(Dispatchers.IO) { repo.cache.put(lookup.cacheKey, c) }
+                repo.cache.rememberMeta(t.id, c)
                 publish(t, QualityLineState.Found(result.quality.labels))
             }
             else -> {
                 val info = NuvioCDetailInfoStore.current.value?.takeIf { it.metaId == t.id } ?: NuvioCDetailInfoStore.cached(t.id)
                 val label = TitleQualityPlanner.emptyLabel(result, t.isSeries, info?.theatricalDate ?: t.released, info?.homeReleaseDate, today)
                 if (label == QualityLineState.NOT_YET_ON_DIGITAL) {
-                    repo.cache.put(lookup.cacheKey, CachedQuality(CachedKind.NOT_ON_DIGITAL, null, now, now + TitleQualityPlanner.NOT_ON_DIGITAL_MS))
+                    val c = CachedQuality(CachedKind.NOT_ON_DIGITAL, null, now, now + TitleQualityPlanner.NOT_ON_DIGITAL_MS)
+                    withContext(Dispatchers.IO) { repo.cache.put(lookup.cacheKey, c) }
+                    repo.cache.rememberMeta(t.id, c)
                 }
                 publish(t, QualityLineState.Dim(label))
             }
@@ -143,6 +150,8 @@ class NuvioCQualityViewModel @Inject constructor(
     }
 
     private fun publish(t: QualityTitle, s: QualityLineState) { _state.value = t.id to s }
+
+    private companion object { const val SETTLE_MS = 1_200L } // same settle as the Information block
 
     private fun CachedQuality.toState(): QualityLineState = when (kind) {
         CachedKind.FOUND -> quality?.let { QualityLineState.Found(it.labels) } ?: QualityLineState.Checking

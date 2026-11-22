@@ -12,6 +12,7 @@ import android.content.Context
 import com.nuvio.tv.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Semaphore
@@ -68,6 +69,11 @@ class TitleQualityRepository @Inject constructor(
     private val torrentioGate = Semaphore(MAX_CONCURRENT)
     private val inFlight = ConcurrentHashMap<String, CompletableDeferred<SourceAnswer>>()
     @Volatile private var cooldownUntil = 0L
+    // round 60c: the Torrentio answer (up to ~300 KB, 500 streams) is parsed on one low-priority thread, so it never
+    // competes with the details page for the CPU
+    private val parseDispatcher = java.util.concurrent.Executors.newSingleThreadExecutor { r ->
+        Thread(r, "NuvioCQualityParse").apply { isDaemon = true; priority = Thread.MIN_PRIORITY }
+    }.asCoroutineDispatcher()
 
     // Own client: no app user-agent header, so OkHttp sends its normal one (a blank or script one gets a 403).
     private val client: OkHttpClient by lazy {
@@ -124,21 +130,22 @@ class TitleQualityRepository @Inject constructor(
         return answer
     }
 
-    private suspend fun fetchTorrentio(target: QualityTarget, movieYear: Int?): SourceAnswer = withContext(Dispatchers.IO) {
-        runCatching {
-            val req = Request.Builder().url("$TORRENTIO/stream/${target.torrentioPath}.json").build()
-            client.newCall(req).execute().use { resp ->
-                if (resp.code == 403 || resp.code == 429) {
-                    cooldownUntil = System.currentTimeMillis() + COOLDOWN_MS
-                    return@use SourceAnswer.Failed
+    private suspend fun fetchTorrentio(target: QualityTarget, movieYear: Int?): SourceAnswer {
+        val body = withContext(Dispatchers.IO) {
+            runCatching {
+                val req = Request.Builder().url("$TORRENTIO/stream/${target.torrentioPath}.json").build()
+                client.newCall(req).execute().use { resp ->
+                    if (resp.code == 403 || resp.code == 429) cooldownUntil = System.currentTimeMillis() + COOLDOWN_MS
+                    if (resp.isSuccessful) resp.body?.string() else null
                 }
-                if (!resp.isSuccessful) return@use SourceAnswer.Failed
-                val body = resp.body?.string() ?: return@use SourceAnswer.Failed
-                val streams = TitleQualityParser.streamsOf(body)
-                TitleQualityParser.best(streams, if (target.isEpisode) null else movieYear)
+            }.getOrNull()
+        } ?: return SourceAnswer.Failed
+        return withContext(parseDispatcher) {
+            runCatching {
+                TitleQualityParser.best(TitleQualityParser.streamsOf(body), if (target.isEpisode) null else movieYear)
                     ?.let { SourceAnswer.Usable(it) } ?: SourceAnswer.Empty
-            }
-        }.getOrElse { SourceAnswer.Failed }
+            }.getOrElse { SourceAnswer.Failed }
+        }
     }
 
     suspend fun qualiCache(target: QualityTarget): SourceAnswer = withContext(Dispatchers.IO) {

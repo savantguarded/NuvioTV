@@ -41,6 +41,8 @@ class TitleQualityCache(context: Context) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CachedQuality>?) = size > MEMORY_MAX
     }
     @Volatile private var warmed = false
+    /** metaId -> last result in this run, so the first frame needs no planning (round 60c). */
+    private val byMeta = HashMap<String, CachedQuality>()
 
     /** Loads the disk copy into memory once (call off the main thread); drops expired and surplus entries. */
     @Synchronized fun warm() {
@@ -60,6 +62,15 @@ class TitleQualityCache(context: Context) {
     @Synchronized fun get(key: String, now: Long = System.currentTimeMillis()): CachedQuality? {
         warm()
         return peek(key, now)
+    }
+
+    /** Memory only, O(1), for the first frame. */
+    @Synchronized fun peekMeta(metaId: String, now: Long = System.currentTimeMillis()): CachedQuality? =
+        byMeta[metaId]?.takeIf { it.fresh(now) }
+
+    @Synchronized fun rememberMeta(metaId: String, value: CachedQuality) {
+        if (byMeta.size > MEMORY_MAX) byMeta.clear()
+        byMeta[metaId] = value
     }
 
     @Synchronized fun put(key: String, value: CachedQuality) {
