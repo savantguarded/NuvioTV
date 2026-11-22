@@ -49,6 +49,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.flow.first
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -473,6 +474,8 @@ fun MetaDetailsScreen(
     // [fork] timing log (NuvioCPerf): first frame and meta arriving after a Home / carousel press
     LaunchedEffect(Unit) { withFrameNanos { }; com.nuvio.tv.core.NuvioCPerf.detailStage("first frame") }
     val nuvioCMetaReady = uiState.meta != null
+    // [fork] round 61 detail_open_smooth: a fresh open fades the page in over the placeholder (NuvioCDetailOpen.kt)
+    val nuvioCReveal = rememberNuvioCOpenReveal(loading = uiState.isLoading, enabled = !playOnLoad)
     LaunchedEffect(nuvioCMetaReady) { if (nuvioCMetaReady) com.nuvio.tv.core.NuvioCPerf.detailStage("meta shown", last = true) }
     val posterCardCornerRadiusDp by viewModel.posterCardCornerRadiusDp.collectAsStateWithLifecycle()
     val effectiveAutoplayEnabled by viewModel.effectiveAutoplayEnabled.collectAsStateWithLifecycle(
@@ -755,6 +758,9 @@ fun MetaDetailsScreen(
                         )
                     }
                     if (!(uiState.isTrailerPlaying && loadingTrailerRendering)) {
+                        if (com.nuvio.tv.NuvioCFeatures.DETAIL_OPEN_SMOOTH) NuvioCDetailSkeleton( // [fork] round 61 detail_open_smooth: the Nuvio C hero's shape
+                            backdropAware = !heroBackdropUrl.isNullOrBlank() || loadingTrailerUrl != null
+                        ) else
                         MetaDetailsSkeleton(
                             backdropAware = !heroBackdropUrl.isNullOrBlank() || loadingTrailerUrl != null
                         )
@@ -920,10 +926,15 @@ fun MetaDetailsScreen(
                 if (playOnLoad && !playOnLoadReturnContentRevealed) {
                     PlaybackHandoffBackdrop(backdropUrl = heroBackdropUrl ?: meta.backdropUrl)
                 }
+                val nuvioCStageRows = remember(meta.id) { nuvioCReveal.value < 1f } // [fork] round 61: fresh open only
+                if (nuvioCReveal.value < 1f) NuvioCDetailSkeleton(backdropAware = !heroBackdropUrl.isNullOrBlank()) // [fork] under the fade
                 MetaDetailsContent(
                     modifier = Modifier.graphicsLayer {
-                        alpha = playOnLoadReturnContentAlpha
+                        alpha = playOnLoadReturnContentAlpha * nuvioCReveal.value // [fork] round 61
+                        if (com.nuvio.tv.NuvioCFeatures.DETAIL_OPEN_SMOOTH) compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha // [fork] no full-screen offscreen buffer
                     },
+                    nuvioCStageRows = nuvioCStageRows, // [fork] round 61
+                    nuvioCOnScrolled = { viewModel.nuvioCOpenDeferGate() }, // [fork] round 61 detail_defer_loads
                     heroBackdropUrl = heroBackdropUrl,
                     meta = meta,
                     detailReturnEpisodeFocusRequest = DetailReturnEpisodeFocusRequest(
@@ -1286,6 +1297,8 @@ fun MetaDetailsScreen(
 @Composable
 private fun MetaDetailsContent(
     modifier: Modifier = Modifier,
+    nuvioCStageRows: Boolean = false, // [fork] round 61 detail_open_smooth
+    nuvioCOnScrolled: () -> Unit = {}, // [fork] round 61 detail_defer_loads
     heroBackdropUrl: String? = null,
     meta: Meta,
     detailReturnEpisodeFocusRequest: DetailReturnEpisodeFocusRequest? = null,
@@ -1424,6 +1437,14 @@ private fun MetaDetailsContent(
     }
     val nestedPrefetchStrategy = remember { LazyListPrefetchStrategy(nestedPrefetchItemCount = 2) }
     val listState = rememberLazyListState(prefetchStrategy = nestedPrefetchStrategy)
+    // [fork] round 61 detail_open_smooth: on a fresh open the rows under the hero join one frame after it
+    var nuvioCRowsReady by remember { mutableStateOf(!nuvioCStageRows) }
+    if (!nuvioCRowsReady) LaunchedEffect(Unit) { withFrameNanos { }; nuvioCRowsReady = true }
+    // [fork] round 61 detail_defer_loads: the page moving (Down) starts the held-back loads at once
+    if (com.nuvio.tv.NuvioCFeatures.DETAIL_DEFER_LOADS) LaunchedEffect(listState) {
+        androidx.compose.runtime.snapshotFlow { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 0 }.first { it }
+        nuvioCOnScrolled()
+    }
     if (com.nuvio.tv.NuvioCFeatures.DETAILS_SMOOTH) { // [fork] round 52 details_smooth: tells the trailer's letterbox sampler to wait
         LaunchedEffect(listState) {
             androidx.compose.runtime.snapshotFlow { listState.isScrollInProgress }.collect { com.nuvio.tv.core.NuvioCInput.pageScrolling = it }
@@ -2776,6 +2797,7 @@ private fun MetaDetailsContent(
                 }
             }
 
+            if (!nuvioCRowsReady) return@LazyColumn // [fork] round 61: rows join next frame on a fresh open
             // Season tabs and episodes for series
             val showSeasonTabs = isSeries && seasons.isNotEmpty() && !(seasons.size == 1 && meta.apiType.equals("other", ignoreCase = true))
             val showEpisodesRow = isSeries && seasons.isNotEmpty()

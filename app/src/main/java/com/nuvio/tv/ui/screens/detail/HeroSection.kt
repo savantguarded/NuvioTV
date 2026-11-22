@@ -165,7 +165,7 @@ fun HeroContentSection(
     // [fork] Nuvio C dimming over a background trailer (Apple TV look), full brightness when the synopsis is focused
     var nuvioCSynopsisFocused by remember(meta.id) { mutableStateOf(false) }
     val nuvioCTextAlpha = animateFloatAsState( // [fork] State, read at draw time
-        targetValue = if (nuvioCBackgroundTrailer && !nuvioCSynopsisFocused) NUVIO_C_DETAIL_TEXT_ALPHA else 1f,
+        targetValue = if (nuvioCBackgroundTrailer && !nuvioCSynopsisFocused) (if (com.nuvio.tv.NuvioCFeatures.TRAILER_BLOCK_DIM) NUVIO_C_BLOCK_ALPHA_61 else NUVIO_C_DETAIL_TEXT_ALPHA) else 1f, // [fork] round 61 trailer_block_dim: one level for the whole block
         animationSpec = tween(300),
         label = "nuvioCTextAlpha"
     )
@@ -175,6 +175,19 @@ fun HeroContentSection(
         animationSpec = tween(300),
         label = "nuvioCDescriptionAlpha"
     )
+    // [fork] round 61 trailer_block_dim: the synopsis (and the line under it) sit at the block's level over a trailer, no extra grey
+    val nuvioCSynopsisAlpha61 = animateFloatAsState(
+        targetValue = when {
+            nuvioCSynopsisFocused -> 1f
+            nuvioCBackgroundTrailer -> NUVIO_C_BLOCK_ALPHA_61
+            com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled -> com.nuvio.tv.ui.components.NuvioCHeroSpec.DETAIL_SYNOPSIS_ALPHA
+            else -> 1f
+        },
+        animationSpec = tween(300),
+        label = "nuvioCSynopsisAlpha61"
+    )
+    val nuvioCSynAlpha: () -> Float = { if (com.nuvio.tv.NuvioCFeatures.TRAILER_BLOCK_DIM) nuvioCSynopsisAlpha61.value else nuvioCTextAlpha.value * nuvioCDescriptionAlpha.value }
+    val nuvioCBlockLift: () -> Float = { if (com.nuvio.tv.NuvioCFeatures.TRAILER_BLOCK_DIM) nuvioCTextAlpha.value else 1f }
     // [fork] logo stays composed and fades with the trailer, so it never pops, reloads or crops mid-move
     val nuvioCLogoAlpha = animateFloatAsState( // [fork] State, read at draw time
         targetValue = if (isTrailerPlaying && hideLogoDuringTrailer) 0f else 1f,
@@ -291,7 +304,7 @@ fun HeroContentSection(
                     onError = { logoLoadFailed = true },
                     onSuccess = { nuvioCLogoAspect = com.nuvio.tv.ui.components.NuvioCLogoSize.aspectOf(it) }, // [fork] logo weight
                     modifier = Modifier
-                        .nuvioCFade { if (nuvioCFadeLogo) nuvioCLogoAlpha.value else 1f } // [fork] no offscreen layer, nothing clipped
+                        .nuvioCFade { (if (nuvioCFadeLogo) nuvioCLogoAlpha.value else 1f) * nuvioCBlockLift() } // [fork] no offscreen layer, nothing clipped; round 61: block level
                         .then(
                             if (com.nuvio.tv.ui.components.NuvioCLogoSize.enabled) Modifier.width(nuvioCLogoW.value).height(nuvioCLogoH.value) // [fork] logo weight
                             else Modifier
@@ -314,7 +327,7 @@ fun HeroContentSection(
                         text = meta.name,
                         style = MaterialTheme.typography.displayMedium,
                         color = NuvioTheme.colors.TextPrimary,
-                        modifier = Modifier.padding(bottom = NuvioTheme.spacing.sm)
+                        modifier = Modifier.nuvioCFade { nuvioCBlockLift() }.padding(bottom = NuvioTheme.spacing.sm) // [fork] round 61
                     )
                 }
             }
@@ -348,7 +361,7 @@ fun HeroContentSection(
                         NuvioCTagline( // [fork] style A: italic, hanging quotes, synopsis width
                             tagline = nuvioCTagline,
                             widthFraction = if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.DETAIL_TEXT_FRACTION else 0.6f,
-                            modifier = Modifier.padding(bottom = 14.dp)
+                            modifier = Modifier.nuvioCFade { nuvioCBlockLift() }.padding(bottom = 14.dp) // [fork] round 61
                         )
                     }
                     // [fork] detail_focus_label: room for the focused button's name above the row; the hero is
@@ -360,110 +373,126 @@ fun HeroContentSection(
                         horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        PlayButton(
-                            text = if (isPlayEnabled) nextToWatch?.displayText else stringResource(R.string.playback_unavailable),
-                            enabled = isPlayEnabled,
-                            onClick = onPlayClick,
-                            onLongPress = onPlayLongPress,
-                            focusRequester = playButtonFocusRequester,
-                            restoreFocusToken = restorePlayFocusToken,
-                            nuvioCTokenSeen = nuvioCPlayTokenSeen,
-                            onFocusRestored = {
-                                onHeroActionFocused()
-                                onPlayFocusRestored()
-                            }
-                        )
+                        NuvioCLift(nuvioCBlockLift) { // [fork] round 61 trailer_block_dim: focused button back to full
+                            PlayButton(
+                                text = if (isPlayEnabled) nextToWatch?.displayText else stringResource(R.string.playback_unavailable),
+                                enabled = isPlayEnabled,
+                                onClick = onPlayClick,
+                                onLongPress = onPlayLongPress,
+                                focusRequester = playButtonFocusRequester,
+                                restoreFocusToken = restorePlayFocusToken,
+                                nuvioCTokenSeen = nuvioCPlayTokenSeen,
+                                onFocusRestored = {
+                                    onHeroActionFocused()
+                                    onPlayFocusRestored()
+                                }
+                            )
+                        }
 
                         if (showRandomEpisodeButton && com.nuvio.tv.NuvioCFeatures.SHUFFLE_BUTTON_SIZE) { // [fork] round like the others, next to Play
-                            ActionIconButton(
-                                icon = if (episodeShuffle.enabled) Icons.Default.Stop else null,
-                                painter = if (episodeShuffle.enabled) null else androidx.compose.ui.res.painterResource(R.drawable.nuvio_c_ic_shuffle),
-                                contentDescription = stringResource(if (episodeShuffle.enabled) R.string.shuffle_stop else R.string.random_episode_title),
-                                onClick = { if (!shuffleActionPending) onRandomEpisodeClick() },
-                                selected = episodeShuffle.enabled,
-                                selectedContainerColor = Color.White,
-                                selectedContentColor = Color.Black,
-                                onFocused = onHeroActionFocused,
-                                focusRequester = randomEpisodeFocusRequester
-                            )
+                            NuvioCLift(nuvioCBlockLift) { // [fork] round 61 trailer_block_dim: focused button back to full
+                                ActionIconButton(
+                                    icon = if (episodeShuffle.enabled) Icons.Default.Stop else null,
+                                    painter = if (episodeShuffle.enabled) null else androidx.compose.ui.res.painterResource(R.drawable.nuvio_c_ic_shuffle),
+                                    contentDescription = stringResource(if (episodeShuffle.enabled) R.string.shuffle_stop else R.string.random_episode_title),
+                                    onClick = { if (!shuffleActionPending) onRandomEpisodeClick() },
+                                    selected = episodeShuffle.enabled,
+                                    selectedContainerColor = Color.White,
+                                    selectedContentColor = Color.Black,
+                                    onFocused = onHeroActionFocused,
+                                    focusRequester = randomEpisodeFocusRequester
+                                )
+                            }
                         }
 
                         if (nuvioCBellAvailable) { // [fork] round 38 detail_bell: Calendar bell, white when on
+                            NuvioCLift(nuvioCBlockLift) { // [fork] round 61 trailer_block_dim: focused button back to full
+                                ActionIconButton(
+                                    icon = if (nuvioCBellOn) Icons.Default.Notifications else Icons.Default.NotificationsNone,
+                                    contentDescription = stringResource(if (nuvioCBellOn) R.string.nuvio_c_bell_on else R.string.nuvio_c_bell_off),
+                                    onClick = onNuvioCBell,
+                                    selected = nuvioCBellOn,
+                                    selectedContainerColor = Color.White,
+                                    selectedContentColor = Color.Black,
+                                    onFocused = onHeroActionFocused
+                                )
+                            }
+                        }
+
+                        NuvioCLift(nuvioCBlockLift) { // [fork] round 61 trailer_block_dim: focused button back to full
                             ActionIconButton(
-                                icon = if (nuvioCBellOn) Icons.Default.Notifications else Icons.Default.NotificationsNone,
-                                contentDescription = stringResource(if (nuvioCBellOn) R.string.nuvio_c_bell_on else R.string.nuvio_c_bell_off),
-                                onClick = onNuvioCBell,
-                                selected = nuvioCBellOn,
-                                selectedContainerColor = Color.White,
-                                selectedContentColor = Color.Black,
+                                icon = if (isInLibrary) Icons.Default.Check else null,
+                                painter = if (!isInLibrary) {
+                                    libraryAddPainter
+                                } else {
+                                    null
+                                },
+                                contentDescription = if (isInLibrary) stringResource(R.string.hero_remove_from_library) else stringResource(R.string.hero_add_to_library),
+                                // [fork] detail_plus_picker: click opens the library list, hold does the one-step add/remove
+                                onClick = if (com.nuvio.tv.NuvioCFeatures.DETAIL_PLUS_PICKER) onLibraryLongPress else onToggleLibrary,
+                                onLongPress = if (com.nuvio.tv.NuvioCFeatures.DETAIL_PLUS_PICKER) onToggleLibrary else onLibraryLongPress,
                                 onFocused = onHeroActionFocused
                             )
                         }
 
-                        ActionIconButton(
-                            icon = if (isInLibrary) Icons.Default.Check else null,
-                            painter = if (!isInLibrary) {
-                                libraryAddPainter
-                            } else {
-                                null
-                            },
-                            contentDescription = if (isInLibrary) stringResource(R.string.hero_remove_from_library) else stringResource(R.string.hero_add_to_library),
-                            // [fork] detail_plus_picker: click opens the library list, hold does the one-step add/remove
-                            onClick = if (com.nuvio.tv.NuvioCFeatures.DETAIL_PLUS_PICKER) onLibraryLongPress else onToggleLibrary,
-                            onLongPress = if (com.nuvio.tv.NuvioCFeatures.DETAIL_PLUS_PICKER) onToggleLibrary else onLibraryLongPress,
-                            onFocused = onHeroActionFocused
-                        )
-
                         if (meta.isWatchedAsOneItem()) {
-                            ActionIconButton(
-                                icon = if (isMovieWatched) {
-                                    Icons.Default.Visibility
-                                } else {
-                                    Icons.Default.VisibilityOff
-                                },
-                                contentDescription = if (isMovieWatched) {
-                                    stringResource(R.string.hero_mark_unwatched)
-                                } else {
-                                    stringResource(R.string.hero_mark_watched)
-                                },
-                                onClick = onToggleMovieWatched,
-                                enabled = !isMovieWatchedPending,
-                                selected = isMovieWatched,
-                                toggleable = true,
-                                selectedContainerColor = Color.White,
-                                selectedContentColor = Color.Black,
-                                onFocused = onHeroActionFocused
-                            )
+                            NuvioCLift(nuvioCBlockLift) { // [fork] round 61 trailer_block_dim: focused button back to full
+                                ActionIconButton(
+                                    icon = if (isMovieWatched) {
+                                        Icons.Default.Visibility
+                                    } else {
+                                        Icons.Default.VisibilityOff
+                                    },
+                                    contentDescription = if (isMovieWatched) {
+                                        stringResource(R.string.hero_mark_unwatched)
+                                    } else {
+                                        stringResource(R.string.hero_mark_watched)
+                                    },
+                                    onClick = onToggleMovieWatched,
+                                    enabled = !isMovieWatchedPending,
+                                    selected = isMovieWatched,
+                                    toggleable = true,
+                                    selectedContainerColor = Color.White,
+                                    selectedContentColor = Color.Black,
+                                    onFocused = onHeroActionFocused
+                                )
+                            }
                         }
 
                         if (ratingState.isAvailable) {
-                            RatingActionButton(
-                                rating = ratingState.rating,
-                                onClick = onRateClick,
-                                onFocused = onHeroActionFocused,
-                                nuvioCFocusRequester = nuvioCRateFocusRequester // [fork] focus comes back here after the rating panel
-                            )
+                            NuvioCLift(nuvioCBlockLift) { // [fork] round 61 trailer_block_dim: focused button back to full
+                                RatingActionButton(
+                                    rating = ratingState.rating,
+                                    onClick = onRateClick,
+                                    onFocused = onHeroActionFocused,
+                                    nuvioCFocusRequester = nuvioCRateFocusRequester // [fork] focus comes back here after the rating panel
+                                )
+                            }
                         }
 
                         if (trailerAvailable) {
-                            ActionIconButtonPainter(
-                                painter = trailerPainter,
-                                contentDescription = stringResource(R.string.hero_play_trailer),
-                                onClick = onTrailerClick,
-                                onFocused = onHeroActionFocused
-                            )
+                            NuvioCLift(nuvioCBlockLift) { // [fork] round 61 trailer_block_dim: focused button back to full
+                                ActionIconButtonPainter(
+                                    painter = trailerPainter,
+                                    contentDescription = stringResource(R.string.hero_play_trailer),
+                                    onClick = onTrailerClick,
+                                    onFocused = onHeroActionFocused
+                                )
+                            }
                         }
 
                         if (showRandomEpisodeButton && !com.nuvio.tv.NuvioCFeatures.SHUFFLE_BUTTON_SIZE) { // [fork] switch on: Nuvio C button next to Play instead
-                            ActionIconButton(
-                                icon = if (episodeShuffle.enabled) Icons.Default.Stop else Icons.Default.Shuffle,
-                                contentDescription = stringResource(
-                                    if (episodeShuffle.enabled) R.string.shuffle_stop else R.string.random_episode_title
-                                ),
-                                onClick = { if (!shuffleActionPending) onRandomEpisodeClick() },
-                                focusRequester = randomEpisodeFocusRequester,
-                                onFocused = onHeroActionFocused
-                            )
+                            NuvioCLift(nuvioCBlockLift) { // [fork] round 61 trailer_block_dim: focused button back to full
+                                ActionIconButton(
+                                    icon = if (episodeShuffle.enabled) Icons.Default.Stop else Icons.Default.Shuffle,
+                                    contentDescription = stringResource(
+                                        if (episodeShuffle.enabled) R.string.shuffle_stop else R.string.random_episode_title
+                                    ),
+                                    onClick = { if (!shuffleActionPending) onRandomEpisodeClick() },
+                                    focusRequester = randomEpisodeFocusRequester,
+                                    onFocused = onHeroActionFocused
+                                )
+                            }
                         }
                     }
 
@@ -491,11 +520,19 @@ fun HeroContentSection(
                         Spacer(modifier = Modifier.height(NuvioTheme.spacing.md))
                     }
 
+                    val nuvioCInfo61 = if (com.nuvio.tv.NuvioCFeatures.HERO_LINES_V61) NuvioCDetailInfoStore.current.collectAsState().value?.takeIf { it.metaId == meta.id } else null // [fork] round 61
                     if (mdbListRatings?.isEmpty() == false) {
+                        if (com.nuvio.tv.NuvioCFeatures.HERO_LINES_V61) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.nuvioCFade { nuvioCTextAlpha.value }) { // [fork] round 61: next-episode badge rides on the ratings row
+                            MDBListRatingsRow(ratings = mdbListRatings, order = mdbListRatingOrder, iconSize = if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) 20.dp else NuvioTheme.spacing.xl)
+                            NuvioCNextEpisodeChip(meta, Modifier.padding(start = NuvioTheme.spacing.md))
+                        } else
                         MDBListRatingsRow(ratings = mdbListRatings, order = mdbListRatingOrder, modifier = Modifier.nuvioCFade { nuvioCTextAlpha.value }, iconSize = if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) 20.dp else NuvioTheme.spacing.xl) // [fork] round 44: smaller logos
                         Spacer(modifier = Modifier.height(if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) 12.dp else 14.dp))
                     } else if (com.nuvio.tv.NuvioCFeatures.HERO_RATINGS_SPACE && rememberNuvioCRatingsHold(nuvioCRatingsPending, meta.id)) { // [fork] same height, invisible, until MDBList answers
                         MDBListRatingsRow(ratings = NUVIO_C_RATINGS_PLACEHOLDER, modifier = Modifier.nuvioCInvisible(), iconSize = if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) 20.dp else NuvioTheme.spacing.xl)
+                        Spacer(modifier = Modifier.height(if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) 12.dp else 14.dp))
+                    } else if (com.nuvio.tv.NuvioCFeatures.HERO_LINES_V61 && nuvioCHasFallbackRatings(meta, hideMetaInfoImdb, tmdbRating, nuvioCInfo61?.next != null)) { // [fork] round 61: no MDBList, IMDb / TMDB take the row
+                        Box(modifier = Modifier.nuvioCFade { nuvioCTextAlpha.value }) { NuvioCFallbackRatings(meta, hideMetaInfoImdb, tmdbRating) }
                         Spacer(modifier = Modifier.height(if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) 12.dp else 14.dp))
                     }
 
@@ -508,7 +545,7 @@ fun HeroContentSection(
                             onTruncationChanged = onTruncationChanged,
                             nuvioCTextStyle = if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.detailSynopsisStyle(MaterialTheme.typography.bodyMedium) else null, // [fork] hero spec
                             modifier = Modifier
-                                .nuvioCFade { nuvioCTextAlpha.value * nuvioCDescriptionAlpha.value } // [fork]
+                                .nuvioCFade { nuvioCSynAlpha() } // [fork] round 61: own level over a trailer
                                 .onFocusChanged { nuvioCSynopsisFocused = it.hasFocus } // [fork]
                                 .fillMaxWidth(
                                     if (com.nuvio.tv.NuvioCFeatures.HERO_SYNOPSIS_WIDE) com.nuvio.tv.ui.components.NuvioCHeroSpec.DETAIL_TEXT_FRACTION_WIDE // [fork] round 43: as wide as the button row
@@ -521,8 +558,9 @@ fun HeroContentSection(
                     if (com.nuvio.tv.NuvioCFeatures.DETAIL_QUALITY_LINE) { // [fork] round 60b detail_quality_line: last line, under the synopsis, synopsis colour and opacity
                         NuvioCQualityLine(
                             meta = meta,
+                            lead = if (com.nuvio.tv.NuvioCFeatures.HERO_LINES_V61) nuvioCQualityLead(meta) else null, // [fork] round 61: year • duration
                             modifier = Modifier
-                                .nuvioCFade { nuvioCTextAlpha.value * nuvioCDescriptionAlpha.value }
+                                .nuvioCFade { nuvioCSynAlpha() }
                                 .fillMaxWidth(com.nuvio.tv.ui.components.NuvioCHeroSpec.DETAIL_TEXT_FRACTION_WIDE)
                                 .padding(bottom = NuvioTheme.spacing.md)
                         )
@@ -1182,24 +1220,26 @@ private fun Modifier.nuvioCDetailFocusLabel(focused: Boolean, label: String): Mo
 private fun NuvioCHeroFacts(meta: Meta, hideImdbRating: Boolean, tmdbRating: Float?) {
     val context = LocalContext.current
     val isSeries = meta.type == ContentType.SERIES || meta.type == ContentType.TV
+    val v61 = com.nuvio.tv.NuvioCFeatures.HERO_LINES_V61
     val parts = remember(meta.id, meta.genres, meta.runtime, meta.releaseInfo, meta.videos.size) {
         buildList {
-            formatYearRange(meta.releaseInfo)?.let { add(it) }
+            if (!v61) formatYearRange(meta.releaseInfo)?.let { add(it) } // [fork] round 61: year moves under the synopsis
             meta.genres.take(3).takeIf { it.isNotEmpty() }?.joinToString(", ") { localizedGenreLabel(context, it) }?.let { add(it) }
             if (isSeries) {
                 val seasons = meta.videos.mapNotNull { it.season }.filter { it > 0 }.distinct().size
                 if (seasons > 0) add(context.resources.getQuantityString(R.plurals.nuvio_c_hero_seasons, seasons, seasons))
-            } else {
+            } else if (!v61) { // [fork] round 61: runtime moves under the synopsis
                 meta.runtime?.let { formatRuntime(it) }?.let { add(it) }
             }
         }
     }
     val chip = meta.ageRating?.trim()?.takeIf { it.isNotBlank() }
     val info by NuvioCDetailInfoStore.current.collectAsState()
-    val countdown = if (com.nuvio.tv.NuvioCFeatures.DETAIL_NEXT_EP_BADGE && isSeries) {
+    val countdown = if (com.nuvio.tv.NuvioCFeatures.DETAIL_NEXT_EP_BADGE && isSeries && !v61) { // [fork] round 61: on the ratings row
         info?.takeIf { it.metaId == meta.id }?.next?.let { nuvioCNextEpisodeBadge(it) }
     } else null
-    val imdb = if (hideImdbRating) null else meta.imdbRating
+    val imdb = if (hideImdbRating || v61) null else meta.imdbRating // [fork] round 61: scores live on the ratings row
+    val tmdbShown = tmdbRating.takeIf { !v61 }
     val small = com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL // [fork] round 44: 12 sp, one meta tier with the synopsis
     val textStyle = if (small) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge
     val textColor = if (small) NuvioTheme.extendedColors.textSecondary.copy(alpha = 0.85f) else NuvioTheme.extendedColors.textSecondary
@@ -1209,9 +1249,10 @@ private fun NuvioCHeroFacts(meta: Meta, hideImdbRating: Boolean, tmdbRating: Flo
         modifier = Modifier.height(if (small) 22.dp else 28.dp)
     ) {
         // [fork] round 60d quality_line_rating: the age rating moves to the line under the synopsis
-        if (!(com.nuvio.tv.NuvioCFeatures.DETAIL_QUALITY_LINE && com.nuvio.tv.NuvioCFeatures.QUALITY_LINE_RATING)) chip?.let { HeroMetaBadge(text = it, nuvioCSmall = small) }
+        val chipShown = v61 || !(com.nuvio.tv.NuvioCFeatures.DETAIL_QUALITY_LINE && com.nuvio.tv.NuvioCFeatures.QUALITY_LINE_RATING)
+        if (chipShown) chip?.let { HeroMetaBadge(text = it, nuvioCSmall = small) }
         parts.forEachIndexed { i, part ->
-            if (i > 0) MetaInfoDivider()
+            if (i > 0 || (v61 && chipShown && chip != null)) MetaInfoDivider() // [fork] round 61: [rating] • genres • seasons
             Text(
                 text = part,
                 style = textStyle,
@@ -1231,10 +1272,66 @@ private fun NuvioCHeroFacts(meta: Meta, hideImdbRating: Boolean, tmdbRating: Flo
                 Text(String.format("%.1f", rating), style = textStyle, color = textColor)
             }
         }
-        tmdbRating?.let { rating ->
+        tmdbShown?.let { rating ->
             if (parts.isNotEmpty() || imdb != null) MetaInfoDivider()
             Text("TMDB ${(rating * 10).toInt()}", style = textStyle, color = textColor)
         }
         countdown?.let { HeroMetaBadge(text = it, contentColor = NuvioTheme.colors.Secondary, nuvioCSmall = small) }
     }
+}
+
+// ---- [fork] round 61 hero_lines_v61 / trailer_block_dim ----
+
+/** A hero button at the block's level over a trailer; back to full while it (or its label) has focus. */
+@Composable
+private fun NuvioCLift(alpha: () -> Float, content: @Composable () -> Unit) {
+    if (!com.nuvio.tv.NuvioCFeatures.TRAILER_BLOCK_DIM) { content(); return }
+    var focused by remember { mutableStateOf(false) }
+    Box(Modifier.onFocusChanged { focused = it.hasFocus }.nuvioCFade { if (focused) 1f else alpha() }) { content() }
+}
+
+/** Under the synopsis: year • duration (a show's episode length). */
+internal fun nuvioCQualityLead(meta: Meta): String? =
+    listOfNotNull(formatYearRange(meta.releaseInfo), meta.runtime?.let { formatRuntime(it) }).joinToString(" \u2022 ").takeIf { it.isNotBlank() }
+
+private fun nuvioCHasFallbackRatings(meta: Meta, hideImdbRating: Boolean, tmdbRating: Float?, hasNext: Boolean): Boolean {
+    val isSeries = meta.type == ContentType.SERIES || meta.type == ContentType.TV
+    return (!hideImdbRating && meta.imdbRating != null) || tmdbRating != null ||
+        (isSeries && com.nuvio.tv.NuvioCFeatures.DETAIL_NEXT_EP_BADGE && hasNext)
+}
+
+/** Ratings row without MDBList: IMDb and TMDB scores, then the next-episode badge. */
+@Composable
+private fun NuvioCFallbackRatings(meta: Meta, hideImdbRating: Boolean, tmdbRating: Float?) {
+    val small = com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL
+    val textStyle = if (small) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge
+    val textColor = if (small) NuvioTheme.extendedColors.textSecondary.copy(alpha = 0.85f) else NuvioTheme.extendedColors.textSecondary
+    val imdb = if (hideImdbRating) null else meta.imdbRating
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(if (small) 10.dp else NuvioTheme.spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.height(if (small) 22.dp else 28.dp)
+    ) {
+        imdb?.let { rating ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)) {
+                ImdbRatingSourceLabel(logoModifier = Modifier.size(if (small) 22.dp else 26.dp), textStyle = textStyle, textColor = textColor)
+                Text(String.format("%.1f", rating), style = textStyle, color = textColor)
+            }
+        }
+        tmdbRating?.let { rating ->
+            if (imdb != null) MetaInfoDivider()
+            Text("TMDB ${(rating * 10).toInt()}", style = textStyle, color = textColor)
+        }
+        NuvioCNextEpisodeChip(meta)
+    }
+}
+
+/** The next-episode countdown (S5 E4 TONIGHT 9:00 PM) for a show, or nothing. */
+@Composable
+private fun NuvioCNextEpisodeChip(meta: Meta, modifier: Modifier = Modifier) {
+    if (!com.nuvio.tv.NuvioCFeatures.DETAIL_NEXT_EP_BADGE) return
+    if (!(meta.type == ContentType.SERIES || meta.type == ContentType.TV)) return
+    val info by NuvioCDetailInfoStore.current.collectAsState()
+    val text = info?.takeIf { it.metaId == meta.id }?.next?.let { nuvioCNextEpisodeBadge(it) } ?: return
+    Box(modifier) { HeroMetaBadge(text = text, contentColor = NuvioTheme.colors.Secondary, nuvioCSmall = com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) }
 }

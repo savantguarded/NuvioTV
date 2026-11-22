@@ -56,6 +56,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
 import androidx.tv.material3.Card
 import androidx.tv.material3.CardDefaults
@@ -264,6 +265,7 @@ private fun CompanyLogoCard(
         }
     }
     var logoLoadFailed by remember(company.logo) { mutableStateOf(false) }
+    var nuvioCFocused by remember { mutableStateOf(false) } // [fork] round 61 company_chip_two_lines
 
     Card(
         onClick = {
@@ -289,6 +291,7 @@ private fun CompanyLogoCard(
                 }
             }
             .onFocusChanged { state ->
+                nuvioCFocused = state.isFocused // [fork] round 61
                 if (state.isFocused) onFocused()
             },
         shape = CardDefaults.shape(shape = RoundedCornerShape(NuvioTheme.radii.sm)),
@@ -322,6 +325,8 @@ private fun CompanyLogoCard(
                         .padding(horizontal = 14.dp, vertical = 10.dp),
                     contentScale = ContentScale.Fit
                 )
+            } else if (com.nuvio.tv.NuvioCFeatures.COMPANY_CHIP_TWO_LINES) {
+                NuvioCCompanyName(company.name, nuvioCFocused) // [fork] round 61: two lines, scroll on focus when still cut
             } else {
                 Text(
                     text = company.name,
@@ -333,5 +338,29 @@ private fun CompanyLogoCard(
                 )
             }
         }
+    }
+}
+
+/** [fork] round 61 company_chip_two_lines: the name on up to two lines (13 sp, 8 dp sides); still cut = one scrolling line while focused. */
+@Composable
+private fun NuvioCCompanyName(name: String, focused: Boolean) {
+    var cut by remember(name) { mutableStateOf(false) }
+    val style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, lineHeight = 16.sp)
+    if (focused && cut) {
+        com.nuvio.tv.ui.components.FocusMarqueeText(
+            text = name, focused = true, style = style, color = NuvioTheme.extendedColors.textSecondary,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+    } else {
+        Text(
+            text = name,
+            style = style,
+            color = NuvioTheme.extendedColors.textSecondary,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            onTextLayout = { if (!focused) cut = it.hasVisualOverflow },
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
     }
 }

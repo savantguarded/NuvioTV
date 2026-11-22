@@ -877,8 +877,11 @@ private fun Discover53(
             Title53("Faces you watch most", C_ROSE, "Titles together")
             // even spacing across the full width, room around every circle so none is cut
             androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
-            val shown = people.take((maxWidth / 108.dp).toInt().coerceAtLeast(1)) // only whole faces, never a squeezed one
-            Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+            val fits = (maxWidth / 108.dp).toInt().coerceAtLeast(1)
+            val shown = people.take(fits) // only whole faces, never a squeezed one
+            // [fork] round 61 taste_top_stack: a row that isn't full starts at the first position
+            val spread = !com.nuvio.tv.NuvioCFeatures.TASTE_TOP_STACK || shown.size >= fits
+            Row(Modifier.fillMaxSize(), horizontalArrangement = if (spread) Arrangement.SpaceEvenly else Arrangement.spacedBy(24.dp), verticalAlignment = Alignment.CenterVertically) {
                 shown.forEachIndexed { i, p ->
                     val key = "p:" + p.person.id
                     val last = i == shown.lastIndex
@@ -1138,7 +1141,8 @@ private fun Rows57(
                 shown.forEachIndexed { i, l ->
                     Row57(
                         line = l, index = if (numbered) i + 1 else null, meta = meta(l), accent = accent, rankColor = color,
-                        modifier = Modifier.fillMaxWidth().weight(1f)
+                        // [fork] round 61 taste_top_stack: fixed rows from the top, never stretched apart
+                        modifier = Modifier.fillMaxWidth().then(if (com.nuvio.tv.NuvioCFeatures.TASTE_TOP_STACK) Modifier.height(40.dp) else Modifier.weight(1f))
                             .then(if (i == 0 && first != null) Modifier.focusRequester(first) else Modifier)
                             .focusProperties {
                                 if (i == 0 && up != null) this.up = up

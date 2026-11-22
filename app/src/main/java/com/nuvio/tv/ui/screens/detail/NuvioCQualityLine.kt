@@ -183,6 +183,11 @@ private val QL_GAP = 4.dp
 private val QL_SEP_SPACE = 7.dp
 private val QL_SEP_HEIGHT = 9.dp
 private const val QL_SEP_ALPHA = 0.4f
+// round 61: the whole line 17 dp (pills and logos), 11 sp pill text; a dot between year • duration and the badges
+private val QL_HEIGHT_61 = 17.dp
+private const val QL_TEXT_SP_61 = 11f
+private const val QL_DOT_ALPHA = 0.62f
+private val QL_DOT_SPACE = 6.dp
 
 /**
  * The line under the synopsis: age rating, a hairline, then the quality badges of one release. Nothing when the title
@@ -191,20 +196,26 @@ private const val QL_SEP_ALPHA = 0.4f
  * already drawn moves.
  */
 @Composable
-internal fun NuvioCQualityLine(meta: Meta, modifier: Modifier = Modifier) {
+internal fun NuvioCQualityLine(meta: Meta, modifier: Modifier = Modifier, lead: String? = null) {
     if (!NuvioCFeatures.DETAIL_QUALITY_LINE) return
     val vm: NuvioCQualityViewModel = hiltViewModel()
     val title = remember(meta.id, meta.imdbId, meta.released, meta.videos.size) { meta.nuvioCQualityTitle() }
-    val rating = if (NuvioCFeatures.QUALITY_LINE_RATING) meta.ageRating?.trim()?.takeIf { it.isNotBlank() } else null
+    // round 61 hero_lines_v61: the age rating is back on the facts line; year • duration lead this line instead
+    val v61 = NuvioCFeatures.HERO_LINES_V61
+    val rating = if (NuvioCFeatures.QUALITY_LINE_RATING && !v61) meta.ageRating?.trim()?.takeIf { it.isNotBlank() } else null
+    val leadText = if (v61) lead?.takeIf { it.isNotBlank() } else null
     val first = remember(meta.id) { vm.initial(title) }
-    if (first == QualityLineState.Absent && rating == null) return
+    if (first == QualityLineState.Absent && rating == null && leadText == null) return
     LaunchedEffect(title) { if (first != QualityLineState.Absent) vm.bind(title) }
     val held by vm.state.collectAsState()
     val state = held?.takeIf { it.first == meta.id }?.second ?: first
 
     val color = com.nuvio.tv.ui.theme.NuvioTheme.colors.TextPrimary
+    val big = NuvioCFeatures.QUALITY_LOGOS
+    val lineHeight = if (big) QL_HEIGHT_61 else QL_HEIGHT
+    val textSp = if (big) QL_TEXT_SP_61 else QL_TEXT_SP
     val textStyle = androidx.tv.material3.MaterialTheme.typography.labelMedium.copy(
-        fontSize = QL_TEXT_SP.sp, lineHeight = (QL_TEXT_SP * 1.2f).sp, fontWeight = FontWeight.SemiBold,
+        fontSize = textSp.sp, lineHeight = (textSp * 1.2f).sp, fontWeight = FontWeight.SemiBold,
         letterSpacing = 0.2.sp, color = color
     )
     val quality: List<String>? = when (state) {
@@ -217,25 +228,54 @@ internal fun NuvioCQualityLine(meta: Meta, modifier: Modifier = Modifier) {
     val fade = remember(meta.id, quality) { Animatable(if (quality == null || state == first) 1f else 0f) }
     LaunchedEffect(fade) { if (fade.value < 1f) fade.animateTo(1f, tween(220)) }
 
-    Row(modifier.height(QL_HEIGHT), verticalAlignment = Alignment.CenterVertically) {
-        if (rating != null) Pill(rating, textStyle, color)
+    Row(modifier.height(lineHeight), verticalAlignment = Alignment.CenterVertically) {
+        if (leadText != null) Text(text = leadText, style = leadStyle(color), maxLines = 1, softWrap = false)
+        if (rating != null) Pill(rating, textStyle, color, lineHeight)
         if (quality != null) {
             Row(Modifier.graphicsLayer { alpha = fade.value * if (dim) QL_DIM_ALPHA else 1f }, verticalAlignment = Alignment.CenterVertically) {
-                if (rating != null) {
+                if (leadText != null) {
+                    Text(text = "•", style = leadStyle(color).copy(color = color.copy(alpha = QL_DOT_ALPHA)), modifier = Modifier.padding(horizontal = QL_DOT_SPACE))
+                } else if (rating != null) {
                     Spacer(Modifier.width(QL_SEP_SPACE))
                     Box(Modifier.width(1.dp).height(QL_SEP_HEIGHT).background(color.copy(alpha = QL_SEP_ALPHA)))
                     Spacer(Modifier.width(QL_SEP_SPACE))
                 }
-                BadgeRow { quality.forEach { Pill(it, textStyle, color) } }
+                BadgeRow { quality.forEach { label -> if (big) Badge61(label, textStyle, color, lineHeight) else Pill(label, textStyle, color, lineHeight) } }
             }
         }
     }
 }
 
 @Composable
-private fun Pill(label: String, style: TextStyle, color: Color) {
+private fun leadStyle(color: Color): TextStyle = androidx.tv.material3.MaterialTheme.typography.labelMedium.copy(
+    fontSize = 12.sp, lineHeight = 17.sp, fontWeight = FontWeight.Medium, color = color
+)
+
+/** [fork] round 61 quality_logos: Dolby Vision / Dolby Atmos / DTS (any DTS) as a white logo exactly the line's height; other labels stay pills. */
+@Composable
+private fun Badge61(label: String, style: TextStyle, color: Color, height: androidx.compose.ui.unit.Dp) {
+    val res = when {
+        label == "DOLBY VISION" -> com.nuvio.tv.R.drawable.nuvio_c_logo_dolby_vision
+        label == "ATMOS" -> com.nuvio.tv.R.drawable.nuvio_c_logo_dolby_atmos
+        label.startsWith("DTS") -> com.nuvio.tv.R.drawable.nuvio_c_logo_dts
+        else -> null
+    }
+    if (res == null) { Pill(label, style, color, height); return }
+    val painter = androidx.compose.ui.res.painterResource(res)
+    val size = painter.intrinsicSize
+    val ratio = if (size.height > 0f) size.width / size.height else 2.5f
+    androidx.compose.foundation.Image(
+        painter = painter,
+        contentDescription = label,
+        colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(color),
+        modifier = Modifier.height(height).width(height * ratio)
+    )
+}
+
+@Composable
+private fun Pill(label: String, style: TextStyle, color: Color, height: androidx.compose.ui.unit.Dp = QL_HEIGHT) {
     Box(
-        Modifier.height(QL_HEIGHT).background(color.copy(alpha = QL_FILL_ALPHA), RoundedCornerShape(QL_RADIUS)).padding(horizontal = QL_PAD),
+        Modifier.height(height).background(color.copy(alpha = QL_FILL_ALPHA), RoundedCornerShape(QL_RADIUS)).padding(horizontal = QL_PAD),
         contentAlignment = Alignment.Center
     ) {
         Text(text = label, style = style, maxLines = 1, softWrap = false)

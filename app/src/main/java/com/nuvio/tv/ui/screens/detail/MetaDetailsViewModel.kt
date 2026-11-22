@@ -800,7 +800,24 @@ class MetaDetailsViewModel @Inject constructor(
         }
     }
 
+    // [fork] round 61 detail_defer_loads: rows below the hero and the trailer link wait 1.2 s from the first of them
+    // (counted once per load), or until the page moves (the screen calls nuvioCOpenDeferGate), so the opening
+    // frames carry only the hero.
+    private val nuvioCDeferOpen = MutableStateFlow(false)
+    private var nuvioCDeferUntil = 0L
+    fun nuvioCOpenDeferGate() { nuvioCDeferOpen.value = true }
+    private suspend fun nuvioCDeferGate() {
+        if (!com.nuvio.tv.NuvioCFeatures.DETAIL_DEFER_LOADS || nuvioCDeferOpen.value) return
+        val now = android.os.SystemClock.uptimeMillis()
+        if (nuvioCDeferUntil == 0L) nuvioCDeferUntil = now + NUVIO_C_DEFER_MS
+        val wait = nuvioCDeferUntil - now
+        if (wait > 0) withTimeoutOrNull(wait) { nuvioCDeferOpen.first { it } }
+        nuvioCDeferOpen.value = true
+    }
+
     private fun loadMeta() {
+        nuvioCDeferUntil = 0L // [fork] round 61
+        nuvioCDeferOpen.value = false
         viewModelScope.launch {
             cancelCommentsRequests()
             val mdbListSettings = mdbListSettingsDataStore.settings.first()
@@ -1180,6 +1197,7 @@ class MetaDetailsViewModel @Inject constructor(
                     )
                 }
             }
+            if (!forceRefresh) nuvioCDeferGate() // [fork] round 61
 
             try {
                 val page = traktCommentsService.getCommentsPage(
@@ -1346,6 +1364,7 @@ class MetaDetailsViewModel @Inject constructor(
     private fun loadMoreLikeThisAsync(meta: Meta) {
         moreLikeThisJob?.cancel()
         moreLikeThisJob = viewModelScope.launch {
+            nuvioCDeferGate() // [fork] round 61
             val source = when {
                 shouldLoadSimklMoreLikeThis() -> MoreLikeThisSource.SIMKL
                 shouldLoadTraktMoreLikeThis(meta) -> MoreLikeThisSource.TRAKT
@@ -1456,6 +1475,7 @@ class MetaDetailsViewModel @Inject constructor(
     private fun loadCollectionAsync(collectionId: Int, collectionName: String?, settings: TmdbSettings) {
         collectionJob?.cancel()
         collectionJob = viewModelScope.launch {
+            nuvioCDeferGate() // [fork] round 61
             if (!settings.enabled || !settings.useCollections) {
                 _uiState.update { it.copy(collection = emptyList(), collectionName = null) }
                 return@launch
@@ -1535,6 +1555,7 @@ class MetaDetailsViewModel @Inject constructor(
                     episodeRatingsError = null
                 )
             }
+            nuvioCDeferGate() // [fork] round 61
 
             // Ratings the addon supplied on meta.videos[].rating. The repository below
             // still wins wherever it has an entry.
@@ -2944,6 +2965,7 @@ class MetaDetailsViewModel @Inject constructor(
 
         trailerFetchJob?.cancel()
         trailerFetchJob = viewModelScope.launch {
+            nuvioCDeferGate() // [fork] round 61: the trailer lookup is one of the heaviest jobs at open
             _uiState.update { state ->
                 if (state.isTrailerLoading) state else state.copy(isTrailerLoading = true)
             }
@@ -3242,3 +3264,6 @@ class MetaDetailsViewModel @Inject constructor(
         nextToWatchJob?.cancel()
     }
 }
+
+/** [fork] round 61 detail_defer_loads */
+private const val NUVIO_C_DEFER_MS = 1_200L

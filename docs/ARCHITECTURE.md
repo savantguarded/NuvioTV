@@ -4,7 +4,7 @@ Read this first in every session. It tells you where things are so you open only
 Fork-specific behaviour (what each tweak does, its switch, its screen) lives in `docs/FORK_CHANGES.md`.
 Current state, last build and open issues live in `docs/STATUS.md`.
 
-Last verified against: branch `nuvio-c` round 60, official base `1.2.0-beta.3` (`552cacf5`), 2026-11-22.
+Last verified against: branch `nuvio-c` round 61, official base `1.2.0-beta.3` (`552cacf5`), 2026-11-23.
 
 ## 1. What this is
 
@@ -151,8 +151,8 @@ Manual build: `gh workflow run nuvio-c.yml -R savantguarded/NuvioTV --ref nuvio-
 | Stats / info panel | `player/NuvioCStatsPanel.kt`, `NuvioCPlayerInfo.kt`, `NuvioCPlaybackStats.kt` |
 | Home rows, hero, Featured | `ui/screens/home/` (`ModernHome*`, `ClassicHomeContent.kt`, `NuvioCHome*`, `NuvioCHero*`), `ui/components/HeroCarousel.kt` |
 | Card sizes, posters | `ui/components/NuvioCCardSize.kt`, `ContentCard.kt`, `PosterCardDefaults.kt` |
-| Details page | `ui/screens/detail/MetaDetailsScreen.kt`, `HeroSection.kt`, `NuvioCDetail*.kt` |
-| Details quality badges | `data/quality/` (parser, plan, cache, Torrentio / QualiCache), `ui/screens/detail/NuvioCQualityLine.kt` |
+| Details page | `ui/screens/detail/MetaDetailsScreen.kt`, `HeroSection.kt`, `NuvioCDetail*.kt` (opening placeholder / fade: `NuvioCDetailOpen.kt`) |
+| Details quality badges | `data/quality/` (parser, plan, cache, Torrentio / QualiCache), `ui/screens/detail/NuvioCQualityLine.kt`, logos `res/drawable/nuvio_c_logo_*.xml` |
 | Background trailers | `ui/components/BackgroundTrailerLayer.kt`, `NuvioCTrailer*.kt`, `core/player/BackgroundTrailerController.kt`, `data/trailer/` |
 | Ratings dialog / sync to trackers | `data/nuvioc/NuvioCRatingService.kt`, `core/tracking/TrackingRatings.kt` |
 | Calendar / Upcoming row | `core/calendar/`, `ui/screens/calendar/`, `ui/screens/home/HomeComingUp.kt` |

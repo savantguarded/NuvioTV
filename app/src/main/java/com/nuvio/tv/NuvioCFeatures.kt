@@ -980,4 +980,20 @@ object NuvioCFeatures {
     const val DETAIL_QUALITY_LINE = true
     /** Details: the age rating leaves the facts line and leads the quality line under the synopsis (rating, hairline, badges). Off = rating stays on the facts line. */
     const val QUALITY_LINE_RATING = true
+
+    // ---- Round 61 (2026-11-23) ----
+    /** Details hero lines: under the buttons [age rating] • genres • N seasons; under the synopsis year • duration • quality badges. Without MDBList, IMDb / TMDB (and the next-episode badge) take the ratings row. Off = round 60d lines. */
+    const val HERO_LINES_V61 = true
+    /** Details quality line: Dolby Vision, Dolby Atmos and DTS as logos instead of text pills; the whole line (pills and logos) is 17 dp. Off = text pills at 15 dp. */
+    const val QUALITY_LOGOS = true
+    /** Details over a background trailer: logo, tagline, buttons, facts, ratings, synopsis and quality line all at one 70% level (synopsis drops its own grey while the trailer plays); a focused button is back at 100%. Off = text dims to 85%, buttons stay full. */
+    const val TRAILER_BLOCK_DIM = true
+    /** Details production / network chips without a logo: the name on two lines at 13 sp, and a name still cut scrolls on focus. Off = one line, ellipsis. */
+    const val COMPANY_CHIP_TWO_LINES = true
+    /** Details opening: a placeholder in the Nuvio C hero shape, the page fades in over it (180 ms), rows below the hero join one frame later. Fresh opens only (not returns). Off = official placeholder and hard swap. */
+    const val DETAIL_OPEN_SMOOTH = true
+    /** Details opening: More like this, comments, collection, episode ratings and the trailer link wait 1.2 s (or until the page scrolls). Off = all start at once. */
+    const val DETAIL_DEFER_LOADS = true
+    /** Taste: list cards (Recently finished, Binges, Top shows, Top films) stack fixed-height rows from the top; Faces start at the first position when the row isn't full. Off = rows spread to fill. */
+    const val TASTE_TOP_STACK = true
 }

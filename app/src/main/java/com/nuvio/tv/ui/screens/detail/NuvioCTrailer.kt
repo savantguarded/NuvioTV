@@ -54,6 +54,9 @@ internal const val NUVIO_C_DETAIL_TEXT_ALPHA = 0.85f
 /** Synopsis over a background trailer, on top of the detail-text dimming (Apple TV grey, ~60%). */
 internal const val NUVIO_C_DESCRIPTION_ALPHA = 0.72f
 
+/** [fork] round 61 trailer_block_dim: the whole hero block (logo, buttons, text) over a background trailer. */
+internal const val NUVIO_C_BLOCK_ALPHA_61 = 0.70f
+
 /** Detail-page trailer state the fork threads from the screen down to the hero and backdrop. */
 data class NuvioCTrailerUi(
     /** Layer active: switch on and official "Play in Background" on. */

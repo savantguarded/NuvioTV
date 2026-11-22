@@ -2,33 +2,32 @@
 
 Rewrite this file at the end of every build session (do not append). History lives in git log.
 
-Updated: 2026-11-22 (round 60)
+Updated: 2026-11-23 (round 61)
 
 ## Where things stand
-- Branch `nuvio-c` = round 60 on official `1.2.0-beta.3` (still the newest official tag on 2026-11-22). CI picks the highest version.
+- Branch `nuvio-c` = round 61 on official `1.2.0-beta.3` (still the newest official tag on 2026-11-23). CI picks the highest version.
 - Only branch left: `nuvio-c`.
-- Round 60:
-  - Details quality badge line (`DETAIL_QUALITY_LINE`): built from the owner's spec "Nuvio details page quality badges" (2026-11-22) and his v3 mockup (grey outlines, generic dim labels). Agreed changes to the spec: 5+ seeder releases win before weaker ones; a film release that names a different year is ignored (bogus IDs such as tt9999999 give QUALITY UNAVAILABLE); NOT YET ON DIGITAL only for a film out in cinemas within the last year. The leaf has its own view model (`NuvioCQualityViewModel`) instead of a flow in `MetaDetailsViewModel`, and draws its own badges in the owner's design instead of reusing the OSD badge view, so the OSD is untouched.
-  - QualiCache: shared key from the PostersPlus README (owner-supplied) in the repo secret NUVIO_C_QUALICACHE_KEY; CI appends it to local.properties as QUALICACHE_API_KEY. Rotate = replace that secret. `next_refresh_at` comes as Unix seconds, capped at 30 days.
-  - Round 60b (owner's call after seeing it on the TV): the line moved under the synopsis, OSD badge look about 20% larger, synopsis colour and opacity, no dashed boxes while checking.
-  - Round 60c: the owner found the details page slower to open. Official open path unchanged (MetaDetailsScreen / ViewModel / UiState untouched); the cause was the line's own work at open: episode-date planning on the main thread in the first frame, and the Torrentio download and parse starting at once. Now O(1) first frame, lookup after a 1.2 s settle, parse on a low-priority thread.
-  - Round 60d: owner picked F2 (rating + badges on one line under the synopsis, runtime stays on the facts line), soft fill (A), slightly smaller, hairline between rating and badges; QUALITY UNAVAILABLE dropped from this line (just the rating), other dim labels at 65%; flicker fixed (badges started at full opacity for a frame; a late episode list cleared the line); early-stop streaming Torrentio read; saved results warmed after start-up.
-  - Judder on opening details (2026-11-22) was the adb install without the .dm profile, not the badge line: measured worst frame 1.4 s without, 0.25 to 0.35 s with (official app on the same TV: 1.1 to 1.2 s). See ARCHITECTURE section 7.
-  - Marquee on more cut text (`MARQUEE_MORE`).
-  - Featured carousel badges: on hold by the owner (mockup canvas "Nuvio C: Featured carousel quality badges (mockup)", option A picked, not built).
-  - "Full exit on close" (Settings > Advanced) already gives double-Back exit; left at official default, the owner switches it on himself.
-- Tests: `NuvioCRound60Test` uses trimmed Torrentio answers saved 2026-11-22 (`app/src/test/resources/quality/`).
+- Round 61 (mockup canvas "Nuvio C: Details page round 61 (mockup)", all approved in one build):
+  - Hero lines (`HERO_LINES_V61`): `[age rating] • genres • N seasons` under the buttons; `year • duration • badges` under the synopsis; without MDBList, IMDb / TMDB take the ratings row; next-episode badge at the end of the ratings row.
+  - Logos (`QUALITY_LOGOS`): Dolby Vision, Dolby Atmos, DTS (any DTS) as white vectors, whole line 17 dp. Sources: Wikimedia Commons "Dolby Vision 2021 logo.svg", "Dolby Atmos.png" (traced), "DTS logo.svg" (letters only). Dolby Digital / DD+ / TrueHD stay text.
+  - Background trailer (`TRAILER_BLOCK_DIM`): logo, tagline, buttons, facts, ratings, synopsis, quality line all at 70%; synopsis drops its 72% grey during the trailer (owner left it to Claude); focused button back to 100%.
+  - Company chips (`COMPANY_CHIP_TWO_LINES`): two lines at 13 sp, still cut = scroll on focus.
+  - Opening (`DETAIL_OPEN_SMOOTH`): Nuvio C hero-shaped placeholder, 180 ms fade, rows join one frame later (fresh opens only). `DETAIL_DEFER_LOADS`: More like this, comments, collection, episode ratings, trailer link wait 1.2 s or until the page scrolls.
+  - Taste (`TASTE_TOP_STACK`): list rows fixed 40 dp from the top; Faces from the first slot when the row isn't full.
+- Round 60 quality line (Torrentio first, QualiCache fallback, leaf view model) unchanged underneath.
+- Tests: `NuvioC*` and `Calendar*` pass. No new tests this round (UI only).
+- TV adb from the owner's nuvio-debug folder works from the desktop VM: Linux platform-tools downloaded into the VM home, the folder's adb-key copied to ~/.android.
 
 ## Still to check on the TV
-- Quality line: nothing above the line moves between the first frame and the result (cached title, cold title, unavailable); badges match the design; series pages (latest aired episode); a `tmdb:` id title; a title from Torrentio in Lagos (owner confirmed the URL loads in a browser).
+- Round 61: logo legibility at 17 dp; 70% block over a trailer (focus lift on each button, synopsis readable); opening fade on a cold and a cached title; Down soon after open loads rows at once; trailer autostart still fires; a series without MDBList shows IMDb / TMDB and the countdown; company names with two lines and the scroll; Taste cards with one or two entries.
+- Round 60: quality line for a `tmdb:` id title; series latest-aired episode.
 - Marquee: Taste rows / Spin card / faces, Modern Home card titles, collection folders, Calendar reminder rows.
-- From round 59: Taste two-line names and rows, Wrapped chart headroom, Stats strip; Library on Nuvio Sync; Modern OSD right icons.
 
 ## Open ideas (not approved for building)
 - Featured carousel quality badges (on hold, option A).
 - Optional focus prefetch for the quality line (spec: ship off; not built).
 - Seek thumbnails on the device, no external API. Investigating only.
-- On-the-fly episode ordering per show (Miami Vice S1, Kengan Ashura) with correct scrobbling. The quality line asks Torrentio with the add-on's season / episode numbers, so a show whose TVDB order differs from IMDb can show the wrong episode's quality.
+- On-the-fly episode ordering per show (Miami Vice S1, Kengan Ashura) with correct scrobbling.
 - MDBList API call growth during playback (raised 2026-10-31).
 - Watchly C lives in its own repo, not here.
 
