@@ -1504,6 +1504,13 @@ open class MainActivity : ComponentActivity() {
                         if (com.nuvio.tv.core.NuvioCPlayback.active) return@LaunchedEffect
                         runCatching { nuvioCTaste.get().refreshIfStale() }
                     }
+                    // [fork] round 60d detail_quality_line: saved quality badges into memory once start-up settles, so titles seen
+                    // before show their badges on the first frame of the details page
+                    LaunchedEffect(showSplash, startupLoadingState.complete) {
+                        if (!com.nuvio.tv.NuvioCFeatures.DETAIL_QUALITY_LINE || showSplash || !startupLoadingState.complete) return@LaunchedEffect
+                        kotlinx.coroutines.delay(3_000)
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { com.nuvio.tv.data.quality.TitleQualityCache.warmShared(applicationContext) } }
+                    }
                     // [fork] round 50 startup_job_queue: queued background jobs may start once the start-up screen is gone
                     LaunchedEffect(showSplash, startupLoadingState.complete) {
                         if (!showSplash && startupLoadingState.complete) com.nuvio.tv.core.nuvioc.NuvioCStartupQueue.release()

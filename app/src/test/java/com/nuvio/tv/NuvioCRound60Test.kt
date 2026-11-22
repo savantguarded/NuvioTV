@@ -127,4 +127,35 @@ class NuvioCRound60Test {
         assertEquals(now + 7 * day, TitleQualityPlanner.expiry(now, today.minusDays(400), today, null))
         assertEquals(now + 99, TitleQualityPlanner.expiry(now, null, today, now + 99))
     }
+
+    // ---- round 60d: streaming reader and early stop ----
+    private val all = listOf("dune", "pirates", "possible_love", "bleach_1_8", "zeta_2_2", "loveisblind_3_4", "viva_riva",
+        "see_everything", "matrix", "roma", "fleabag_1_1", "sherlock_1_1", "amelie", "wire_1_1", "come_and_see", "casa_1_1",
+        "city_of_god", "bogus1", "bogus2")
+    private val years = mapOf("dune" to 2024, "pirates" to 2003, "possible_love" to 2026, "viva_riva" to 2010, "see_everything" to 2026,
+        "matrix" to 1999, "roma" to 2018, "amelie" to 2001, "come_and_see" to 1985, "city_of_god" to 2002, "bogus1" to 2024, "bogus2" to 2024)
+    private fun body(name: String) = javaClass.classLoader!!.getResource("quality/$name.json")!!.readText()
+
+    @Test fun streamingReaderMatchesTreeParse() {
+        all.forEach { n ->
+            assertEquals(n, TitleQualityParser.streamsOf(body(n)), TitleQualityParser.streamsFrom(java.io.StringReader(body(n))).toList())
+        }
+    }
+
+    @Test fun earlyStopPicksTheSameRelease() {
+        all.forEach { n ->
+            val full = TitleQualityParser.best(TitleQualityParser.streamsOf(body(n)), years[n])
+            val early = TitleQualityParser.bestEarly(TitleQualityParser.streamsFrom(java.io.StringReader(body(n))), years[n])
+            assertEquals(n, full, early.quality)
+        }
+        // big titles stop well before the end of the list
+        val dune = TitleQualityParser.bestEarly(TitleQualityParser.streamsFrom(java.io.StringReader(body("dune"))), 2024)
+        assertTrue("dune read ${dune.read}", dune.read < TitleQualityParser.streamsOf(body("dune")).size)
+    }
+
+    @Test fun torrentioTiers() {
+        assertEquals(5, TitleQualityParser.torrentioTier("Torrentio\n4k DV | HDR"))
+        assertEquals(3, TitleQualityParser.torrentioTier("Torrentio\n1080p 3D SBS"))
+        assertEquals(0, TitleQualityParser.torrentioTier("Torrentio\nWEB-DL"))
+    }
 }

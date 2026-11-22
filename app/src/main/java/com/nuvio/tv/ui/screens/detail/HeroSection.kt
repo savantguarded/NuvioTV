@@ -1208,7 +1208,8 @@ private fun NuvioCHeroFacts(meta: Meta, hideImdbRating: Boolean, tmdbRating: Flo
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.height(if (small) 22.dp else 28.dp)
     ) {
-        chip?.let { HeroMetaBadge(text = it, nuvioCSmall = small) }
+        // [fork] round 60d quality_line_rating: the age rating moves to the line under the synopsis
+        if (!(com.nuvio.tv.NuvioCFeatures.DETAIL_QUALITY_LINE && com.nuvio.tv.NuvioCFeatures.QUALITY_LINE_RATING)) chip?.let { HeroMetaBadge(text = it, nuvioCSmall = small) }
         parts.forEachIndexed { i, part ->
             if (i > 0) MetaInfoDivider()
             Text(

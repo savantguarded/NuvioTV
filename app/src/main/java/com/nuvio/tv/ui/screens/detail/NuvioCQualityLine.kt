@@ -2,14 +2,18 @@ package com.nuvio.tv.ui.screens.detail
 
 // [fork] Nuvio C round 60 `detail_quality_line`: one line of outlined badges under the hero's facts line, e.g.
 // 4K | DOLBY VISION | ATMOS | WEB-DL, describing ONE real release (never tags mixed across releases).
-// Look (round 60b): the OSD badges, about 20% larger, in the synopsis colour and opacity, as the last line under the
-// synopsis; dim pills at 45%; nothing drawn while checking (the space is held).
+// Look (round 60d): age rating, a hairline, then soft-fill badges, in the synopsis colour and opacity, as the last line
+// under the synopsis; NOT YET RELEASED / ON DIGITAL dim at 65%; nothing drawn for the quality part while checking.
 // No jump: the hero is bottom-anchored, so the line holds a fixed height from the first frame in every state
 // where a lookup is possible, and is absent only when there's no usable ID (known before the first frame).
 // Its result lives in this leaf's own view model, never in MetaDetailsUiState, so only this line recomposes.
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
@@ -98,12 +102,22 @@ class NuvioCQualityViewModel @Inject constructor(
         return repo.cache.peekMeta(t.id)?.toState() ?: QualityLineState.Checking
     }
 
+    /**
+     * Round 60d: a title is bound once. The page often gets its episode list a moment after it opens; that is not a
+     * new title, so the line is never cleared (that blank-then-fade was the flicker). A series waits for its
+     * episode list before asking anything.
+     */
     fun bind(t: QualityTitle) {
-        val key = t.id + "|" + t.episodes.size
+        val waitingForEpisodes = t.isSeries && t.episodes.isEmpty()
+        val key = t.id + if (waitingForEpisodes) "|wait" else "|ready"
         if (bound == key) return
+        val sameTitle = bound?.substringBefore('|') == t.id
         bound = key
+        if (!sameTitle) _state.value = t.id to initial(t)
+        if (waitingForEpisodes) return
+        val now = _state.value?.takeIf { it.first == t.id }?.second
+        if (sameTitle && now != null && now != QualityLineState.Checking) return // already showing a result
         job?.cancel()
-        _state.value = t.id to initial(t)
         job = viewModelScope.launch { run(t) }
     }
 
@@ -113,7 +127,7 @@ class NuvioCQualityViewModel @Inject constructor(
         var plan = withContext(Dispatchers.Default) { TitleQualityPlanner.plan(t, today) }
         if (plan == QualityPlan.NotYetReleased) { publish(t, QualityLineState.Dim(QualityLineState.NOT_YET_RELEASED)); return }
         val cachedHit = (plan as? QualityPlan.Lookup)?.let { l -> withContext(Dispatchers.IO) { repo.cache.get(l.cacheKey) } }
-        if (cachedHit != null) { repo.cache.rememberMeta(t.id, cachedHit); publish(t, cachedHit.toState()); return }
+        if (cachedHit != null) { withContext(Dispatchers.IO) { repo.cache.link(t.id, (plan as QualityPlan.Lookup).cacheKey) }; publish(t, cachedHit.toState()); return }
         // a layer like the ratings: nothing goes out until the page has opened and settled
         delay(SETTLE_MS)
         val needs = plan as? QualityPlan.NeedsImdb
@@ -126,14 +140,13 @@ class NuvioCQualityViewModel @Inject constructor(
             if (plan == QualityPlan.NotYetReleased) { publish(t, QualityLineState.Dim(QualityLineState.NOT_YET_RELEASED)); return }
         }
         val lookup = plan as? QualityPlan.Lookup ?: return
-        withContext(Dispatchers.IO) { repo.cache.get(lookup.cacheKey) }?.let { repo.cache.rememberMeta(t.id, it); publish(t, it.toState()); return }
+        withContext(Dispatchers.IO) { repo.cache.get(lookup.cacheKey) }?.let { withContext(Dispatchers.IO) { repo.cache.link(t.id, lookup.cacheKey) }; publish(t, it.toState()); return }
         val (result, nextRefresh) = repo.lookup(lookup.targets, lookup.year)
         val now = System.currentTimeMillis()
         when (result) {
             is QualityLookup.Found -> {
                 val c = CachedQuality(CachedKind.FOUND, result.quality, now, TitleQualityPlanner.expiry(now, lookup.releaseDate, today, nextRefresh))
-                withContext(Dispatchers.IO) { repo.cache.put(lookup.cacheKey, c) }
-                repo.cache.rememberMeta(t.id, c)
+                withContext(Dispatchers.IO) { repo.cache.put(lookup.cacheKey, c, t.id) }
                 publish(t, QualityLineState.Found(result.quality.labels))
             }
             else -> {
@@ -141,8 +154,7 @@ class NuvioCQualityViewModel @Inject constructor(
                 val label = TitleQualityPlanner.emptyLabel(result, t.isSeries, info?.theatricalDate ?: t.released, info?.homeReleaseDate, today)
                 if (label == QualityLineState.NOT_YET_ON_DIGITAL) {
                     val c = CachedQuality(CachedKind.NOT_ON_DIGITAL, null, now, now + TitleQualityPlanner.NOT_ON_DIGITAL_MS)
-                    withContext(Dispatchers.IO) { repo.cache.put(lookup.cacheKey, c) }
-                    repo.cache.rememberMeta(t.id, c)
+                    withContext(Dispatchers.IO) { repo.cache.put(lookup.cacheKey, c, t.id) }
                 }
                 publish(t, QualityLineState.Dim(label))
             }
@@ -159,27 +171,34 @@ class NuvioCQualityViewModel @Inject constructor(
     }
 }
 
-private const val QL_DIM_ALPHA = 0.45f
-// round 60b: the OSD badge look (outline and text in one colour, semi-bold caps), about 20% larger than the OSD's
-private val QL_HEIGHT = 17.dp
-private val QL_TEXT_SP = 11.5f
-private val QL_BORDER_W = 1.45.dp
-private val QL_RADIUS = 3.dp
-private val QL_PAD = 4.2.dp
-private val QL_GAP = 4.2.dp // the gap the line had in round 60
+private const val QL_DIM_ALPHA = 0.65f // round 60d: readable from the sofa
+// round 60d: soft-fill pills (white at 12% once the line takes the synopsis opacity), synopsis-colour text, a touch
+// smaller than 60b; the age rating leads, a hairline separates it from the quality badges
+private val QL_HEIGHT = 15.dp
+private const val QL_TEXT_SP = 10f
+private const val QL_FILL_ALPHA = 0.17f // x the synopsis' 0.72 = 12%
+private val QL_RADIUS = 2.5.dp
+private val QL_PAD = 4.dp
+private val QL_GAP = 4.dp
+private val QL_SEP_SPACE = 7.dp
+private val QL_SEP_HEIGHT = 9.dp
+private const val QL_SEP_ALPHA = 0.4f
 
 /**
- * The badge line, or nothing when the title has no usable ID. Drawn in the synopsis colour; the caller gives it the
- * synopsis opacity. While checking, the space is held and nothing is drawn.
+ * The line under the synopsis: age rating, a hairline, then the quality badges of one release. Nothing when the title
+ * has neither a rating nor a usable ID. Drawn in the synopsis colour; the caller gives it the synopsis opacity. While
+ * checking, the space is held and only the rating is drawn; a result that arrives later fades in beside it, so nothing
+ * already drawn moves.
  */
 @Composable
 internal fun NuvioCQualityLine(meta: Meta, modifier: Modifier = Modifier) {
     if (!NuvioCFeatures.DETAIL_QUALITY_LINE) return
     val vm: NuvioCQualityViewModel = hiltViewModel()
     val title = remember(meta.id, meta.imdbId, meta.released, meta.videos.size) { meta.nuvioCQualityTitle() }
-    val first = remember(title) { vm.initial(title) }
-    if (first == QualityLineState.Absent) return
-    LaunchedEffect(title) { vm.bind(title) }
+    val rating = if (NuvioCFeatures.QUALITY_LINE_RATING) meta.ageRating?.trim()?.takeIf { it.isNotBlank() } else null
+    val first = remember(meta.id) { vm.initial(title) }
+    if (first == QualityLineState.Absent && rating == null) return
+    LaunchedEffect(title) { if (first != QualityLineState.Absent) vm.bind(title) }
     val held by vm.state.collectAsState()
     val state = held?.takeIf { it.first == meta.id }?.second ?: first
 
@@ -188,24 +207,35 @@ internal fun NuvioCQualityLine(meta: Meta, modifier: Modifier = Modifier) {
         fontSize = QL_TEXT_SP.sp, lineHeight = (QL_TEXT_SP * 1.2f).sp, fontWeight = FontWeight.SemiBold,
         letterSpacing = 0.2.sp, color = color
     )
-    // a result that arrives after the first frame fades in (draw phase only, never the height); a cached one is just there
-    val fade = remember(meta.id) { Animatable(1f) }
-    LaunchedEffect(state) {
-        if (state != first && (state is QualityLineState.Found || state is QualityLineState.Dim)) { fade.snapTo(0f); fade.animateTo(1f, tween(220)) }
+    val quality: List<String>? = when (state) {
+        is QualityLineState.Found -> state.labels
+        is QualityLineState.Dim -> if (state.label == QualityLineState.UNAVAILABLE) null else listOf(state.label)
+        else -> null
     }
-    Box(modifier.height(QL_HEIGHT).graphicsLayer { alpha = fade.value }, contentAlignment = Alignment.CenterStart) {
-        when (state) {
-            QualityLineState.Absent, QualityLineState.Checking -> Unit
-            is QualityLineState.Dim -> Box(Modifier.graphicsLayer { alpha = QL_DIM_ALPHA }) { Badge(state.label, textStyle, color) }
-            is QualityLineState.Found -> BadgeRow { state.labels.forEach { Badge(it, textStyle, color) } }
+    val dim = state is QualityLineState.Dim
+    // round 60d flicker fix: a result that arrives after the first frame starts at 0 in that same frame, then fades in
+    val fade = remember(meta.id, quality) { Animatable(if (quality == null || state == first) 1f else 0f) }
+    LaunchedEffect(fade) { if (fade.value < 1f) fade.animateTo(1f, tween(220)) }
+
+    Row(modifier.height(QL_HEIGHT), verticalAlignment = Alignment.CenterVertically) {
+        if (rating != null) Pill(rating, textStyle, color)
+        if (quality != null) {
+            Row(Modifier.graphicsLayer { alpha = fade.value * if (dim) QL_DIM_ALPHA else 1f }, verticalAlignment = Alignment.CenterVertically) {
+                if (rating != null) {
+                    Spacer(Modifier.width(QL_SEP_SPACE))
+                    Box(Modifier.width(1.dp).height(QL_SEP_HEIGHT).background(color.copy(alpha = QL_SEP_ALPHA)))
+                    Spacer(Modifier.width(QL_SEP_SPACE))
+                }
+                BadgeRow { quality.forEach { Pill(it, textStyle, color) } }
+            }
         }
     }
 }
 
 @Composable
-private fun Badge(label: String, style: TextStyle, color: Color) {
+private fun Pill(label: String, style: TextStyle, color: Color) {
     Box(
-        Modifier.height(QL_HEIGHT).border(QL_BORDER_W, color, RoundedCornerShape(QL_RADIUS)).padding(horizontal = QL_PAD),
+        Modifier.height(QL_HEIGHT).background(color.copy(alpha = QL_FILL_ALPHA), RoundedCornerShape(QL_RADIUS)).padding(horizontal = QL_PAD),
         contentAlignment = Alignment.Center
     ) {
         Text(text = label, style = style, maxLines = 1, softWrap = false)

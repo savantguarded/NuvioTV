@@ -135,6 +135,88 @@ object TitleQualityParser {
         )?.quality
     }
 
+    /** Torrentio's own resolution tag from the first word of its name line (its list is sorted by it, then seeders). */
+    fun torrentioTier(name: String?): Int {
+        val tag = name?.substringAfterLast('\n')?.trim()?.lowercase()?.substringBefore(' ') ?: return 0
+        return when (tag) {
+            "4k", "2160p", "8k", "4320p" -> 5
+            "1440p" -> 4
+            "1080p" -> 3
+            "720p" -> 2
+            "576p", "480p", "360p" -> 1
+            else -> 0
+        }
+    }
+
+    /** What [bestEarly] picked and how many streams it had to read. */
+    data class EarlyPick(val quality: TitleQuality?, val read: Int)
+
+    /**
+     * Round 60d: the same pick as [best], reading as little as possible. Torrentio sorts by its resolution tag, then
+     * seeders, so once a healthy (5+ seeders) release is held at resolution R and the list has moved to a lower tag,
+     * nothing later can beat it: stop. A 4K tier is read to its end first (two healthy 4K releases needed).
+     */
+    fun bestEarly(streams: Sequence<QualityStreamText>, year: Int? = null): EarlyPick {
+        val iter = streams.iterator()
+        var read = 0
+        val kept = ArrayList<ParsedRelease>()
+        var pending: QualityStreamText? = null
+        fun next(): QualityStreamText? = pending?.also { pending = null } ?: if (iter.hasNext()) iter.next().also { read++ } else null
+        while (true) {
+            val first = next() ?: break
+            val tier = torrentioTier(first.name)
+            val group = arrayListOf(first)
+            while (true) {
+                val n = next() ?: break
+                if (torrentioTier(n.name) != tier) { pending = n; break }
+                group += n
+            }
+            group.asSequence().map(::parse)
+                .filter { !it.cam && it.quality != null && it.seeders > 0 }
+                .filter { r -> year == null || r.years.isEmpty() || r.years.any { kotlin.math.abs(it - year) <= 1 } }
+                .forEach { kept += it }
+            // stop once a healthy release is held and the next tag can't reach its resolution
+            val pick = rank(kept)
+            val nextTier = pending?.let { torrentioTier(it.name) }
+            if (pick != null && pick.seeders >= HEALTHY_SEEDERS && nextTier != null && nextTier != 0 &&
+                nextTier < tierOf(pick.quality!!.resolution)) break
+            if (nextTier == null) break
+        }
+        return EarlyPick(rank(kept)?.quality, read)
+    }
+
+    private fun tierOf(r: QualityResolution) = when (r) {
+        QualityResolution.UHD -> 5; QualityResolution.FHD -> 3; QualityResolution.HD -> 2; QualityResolution.SD -> 1
+    }
+
+    /** The ranking of [best] over already-filtered releases. */
+    private fun rank(left0: List<ParsedRelease>): ParsedRelease? {
+        var left = left0
+        val healthy4k = left.count { it.quality!!.resolution == QualityResolution.UHD && it.seeders >= CORROBORATION_SEEDERS }
+        if (healthy4k < CORROBORATION_RELEASES) left = left.filter { it.quality!!.resolution != QualityResolution.UHD }
+        val pool = left.filter { it.seeders >= HEALTHY_SEEDERS }.ifEmpty { left }
+        return pool.maxWithOrNull(
+            compareBy<ParsedRelease>({ it.quality!!.resolution.ordinal }, { it.quality!!.range?.ordinal ?: -1 },
+                { it.quality!!.audio?.ordinal ?: -1 }, { it.quality!!.source?.ordinal ?: -1 }, { it.seeders })
+        )
+    }
+
+    /**
+     * Round 60d: reads a Torrentio answer one stream at a time from [reader] (name, title, filename only; everything
+     * else skipped), never building the whole JSON. Stop consuming and close the reader to stop the download.
+     */
+    fun streamsFrom(reader: java.io.Reader): Sequence<QualityStreamText> = sequence {
+        val r = JsonPull(reader)
+        if (!r.seekKey("streams") || !r.expect('[')) return@sequence
+        while (true) {
+            val c = r.peekNonSpace() ?: return@sequence
+            if (c == ']') return@sequence
+            if (c == ',') { r.skip1(); continue }
+            if (c != '{') return@sequence
+            yield(r.readStream() ?: return@sequence)
+        }
+    }
+
     /** QualiCache tokens (one trusted release) to the same slots. Resolution capped at 4K. */
     fun fromTokens(tokens: List<String>): TitleQuality? {
         val t = tokens.map { it.uppercase().trim() }.toSet()
@@ -169,5 +251,121 @@ object TitleQualityParser {
             else -> null
         }
         return TitleQuality(res, range, audio, source)
+    }
+}
+
+/** A tiny forward-only JSON reader for Torrentio answers (strings, nesting, escapes). */
+private class JsonPull(private val r: java.io.Reader) {
+    private var peeked = -2
+    private fun read(): Int = if (peeked != -2) peeked.also { peeked = -2 } else r.read()
+    fun skip1() { read() }
+    fun peekNonSpace(): Char? {
+        while (true) {
+            val c = read()
+            if (c < 0) return null
+            if (!c.toChar().isWhitespace()) { peeked = c; return c.toChar() }
+        }
+    }
+    fun expect(ch: Char): Boolean = peekNonSpace() == ch && run { read(); true }
+
+    /** Moves past `"key":` at any depth. */
+    fun seekKey(key: String): Boolean {
+        while (true) {
+            val c = read()
+            if (c < 0) return false
+            if (c.toChar() == '"') {
+                val s = readStringBody()
+                if (s == key && peekNonSpace() == ':') { read(); return true }
+            }
+        }
+    }
+
+    /** Reads one stream object; keeps name, title and behaviorHints.filename. */
+    fun readStream(): QualityStreamText? {
+        if (!expect('{')) return null
+        var name: String? = null; var title: String? = null; var filename: String? = null
+        while (true) {
+            when (peekNonSpace() ?: return null) {
+                '}' -> { read(); return QualityStreamText(name, title, filename) }
+                ',' -> read()
+                '"' -> {
+                    read(); val key = readStringBody()
+                    if (!expect(':')) return null
+                    when (key) {
+                        "name" -> name = readValueString()
+                        "title" -> title = readValueString()
+                        "behaviorHints" -> filename = readHintsFilename()
+                        else -> skipValue()
+                    }
+                }
+                else -> return null
+            }
+        }
+    }
+
+    private fun readValueString(): String? = if (peekNonSpace() == '"') { read(); readStringBody() } else { skipValue(); null }
+
+    private fun readHintsFilename(): String? {
+        if (peekNonSpace() != '{') { skipValue(); return null }
+        read()
+        var filename: String? = null
+        while (true) {
+            when (peekNonSpace() ?: return filename) {
+                '}' -> { read(); return filename }
+                ',' -> read()
+                '"' -> {
+                    read(); val key = readStringBody()
+                    if (!expect(':')) return filename
+                    if (key == "filename") filename = readValueString() else skipValue()
+                }
+                else -> return filename
+            }
+        }
+    }
+
+    private fun skipValue() {
+        when (peekNonSpace() ?: return) {
+            '"' -> { read(); skipStringBody() }
+            '{', '[' -> {
+                var depth = 0
+                while (true) {
+                    val c = read(); if (c < 0) return
+                    when (c.toChar()) {
+                        '"' -> skipStringBody()
+                        '{', '[' -> depth++
+                        '}', ']' -> { depth--; if (depth == 0) return }
+                    }
+                }
+            }
+            else -> while (true) { // number, true, false, null
+                val c = peekNonSpace() ?: return
+                if (c == ',' || c == '}' || c == ']') return
+                read()
+            }
+        }
+    }
+
+    private fun skipStringBody() {
+        while (true) {
+            val c = read(); if (c < 0) return
+            if (c.toChar() == '\\') read() else if (c.toChar() == '"') return
+        }
+    }
+
+    private fun readStringBody(): String {
+        val sb = StringBuilder()
+        while (true) {
+            val c = read(); if (c < 0) return sb.toString()
+            when (val ch = c.toChar()) {
+                '"' -> return sb.toString()
+                '\\' -> when (val e = read().toChar()) {
+                    'n' -> sb.append('\n'); 't' -> sb.append('\t'); 'r' -> sb.append('\r')
+                    'b' -> sb.append('\b'); 'f' -> sb.append('\u000C')
+                    'u' -> { val hex = CharArray(4) { read().toChar() }; sb.append(String(hex).toIntOrNull(16)?.toChar() ?: '?') }
+                    else -> sb.append(e)
+                }
+                else -> sb.append(ch)
+            }
+        }
     }
 }

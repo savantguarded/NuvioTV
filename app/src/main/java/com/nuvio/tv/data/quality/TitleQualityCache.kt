@@ -2,6 +2,8 @@ package com.nuvio.tv.data.quality
 
 // [fork] Nuvio C round 60 `detail_quality_line`: memory + disk cache of the compact result only (tags, fetched
 // time, expiry), never a Torrentio answer. Shared by every profile: it holds public release facts, nothing personal.
+// Round 60d: one shared instance, loaded into memory shortly after start-up, with a title-id index, so a title seen
+// before shows its badges on the first frame even right after a cold start.
 
 import android.content.Context
 import androidx.core.content.edit
@@ -35,52 +37,86 @@ data class CachedQuality(val kind: CachedKind, val quality: TitleQuality?, val f
     }
 }
 
-class TitleQualityCache(context: Context) {
+class TitleQualityCache private constructor(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private val memory = object : LinkedHashMap<String, CachedQuality>(64, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, CachedQuality>?) = size > MEMORY_MAX
     }
+    /** title id -> cache key, so the first frame needs no planning. */
+    private val keyOfMeta = HashMap<String, String>()
     @Volatile private var warmed = false
-    /** metaId -> last result in this run, so the first frame needs no planning (round 60c). */
-    private val byMeta = HashMap<String, CachedQuality>()
 
     /** Loads the disk copy into memory once (call off the main thread); drops expired and surplus entries. */
     @Synchronized fun warm() {
         if (warmed) return
         warmed = true
         val now = System.currentTimeMillis()
-        val all = prefs.all.mapNotNull { (k, v) -> CachedQuality.decode(v as? String)?.let { k to it } }
-        val keep = all.filter { it.second.fresh(now) }.sortedByDescending { it.second.fetchedAt }.take(DISK_MAX)
+        val all = prefs.all
+        val results = all.mapNotNull { (k, v) ->
+            if (k.startsWith(ID_PREFIX)) null else CachedQuality.decode(v as? String)?.let { k to it }
+        }
+        val keep = results.filter { it.second.fresh(now) }.sortedByDescending { it.second.fetchedAt }.take(DISK_MAX)
         keep.reversed().forEach { (k, v) -> memory[k] = v }
-        if (keep.size != prefs.all.size) prefs.edit { clear(); keep.forEach { (k, v) -> putString(k, v.encode()) } }
+        val keptKeys = keep.mapTo(HashSet()) { it.first }
+        val ids = all.mapNotNull { (k, v) ->
+            val key = v as? String
+            if (k.startsWith(ID_PREFIX) && key != null && key in keptKeys) k.removePrefix(ID_PREFIX) to key else null
+        }
+        ids.forEach { (id, key) -> keyOfMeta[id] = key }
+        if (keep.size + ids.size != all.size) prefs.edit {
+            clear()
+            keep.forEach { (k, v) -> putString(k, v.encode()) }
+            ids.forEach { (id, key) -> putString(ID_PREFIX + id, key) }
+        }
     }
 
-    /** Memory only, safe on the main thread (first frame). */
+    /** Memory only, safe on the main thread. */
     @Synchronized fun peek(key: String, now: Long = System.currentTimeMillis()): CachedQuality? =
         memory[key]?.takeIf { it.fresh(now) }
+
+    /** Memory only, O(1), for the first frame: the last result for this title id. */
+    @Synchronized fun peekMeta(metaId: String, now: Long = System.currentTimeMillis()): CachedQuality? =
+        keyOfMeta[metaId]?.let { peek(it, now) }
 
     @Synchronized fun get(key: String, now: Long = System.currentTimeMillis()): CachedQuality? {
         warm()
         return peek(key, now)
     }
 
-    /** Memory only, O(1), for the first frame. */
-    @Synchronized fun peekMeta(metaId: String, now: Long = System.currentTimeMillis()): CachedQuality? =
-        byMeta[metaId]?.takeIf { it.fresh(now) }
-
-    @Synchronized fun rememberMeta(metaId: String, value: CachedQuality) {
-        if (byMeta.size > MEMORY_MAX) byMeta.clear()
-        byMeta[metaId] = value
+    /** Call off the main thread (writes the disk copy). */
+    @Synchronized fun put(key: String, value: CachedQuality, metaId: String? = null) {
+        memory[key] = value
+        prefs.edit {
+            putString(key, value.encode())
+            if (metaId != null) putString(ID_PREFIX + metaId, key)
+        }
+        if (metaId != null) remember(metaId, key)
     }
 
-    @Synchronized fun put(key: String, value: CachedQuality) {
-        memory[key] = value
-        prefs.edit { putString(key, value.encode()) }
+    /** Remembers which entry a title id uses (memory and disk; call off the main thread). */
+    @Synchronized fun link(metaId: String, key: String) {
+        if (keyOfMeta[metaId] == key) return
+        remember(metaId, key)
+        prefs.edit { putString(ID_PREFIX + metaId, key) }
+    }
+
+    private fun remember(metaId: String, key: String) {
+        if (keyOfMeta.size > MEMORY_MAX * 2) keyOfMeta.clear()
+        keyOfMeta[metaId] = key
     }
 
     companion object {
         private const val PREFS = "nuvio_c_quality"
+        private const val ID_PREFIX = "id:"
         private const val MEMORY_MAX = 300
         private const val DISK_MAX = 300
+
+        @Volatile private var instance: TitleQualityCache? = null
+
+        fun shared(context: Context): TitleQualityCache =
+            instance ?: synchronized(this) { instance ?: TitleQualityCache(context).also { instance = it } }
+
+        /** Round 60d: load saved results into memory shortly after start-up (off the main thread). */
+        fun warmShared(context: Context) { shared(context).warm() }
     }
 }

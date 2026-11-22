@@ -978,4 +978,6 @@ object NuvioCFeatures {
     const val MARQUEE_MORE = true
     /** Details page: one line of outlined badges under the facts line from ONE real release (e.g. 4K | DOLBY VISION | ATMOS | WEB-DL), from public Torrentio, QualiCache as fallback when a key is built in; dim NOT YET RELEASED / NOT YET ON DIGITAL / QUALITY UNAVAILABLE; dashed ghosts while checking; no line without an IMDb ID. Holds its height from the first frame, so nothing moves. Off = no line. */
     const val DETAIL_QUALITY_LINE = true
+    /** Details: the age rating leaves the facts line and leads the quality line under the synopsis (rating, hairline, badges). Off = rating stays on the facts line. */
+    const val QUALITY_LINE_RATING = true
 }
