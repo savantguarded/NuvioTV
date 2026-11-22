@@ -4,7 +4,7 @@ How Nuvio C differs from official NuvioTV, grouped by area: what you see, the sw
 Per-switch detail: every switch in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt` has a one-line comment. This file is the overview, not a copy of that list.
 Paths below are relative to `app/src/main/java/com/nuvio/tv/` unless they start with `app/`, `.github/` or `scripts/`.
 
-Base: official `1.2.0-beta.3` (`552cacf5`). Fork footprint vs that tag: 404 files added, 175 official files edited, about 62,800 lines added. 429 switches, 1 off.
+Base: official `1.2.0-beta.3` (`552cacf5`). Fork footprint vs that tag (round 59): 404 files added, 175 official files edited, about 62,800 lines added; round 60 adds 6 files. 431 switches, 1 off.
 Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream merge).
 
 ## Build and distribution
@@ -49,6 +49,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Back from Sources (Play / Play manually / a held episode card) jumps straight to the saved spot; for 2.5 s or until a key press, Play or the episode card keeps asking for focus so a row rebuild can't move it (`DETAIL_RETURN_FOCUS`, `DETAIL_RETURN_GUARD`, `ui/screens/detail/NuvioCDetailReturnGuard.kt`). Back on the play options returns to Play. Episode cards always use the page's current focus requester and none are dropped, so focus can reach them after a return (`EPISODE_REQUESTER_LIVE`); `DETAIL_FOCUS_LOG` writes info lines tagged NuvioCFocus for adb checks. The restore lock never blocks a card once the restore id is cleared (the restored card lost focus in that frame, `EPISODE_LOCK_RACE`). Sources opened by hand from the Play / Resume pill return to the pill and keep the season (`DETAIL_HERO_RETURN`). Focus arriving at the episodes row goes to the card last focused in that season, or the nearest card on screen, never an invisible spot (`EPISODE_ENTRY_FALLBACK`, `NuvioCDetailSmooth.kt`).
 - Hero spec (logo box, facts line above, wider synopsis, tagline), round Shuffle / Rate / Bell buttons with focus labels, Information ledger with fixed slots (Awards wins via OMDb), collection on its own row (episode Find was removed in round 56: it caused the lost focus on series pages), smoother scrolling and focus.
 - Files: `ui/screens/detail/NuvioCDetail*.kt`, `NuvioCCredits.kt`, `HeroSection.kt`, `MetaDetailsScreen.kt`, `EpisodesSection.kt`, `ui/screens/calendar/NuvioCDetailBell.kt`.
+- Quality badge line under the facts line from ONE real release (4K | DOLBY VISION | ATMOS | WEB-DL): public Torrentio first (2 calls at a time, 15 min pause after 403 / 429, its HTTP cache kept), QualiCache only when Torrentio has nothing and a QualiCache key is built in (local.properties QUALICACHE_API_KEY) (none today: the shared key left the PostersPlus README). Drops CAM / TS / zero seeders, 4K only with two 5+ seeder 4K releases, 5+ seeder releases win, a film release naming another year is ignored. Series: latest aired episode, then the one before. Dim NOT YET RELEASED / NOT YET ON DIGITAL (film out in cinemas within a year, no TMDB digital date yet) / QUALITY UNAVAILABLE, dashed ghosts while checking, no line without an IMDb ID; fixed height from the first frame. Compact result cached on the TV (7 days, 1 day near release). Own leaf view model, not in `MetaDetailsUiState` (`DETAIL_QUALITY_LINE`, `data/quality/`, `ui/screens/detail/NuvioCQualityLine.kt`).
 
 ## Ratings
 - Official's rating pill and panel driving multi-tracker sync: Trakt, MDBList, Simkl (films and shows), episodes on Trakt and MDBList. Post-play prompt after a finished film.
@@ -66,6 +67,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 
 ## Home
 - Continue Watching / Upcoming landscape cards: title and episode name scroll on focus, taking turns (`CW_TURN_MARQUEE`, `ui/components/ContinueWatchingSection.kt`).
+- More cut text scrolls on focus: Taste list rows (title and details take turns), Spin card genre line, faces' role line, Modern Home card titles, collection folder titles, Calendar reminder rows (`MARQUEE_MORE`).
 - Fourth layout "Featured" (full-screen carousel, contextual tags, split arrows, top-3 ratings), hero pool shuffle, auto-advance, synopsis fit, Extra large card size, Grid hidden, offline card, clock, poster glow.
 - Switches: `HOME_FEATURED`, `FEATURED_*`, `HERO_*`, `CARD_SIZE_XL`, `NO_GRID_LAYOUT`, `OFFLINE_*`, `BROWSE_CLOCK`, `POSTER_GLOW*`.
 - Files: `ui/screens/home/NuvioC*.kt`, `ModernHomeHero.kt`, `ModernHomeContent.kt`, `ui/components/NuvioCCardSize.kt`, `NuvioCHeroSpec.kt`, `NuvioCClock.kt`, `NuvioCPosterGlow.kt`, `core/nuvioc/NuvioCFeaturedTags.kt`, `core/di/NuvioCFeaturedModule.kt`.

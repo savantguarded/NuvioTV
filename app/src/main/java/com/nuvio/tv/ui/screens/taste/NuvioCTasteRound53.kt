@@ -835,8 +835,9 @@ private fun Discover53(
                     }
                     Spacer(Modifier.weight(1f))
                     Text("Spin my taste", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
-                    Text(listOfNotNull(all.genres.getOrNull(0)?.name, all.genres.getOrNull(1)?.name, all.topDecade?.let { "${it}s" }).joinToString(" · "),
-                        style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Normal, color = accent, maxLines = 1)
+                    val spinLine = listOfNotNull(all.genres.getOrNull(0)?.name, all.genres.getOrNull(1)?.name, all.topDecade?.let { "${it}s" }).joinToString(" · ")
+                    if (com.nuvio.tv.NuvioCFeatures.MARQUEE_MORE) com.nuvio.tv.ui.components.FocusMarqueeText(spinLine, spinFocused, MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Normal), color = accent) // [fork] round 60 marquee_more
+                    else Text(spinLine, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Normal, color = accent, maxLines = 1)
                     Text("One unseen pick for you", style = MaterialTheme.typography.labelMedium, color = Color.White.copy(alpha = 0.75f), maxLines = 1)
                 }
             }
@@ -981,7 +982,9 @@ private fun Face53(p: com.nuvio.tv.data.nuvioc.NuvioCTastePersonStat, accent: Co
             text = p.person.name, focused = focused,
             style = if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Normal) else MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium), color = Color.White, textAlign = TextAlign.Center
         )
-        Text(if (p.director) "Director · ${p.count}" else "${p.count} titles", style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, softWrap = false)
+        val roleLine = if (p.director) "Director · ${p.count}" else "${p.count} titles"
+        if (com.nuvio.tv.NuvioCFeatures.MARQUEE_MORE) com.nuvio.tv.ui.components.FocusMarqueeText(roleLine, focused, MaterialTheme.typography.labelSmall, color = C_MUTE, textAlign = TextAlign.Center) // [fork] round 60 marquee_more
+        else Text(roleLine, style = MaterialTheme.typography.labelSmall, color = C_MUTE, maxLines = 1, softWrap = false)
     }
 }
 
@@ -1154,9 +1157,10 @@ private fun Rows57(
 @Composable
 private fun Row57(line: NuvioCTasteLine, index: Int?, meta: String, accent: Color, rankColor: Color, modifier: Modifier, onOpen: (String, String) -> Unit) {
     val context = LocalContext.current
+    var rowFocused by remember { mutableStateOf(false) } // [fork] round 60 marquee_more
     Surface(
         onClick = { val id = line.id; val type = line.type; if (id != null && type != null) onOpen(id, type) },
-        modifier = modifier,
+        modifier = modifier.onFocusChanged { rowFocused = it.isFocused },
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(9.dp)),
         scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
         colors = ClickableSurfaceDefaults.colors(
@@ -1173,8 +1177,14 @@ private fun Row57(line: NuvioCTasteLine, index: Int?, meta: String, accent: Colo
                 AsyncImage(r, null, contentScale = ContentScale.Crop, modifier = Modifier.width(20.dp).height(30.dp).clip(RoundedCornerShape(4.dp)).background(C_INNER))
             } else Box(Modifier.width(20.dp).height(30.dp).clip(RoundedCornerShape(4.dp)).background(C_INNER))
             if (com.nuvio.tv.NuvioCFeatures.TASTE_V59) Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) { // [fork] round 59: title line + details line
+                if (com.nuvio.tv.NuvioCFeatures.MARQUEE_MORE) com.nuvio.tv.ui.components.NuvioCTurnMarquee( // [fork] round 60 marquee_more: both lines scroll in turn when cut
+                    first = com.nuvio.tv.ui.components.NuvioCMarqueeSpec(line.name, MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 15.sp, fontWeight = FontWeight.Normal), Color.White),
+                    second = com.nuvio.tv.ui.components.NuvioCMarqueeSpec(meta, MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 13.sp, fontFeatureSettings = "tnum", fontWeight = FontWeight.Normal), C_MUTE),
+                    focused = rowFocused
+                ) else {
                 Text(line.name, style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 15.sp), fontWeight = FontWeight.Normal, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(meta, style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 13.sp, fontFeatureSettings = "tnum"), fontWeight = FontWeight.Normal, color = C_MUTE, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             } else {
             Text(line.name, style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 16.sp), fontWeight = FontWeight.Normal, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             Text(meta, style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, fontFeatureSettings = "tnum"), fontWeight = FontWeight.Normal, color = C_MUTE, maxLines = 1, softWrap = false)

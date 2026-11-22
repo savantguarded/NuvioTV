@@ -1537,7 +1537,12 @@ private fun ModernCarouselCard(
                     .fillMaxWidth()
                     .padding(horizontal = NuvioTheme.spacing.xs)
             ) {
-                Text(
+                if (com.nuvio.tv.NuvioCFeatures.MARQUEE_MORE) com.nuvio.tv.ui.components.FocusMarqueeText( // [fork] round 60 marquee_more: cut titles scroll on focus
+                    text = item.title,
+                    focused = isFocused,
+                    style = titleStyle,
+                    color = NuvioTheme.colors.TextPrimary
+                ) else Text(
                     text = item.title,
                     style = titleStyle.copy(
                         textDirection = item.title.contentTextDirection()

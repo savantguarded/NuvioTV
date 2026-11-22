@@ -111,7 +111,10 @@ data class NuvioCDetailInfo(
     val loaded: Boolean = false,
     val awards: NuvioCAwards? = null,
     val awardsChecked: Boolean = false, // [fork] round 47: Wikidata answered (or gave up)
-    val imdbFromTmdb: String? = null
+    val imdbFromTmdb: String? = null,
+    // [fork] round 60 detail_quality_line: US theatrical and digital-or-physical (TMDB types 4, 5) dates, ISO
+    val theatricalDate: String? = null,
+    val homeReleaseDate: String? = null
 )
 
 /** The info of the details page on screen; consumers check [NuvioCDetailInfo.metaId] against their title. */
@@ -230,7 +233,8 @@ class NuvioCDetailInfoViewModel @Inject constructor(
             (o.str("original_language") ?: meta.language)?.let(::languageName)?.let { add(NuvioCInfoRow(R.string.nuvio_c_info_language, it)) }
             if (NuvioCFeatures.DETAIL_INFO_SLOTS) addAll(slotExtras(meta, o, show = false))
         }
-        return NuvioCDetailInfo(meta.id, rows, imdbFromTmdb = o.str("imdb_id") ?: o.obj("external_ids")?.str("imdb_id"))
+        return NuvioCDetailInfo(meta.id, rows, imdbFromTmdb = o.str("imdb_id") ?: o.obj("external_ids")?.str("imdb_id"),
+            theatricalDate = theatrical?.take(10), homeReleaseDate = earliest(4, 5)) // [fork] round 60 detail_quality_line
     }
 
     private suspend fun showInfo(meta: Meta, o: JsonObject): NuvioCDetailInfo {

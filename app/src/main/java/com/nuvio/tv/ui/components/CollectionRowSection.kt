@@ -363,7 +363,13 @@ private fun FolderCard(
                         .padding(NuvioTheme.spacing.sm),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
+                    if (com.nuvio.tv.NuvioCFeatures.MARQUEE_MORE) FocusMarqueeText( // [fork] round 60 marquee_more
+                        text = folder.title,
+                        focused = isFocused,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White,
+                        textAlign = TextAlign.Center
+                    ) else Text(
                         text = folder.title,
                         style = MaterialTheme.typography.labelMedium.copy(
                             textDirection = folder.title.contentTextDirection()

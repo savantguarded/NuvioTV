@@ -417,7 +417,12 @@ private fun CalendarReminderRow(
             ) {
                 CalendarPoster(url = reminder.title.poster, width = 40.dp, height = 60.dp)
                 Column(Modifier.weight(1f)) {
-                    Text(
+                    if (com.nuvio.tv.NuvioCFeatures.MARQUEE_MORE) com.nuvio.tv.ui.components.FocusMarqueeText( // [fork] round 60 marquee_more
+                        text = reminder.title.name ?: stringResource(R.string.calendar_unknown_title),
+                        focused = focused,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = NuvioTheme.colors.TextPrimary
+                    ) else Text(
                         text = reminder.title.name ?: stringResource(R.string.calendar_unknown_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,

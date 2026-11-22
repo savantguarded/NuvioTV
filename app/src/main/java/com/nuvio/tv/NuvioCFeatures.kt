@@ -972,4 +972,10 @@ object NuvioCFeatures {
     // ---- round 57d (2026-11-21) ----
     /** Details: focus arriving at the episodes row (Up from the rows below, Down from the season tabs) goes to the card last focused in that season, or the nearest card that is actually on screen, instead of a scrolled-away card (which left focus on an invisible spot, so the next Up jumped to the season tabs). Off = round 57c. */
     const val EPISODE_ENTRY_FALLBACK = true
+
+    // ---- round 60 (2026-11-22) ----
+    /** Cut text on focusable items scrolls on focus like Continue Watching: Taste list rows (title and details take turns), the Spin card's genre line and the faces' role line, Modern Home card titles, collection folder titles, Calendar reminder rows. Off = cut with "…". */
+    const val MARQUEE_MORE = true
+    /** Details page: one line of outlined badges under the facts line from ONE real release (e.g. 4K | DOLBY VISION | ATMOS | WEB-DL), from public Torrentio, QualiCache as fallback when a key is built in; dim NOT YET RELEASED / NOT YET ON DIGITAL / QUALITY UNAVAILABLE; dashed ghosts while checking; no line without an IMDb ID. Holds its height from the first frame, so nothing moves. Off = no line. */
+    const val DETAIL_QUALITY_LINE = true
 }

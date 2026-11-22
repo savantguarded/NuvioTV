@@ -472,6 +472,13 @@ fun HeroContentSection(
                         Box(modifier = Modifier.nuvioCFade { nuvioCTextAlpha.value }) {
                             NuvioCHeroFacts(meta = meta, hideImdbRating = hideMetaInfoImdb, tmdbRating = tmdbRating)
                         }
+                        if (com.nuvio.tv.NuvioCFeatures.DETAIL_QUALITY_LINE) { // [fork] round 60 detail_quality_line: own line under the facts
+                            NuvioCQualityLine(
+                                meta = meta,
+                                factsStyle = if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge,
+                                modifier = Modifier.padding(top = 4.dp).fillMaxWidth(0.5f).nuvioCFade { nuvioCTextAlpha.value }
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL && com.nuvio.tv.NuvioCFeatures.HERO_FACTS_ABOVE) 10.dp else NuvioTheme.spacing.lg)) // [fork] round 44
