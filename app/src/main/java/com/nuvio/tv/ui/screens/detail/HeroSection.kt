@@ -472,13 +472,6 @@ fun HeroContentSection(
                         Box(modifier = Modifier.nuvioCFade { nuvioCTextAlpha.value }) {
                             NuvioCHeroFacts(meta = meta, hideImdbRating = hideMetaInfoImdb, tmdbRating = tmdbRating)
                         }
-                        if (com.nuvio.tv.NuvioCFeatures.DETAIL_QUALITY_LINE) { // [fork] round 60 detail_quality_line: own line under the facts
-                            NuvioCQualityLine(
-                                meta = meta,
-                                factsStyle = if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge,
-                                modifier = Modifier.padding(top = 4.dp).fillMaxWidth(0.5f).nuvioCFade { nuvioCTextAlpha.value }
-                            )
-                        }
                     }
 
                     Spacer(modifier = Modifier.height(if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL && com.nuvio.tv.NuvioCFeatures.HERO_FACTS_ABOVE) 10.dp else NuvioTheme.spacing.lg)) // [fork] round 44
@@ -521,6 +514,16 @@ fun HeroContentSection(
                                     if (com.nuvio.tv.NuvioCFeatures.HERO_SYNOPSIS_WIDE) com.nuvio.tv.ui.components.NuvioCHeroSpec.DETAIL_TEXT_FRACTION_WIDE // [fork] round 43: as wide as the button row
                                     else if (com.nuvio.tv.ui.components.NuvioCHeroSpec.enabled) com.nuvio.tv.ui.components.NuvioCHeroSpec.DETAIL_TEXT_FRACTION else 0.6f
                                 ) // [fork] hero spec
+                                .padding(bottom = NuvioTheme.spacing.md)
+                        )
+                    }
+
+                    if (com.nuvio.tv.NuvioCFeatures.DETAIL_QUALITY_LINE) { // [fork] round 60b detail_quality_line: last line, under the synopsis, synopsis colour and opacity
+                        NuvioCQualityLine(
+                            meta = meta,
+                            modifier = Modifier
+                                .nuvioCFade { nuvioCTextAlpha.value * nuvioCDescriptionAlpha.value }
+                                .fillMaxWidth(com.nuvio.tv.ui.components.NuvioCHeroSpec.DETAIL_TEXT_FRACTION_WIDE)
                                 .padding(bottom = NuvioTheme.spacing.md)
                         )
                     }

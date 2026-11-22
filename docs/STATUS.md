@@ -10,6 +10,7 @@ Updated: 2026-11-22 (round 60)
 - Round 60:
   - Details quality badge line (`DETAIL_QUALITY_LINE`): built from the owner's spec "Nuvio details page quality badges" (2026-11-22) and his v3 mockup (grey outlines, generic dim labels). Agreed changes to the spec: 5+ seeder releases win before weaker ones; a film release that names a different year is ignored (bogus IDs such as tt9999999 give QUALITY UNAVAILABLE); NOT YET ON DIGITAL only for a film out in cinemas within the last year. The leaf has its own view model (`NuvioCQualityViewModel`) instead of a flow in `MetaDetailsViewModel`, and draws its own badges in the owner's design instead of reusing the OSD badge view, so the OSD is untouched.
   - QualiCache: shared key from the PostersPlus README (owner-supplied) in the repo secret NUVIO_C_QUALICACHE_KEY; CI appends it to local.properties as QUALICACHE_API_KEY. Rotate = replace that secret. `next_refresh_at` comes as Unix seconds, capped at 30 days.
+  - Round 60b (owner's call after seeing it on the TV): the line moved under the synopsis, OSD badge look about 20% larger, synopsis colour and opacity, no dashed boxes while checking.
   - Marquee on more cut text (`MARQUEE_MORE`).
   - Featured carousel badges: on hold by the owner (mockup canvas "Nuvio C: Featured carousel quality badges (mockup)", option A picked, not built).
   - "Full exit on close" (Settings > Advanced) already gives double-Back exit; left at official default, the owner switches it on himself.
