@@ -126,6 +126,7 @@ Manual build: `gh workflow run nuvio-c.yml -R savantguarded/NuvioTV --ref nuvio-
 - Known noise: Maven Central 429 on cold cache (retry, `--max-workers=1`); `checkFullDebugAarMetadata` "path is null" once (retry).
 
 **TV checks**: adb from the owner's PC folder `nuvio-debug`, TV `<TV LAN address>:5555`, `adb connect` on every call.
+**Installing over adb**: always `adb install-multiple -r <apk> <same-name>.dm` with the release's `-api31.dm` (renamed to match the APK), then `cmd package compile -m speed-profile -f com.nuvio.tv.c`. A bare `adb install` drops the baseline profile: the details page opened with ~1.4 s frames and JIT work (measured 2026-11-22), against ~0.3 s with the profile. The in-app updater already sends the .dm.
 
 ## 8. Conventions
 
