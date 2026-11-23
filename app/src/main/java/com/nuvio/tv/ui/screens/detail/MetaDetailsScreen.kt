@@ -2242,6 +2242,7 @@ private fun MetaDetailsContent(
         }
     val episodesDownFocusRequester = when {
         hasVisiblePeopleTabs -> activePeopleTabFocusRequester
+        com.nuvio.tv.NuvioCFeatures.DETAIL_ROWS_V64 -> null // [fork] round 64b: plain rows below, no Ratings tab to land on
         activePeopleTab == PeopleSectionTab.RATINGS -> ratingsContentFocusRequester
         else -> null
     }
@@ -2253,8 +2254,8 @@ private fun MetaDetailsContent(
         else -> null
     }
     val commentsUpFocusRequester = when {
+        nuvioCRowAbove != null -> nuvioCRowAbove // [fork] round 64b: Ratings / More like this sit under Collection
         shouldSplitCollection && collection.isNotEmpty() -> collectionSectionFocusRequester
-        nuvioCRowAbove != null -> nuvioCRowAbove
         hasVisiblePeopleSection -> when (activePeopleTab) {
             PeopleSectionTab.CAST -> castSectionFocusRequester
             PeopleSectionTab.MORE_LIKE_THIS -> moreLikeSectionFocusRequester
@@ -2985,7 +2986,9 @@ private fun MetaDetailsContent(
                                     title = if (hasVisiblePeopleTabs) "" else strTabCast,
                                     leadingCast = directorWriterMembers,
                                     upFocusRequester = if (hasVisiblePeopleTabs) castTabFocusRequester else seasonDownFocusRequester ?: heroPlayFocusRequester,
-                                    downFocusRequester = if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else null,
+                                    // [fork] round 64b: with rows below the cast, Down goes to the next row (the comments
+                                    // jump pointed at a row not built yet, so series pages stopped at the cast)
+                                    downFocusRequester = if (com.nuvio.tv.NuvioCFeatures.DETAIL_ROWS_V64) null else if (shouldShowCommentsSection && canToggleEpisodeComments) commentsSelectedModeFocusRequester else null,
                                     sectionFocusRequester = castSectionFocusRequester,
                                     restorePersonId = if (!childOverlayVisible && pendingRestoreType == RestoreTarget.CAST_MEMBER) pendingRestoreCastPersonId else null,
                                     restoreFocusToken = if (pendingRestoreType == RestoreTarget.CAST_MEMBER) restoreFocusToken else 0,
@@ -3122,56 +3125,6 @@ private fun MetaDetailsContent(
                 }
             }
             
-            // [fork] round 64 detail_rows_v64: More like this and episode Ratings as their own rows, same header as
-            // the others. Both join below the fold after the held-back loads, so nothing on screen moves.
-            if (com.nuvio.tv.NuvioCFeatures.DETAIL_ROWS_V64 && hasMoreLikeThisSection) {
-                item(key = "nuvio_c_more_like_row", contentType = "horizontal_row") {
-                    MoreLikeThisSection(
-                        items = moreLikeThis,
-                        listState = moreLikeThisListState,
-                        title = strTabMoreLikeThis,
-                        sourceLabel = moreLikeThisSourceLabel,
-                        posterCardCornerRadius = posterCardCornerRadiusDp.dp,
-                        upFocusRequester = if (hasVisiblePeopleSection) castSectionFocusRequester else seasonDownFocusRequester ?: heroPlayFocusRequester,
-                        downFocusRequester = null,
-                        sectionFocusRequester = moreLikeSectionFocusRequester,
-                        restoreItemId = if (!childOverlayVisible && pendingRestoreType == RestoreTarget.MORE_LIKE_THIS) pendingRestoreMoreLikeItemId else null,
-                        restoreFocusToken = if (pendingRestoreType == RestoreTarget.MORE_LIKE_THIS) restoreFocusToken else 0,
-                        blockDefaultRestore = pendingRestoreType != null && pendingRestoreType != RestoreTarget.MORE_LIKE_THIS,
-                        lastFocusedItemId = lastFocusedMoreLikeItemId,
-                        onLastFocusedItemIdChange = { lastFocusedMoreLikeItemId = it },
-                        onRestoreFocusHandled = { clearPendingRestore() },
-                        isItemWatched = { item -> relatedWatchedStatus["${item.id}|${item.apiType}"] == true },
-                        onItemFocused = { restorePinnedDetailPageIfNudge() },
-                        onItemClick = { item ->
-                            markMoreLikeThisRestore(item.id)
-                            onNavigateToDetail(item.id, item.apiType, null)
-                        },
-                        windowResetKey = meta.id,
-                        onItemLongPress = { item -> onPosterLongPress(item) }
-                    )
-                }
-            }
-            if (com.nuvio.tv.NuvioCFeatures.DETAIL_ROWS_V64 && hasRatingsSection) {
-                item(key = "nuvio_c_ratings_row", contentType = "horizontal_row") {
-                    EpisodeRatingsSection(
-                        episodes = meta.videos,
-                        ratings = visibleEpisodeImdbRatings,
-                        isLoading = isEpisodeRatingsLoading,
-                        error = episodeRatingsError,
-                        title = strTabRatings,
-                        upFocusRequester = when {
-                            hasMoreLikeThisSection -> moreLikeSectionFocusRequester
-                            hasVisiblePeopleSection -> castSectionFocusRequester
-                            else -> seasonDownFocusRequester ?: heroPlayFocusRequester
-                        },
-                        downFocusRequester = null,
-                        firstItemFocusRequester = ratingsContentFocusRequester,
-                        ratingsGridFocusRequester = ratingsGridFocusRequester
-                    )
-                }
-            }
-
             // Collection as separate section when there are too many tabs
             if (shouldSplitCollection && collection.isNotEmpty()) {
                 item(key = "collection_section", contentType = "horizontal_row") {
@@ -3180,7 +3133,7 @@ private fun MetaDetailsContent(
                         listState = collectionListState,
                         title = collectionName ?: strTabCollection,
                         posterCardCornerRadius = posterCardCornerRadiusDp.dp,
-                        upFocusRequester = if (nuvioCRowAbove != null) nuvioCRowAbove else if (hasVisiblePeopleSection) {
+                        upFocusRequester = if (com.nuvio.tv.NuvioCFeatures.DETAIL_ROWS_V64 && hasVisiblePeopleSection) castSectionFocusRequester else if (hasVisiblePeopleSection) {
                             when (activePeopleTab) {
                                 PeopleSectionTab.CAST -> castSectionFocusRequester
                                 PeopleSectionTab.MORE_LIKE_THIS -> moreLikeSectionFocusRequester
@@ -3212,6 +3165,61 @@ private fun MetaDetailsContent(
                         onItemLongPress = { item ->
                             onPosterLongPress(item)
                         }
+                    )
+                }
+            }
+
+            // [fork] round 64 detail_rows_v64: More like this and episode Ratings as their own rows (round 64b: under Collection), same header as
+            // the others. Both join below the fold after the held-back loads, so nothing on screen moves.
+            if (com.nuvio.tv.NuvioCFeatures.DETAIL_ROWS_V64 && hasMoreLikeThisSection) {
+                item(key = "nuvio_c_more_like_row", contentType = "horizontal_row") {
+                    MoreLikeThisSection(
+                        items = moreLikeThis,
+                        listState = moreLikeThisListState,
+                        title = strTabMoreLikeThis,
+                        sourceLabel = moreLikeThisSourceLabel,
+                        posterCardCornerRadius = posterCardCornerRadiusDp.dp,
+                        upFocusRequester = when { // [fork] round 64b: the Collection row now sits above
+                            shouldSplitCollection && collection.isNotEmpty() -> collectionSectionFocusRequester
+                            hasVisiblePeopleSection -> castSectionFocusRequester
+                            else -> seasonDownFocusRequester ?: heroPlayFocusRequester
+                        },
+                        downFocusRequester = null,
+                        sectionFocusRequester = moreLikeSectionFocusRequester,
+                        restoreItemId = if (!childOverlayVisible && pendingRestoreType == RestoreTarget.MORE_LIKE_THIS) pendingRestoreMoreLikeItemId else null,
+                        restoreFocusToken = if (pendingRestoreType == RestoreTarget.MORE_LIKE_THIS) restoreFocusToken else 0,
+                        blockDefaultRestore = pendingRestoreType != null && pendingRestoreType != RestoreTarget.MORE_LIKE_THIS,
+                        lastFocusedItemId = lastFocusedMoreLikeItemId,
+                        onLastFocusedItemIdChange = { lastFocusedMoreLikeItemId = it },
+                        onRestoreFocusHandled = { clearPendingRestore() },
+                        isItemWatched = { item -> relatedWatchedStatus["${item.id}|${item.apiType}"] == true },
+                        onItemFocused = { restorePinnedDetailPageIfNudge() },
+                        onItemClick = { item ->
+                            markMoreLikeThisRestore(item.id)
+                            onNavigateToDetail(item.id, item.apiType, null)
+                        },
+                        windowResetKey = meta.id,
+                        onItemLongPress = { item -> onPosterLongPress(item) }
+                    )
+                }
+            }
+            if (com.nuvio.tv.NuvioCFeatures.DETAIL_ROWS_V64 && hasRatingsSection) {
+                item(key = "nuvio_c_ratings_row", contentType = "horizontal_row") {
+                    EpisodeRatingsSection(
+                        episodes = meta.videos,
+                        ratings = visibleEpisodeImdbRatings,
+                        isLoading = isEpisodeRatingsLoading,
+                        error = episodeRatingsError,
+                        title = strTabRatings,
+                        upFocusRequester = when {
+                            hasMoreLikeThisSection -> moreLikeSectionFocusRequester
+                            shouldSplitCollection && collection.isNotEmpty() -> collectionSectionFocusRequester
+                            hasVisiblePeopleSection -> castSectionFocusRequester
+                            else -> seasonDownFocusRequester ?: heroPlayFocusRequester
+                        },
+                        downFocusRequester = null,
+                        firstItemFocusRequester = ratingsContentFocusRequester,
+                        ratingsGridFocusRequester = ratingsGridFocusRequester
                     )
                 }
             }

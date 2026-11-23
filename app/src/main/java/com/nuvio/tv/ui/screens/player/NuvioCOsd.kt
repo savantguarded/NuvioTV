@@ -258,13 +258,18 @@ private fun NuvioCLogoBadge(part: NuvioCBadge, style: androidx.compose.ui.text.T
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.height(BADGE_HEIGHT).border(1.2.dp, white, BADGE_TILE_SHAPE).padding(horizontal = 3.5.dp)
     ) {
-        androidx.compose.foundation.Image(
-            painter = painter,
-            contentDescription = part.logo,
-            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(white),
-            modifier = Modifier.height(BADGE_LOGO_HEIGHT).width(BADGE_LOGO_HEIGHT * ratio)
-        )
-        if (part.text.isNotEmpty()) NuvioCBadgeText(part.text, style, white, Modifier.padding(start = 1.5.dp))
+        Row { // the suffix's baseline on the logo's bottom edge
+            androidx.compose.foundation.Image(
+                painter = painter,
+                contentDescription = part.logo,
+                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(white),
+                modifier = Modifier.height(BADGE_LOGO_HEIGHT).width(BADGE_LOGO_HEIGHT * ratio).alignBy { it.measuredHeight }
+            )
+            if (part.text.isNotEmpty()) Text(
+                text = part.text, style = style, color = white, maxLines = 1, softWrap = false,
+                modifier = Modifier.padding(start = 1.5.dp).alignByBaseline()
+            )
+        }
     }
 }
 

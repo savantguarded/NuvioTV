@@ -359,16 +359,20 @@ private fun Badge61(label: String, style: TextStyle, color: Color, height: andro
             Modifier.height(QL_HEIGHT).border(1.dp, color.copy(alpha = QL_BOX_BORDER_63), RoundedCornerShape(QL_RADIUS)).padding(horizontal = QL_PAD),
             contentAlignment = Alignment.Center
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            // round 64: DTS:X and DTS-HD keep the DTS logo with a short suffix in the same box; round 64b: the suffix
+            // sits on the logo's bottom edge (its baseline on the logo's base), not centred
+            val suffix = if (NuvioCFeatures.QUALITY_LINE_V64) nuvioCDtsSuffix(label) else null
+            Row {
                 androidx.compose.foundation.Image(
                     painter = painter,
                     contentDescription = label,
                     colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(color),
-                    modifier = Modifier.height(QL_BOX_LOGO_63).width(QL_BOX_LOGO_63 * ratio)
+                    modifier = Modifier.height(QL_BOX_LOGO_63).width(QL_BOX_LOGO_63 * ratio).alignBy { it.measuredHeight }
                 )
-                // round 64: DTS:X and DTS-HD keep the DTS logo with a short suffix in the same box
-                val suffix = if (NuvioCFeatures.QUALITY_LINE_V64) nuvioCDtsSuffix(label) else null
-                if (suffix != null) Text(text = suffix, style = style, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 2.dp))
+                if (suffix != null) Text(
+                    text = suffix, style = style.copy(fontSize = (style.fontSize.value * 0.9f).sp), maxLines = 1, softWrap = false,
+                    modifier = Modifier.padding(start = 2.dp).alignByBaseline()
+                )
             }
         }
         return

@@ -882,13 +882,21 @@ internal fun PlayerRuntimeController.initializePlayer(
                 playerSettings.decoderPriority != 0
             // Prefer FFmpeg/extension audio decoder on BT so multi-channel TrueHD/DTS always
             // decode to stereo PCM even when the platform MediaCodec path is flaky.
+            // [fork] round 64b passthrough_keep_others: with a format switched off, round 51 put the FFmpeg decoder in
+            // front for EVERY track, so formats still switched on (DD+ Atmos, DD) were decoded too instead of passed
+            // through. Now the device order stays (FFmpeg after the platform renderer) and only the switched-off
+            // formats lose their platform decoder, so they fall to FFmpeg while the rest pass through as before.
+            val nuvioCKeepOthers = com.nuvio.tv.NuvioCFeatures.PASSTHROUGH_KEEP_OTHERS &&
+                NuvioCPassthrough.restricts(context) && !hasTriedAudioPcmFallback && !isForcePassthroughActive && !isBluetoothAudioOutput
             val effectiveDecoderPriority = if (
                 hasTriedAudioPcmFallback ||
                 isForcePassthroughActive ||
-                NuvioCPassthrough.restricts(context) || // [fork] round 51: a switched-off format needs a decoder
+                (NuvioCPassthrough.restricts(context) && !nuvioCKeepOthers) || // [fork] round 51: a switched-off format needs a decoder
                 isBluetoothAudioOutput
             ) {
                 DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
+            } else if (nuvioCKeepOthers) {
+                maxOf(playerSettings.decoderPriority, DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
             } else {
                 playerSettings.decoderPriority
             }
@@ -957,7 +965,7 @@ internal fun PlayerRuntimeController.initializePlayer(
                 presentCues = { cues -> presentExoCues(cues) }
             ).setExtensionRendererMode(effectiveDecoderPriority)
                 .setEnableDecoderFallback(true)
-                .setMediaCodecSelector(codecSelector)
+                .setMediaCodecSelector(if (nuvioCKeepOthers) NuvioCPassthrough.codecSelector(context, codecSelector) else codecSelector) // [fork] round 64b
                 .applyMapDv7ToHevcIfSupported(mapDv7ToHevcEnabled)
 
             // The app-level factory performs DV7 conversion for the in-band-RPU containers

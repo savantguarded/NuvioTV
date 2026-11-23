@@ -1030,4 +1030,10 @@ object NuvioCFeatures {
     const val OSD_BADGES_V64 = true
     /** Player: 1.5 s after the player opens, the OSD's icons and badge logos are read one per frame in the background, so the first OSD open no longer reads ~20 icons from the APK in one frame (~75 ms measured). Off = read on first open. */
     const val OSD_WARMUP = true
+
+    // ---- Round 64b (2026-11-23) ----
+    /** Named slices in a perfetto trace of the release build: each key ("NuvioC key KEYCODE_BACK down"), details open stages, OSD open / close. Costs nothing unless a trace is recording. Off = no labels. */
+    const val TRACE_LABELS = true
+    /** Passthrough switches: with a format switched off, only that format is decoded on the TV (by FFmpeg); formats still switched on pass through as before. Round 51 put FFmpeg in front of every track, so DD+ Atmos was decoded too. Off = round 51. */
+    const val PASSTHROUGH_KEEP_OTHERS = true
 }

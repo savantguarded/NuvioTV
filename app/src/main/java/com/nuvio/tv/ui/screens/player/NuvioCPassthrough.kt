@@ -138,6 +138,16 @@ object NuvioCPassthrough {
         return surround.value
     }
 
+    /**
+     * [fork] round 64b passthrough_keep_others: [base] without platform decoders for the formats switched off, so the
+     * platform renderer declines them and the FFmpeg renderer after it decodes them; every other format is unchanged.
+     */
+    fun codecSelector(context: Context, base: androidx.media3.exoplayer.mediacodec.MediaCodecSelector) =
+        androidx.media3.exoplayer.mediacodec.MediaCodecSelector { mime, secure, tunneling ->
+            val f = formatOf(mime)
+            if (f != null && restricts(context) && !state(f).value) emptyList() else base.getDecoderInfos(mime, secure, tunneling)
+        }
+
     /** The format a track's MIME type belongs to, or null for PCM / AAC and the rest (never passed through). */
     fun formatOf(mime: String?): Format? {
         val m = mime?.lowercase() ?: return null

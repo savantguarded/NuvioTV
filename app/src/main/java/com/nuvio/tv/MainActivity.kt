@@ -1671,7 +1671,13 @@ open class MainActivity : ComponentActivity() {
         com.nuvio.tv.core.NuvioCInput.onInteraction() // [fork] bg_trailer_smooth
     }
 
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+    // [fork] round 64b trace_labels: each key shows in a trace as "NuvioC key <code> <down/up>"
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean =
+        com.nuvio.tv.core.NuvioCPerf.section("key ${KeyEvent.keyCodeToString(event.keyCode)} ${if (event.action == KeyEvent.ACTION_DOWN) "down" else "up"}") {
+            nuvioCDispatchKeyEvent(event)
+        }
+
+    private fun nuvioCDispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_DOWN) com.nuvio.tv.ui.screens.detail.NuvioCDetailReturnGuard.cancel() // [fork] round 57b
         if (com.nuvio.tv.NuvioCFeatures.STARTUP_SETTLE && com.nuvio.tv.core.nuvioc.NuvioCStartup.holdingKeys) return true // [fork] startup_settle
         if (ambientIdleController.consumeKeyEvent(event)) return true
