@@ -30,7 +30,7 @@ internal fun rememberNuvioCRatingsHold(pending: Boolean, key: Any?): Boolean {
     var expired by remember(key) { mutableStateOf(false) }
     LaunchedEffect(key, pending) {
         if (!pending) return@LaunchedEffect
-        delay(NUVIO_C_RATINGS_HOLD_MS)
+        delay(if (com.nuvio.tv.NuvioCFeatures.RATINGS_ROW_V62) 2_500L else NUVIO_C_RATINGS_HOLD_MS) // round 62: gives up sooner
         expired = true
     }
     return pending && !expired

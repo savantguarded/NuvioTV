@@ -116,7 +116,7 @@ class NuvioCRatingViewModel @Inject constructor(
             // [fork] beta.3 merge: MDBList score from official's MDBList ratings sync, kept current as it refreshes
             mdbJob = viewModelScope.launch {
                 mdbRatings.changes.collect {
-                    val score = runCatching { mdbRatings.rating(media)?.let { kotlin.math.round(it).toInt() } }.getOrNull()
+                    val score = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { runCatching { mdbRatings.rating(media)?.let { kotlin.math.round(it).toInt() } }.getOrNull() } // [fork] round 61c: off the main thread
                     if (_state.value.target == target) _state.update { it.copy(mdblist = score?.takeIf { s -> s in 1..10 }) }
                 }
             }

@@ -927,7 +927,7 @@ fun MetaDetailsScreen(
                     PlaybackHandoffBackdrop(backdropUrl = heroBackdropUrl ?: meta.backdropUrl)
                 }
                 val nuvioCStageRows = remember(meta.id) { nuvioCReveal.value < 1f } // [fork] round 61: fresh open only
-                if (nuvioCReveal.value < 1f) NuvioCDetailSkeleton(backdropAware = !heroBackdropUrl.isNullOrBlank()) // [fork] under the fade
+                if (nuvioCReveal.value < 1f) { if (com.nuvio.tv.NuvioCFeatures.DETAIL_OPEN_FAST) NuvioCOpenUnderlay(heroBackdropUrl) else NuvioCDetailSkeleton(backdropAware = !heroBackdropUrl.isNullOrBlank()) } // [fork] under the fade; round 62: with the picture, never black
                 MetaDetailsContent(
                     modifier = Modifier.graphicsLayer {
                         alpha = playOnLoadReturnContentAlpha * nuvioCReveal.value // [fork] round 61
@@ -1516,7 +1516,8 @@ private fun MetaDetailsContent(
     var showHeroPlayOptionsDialog by rememberSaveable(meta.id) { mutableStateOf(false) }
     var showRatingDialog by rememberSaveable(meta.id) { mutableStateOf(false) }
     val titleRatingMedia = remember(meta) { meta.ratingReference() }
-    val titleRatingState by rememberRatingState(titleRatingMedia)
+    // [fork] round 61c: with RATINGS_MULTI the official pill state is unused (Nuvio C's score drives it); its lookup cost ~100 ms at open
+    val titleRatingState: com.nuvio.tv.core.tracking.TrackingRatingState = if (com.nuvio.tv.NuvioCFeatures.RATINGS_MULTI && com.nuvio.tv.NuvioCFeatures.DETAIL_OPEN_FAST) remember { com.nuvio.tv.core.tracking.TrackingRatingState() } else rememberRatingState(titleRatingMedia).value
     var showSynopsisOverlay by rememberSaveable(meta.id) { mutableStateOf(false) }
     var showRandomEpisodeOverlay by rememberSaveable(meta.id) { mutableStateOf(false) }
     var randomEpisodePlaybackPending by rememberSaveable(meta.id) { mutableStateOf(false) }

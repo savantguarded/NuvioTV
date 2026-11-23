@@ -61,7 +61,9 @@ class MdbListUserRatings internal constructor(
 
 internal fun MdbListSyncSnapshot.userRating(reference: TrackingMediaReference): Double? {
     val ratings = ratings ?: return null
-    val target = mutationTarget(reference) ?: return null
+    // [fork] round 61c detail_open_smooth: one media index per snapshot, not one per lookup. Each lookup built an index over
+    // the whole watch history, several times while a details page opened, on the main thread (~180 ms on the TV).
+    val target = (if (com.nuvio.tv.NuvioCFeatures.DETAIL_OPEN_FAST) mutationTarget(reference, mediaIndex = nuvioCIndexFor(this)) else mutationTarget(reference)) ?: return null
     return ratings.firstOrNull { it.matches(target) }?.rating
 }
 
@@ -101,3 +103,10 @@ private fun ratingItems(ids: JsonObject, rating: Int?): JsonArray = JsonArray(li
 private fun MdbListMutationTarget.rated(rating: Double, at: String) = MdbListRatingRecord(
     type, media, rating, at, season, episode, episodeTmdbId, episodeTvdbId
 )
+
+// [fork] round 61c: the index for the last snapshot asked about (snapshots are immutable; a new sync = a new snapshot).
+@Volatile private var nuvioCLastIndex: Pair<MdbListSyncSnapshot, MdbListMediaIndex>? = null
+private fun nuvioCIndexFor(snapshot: MdbListSyncSnapshot): MdbListMediaIndex {
+    nuvioCLastIndex?.let { (s, i) -> if (s === snapshot) return i }
+    return MdbListMediaIndex(snapshot).also { nuvioCLastIndex = snapshot to it }
+}

@@ -30,7 +30,8 @@ fun MDBListRatingsRow(
     maxItems: Int = Int.MAX_VALUE,
     order: List<String> = MDBListSettings.DEFAULT_RATING_ORDER,
     iconSize: Dp = NuvioTheme.spacing.xl,
-    fitOneLine: Boolean = false // [fork] round 38 roulette_ratings_all: one line, as many whole badges as fit
+    fitOneLine: Boolean = false, // [fork] round 38 roulette_ratings_all: one line, as many whole badges as fit
+    nuvioCV62: Boolean = false // [fork] round 62 ratings_row_v62 (details hero): even icons, tabular digits, TMDB whole, 16 dp gaps
 ) {
     val orderedProviders = remember(ratings, maxItems, order) {
         order.filter { provider -> getRatingValue(ratings, provider) != null }
@@ -49,12 +50,12 @@ fun MDBListRatingsRow(
 
     Row(
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (nuvioCV62) 16.dp else 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         orderedProviders.forEach { provider ->
             val rating = getRatingValue(ratings, provider) ?: return@forEach
-            RatingBadge(provider = provider, rating = rating, ratings = ratings, iconSize = iconSize)
+            RatingBadge(provider = provider, rating = rating, ratings = ratings, iconSize = iconSize, nuvioCV62 = nuvioCV62)
         }
     }
 }
@@ -94,9 +95,11 @@ private fun RatingBadge(
     provider: String,
     rating: Double,
     ratings: MDBListRatings,
-    iconSize: Dp = NuvioTheme.spacing.xl
+    iconSize: Dp = NuvioTheme.spacing.xl,
+    nuvioCV62: Boolean = false
 ) {
-    val squareIconSize = iconSize * 0.75f
+    // [fork] round 62: square marks 16 dp, the wide IMDb mark 13 dp tall (26 dp box), so all read the same size
+    val squareIconSize = if (nuvioCV62) 16.dp else iconSize * 0.75f
 
     val context = LocalContext.current
     Row(
@@ -147,14 +150,14 @@ private fun RatingBadge(
                 AsyncImage(
                     model = model,
                     contentDescription = null,
-                    modifier = Modifier.size(if (isImdb) iconSize else squareIconSize),
+                    modifier = if (nuvioCV62 && isImdb) Modifier.size(width = 26.dp, height = 13.dp) else Modifier.size(if (isImdb) iconSize else squareIconSize),
                     contentScale = ContentScale.Fit
                 )
             }
         }
         Text(
-            text = formatMDBListRating(provider, rating),
-            style = MaterialTheme.typography.labelMedium,
+            text = if (nuvioCV62 && provider == "tmdb") kotlin.math.round(rating).toInt().toString() else formatMDBListRating(provider, rating),
+            style = if (nuvioCV62) MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum") else MaterialTheme.typography.labelMedium,
             color = NuvioTheme.extendedColors.textSecondary
         )
     }

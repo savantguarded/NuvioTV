@@ -188,6 +188,23 @@ private val QL_HEIGHT_61 = 17.dp
 private const val QL_TEXT_SP_61 = 11f
 private const val QL_DOT_ALPHA = 0.62f
 private val QL_DOT_SPACE = 6.dp
+private val QL_LOGO_62 = 12.dp // round 62: logos sit inside the 15 dp row, closer to the Apple TV scale
+
+/**
+ * [fork] round 62 quality_line_v62: resolution, source (REMUX reads BLURAY), TrueHD, visual, Atmos. One sound label per
+ * release as before; only TrueHD and Atmos are shown (DTS, DD, DD+ are dropped). Dim labels pass through.
+ */
+internal fun nuvioCLabels62(labels: List<String>): List<String> {
+    if (labels.isEmpty()) return labels
+    val ranges = setOf("DOLBY VISION", "HDR10", "HDR10+")
+    val sources = setOf("DVD", "HDTV", "WEB-DL", "BLURAY", "REMUX")
+    val res = labels.first()
+    val rest = labels.drop(1)
+    val source = rest.firstOrNull { it in sources }?.let { if (it == "REMUX") "BLURAY" else it }
+    val range = rest.firstOrNull { it in ranges }
+    val sound = rest.firstOrNull { it !in sources && it !in ranges }
+    return listOfNotNull(res, source, sound?.takeIf { it == "TRUEHD" }, range, sound?.takeIf { it == "ATMOS" })
+}
 
 /**
  * The line under the synopsis: age rating, a hairline, then the quality badges of one release. Nothing when the title
@@ -212,14 +229,16 @@ internal fun NuvioCQualityLine(meta: Meta, modifier: Modifier = Modifier, lead: 
 
     val color = com.nuvio.tv.ui.theme.NuvioTheme.colors.TextPrimary
     val big = NuvioCFeatures.QUALITY_LOGOS
-    val lineHeight = if (big) QL_HEIGHT_61 else QL_HEIGHT
-    val textSp = if (big) QL_TEXT_SP_61 else QL_TEXT_SP
+    val v62 = NuvioCFeatures.QUALITY_LINE_V62
+    val lineHeight = if (big && !v62) QL_HEIGHT_61 else QL_HEIGHT // round 62: back to 15 dp
+    val textSp = if (big && !v62) QL_TEXT_SP_61 else QL_TEXT_SP
+    val logoHeight = if (v62) QL_LOGO_62 else lineHeight
     val textStyle = androidx.tv.material3.MaterialTheme.typography.labelMedium.copy(
         fontSize = textSp.sp, lineHeight = (textSp * 1.2f).sp, fontWeight = FontWeight.SemiBold,
         letterSpacing = 0.2.sp, color = color
     )
     val quality: List<String>? = when (state) {
-        is QualityLineState.Found -> state.labels
+        is QualityLineState.Found -> if (NuvioCFeatures.QUALITY_LINE_V62) nuvioCLabels62(state.labels) else state.labels
         is QualityLineState.Dim -> if (state.label == QualityLineState.UNAVAILABLE) null else listOf(state.label)
         else -> null
     }
@@ -233,14 +252,14 @@ internal fun NuvioCQualityLine(meta: Meta, modifier: Modifier = Modifier, lead: 
         if (rating != null) Pill(rating, textStyle, color, lineHeight)
         if (quality != null) {
             Row(Modifier.graphicsLayer { alpha = fade.value * if (dim) QL_DIM_ALPHA else 1f }, verticalAlignment = Alignment.CenterVertically) {
-                if (leadText != null) {
+                if (leadText != null && !v62) {
                     Text(text = "•", style = leadStyle(color).copy(color = color.copy(alpha = QL_DOT_ALPHA)), modifier = Modifier.padding(horizontal = QL_DOT_SPACE))
-                } else if (rating != null) {
+                } else if (rating != null || leadText != null) { // round 62: hairline between year • duration and the badges
                     Spacer(Modifier.width(QL_SEP_SPACE))
                     Box(Modifier.width(1.dp).height(QL_SEP_HEIGHT).background(color.copy(alpha = QL_SEP_ALPHA)))
                     Spacer(Modifier.width(QL_SEP_SPACE))
                 }
-                BadgeRow { quality.forEach { label -> if (big) Badge61(label, textStyle, color, lineHeight) else Pill(label, textStyle, color, lineHeight) } }
+                BadgeRow { quality.forEach { label -> if (big) Badge61(label, textStyle, color, logoHeight) else Pill(label, textStyle, color, lineHeight) } }
             }
         }
     }
@@ -260,7 +279,7 @@ private fun Badge61(label: String, style: TextStyle, color: Color, height: andro
         label.startsWith("DTS") -> com.nuvio.tv.R.drawable.nuvio_c_logo_dts
         else -> null
     }
-    if (res == null) { Pill(label, style, color, height); return }
+    if (res == null) { Pill(label, style, color, if (NuvioCFeatures.QUALITY_LINE_V62) QL_HEIGHT else height); return }
     val painter = androidx.compose.ui.res.painterResource(res)
     val size = painter.intrinsicSize
     val ratio = if (size.height > 0f) size.width / size.height else 2.5f

@@ -4,7 +4,7 @@ Read this first in every session. It tells you where things are so you open only
 Fork-specific behaviour (what each tweak does, its switch, its screen) lives in `docs/FORK_CHANGES.md`.
 Current state, last build and open issues live in `docs/STATUS.md`.
 
-Last verified against: branch `nuvio-c` round 61, official base `1.2.0-beta.3` (`552cacf5`), 2026-11-23.
+Last verified against: branch `nuvio-c` round 62, official base `1.2.0-beta.3` (`552cacf5`), 2026-11-23.
 
 ## 1. What this is
 
@@ -160,6 +160,7 @@ Manual build: `gh workflow run nuvio-c.yml -R savantguarded/NuvioTV --ref nuvio-
 | Roulette | `ui/screens/shuffle/`, `data/nuvioc/NuvioCShuffle*.kt`, `NuvioCRoulette*.kt` |
 | Taste page | `ui/screens/taste/`, `data/nuvioc/NuvioCTaste*.kt` |
 | Profile screen | `ui/screens/profile/` (`NuvioCProfile*.kt`), `ui/components/NuvioCProfileBg.kt` |
+| Details opening speed (traces) | `ui/screens/detail/NuvioCDetailOpen.kt`, `MetaDetailsViewModel.kt` (`nuvioCDeferGate`), `data/mdblist/MdbListUserRatings.kt` (index cache) |
 | Startup / splash / jank | `MainActivity.kt`, `core/nuvioc/NuvioCStartup*.kt`, `ui/components/StartupSplashScreen.kt`, `NuvioCOpening.kt`, `core/NuvioCPerf.kt` |
 | Sidebar | `ui/components/SidebarNavigation.kt`, `NuvioCSidebarSettle.kt`, `src/ModernSidebarBlurPanel.kt` |
 | Settings UI for a fork option | `ui/screens/settings/NuvioC*Settings.kt`, then the matching `Layout*Settings.kt` / `Playback*Settings.kt` |

@@ -503,7 +503,7 @@ fun HeroContentSection(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL && com.nuvio.tv.NuvioCFeatures.HERO_FACTS_ABOVE) 10.dp else NuvioTheme.spacing.lg)) // [fork] round 44
+                    Spacer(modifier = Modifier.height(if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL && com.nuvio.tv.NuvioCFeatures.HERO_FACTS_ABOVE) (if (com.nuvio.tv.NuvioCFeatures.HERO_RHYTHM_V62) 12.dp else 10.dp) else NuvioTheme.spacing.lg)) // [fork] round 44; round 62: 12 dp rhythm
 
                     // Director/Writer line above description
                     if (!creditLine.isNullOrBlank() && !com.nuvio.tv.NuvioCFeatures.HERO_FACTS_ABOVE) { // [fork] round 43: Cast & Crew has it
@@ -523,15 +523,15 @@ fun HeroContentSection(
                     val nuvioCInfo61 = if (com.nuvio.tv.NuvioCFeatures.HERO_LINES_V61) NuvioCDetailInfoStore.current.collectAsState().value?.takeIf { it.metaId == meta.id } else null // [fork] round 61
                     if (mdbListRatings?.isEmpty() == false) {
                         if (com.nuvio.tv.NuvioCFeatures.HERO_LINES_V61) Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.nuvioCFade { nuvioCTextAlpha.value }) { // [fork] round 61: next-episode badge rides on the ratings row
-                            MDBListRatingsRow(ratings = mdbListRatings, order = mdbListRatingOrder, iconSize = if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) 20.dp else NuvioTheme.spacing.xl)
+                            MDBListRatingsRow(ratings = mdbListRatings, order = mdbListRatingOrder, iconSize = if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) 20.dp else NuvioTheme.spacing.xl, nuvioCV62 = com.nuvio.tv.NuvioCFeatures.RATINGS_ROW_V62)
                             NuvioCNextEpisodeChip(meta, Modifier.padding(start = NuvioTheme.spacing.md))
                         } else
-                        MDBListRatingsRow(ratings = mdbListRatings, order = mdbListRatingOrder, modifier = Modifier.nuvioCFade { nuvioCTextAlpha.value }, iconSize = if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) 20.dp else NuvioTheme.spacing.xl) // [fork] round 44: smaller logos
+                        MDBListRatingsRow(ratings = mdbListRatings, order = mdbListRatingOrder, modifier = Modifier.nuvioCFade { nuvioCTextAlpha.value }, iconSize = if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) 20.dp else NuvioTheme.spacing.xl, nuvioCV62 = com.nuvio.tv.NuvioCFeatures.RATINGS_ROW_V62) // [fork] round 44: smaller logos
                         Spacer(modifier = Modifier.height(if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) 12.dp else 14.dp))
                     } else if (com.nuvio.tv.NuvioCFeatures.HERO_RATINGS_SPACE && rememberNuvioCRatingsHold(nuvioCRatingsPending, meta.id)) { // [fork] same height, invisible, until MDBList answers
-                        MDBListRatingsRow(ratings = NUVIO_C_RATINGS_PLACEHOLDER, modifier = Modifier.nuvioCInvisible(), iconSize = if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) 20.dp else NuvioTheme.spacing.xl)
+                        MDBListRatingsRow(ratings = NUVIO_C_RATINGS_PLACEHOLDER, modifier = Modifier.nuvioCInvisible(), iconSize = if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) 20.dp else NuvioTheme.spacing.xl, nuvioCV62 = com.nuvio.tv.NuvioCFeatures.RATINGS_ROW_V62)
                         Spacer(modifier = Modifier.height(if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) 12.dp else 14.dp))
-                    } else if (com.nuvio.tv.NuvioCFeatures.HERO_LINES_V61 && nuvioCHasFallbackRatings(meta, hideMetaInfoImdb, tmdbRating, nuvioCInfo61?.next != null)) { // [fork] round 61: no MDBList, IMDb / TMDB take the row
+                    } else if (com.nuvio.tv.NuvioCFeatures.HERO_LINES_V61 && nuvioCHasFallbackRatings(meta, hideMetaInfoImdb, tmdbRating, if (com.nuvio.tv.NuvioCFeatures.RATINGS_ROW_V62) nuvioCInfo61?.next?.let { nuvioCNextEpisodeBadge(it) } != null else nuvioCInfo61?.next != null) /* round 62: an empty badge no longer makes an empty row */) { // [fork] round 61: no MDBList, IMDb / TMDB take the row
                         Box(modifier = Modifier.nuvioCFade { nuvioCTextAlpha.value }) { NuvioCFallbackRatings(meta, hideMetaInfoImdb, tmdbRating) }
                         Spacer(modifier = Modifier.height(if (com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) 12.dp else 14.dp))
                     }
@@ -1252,7 +1252,7 @@ private fun NuvioCHeroFacts(meta: Meta, hideImdbRating: Boolean, tmdbRating: Flo
         val chipShown = v61 || !(com.nuvio.tv.NuvioCFeatures.DETAIL_QUALITY_LINE && com.nuvio.tv.NuvioCFeatures.QUALITY_LINE_RATING)
         if (chipShown) chip?.let { HeroMetaBadge(text = it, nuvioCSmall = small) }
         parts.forEachIndexed { i, part ->
-            if (i > 0 || (v61 && chipShown && chip != null)) MetaInfoDivider() // [fork] round 61: [rating] • genres • seasons
+            if (i > 0 || (v61 && chipShown && chip != null && !com.nuvio.tv.NuvioCFeatures.HERO_RHYTHM_V62)) MetaInfoDivider() // [fork] round 61: [rating] • genres • seasons; round 62: no dot after the chip
             Text(
                 text = part,
                 style = textStyle,
@@ -1291,8 +1291,23 @@ private fun NuvioCLift(alpha: () -> Float, content: @Composable () -> Unit) {
 }
 
 /** Under the synopsis: year • duration (a show's episode length). */
-internal fun nuvioCQualityLead(meta: Meta): String? =
-    listOfNotNull(formatYearRange(meta.releaseInfo), meta.runtime?.let { formatRuntime(it) }).joinToString(" \u2022 ").takeIf { it.isNotBlank() }
+internal fun nuvioCQualityLead(meta: Meta): String? {
+    val year = formatYearRange(meta.releaseInfo)?.let { if (com.nuvio.tv.NuvioCFeatures.QUALITY_LINE_V62) nuvioCYears62(it) else it }
+    val runtime = meta.runtime?.let { formatRuntime(it) }
+    // round 62: blanks dropped, so a missing runtime never leaves a dangling separator
+    return listOfNotNull(year, runtime).map { it.trim() }.filter { it.isNotEmpty() }.joinToString(" \u2022 ").takeIf { it.isNotBlank() }
+}
+
+/** [fork] round 62: "2023-" (still running) reads 2023; "2019-2023" reads 2019–2023 with an en dash. */
+internal fun nuvioCYears62(raw: String): String {
+    val t = raw.trim()
+    Regex("^(\\d{4})\\s*[-\u2013\u2014]\\s*$").matchEntire(t)?.let { return it.groupValues[1] }
+    Regex("^(\\d{4})\\s*[-\u2013\u2014]\\s*(\\d{4})$").matchEntire(t)?.let { m ->
+        val (a, b) = m.destructured
+        return if (a == b) a else "$a\u2013$b"
+    }
+    return t
+}
 
 private fun nuvioCHasFallbackRatings(meta: Meta, hideImdbRating: Boolean, tmdbRating: Float?, hasNext: Boolean): Boolean {
     val isSeries = meta.type == ContentType.SERIES || meta.type == ContentType.TV

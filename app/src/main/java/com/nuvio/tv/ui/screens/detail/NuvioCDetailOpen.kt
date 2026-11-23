@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import coil3.request.crossfade
 import com.nuvio.tv.NuvioCFeatures
 import com.nuvio.tv.ui.components.nuvioCDetailMargin
 import com.nuvio.tv.ui.components.rememberShimmerBrush
@@ -108,4 +109,31 @@ internal fun NuvioCDetailSkeleton(backdropAware: Boolean) {
 @Composable
 private fun Bar(width: Dp, height: Dp, brush: Brush, radius: Dp) {
     Box(Modifier.width(width).height(height).clip(RoundedCornerShape(radius)).background(brush))
+}
+
+/**
+ * [fork] round 62 detail_open_fast: what sits under the page while it fades in. The same picture the loading screen
+ * showed (same request, so Coil's memory cache hands it straight back) and the placeholder, so the fade goes from the
+ * placeholder to the page and never through black.
+ */
+@Composable
+internal fun NuvioCOpenUnderlay(backdropUrl: String?) {
+    if (!backdropUrl.isNullOrBlank()) {
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val density = androidx.compose.ui.platform.LocalDensity.current
+        val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+        val request = remember(context, backdropUrl, configuration, density) {
+            val w = with(density) { configuration.screenWidthDp.dp.roundToPx() }
+            val h = with(density) { configuration.screenHeightDp.dp.roundToPx() }
+            coil3.request.ImageRequest.Builder(context).data(backdropUrl).crossfade(false).size(width = w, height = h).build()
+        }
+        coil3.compose.AsyncImage(
+            model = request,
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            alignment = Alignment.TopEnd
+        )
+    }
+    NuvioCDetailSkeleton(backdropAware = !backdropUrl.isNullOrBlank())
 }

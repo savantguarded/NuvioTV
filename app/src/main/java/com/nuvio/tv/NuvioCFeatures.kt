@@ -986,8 +986,8 @@ object NuvioCFeatures {
     const val HERO_LINES_V61 = true
     /** Details quality line: Dolby Vision, Dolby Atmos and DTS as logos instead of text pills; the whole line (pills and logos) is 17 dp. Off = text pills at 15 dp. */
     const val QUALITY_LOGOS = true
-    /** Details over a background trailer: logo, tagline, buttons, facts, ratings, synopsis and quality line all at one 70% level (synopsis drops its own grey while the trailer plays); a focused button is back at 100%. Off = text dims to 85%, buttons stay full. */
-    const val TRAILER_BLOCK_DIM = true
+    /** Details over a background trailer: logo, tagline, buttons, facts, ratings, synopsis and quality line all at one level (60% since round 62) (synopsis drops its own grey while the trailer plays); a focused button is back at 100%. Off = text dims to 85%, buttons stay full. */
+    const val TRAILER_BLOCK_DIM = true // round 62: level 60%
     /** Details production / network chips without a logo: the name on two lines at 13 sp, and a name still cut scrolls on focus. Off = one line, ellipsis. */
     const val COMPANY_CHIP_TWO_LINES = true
     /** Details opening: a placeholder in the Nuvio C hero shape, the page fades in over it (180 ms), rows below the hero join one frame later. Fresh opens only (not returns). Off = official placeholder and hard swap. */
@@ -996,4 +996,14 @@ object NuvioCFeatures {
     const val DETAIL_DEFER_LOADS = true
     /** Taste: list cards (Recently finished, Binges, Top shows, Top films) stack fixed-height rows from the top; Faces start at the first position when the row isn't full. Off = rows spread to fill. */
     const val TASTE_TOP_STACK = true
+
+    // ---- Round 62 (2026-11-23) ----
+    /** Details quality line: back to 15 dp with 10 sp pills; Dolby logos 12 dp inside; order resolution, source (REMUX reads BLURAY), TrueHD, visual, Atmos; other sound (DTS, DD, DD+) not shown; a hairline between year • duration and the badges; ongoing show years read 2023, ended 2019–2023. Off = round 61 line. */
+    const val QUALITY_LINE_V62 = true
+    /** Details hero: no dot between the age rating chip and the genres; one 12 dp gap between facts, ratings, synopsis and the quality line. Off = round 61 spacing. */
+    const val HERO_RHYTHM_V62 = true
+    /** Details ratings row: icons at one visual size (IMDb 13 dp tall, others 16 dp), even-width digits, TMDB as a whole number, 16 dp between sources; the empty-space hold while MDBList answers gives up after 2.5 s; no empty fallback row. Off = round 61 row. */
+    const val RATINGS_ROW_V62 = true
+    /** Details opening: the MDBList user-rating lookup reuses one media index per sync (it rebuilt one over the whole watch history per lookup, on the main thread); the unused official rating pill lookup is skipped; the backdrop stays under the placeholder while the page fades in. Off = round 61 opening. */
+    const val DETAIL_OPEN_FAST = true
 }

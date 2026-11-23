@@ -2,25 +2,20 @@
 
 Rewrite this file at the end of every build session (do not append). History lives in git log.
 
-Updated: 2026-11-23 (round 61)
+Updated: 2026-11-23 (round 62)
 
 ## Where things stand
-- Branch `nuvio-c` = round 61 on official `1.2.0-beta.3` (still the newest official tag on 2026-11-23). CI picks the highest version.
+- Branch `nuvio-c` = round 62 on official `1.2.0-beta.3` (still the newest official tag on 2026-11-23). CI picks the highest version.
 - Only branch left: `nuvio-c`.
-- Round 61 (mockup canvas "Nuvio C: Details page round 61 (mockup)", all approved in one build):
-  - Hero lines (`HERO_LINES_V61`): `[age rating] • genres • N seasons` under the buttons; `year • duration • badges` under the synopsis; without MDBList, IMDb / TMDB take the ratings row; next-episode badge at the end of the ratings row.
-  - Logos (`QUALITY_LOGOS`): Dolby Vision, Dolby Atmos, DTS (any DTS) as white vectors, whole line 17 dp. Sources: Wikimedia Commons "Dolby Vision 2021 logo.svg", "Dolby Atmos.png" (traced), "DTS logo.svg" (letters only). Dolby Digital / DD+ / TrueHD stay text.
-  - Background trailer (`TRAILER_BLOCK_DIM`): logo, tagline, buttons, facts, ratings, synopsis, quality line all at 70%; synopsis drops its 72% grey during the trailer (owner left it to Claude); focused button back to 100%.
-  - Company chips (`COMPANY_CHIP_TWO_LINES`): two lines at 13 sp, still cut = scroll on focus.
-  - Opening (`DETAIL_OPEN_SMOOTH`): Nuvio C hero-shaped placeholder, 180 ms fade, rows join one frame later (fresh opens only). `DETAIL_DEFER_LOADS`: More like this, comments, collection, episode ratings, trailer link wait 1.2 s or until the page scrolls.
-  - Taste (`TASTE_TOP_STACK`): list rows fixed 40 dp from the top; Faces from the first slot when the row isn't full.
-- Round 61b: opening details crashed (NullPointerException in MetaDetailsViewModel): the defer-gate fields were declared below `init`, which calls loadMeta() first. Moved above `init`.
-- Round 60 quality line (Torrentio first, QualiCache fallback, leaf view model) unchanged underneath.
-- Tests: `NuvioC*` and `Calendar*` pass. No new tests this round (UI only).
-- TV adb from the owner's nuvio-debug folder works from the desktop VM: Linux platform-tools downloaded into the VM home, the folder's adb-key copied to ~/.android.
+- Round 61 (canvas "Nuvio C: Details page round 61 (mockup)", boards A to J): hero lines, Dolby / DTS logos, trailer block dim, two-line company chips, opening placeholder + fade, deferred loads, Taste top stack. 61b fixed a crash on opening details (defer-gate fields declared after `init`).
+- Round 62 (same canvas, boards K to R + N2), owner decisions: hairline A, logos 12 dp, order resolution / source / TrueHD / visual / Atmos, keep one sound label per release (no parser change), REMUX reads BLURAY, block dim 60%, 12 dp rhythm only (no 3-line synopsis, no ratings cap), no MDBList shimmer.
+- Opening jank, measured on the TV 2026-11-23 (perfetto + simpleperf, release build is profileable): the first page frame ~210 ms (137 ms composition + 64 ms draw), then ~180 ms of main-thread work with no frames, which was the MDBList user-rating lookup building `MdbListMediaIndex` over the whole history on every call (official code; cached per snapshot under `DETAIL_OPEN_FAST`). The black frame came from the fade's underlay having no picture.
+- adb from the desktop VM: Linux platform-tools in the VM home, the folder's `adb-key` copied to ~/.android; target in `grab-crash.bat`. Release APK names are obfuscated; use simpleperf + androguard on the APK to map hot classes.
+- Tests: `NuvioC*` and `Calendar*` pass, incl. `NuvioCRound62Test` (label order, years).
 
 ## Still to check on the TV
-- Round 61: logo legibility at 17 dp; 70% block over a trailer (focus lift on each button, synopsis readable); opening fade on a cold and a cached title; Down soon after open loads rows at once; trailer autostart still fires; a series without MDBList shows IMDb / TMDB and the countdown; company names with two lines and the scroll; Taste cards with one or two entries.
+- Round 62: opening feel (cached and cold titles); badge order and 12 dp logos; ratings row icon sizes; a show without ratings (no gap); not-released titles (one separator).
+- Round 61:  70% block over a trailer (focus lift on each button, synopsis readable); opening fade on a cold and a cached title; Down soon after open loads rows at once; trailer autostart still fires; a series without MDBList shows IMDb / TMDB and the countdown; company names with two lines and the scroll; Taste cards with one or two entries.
 - Round 60: quality line for a `tmdb:` id title; series latest-aired episode.
 - Marquee: Taste rows / Spin card / faces, Modern Home card titles, collection folders, Calendar reminder rows.
 
