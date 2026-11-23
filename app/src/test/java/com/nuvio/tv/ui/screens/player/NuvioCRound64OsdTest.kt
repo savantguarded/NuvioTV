@@ -21,4 +21,10 @@ class NuvioCRound64OsdTest {
         assertEquals(listOf("4K", "BLURAY", "TRUEHD", "[dolby_vision]"), show(NuvioCOsdBadges.order64("4K", "BLURAY", "DV", "TRUEHD 7.1", false, null)))
         assertEquals(listOf("1080P", "AAC"), show(NuvioCOsdBadges.order64("1080p", null, null, "AAC 2.0", false, null)))
     }
+
+    @Test fun ddpAtmosFromReleaseName() {
+        val n = "Dark.Matter.2024.S02E04.2160p.ATVP.WEB-DL.DDP5.1.Atmos.DV.HDR.H.265-FLUX.mkv"
+        assertEquals("Atmos 5.1", NuvioCOsdBadges.audioLabel("E-AC-3", 6, n))
+        assertEquals("DD+ 5.1", NuvioCOsdBadges.audioLabel("E-AC-3", 6, "Show.S01E01.1080p.WEB-DL.DDP5.1.H.264"))
+    }
 }

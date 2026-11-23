@@ -1436,7 +1436,12 @@ private fun MetaDetailsContent(
         { video: Video -> playbackAvailability.canStream(meta.apiType, video.id, meta.id, video) }
     }
     val nestedPrefetchStrategy = remember { LazyListPrefetchStrategy(nestedPrefetchItemCount = 2) }
-    val listState = rememberLazyListState(prefetchStrategy = nestedPrefetchStrategy)
+    // [fork] round 64c detail_cache_window: rows stay built for about one screen above (and half below) the view, so
+    // scrolling back up no longer rebuilds each row as it comes back (30-70 ms frames traced on Teen Wolf)
+    @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+    val listState = if (com.nuvio.tv.NuvioCFeatures.DETAIL_CACHE_WINDOW) {
+        rememberLazyListState(cacheWindow = androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow(ahead = 360.dp, behind = 720.dp))
+    } else rememberLazyListState(prefetchStrategy = nestedPrefetchStrategy)
     // [fork] round 61 detail_open_smooth: on a fresh open the rows under the hero join one frame after it
     var nuvioCRowsReady by remember { mutableStateOf(!nuvioCStageRows) }
     if (!nuvioCRowsReady) LaunchedEffect(Unit) { withFrameNanos { }; nuvioCRowsReady = true }
@@ -2249,8 +2254,8 @@ private fun MetaDetailsContent(
     // [fork] round 64 detail_rows_v64: the row above the collection / comments when Ratings and More like this are rows
     val nuvioCRowAbove = when {
         !com.nuvio.tv.NuvioCFeatures.DETAIL_ROWS_V64 -> null
+        hasMoreLikeThisSection -> moreLikeSectionFocusRequester // [fork] round 64c: More like this is the last of these rows
         hasRatingsSection -> ratingsGridFocusRequester
-        hasMoreLikeThisSection -> moreLikeSectionFocusRequester
         else -> null
     }
     val commentsUpFocusRequester = when {
@@ -3171,6 +3176,26 @@ private fun MetaDetailsContent(
 
             // [fork] round 64 detail_rows_v64: More like this and episode Ratings as their own rows (round 64b: under Collection), same header as
             // the others. Both join below the fold after the held-back loads, so nothing on screen moves.
+            if (com.nuvio.tv.NuvioCFeatures.DETAIL_ROWS_V64 && hasRatingsSection) {
+                item(key = "nuvio_c_ratings_row", contentType = "horizontal_row") {
+                    EpisodeRatingsSection(
+                        episodes = meta.videos,
+                        ratings = visibleEpisodeImdbRatings,
+                        isLoading = isEpisodeRatingsLoading,
+                        error = episodeRatingsError,
+                        title = strTabRatings,
+                        upFocusRequester = when {
+                            shouldSplitCollection && collection.isNotEmpty() -> collectionSectionFocusRequester
+                            hasVisiblePeopleSection -> castSectionFocusRequester
+                            else -> seasonDownFocusRequester ?: heroPlayFocusRequester
+                        },
+                        downFocusRequester = null,
+                        firstItemFocusRequester = ratingsContentFocusRequester,
+                        ratingsGridFocusRequester = ratingsGridFocusRequester
+                    )
+                }
+            }
+
             if (com.nuvio.tv.NuvioCFeatures.DETAIL_ROWS_V64 && hasMoreLikeThisSection) {
                 item(key = "nuvio_c_more_like_row", contentType = "horizontal_row") {
                     MoreLikeThisSection(
@@ -3179,7 +3204,8 @@ private fun MetaDetailsContent(
                         title = strTabMoreLikeThis,
                         sourceLabel = moreLikeThisSourceLabel,
                         posterCardCornerRadius = posterCardCornerRadiusDp.dp,
-                        upFocusRequester = when { // [fork] round 64b: the Collection row now sits above
+                        upFocusRequester = when { // [fork] round 64b: the Collection row now sits above; 64c: Ratings first
+                            hasRatingsSection -> ratingsGridFocusRequester
                             shouldSplitCollection && collection.isNotEmpty() -> collectionSectionFocusRequester
                             hasVisiblePeopleSection -> castSectionFocusRequester
                             else -> seasonDownFocusRequester ?: heroPlayFocusRequester
@@ -3203,27 +3229,6 @@ private fun MetaDetailsContent(
                     )
                 }
             }
-            if (com.nuvio.tv.NuvioCFeatures.DETAIL_ROWS_V64 && hasRatingsSection) {
-                item(key = "nuvio_c_ratings_row", contentType = "horizontal_row") {
-                    EpisodeRatingsSection(
-                        episodes = meta.videos,
-                        ratings = visibleEpisodeImdbRatings,
-                        isLoading = isEpisodeRatingsLoading,
-                        error = episodeRatingsError,
-                        title = strTabRatings,
-                        upFocusRequester = when {
-                            hasMoreLikeThisSection -> moreLikeSectionFocusRequester
-                            shouldSplitCollection && collection.isNotEmpty() -> collectionSectionFocusRequester
-                            hasVisiblePeopleSection -> castSectionFocusRequester
-                            else -> seasonDownFocusRequester ?: heroPlayFocusRequester
-                        },
-                        downFocusRequester = null,
-                        firstItemFocusRequester = ratingsContentFocusRequester,
-                        ratingsGridFocusRequester = ratingsGridFocusRequester
-                    )
-                }
-            }
-
             if (shouldShowCommentsSection) {
                 item(key = "trakt_comments", contentType = "horizontal_row") {
                     CommentsSection(

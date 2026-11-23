@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -134,8 +135,11 @@ fun EpisodeRatingsSection(
             )
         }
 
+        // [fork] round 64c ratings_steady: while ratings load, the row already shows its season tabs and "—" chips
+        // (dimmed), so nothing below it moves when the numbers arrive
+        val nuvioCSteady = com.nuvio.tv.NuvioCFeatures.RATINGS_STEADY && seasonNumbers.isNotEmpty()
         when {
-            isLoading -> {
+            isLoading && !nuvioCSteady -> {
                 Text(
                     text = stringResource(R.string.ratings_loading),
                     style = MaterialTheme.typography.bodyMedium,
@@ -231,6 +235,7 @@ fun EpisodeRatingsSection(
                 LazyRow(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .then(if (isLoading && nuvioCSteady) Modifier.graphicsLayer { alpha = 0.45f } else Modifier) // [fork] round 64c
                         .focusRequester(effectiveRatingsGridFocusRequester)
                         .focusRestorer(firstEpisodeRatingFocusRequester)
                         .focusGroup(),

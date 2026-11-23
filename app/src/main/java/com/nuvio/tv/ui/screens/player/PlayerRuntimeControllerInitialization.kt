@@ -677,6 +677,7 @@ internal fun PlayerRuntimeController.initializePlayer(
                 AdaptiveTrackSelection.DEFAULT_MIN_DURATION_TO_RETAIN_AFTER_DISCARD_MS,
                 AdaptiveTrackSelection.DEFAULT_BANDWIDTH_FRACTION
             )
+            val nuvioCAppContext = context // [fork] round 64c: inside the selector, `context` is the selector's own (nullable)
             trackSelector = object : DefaultTrackSelector(context, adaptiveTrackSelectionFactory) {
                 override fun selectAllTracks(
                     mappedTrackInfo: MappedTrackInfo,
@@ -754,6 +755,31 @@ internal fun PlayerRuntimeController.initializePlayer(
                                                 RendererCapabilities.getDecoderSupport(support)
                                             )
                                     }
+                                }
+                            }
+                        }
+                    }
+                    // [fork] round 64c passthrough_track_pick: a switched-off format (DTS) is decoded by FFmpeg, which Media3
+                    // ranks below a format the TV's own renderer takes (DD+), so a release with both started on DD+.
+                    // Every playable audio track is ranked as if on the main decoder, so the usual rules (language,
+                    // default flag, channels, bitrate) pick the track as they did before round 64b.
+                    if (com.nuvio.tv.NuvioCFeatures.PASSTHROUGH_TRACK_PICK && com.nuvio.tv.NuvioCFeatures.PASSTHROUGH_KEEP_OTHERS &&
+                        NuvioCPassthrough.restricts(nuvioCAppContext)
+                    ) {
+                        for (rendererIndex in 0 until mappedTrackInfo.rendererCount) {
+                            if (mappedTrackInfo.getRendererType(rendererIndex) != C.TRACK_TYPE_AUDIO) continue
+                            val groups = mappedTrackInfo.getTrackGroups(rendererIndex)
+                            for (groupIndex in 0 until groups.length) {
+                                for (trackIndex in 0 until groups[groupIndex].length) {
+                                    val support = rendererFormatSupports[rendererIndex][groupIndex][trackIndex]
+                                    if (RendererCapabilities.getFormatSupport(support) != C.FORMAT_HANDLED) continue
+                                    rendererFormatSupports[rendererIndex][groupIndex][trackIndex] = RendererCapabilities.create(
+                                        C.FORMAT_HANDLED,
+                                        RendererCapabilities.getAdaptiveSupport(support),
+                                        RendererCapabilities.getTunnelingSupport(support),
+                                        RendererCapabilities.HARDWARE_ACCELERATION_SUPPORTED,
+                                        RendererCapabilities.DECODER_SUPPORT_PRIMARY
+                                    )
                                 }
                             }
                         }

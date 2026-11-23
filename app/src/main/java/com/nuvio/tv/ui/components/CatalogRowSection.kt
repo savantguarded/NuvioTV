@@ -207,6 +207,8 @@ fun CatalogRowSection(
             return@LaunchedEffect
         })
         repeat(15) {
+            // [fork] round 64c row_loading_nav: the user moved on (Down / Up): leave focus where they put it
+            if (com.nuvio.tv.NuvioCFeatures.ROW_LOADING_NAV && !rowHasFocusRef.value) { blockingFocusExit.value = false; return@LaunchedEffect }
             val req = itemFocusRequestersByKey[targetKey]
             if (req != null) {
                 val ok = runCatching { req.requestFocus(); true }.getOrDefault(false)
@@ -279,7 +281,10 @@ fun CatalogRowSection(
     }
 
     Column(modifier = modifier.fillMaxWidth().then(
-        if (blockingFocusExit.value) {
+        // [fork] round 64c row_loading_nav: Up / Down are never blocked while a focused row swaps its placeholders
+        // for real cards (official cancelled both for up to 15 frames, which felt stuck in Search while rows loaded);
+        // the swap still re-lands the ring on the first card when the user hasn't moved
+        if (blockingFocusExit.value && !com.nuvio.tv.NuvioCFeatures.ROW_LOADING_NAV) {
             Modifier.focusProperties {
                 up = FocusRequester.Cancel
                 down = FocusRequester.Cancel

@@ -1036,4 +1036,18 @@ object NuvioCFeatures {
     const val TRACE_LABELS = true
     /** Passthrough switches: with a format switched off, only that format is decoded on the TV (by FFmpeg); formats still switched on pass through as before. Round 51 put FFmpeg in front of every track, so DD+ Atmos was decoded too. Off = round 51. */
     const val PASSTHROUGH_KEEP_OTHERS = true
+
+    // ---- Round 64c (2026-11-23) ----
+    /** OSD sound badge: a DD+ track in a release named Atmos shows the Atmos logo (MKV can't flag DD+ Atmos, so the track reads plain E-AC-3), like TrueHD already did. Off = DD+ logo. */
+    const val OSD_DDP_ATMOS_NAME = true
+    /** Details Ratings row: while ratings load it already shows season tabs and dimmed "—" chips, so rows below don't move when the numbers arrive; no extra "loading" pass through the page state. Off = "Loading" text, then the row. */
+    const val RATINGS_STEADY = true
+    /** Leaving the player: the stopped player's decoders are released 0.9 s later instead of inside the Back press (ExoPlayer.release() held it ~190 ms). Off = released in the key press. */
+    const val PLAYER_EXIT_FAST = true
+    /** Details page: rows stay built about one screen above and half a screen below the view, so scrolling back up doesn't rebuild each row as it returns. Off = official prefetch (rows rebuilt). */
+    const val DETAIL_CACHE_WINDOW = true
+    /** Search and Home rows: Up / Down are no longer blocked while the focused row swaps its loading placeholders for real cards (official blocked them for up to 15 frames, felt stuck while Search rows loaded); if the user stays, the ring still re-lands on the first card. Off = official block. */
+    const val ROW_LOADING_NAV = true
+    /** Passthrough switches: with a format switched off, the starting audio track is picked by the usual rules (language, default flag, channels, bitrate), not by which decoder plays it; after PASSTHROUGH_KEEP_OTHERS a DTS + DD+ release started on DD+. Off = Media3 prefers the TV's own decoder. */
+    const val PASSTHROUGH_TRACK_PICK = true
 }

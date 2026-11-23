@@ -332,7 +332,7 @@ fun PlayerScreen(
         if (exitDispatched) return@exitPlayer
         exitDispatched = true
         val timeline = viewModel.playbackTimeline.value
-        viewModel.stopAndRelease()
+        viewModel.stopAndReleaseForExit() // [fork] round 64c player_exit_fast
         val completed = postPlayRecommendationState.isVisible || uiState.playbackEnded ||
             (!timeline.isLive &&
                 timeline.duration > 0L &&

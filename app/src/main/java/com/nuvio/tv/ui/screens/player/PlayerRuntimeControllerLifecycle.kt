@@ -4,6 +4,9 @@ import android.content.Intent
 import android.media.audiofx.AudioEffect
 import kotlinx.coroutines.flow.update
 
+/** [fork] round 64c: how long after leaving the player its decoders are released. */
+private const val NUVIO_C_LATE_RELEASE_MS = 900L
+
 internal fun PlayerRuntimeController.releasePlayer() {
     releasePlayer(flushPlaybackState = true)
 }
@@ -109,7 +112,16 @@ internal fun PlayerRuntimeController.releasePlayer(
         runCatching { player.clearMediaItems() }
         runCatching { player.clearVideoSurface() }
         runCatching { player.releaseAssHandlerCompat() }
-        runCatching { player.release() }
+        // [fork] round 64c player_exit_fast: on Back out of the player, ExoPlayer.release() blocked the key press while
+        // the decoders shut down (~190 ms traced, longer for Dolby Vision). The player is already stopped and cut off
+        // from the screen here, so the release itself waits until the details page has opened.
+        if (com.nuvio.tv.NuvioCFeatures.PLAYER_EXIT_FAST && nuvioCExiting) {
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                com.nuvio.tv.core.NuvioCPerf.section("player release (late)") { runCatching { player.release() } }
+            }, NUVIO_C_LATE_RELEASE_MS)
+        } else {
+            com.nuvio.tv.core.NuvioCPerf.section("player release") { runCatching { player.release() } }
+        }
     }
     _exoPlayer = null
     activeAssVideoEffect = null

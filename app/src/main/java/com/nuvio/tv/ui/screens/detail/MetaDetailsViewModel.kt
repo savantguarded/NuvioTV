@@ -1552,8 +1552,11 @@ class MetaDetailsViewModel @Inject constructor(
         }
 
         episodeRatingsJob = viewModelScope.launch {
+            // [fork] round 64c ratings_steady: no "loading" round trip through the whole page state when it already says
+            // loading with nothing in it (each update recomposes the details page)
             _uiState.update {
-                it.copy(
+                if (com.nuvio.tv.NuvioCFeatures.RATINGS_STEADY && it.isEpisodeRatingsLoading && it.episodeImdbRatings.isEmpty() && it.episodeRatingsError == null) it
+                else it.copy(
                     episodeImdbRatings = emptyMap(),
                     isEpisodeRatingsLoading = true,
                     episodeRatingsError = null

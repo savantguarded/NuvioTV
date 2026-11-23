@@ -242,6 +242,12 @@ class PlayerViewModel @Inject constructor(
         controller.stopAndRelease()
     }
 
+    /** [fork] round 64c player_exit_fast: Back out of the player; the decoders are released once the page behind is up. */
+    fun stopAndReleaseForExit() {
+        postPlayRecommendationController.stop()
+        controller.stopAndRelease(lateRelease = true)
+    }
+
     fun playPostPlayTrailer() {
         postPlayRecommendationController.playTrailer()
     }

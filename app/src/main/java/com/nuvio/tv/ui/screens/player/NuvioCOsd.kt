@@ -536,7 +536,9 @@ internal object NuvioCOsdBadges {
         val name = when (raw?.lowercase(Locale.US)) {
             null -> null
             "e-ac-3-joc" -> "Atmos"
-            "eac3", "e-ac-3" -> "DD+"
+            // [fork] round 64c: MKV can't flag DD+ Atmos (JOC), so the track reads plain E-AC-3; trust the release name
+            // as for TrueHD
+            "eac3", "e-ac-3" -> if (NuvioCFeatures.OSD_DDP_ATMOS_NAME && atmosInName) "Atmos" else "DD+"
             "ac3", "ac-3" -> "DD"
             // TrueHD Atmos isn't flagged by the decoder; trust the release name
             "truehd", "mlp" -> if (atmosInName) "Atmos" else "TrueHD"

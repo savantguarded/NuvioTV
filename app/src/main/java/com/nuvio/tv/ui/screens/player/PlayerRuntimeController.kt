@@ -290,7 +290,10 @@ class PlayerRuntimeController(
     fun getCurrentStreamUrl(): String = currentStreamUrl
     fun getCurrentHeaders(): Map<String, String> = currentHeaders
 
-    fun stopAndRelease() {
+    /** [fork] round 64c player_exit_fast: true while [stopAndRelease] (leaving the player) releases it. */
+    @Volatile internal var nuvioCExiting = false
+
+    fun stopAndRelease(lateRelease: Boolean = false) {
         leavePartyPlayback()
         // Cache counters only reach the card on a natural finish, so capture them when the user exits too.
         val diagnostics = lastPlaybackDiagnosticsForReport
@@ -315,7 +318,8 @@ class PlayerRuntimeController(
         mediaSourceFactory.logVodCacheStats()
         releaseProcessWideReferences()
         mediaSourceFactory.evictCachedSession()
-        releasePlayer()
+        nuvioCExiting = lateRelease // [fork] round 64c player_exit_fast: plain Back only (not next episode / external)
+        try { com.nuvio.tv.core.NuvioCPerf.section("player exit release") { releasePlayer() } } finally { nuvioCExiting = false }
         playerSession.close()
     }
 
