@@ -195,6 +195,10 @@ class MetaDetailsViewModel @Inject constructor(
     private val _optimisticMarks = mutableSetOf<Pair<Int, Int>>()
     private val _optimisticUnmarks = mutableSetOf<Pair<Int, Int>>()
 
+    // [fork] round 61 detail_defer_loads: declared before init, which calls loadMeta()
+    private val nuvioCDeferOpen = MutableStateFlow(false)
+    private var nuvioCDeferUntil = 0L
+
     init {
         applyTrailerHandoff()
         posterOptions.bind(viewModelScope)
@@ -803,8 +807,6 @@ class MetaDetailsViewModel @Inject constructor(
     // [fork] round 61 detail_defer_loads: rows below the hero and the trailer link wait 1.2 s from the first of them
     // (counted once per load), or until the page moves (the screen calls nuvioCOpenDeferGate), so the opening
     // frames carry only the hero.
-    private val nuvioCDeferOpen = MutableStateFlow(false)
-    private var nuvioCDeferUntil = 0L
     fun nuvioCOpenDeferGate() { nuvioCDeferOpen.value = true }
     private suspend fun nuvioCDeferGate() {
         if (!com.nuvio.tv.NuvioCFeatures.DETAIL_DEFER_LOADS || nuvioCDeferOpen.value) return

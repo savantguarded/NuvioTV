@@ -14,6 +14,7 @@ Updated: 2026-11-23 (round 61)
   - Company chips (`COMPANY_CHIP_TWO_LINES`): two lines at 13 sp, still cut = scroll on focus.
   - Opening (`DETAIL_OPEN_SMOOTH`): Nuvio C hero-shaped placeholder, 180 ms fade, rows join one frame later (fresh opens only). `DETAIL_DEFER_LOADS`: More like this, comments, collection, episode ratings, trailer link wait 1.2 s or until the page scrolls.
   - Taste (`TASTE_TOP_STACK`): list rows fixed 40 dp from the top; Faces from the first slot when the row isn't full.
+- Round 61b: opening details crashed (NullPointerException in MetaDetailsViewModel): the defer-gate fields were declared below `init`, which calls loadMeta() first. Moved above `init`.
 - Round 60 quality line (Torrentio first, QualiCache fallback, leaf view model) unchanged underneath.
 - Tests: `NuvioC*` and `Calendar*` pass. No new tests this round (UI only).
 - TV adb from the owner's nuvio-debug folder works from the desktop VM: Linux platform-tools downloaded into the VM home, the folder's adb-key copied to ~/.android.
