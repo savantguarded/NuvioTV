@@ -15,7 +15,19 @@ data class QualityStreamText(val name: String?, val title: String?, val filename
 enum class QualityResolution(val label: String) { SD("480P"), HD("720P"), FHD("1080P"), UHD("4K") }
 enum class QualityRange(val label: String) { HDR10("HDR10"), HDR10_PLUS("HDR10+"), DOLBY_VISION("DOLBY VISION") }
 enum class QualityAudio(val label: String) {
-    DD("DOLBY DIGITAL"), DDP("DOLBY DIGITAL PLUS"), DTS_HD("DTS-HD"), TRUEHD("TRUEHD"), DTS_X("DTS:X"), ATMOS("ATMOS")
+    // round 64: DTS (core) and FLAC added; enum order is the ranking order (low to high). FLAC ranks lowest so the
+    // round 60 picks don't change (it shows only when no other sound format is named).
+    FLAC("FLAC"), DD("DOLBY DIGITAL"), DTS("DTS"), DDP("DOLBY DIGITAL PLUS"), DTS_HD("DTS-HD"), TRUEHD("TRUEHD"), DTS_X("DTS:X"), ATMOS("ATMOS")
+}
+
+/**
+ * [fork] round 64 quality_editions: editions a title has somewhere in its releases. Enum order is the display
+ * priority (Extended and Director's Cut first); at most two are shown.
+ */
+enum class QualityEdition(val label: String) {
+    EXTENDED("EXTENDED"), DIRECTORS_CUT("DIRECTOR'S CUT"), SPECIAL_EDITION("SPECIAL EDITION"), IMAX("IMAX"),
+    FINAL_CUT("FINAL CUT"), ULTIMATE_CUT("ULTIMATE CUT"), REDUX("REDUX"), CRITERION("CRITERION"),
+    OPEN_MATTE("OPEN MATTE"), BLACK_AND_WHITE("B&W")
 }
 enum class QualitySource(val label: String) { DVD("DVD"), HDTV("HDTV"), WEB_DL("WEB-DL"), BLURAY("BLURAY"), REMUX("REMUX") }
 
@@ -24,7 +36,9 @@ data class TitleQuality(
     val resolution: QualityResolution,
     val range: QualityRange? = null,
     val audio: QualityAudio? = null,
-    val source: QualitySource? = null
+    val source: QualitySource? = null,
+    /** Round 64: editions seen in ANY release of the title (not only this one), priority order. Not in [labels]. */
+    val editions: List<QualityEdition> = emptyList()
 ) {
     val labels: List<String> get() = listOfNotNull(resolution.label, range?.label, audio?.label, source?.label)
 }
@@ -66,6 +80,8 @@ object TitleQualityParser {
     private val DTSX = Regex("${B}dts[ ._:-]?x$E")
     private val TRUEHD = Regex("true[ ._-]?hd")
     private val DTSHD = Regex("${B}dts[ ._-]?hd")
+    private val DTS = Regex("${B}dts(?=[ ._\\-]?\\d|$E)")
+    private val FLAC = Regex("${B}flac")
     private val DDP = Regex("${B}(ddp|dd\\+|e-?ac-?3|eac3)")
     private val DD = Regex("${B}(dd|ac-?3)(?=[ ._\\-]?\\d|$E)")
     private val REMUX = Regex("remux")
@@ -100,7 +116,9 @@ object TitleQualityParser {
             DTSX.containsMatchIn(t) -> QualityAudio.DTS_X
             TRUEHD.containsMatchIn(t) -> QualityAudio.TRUEHD
             DTSHD.containsMatchIn(t) -> QualityAudio.DTS_HD
+            FLAC.containsMatchIn(t) -> QualityAudio.FLAC
             DDP.containsMatchIn(t) -> QualityAudio.DDP
+            DTS.containsMatchIn(t) -> QualityAudio.DTS
             DD.containsMatchIn(t) || "dolby digital" in t -> QualityAudio.DD
             else -> null
         }
@@ -217,6 +235,58 @@ object TitleQualityParser {
         }
     }
 
+    // ---- round 64 quality_editions ----
+    // matched on the words form (see [words]): letters and digits, every separator one space
+    private val EDITION_RULES: List<Pair<QualityEdition, Regex>> = listOf(
+        QualityEdition.EXTENDED to Regex(" extended "),
+        QualityEdition.DIRECTORS_CUT to Regex(" directors? (s )?cut "),
+        QualityEdition.SPECIAL_EDITION to Regex(" special edition "),
+        QualityEdition.IMAX to Regex(" imax "),
+        QualityEdition.FINAL_CUT to Regex(" final cut "),
+        QualityEdition.ULTIMATE_CUT to Regex(" ultimate (cut|edition) "),
+        QualityEdition.REDUX to Regex(" redux "),
+        QualityEdition.CRITERION to Regex(" criterion "),
+        QualityEdition.OPEN_MATTE to Regex(" open matte "),
+        QualityEdition.BLACK_AND_WHITE to Regex(" (black and white|b w) ")
+    )
+
+    /** Lowercase words of a title, separators collapsed: "Director's Cut: X" -> "director s cut x". */
+    fun words(s: String): String = s.lowercase().replace(Regex("[^a-z0-9]+"), " ").trim()
+
+    /**
+     * Round 64: the editions one release names. The film's own [title] is taken out first (so "The Final Cut" or
+     * "Redux" in a title never counts); CAM / zero-seeder releases and, for a film, other-year releases don't count.
+     */
+    fun editionsOf(stream: QualityStreamText, title: String? = null, year: Int? = null): Set<QualityEdition> {
+        val raw = listOfNotNull(stream.name, stream.title, stream.filename).joinToString(" ").lowercase()
+        val seeders = SEEDERS.find(raw)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+        if (seeders <= 0) return emptySet()
+        var t = SEEDERS.replace(raw, " ")
+        if (CAM.containsMatchIn(t)) return emptySet()
+        if (year != null) {
+            val ys = YEAR.findAll(t).mapNotNull { it.value.toIntOrNull() }.toList()
+            if (ys.isNotEmpty() && ys.none { kotlin.math.abs(it - year) <= 1 }) return emptySet()
+        }
+        // Words form, padded. Only lines that name the film count (a pack's name like "Y Tu Mama Tambien Criterion"
+        // above a file of this film doesn't), and the film's own title is taken out of them (so "The Final Cut" or a
+        // title with "Redux" in it never counts). Spaces are doubled so each match keeps its neighbours' boundaries.
+        val tw = title?.let(::words)?.takeIf { it.length >= 2 }?.let { " " + it.replace(" ", "  ") + " " }
+        t = t.split('\n').asSequence()
+            .map { " " + words(it).replace(" ", "  ") + " " }
+            .filter { tw == null || it.contains(tw) }
+            .joinToString(" ") { if (tw == null) it else it.replace(tw, " ") }
+        if (t.isBlank()) return emptySet()
+        t = t.replace(Regex(" +"), " ")
+        return EDITION_RULES.filter { (_, re) -> re.containsMatchIn(t) }.mapTo(LinkedHashSet()) { it.first }
+    }
+
+    /** Round 64: editions across all [streams], in priority order, at most [max]. */
+    fun editions(streams: Iterable<QualityStreamText>, title: String? = null, year: Int? = null, max: Int = 2): List<QualityEdition> {
+        val seen = HashSet<QualityEdition>()
+        streams.forEach { seen += editionsOf(it, title, year) }
+        return QualityEdition.entries.filter { it in seen }.take(max)
+    }
+
     /** QualiCache tokens (one trusted release) to the same slots. Resolution capped at 4K. */
     fun fromTokens(tokens: List<String>): TitleQuality? {
         val t = tokens.map { it.uppercase().trim() }.toSet()
@@ -238,7 +308,9 @@ object TitleQualityParser {
             "DTSX" in t || "DTS:X" in t -> QualityAudio.DTS_X
             "TRUEHD" in t -> QualityAudio.TRUEHD
             "DTSHD" in t || "DTS-HD" in t || "DTSHDMA" in t -> QualityAudio.DTS_HD
+            "FLAC" in t -> QualityAudio.FLAC
             "DDP" in t || "EAC3" in t -> QualityAudio.DDP
+            "DTS" in t -> QualityAudio.DTS
             "DD" in t || "AC3" in t -> QualityAudio.DD
             else -> null
         }

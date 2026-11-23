@@ -123,12 +123,12 @@ fun EpisodeRatingsSection(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = if (hasTitle) 14.dp else 6.dp, bottom = NuvioTheme.spacing.sm)
+            .padding(top = if (hasTitle) (if (com.nuvio.tv.NuvioCFeatures.DETAIL_ROWS_V64) 20.dp else 14.dp) else 6.dp, bottom = NuvioTheme.spacing.sm)
     ) {
         if (hasTitle) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleMedium,
+                style = if (com.nuvio.tv.NuvioCFeatures.DETAIL_ROWS_V64) MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium, // [fork] round 64: one header style
                 color = NuvioTheme.colors.TextPrimary,
                 modifier = Modifier.padding(horizontal = com.nuvio.tv.ui.components.nuvioCDetailMargin) // [fork] page margin
             )

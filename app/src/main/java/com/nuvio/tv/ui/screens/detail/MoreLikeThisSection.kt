@@ -46,6 +46,8 @@ fun MoreLikeThisSection(
     items: List<MetaPreview>,
     listState: LazyListState,
     sourceLabel: String? = null,
+    /** [fork] round 64 detail_rows_v64: the row's own header (the row no longer sits under a tab). */
+    title: String? = null,
     posterCardCornerRadius: Dp = NuvioTheme.spacing.md,
     upFocusRequester: FocusRequester? = null,
     downFocusRequester: FocusRequester? = null,
@@ -122,8 +124,16 @@ fun MoreLikeThisSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = NuvioTheme.spacing.sm, bottom = NuvioTheme.spacing.sm)
+            .padding(top = if (title.isNullOrBlank()) NuvioTheme.spacing.sm else 20.dp, bottom = NuvioTheme.spacing.sm)
     ) {
+        if (!title.isNullOrBlank()) { // [fork] round 64: same header as the Collection row
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                color = NuvioTheme.colors.TextPrimary,
+                modifier = Modifier.padding(start = com.nuvio.tv.ui.components.nuvioCDetailMargin, end = com.nuvio.tv.ui.components.nuvioCDetailMargin, bottom = NuvioTheme.spacing.sm)
+            )
+        }
         LazyRow(
             state = listState,
             modifier = Modifier

@@ -10,6 +10,8 @@ package com.nuvio.tv.data.quality
 
 import android.content.Context
 import com.nuvio.tv.BuildConfig
+import com.nuvio.tv.NuvioCFeatures
+import kotlinx.coroutines.launch
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -36,7 +38,12 @@ import javax.inject.Singleton
 
 /** What one source said about one title / episode. */
 sealed interface SourceAnswer {
-    data class Usable(val quality: TitleQuality, val nextRefreshAt: Long? = null) : SourceAnswer
+    /** Round 64: [editions] completes once the rest of the answer was read for editions (films only), else null. */
+    data class Usable(
+        val quality: TitleQuality,
+        val nextRefreshAt: Long? = null,
+        val editions: kotlinx.coroutines.Deferred<List<QualityEdition>>? = null
+    ) : SourceAnswer
     /** The source answered and has nothing usable. */
     data object Empty : SourceAnswer
     /** QualiCache is still crawling this title. */
@@ -47,7 +54,7 @@ sealed interface SourceAnswer {
 
 /** The end of a lookup. */
 sealed interface QualityLookup {
-    data class Found(val quality: TitleQuality) : QualityLookup
+    data class Found(val quality: TitleQuality, val editions: kotlinx.coroutines.Deferred<List<QualityEdition>>? = null) : QualityLookup
     /** Every source that could answer did, and none has a usable release. */
     data object NothingUsable : QualityLookup
     /** No source could answer (offline, errors, rate limit). */
@@ -94,11 +101,13 @@ class TitleQualityRepository @Inject constructor(
     fun inCooldown(now: Long = System.currentTimeMillis()) = now < cooldownUntil
 
     /** Torrentio first, then QualiCache; for a series, [targets] are the latest aired episode then the one before. */
-    suspend fun lookup(targets: List<QualityTarget>, movieYear: Int?, onPending: suspend () -> Unit = {}): Pair<QualityLookup, Long?> {
+    suspend fun lookup(
+        targets: List<QualityTarget>, movieYear: Int?, onPending: suspend () -> Unit = {}, movieTitle: String? = null
+    ): Pair<QualityLookup, Long?> {
         var torrentioAnswered = false
         for (t in targets.take(2)) {
-            when (val a = torrentio(t, movieYear)) {
-                is SourceAnswer.Usable -> return QualityLookup.Found(a.quality) to null
+            when (val a = torrentio(t, movieYear, movieTitle)) {
+                is SourceAnswer.Usable -> return QualityLookup.Found(a.quality, a.editions) to null
                 SourceAnswer.Empty -> torrentioAnswered = true
                 else -> break // error / paused: straight to QualiCache, no second Torrentio call
             }
@@ -118,12 +127,27 @@ class TitleQualityRepository @Inject constructor(
         }
     }
 
-    suspend fun torrentio(target: QualityTarget, movieYear: Int?): SourceAnswer {
+    suspend fun torrentio(target: QualityTarget, movieYear: Int?, movieTitle: String? = null): SourceAnswer {
         if (inCooldown()) return SourceAnswer.Failed
         val key = target.torrentioPath
         val mine = CompletableDeferred<SourceAnswer>()
         val existing = inFlight.putIfAbsent(key, mine)
         if (existing != null) return existing.await()
+        if (NuvioCFeatures.QUALITY_EDITIONS && !target.isEpisode) {
+            // round 64: the read runs on its own; the pick is handed over as soon as it is known and the rest of the
+            // answer is then read for editions only (the page doesn't wait for that part)
+            val editions = CompletableDeferred<List<QualityEdition>>()
+            tailScope.launch {
+                try {
+                    torrentioGate.withPermit { fetchTorrentio(target, movieYear, movieTitle, mine, editions) }
+                } finally {
+                    if (!mine.isCompleted) mine.complete(SourceAnswer.Failed)
+                    if (!editions.isCompleted) editions.complete(emptyList())
+                    inFlight.remove(key, mine)
+                }
+            }
+            return mine.await()
+        }
         val answer = try {
             torrentioGate.withPermit { fetchTorrentio(target, movieYear) }
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -132,6 +156,44 @@ class TitleQualityRepository @Inject constructor(
         mine.complete(answer)
         inFlight.remove(key, mine)
         return answer
+    }
+
+    /** Round 64: the edition read outlives the details page (it is short and capped), so it has its own scope. */
+    private val tailScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + parseDispatcher)
+
+    /**
+     * Round 64 (films): the pick as in round 60d, handed to [pick] the moment it is known; then the rest of the list
+     * (up to [EDITION_SCAN_MAX] streams) is read for editions, which go to [editions].
+     */
+    private suspend fun fetchTorrentio(
+        target: QualityTarget, movieYear: Int?, movieTitle: String?,
+        pick: CompletableDeferred<SourceAnswer>, editions: CompletableDeferred<List<QualityEdition>>
+    ) {
+        runCatching {
+            val req = Request.Builder().url("$TORRENTIO/stream/${target.torrentioPath}.json").build()
+            client.newCall(req).execute().use { resp ->
+                if (resp.code == 403 || resp.code == 429) {
+                    cooldownUntil = System.currentTimeMillis() + COOLDOWN_MS
+                    pick.complete(SourceAnswer.Failed); return@use
+                }
+                if (!resp.isSuccessful) { pick.complete(SourceAnswer.Failed); return@use }
+                val body = resp.body ?: run { pick.complete(SourceAnswer.Failed); return@use }
+                body.charStream().buffered(8 * 1024).use { reader ->
+                    val seen = ArrayList<QualityStreamText>()
+                    val iter = TitleQualityParser.streamsFrom(reader).iterator()
+                    val tapped = object : Iterator<QualityStreamText> {
+                        override fun hasNext() = iter.hasNext()
+                        override fun next() = iter.next().also { seen += it }
+                    }
+                    val early = TitleQualityParser.bestEarly(Sequence { tapped }, movieYear)
+                    lastStreamsRead = early.read
+                    pick.complete(early.quality?.let { SourceAnswer.Usable(it, editions = editions) } ?: SourceAnswer.Empty)
+                    if (early.quality == null) return@use
+                    while (seen.size < EDITION_SCAN_MAX && tapped.hasNext()) tapped.next()
+                    editions.complete(TitleQualityParser.editions(seen, movieTitle, movieYear))
+                }
+            }
+        }.onFailure { if (!pick.isCompleted) pick.complete(SourceAnswer.Failed) }
     }
 
     /**
@@ -196,5 +258,7 @@ class TitleQualityRepository @Inject constructor(
         const val COOLDOWN_MS = 15 * 60_000L
         const val REPOLL_MS = 20_000L
         const val MAX_KEEP_MS = 30L * 24 * 60 * 60_000L
+        /** Round 64: how many streams of a film's answer are read for editions at most. */
+        const val EDITION_SCAN_MAX = 400
     }
 }

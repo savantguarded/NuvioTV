@@ -17,6 +17,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.nuvio.tv.NuvioCFeatures
 import com.nuvio.tv.R
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.annotation.VisibleForTesting
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -229,6 +231,7 @@ private fun NuvioCBadgeView(part: NuvioCBadge) {
             color = nuvioCOsd(BADGE_TILE_TEXT),
             modifier = Modifier.background(nuvioCOsd(BADGE_TILE_FILL), BADGE_TILE_SHAPE).padding(horizontal = 4.dp)
         )
+        NuvioCBadgeKind.LOGO -> NuvioCLogoBadge(part, textStyle) // round 64
         NuvioCBadgeKind.PLAIN -> NuvioCBadgeText(
             text = part.text,
             style = textStyle.copy(fontSize = 10.5.sp),
@@ -237,6 +240,35 @@ private fun NuvioCBadgeView(part: NuvioCBadge) {
         )
     }
 }
+
+/** [fork] round 64 osd_badges_v64: the details page's logo in an outlined tile of the badge height. */
+@Composable
+private fun NuvioCLogoBadge(part: NuvioCBadge, style: androidx.compose.ui.text.TextStyle) {
+    val res = when (part.logo) {
+        "dolby_vision" -> R.drawable.nuvio_c_logo_dolby_vision
+        "dolby_atmos" -> R.drawable.nuvio_c_logo_dolby_atmos
+        "dolby_digital" -> R.drawable.nuvio_c_logo_dolby_digital
+        "dolby_digital_plus" -> R.drawable.nuvio_c_logo_dolby_digital_plus
+        else -> R.drawable.nuvio_c_logo_dts
+    }
+    val painter = androidx.compose.ui.res.painterResource(res)
+    val ratio = painter.intrinsicSize.let { if (it.height > 0f) it.width / it.height else 2.5f }
+    val white = nuvioCOsd(BADGE_WHITE)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.height(BADGE_HEIGHT).border(1.2.dp, white, BADGE_TILE_SHAPE).padding(horizontal = 3.5.dp)
+    ) {
+        androidx.compose.foundation.Image(
+            painter = painter,
+            contentDescription = part.logo,
+            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(white),
+            modifier = Modifier.height(BADGE_LOGO_HEIGHT).width(BADGE_LOGO_HEIGHT * ratio)
+        )
+        if (part.text.isNotEmpty()) NuvioCBadgeText(part.text, style, white, Modifier.padding(start = 1.5.dp))
+    }
+}
+
+private val BADGE_LOGO_HEIGHT = 9.dp // round 64: 2/3 of the tile, as on the details page (10 in 15)
 
 /** Badge text in a [BADGE_HEIGHT] box with its capitals centred vertically. */
 @Composable
@@ -278,12 +310,13 @@ private fun rememberNuvioCCapHeightEm(style: androidx.compose.ui.text.TextStyle)
     }
 }
 
-internal enum class NuvioCBadgeKind { OUTLINED, FILLED, PLAIN }
+internal enum class NuvioCBadgeKind { OUTLINED, FILLED, PLAIN, LOGO }
 
-/** One OSD badge. */
+/** One OSD badge. Round 64: [logo] is a `nuvio_c_logo_*` name for a [NuvioCBadgeKind.LOGO] tile, [text] then is the suffix ("" for none). */
 internal data class NuvioCBadge(
     val text: String,
-    val kind: NuvioCBadgeKind = NuvioCBadgeKind.OUTLINED
+    val kind: NuvioCBadgeKind = NuvioCBadgeKind.OUTLINED,
+    val logo: String? = null
 )
 
 private fun buildBadgeParts(controller: PlayerRuntimeController, uiState: PlayerUiState): List<NuvioCBadge> {
@@ -304,6 +337,16 @@ private fun buildBadgeParts(controller: PlayerRuntimeController, uiState: Player
     nuvioCLogVisualInputs(controller, uiState, visual)
     val audio = uiState.audioTracks.firstOrNull { it.isSelected }
     val audioLabel = NuvioCOsdBadges.audioLabel(audio?.codec, audio?.channelCount, names)
+    if (NuvioCFeatures.OSD_BADGES_V64) { // [fork] round 64: same order and logos as the details page
+        return NuvioCOsdBadges.order64(
+            resolution = NuvioCOsdBadges.resolutionLabel(width, height) ?: NuvioCOsdBadges.resolutionFromName(names),
+            source = NuvioCOsdBadges.sourceFromName(names),
+            visual = visual,
+            audioTile = audioLabel?.let { NuvioCOsdBadges.audioTile(it, names) },
+            imax = NuvioCOsdBadges.isImax(names),
+            size = NuvioCOsdBadges.sizeLabel(controller.currentVideoSize)
+        )
+    }
     return buildList {
         (NuvioCOsdBadges.resolutionLabel(width, height) ?: NuvioCOsdBadges.resolutionFromName(names))
             ?.let { add(NuvioCBadge(it)) }
@@ -569,6 +612,35 @@ internal object NuvioCOsdBadges {
 
     /** [fork] round 31: longest badge line (characters) the spelled-out Dolby names may make; longer = short names. */
     const val FULL_NAMES_MAX_CHARS = 64
+
+    /**
+     * [fork] round 64 osd_badges_v64: resolution (1080P, 4K), source, one visual tag, one sound tag, Dolby Vision, Atmos,
+     * then IMAX and the file size (filled). No channel count. DD, DD+ and DTS (with ":X" / "HD" / "HD MA") are logos.
+     */
+    fun order64(resolution: String?, source: String?, visual: String?, audioTile: String?, imax: Boolean, size: String?): List<NuvioCBadge> {
+        val sound = audioTile?.let { nuvioCRe("""\s(\d\.\d|\d+CH)$""").replace(it.uppercase(Locale.ROOT), "") }?.trim()
+        val soundBadge: NuvioCBadge? = when {
+            sound == null || sound.isEmpty() -> null
+            sound == "ATMOS" -> null // drawn last
+            sound == "DD+" -> NuvioCBadge("", NuvioCBadgeKind.LOGO, "dolby_digital_plus")
+            sound == "DD" -> NuvioCBadge("", NuvioCBadgeKind.LOGO, "dolby_digital")
+            sound.startsWith("DTS") -> NuvioCBadge(
+                when (sound) { "DTS:X" -> ":X"; "DTS-HD MA" -> "HD MA"; "DTS-HD" -> "HD"; else -> "" },
+                NuvioCBadgeKind.LOGO, "dts"
+            )
+            else -> NuvioCBadge(sound)
+        }
+        return buildList {
+            resolution?.let { add(NuvioCBadge(it.uppercase(Locale.ROOT))) }
+            source?.let { add(NuvioCBadge(it)) }
+            if (visual != null && visual != "SDR" && visual != "DV") add(NuvioCBadge(visual))
+            soundBadge?.let { add(it) }
+            if (visual == "DV") add(NuvioCBadge("", NuvioCBadgeKind.LOGO, "dolby_vision"))
+            if (sound == "ATMOS") add(NuvioCBadge("", NuvioCBadgeKind.LOGO, "dolby_atmos"))
+            if (imax) add(NuvioCBadge("IMAX"))
+            size?.let { add(NuvioCBadge(it, NuvioCBadgeKind.FILLED)) }
+        }
+    }
 
     /** Release name says IMAX (incl. "IMAX Enhanced"). */
     fun isImax(names: String): Boolean = nuvioCRe("""(\b|[._ -])imax(\b|[._ -])""").containsMatchIn(names.lowercase(Locale.US))
@@ -890,3 +962,40 @@ internal fun Modifier.nuvioCProgressFill(
 // check; each Regex(...) used to be compiled again on every call. Compiled once and kept here.
 private val nuvioCRegexCache = java.util.concurrent.ConcurrentHashMap<String, Regex>()
 private fun nuvioCRe(pattern: String): Regex = nuvioCRegexCache.getOrPut(pattern) { Regex(pattern) }
+
+
+/**
+ * [fork] round 64 osd_warmup: the first OSD open used to read ~20 vector icons from the APK on the main thread in one
+ * frame (~75 ms, measured on the TV 2026-11-23). After playback starts, they are read here one per frame, invisibly,
+ * so the OSD finds them in the icon cache. Same view, same cache.
+ */
+@Composable
+internal fun NuvioCOsdWarmup() {
+    if (!NuvioCFeatures.OSD_WARMUP) return
+    var count by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(OSD_WARMUP_DELAY_MS)
+        while (count < OSD_WARMUP_IDS.size) {
+            androidx.compose.runtime.withFrameNanos { }
+            count++
+        }
+    }
+    Box(Modifier.size(0.dp)) {
+        for (i in 0 until count) {
+            androidx.compose.runtime.key(OSD_WARMUP_IDS[i]) { androidx.compose.ui.res.painterResource(OSD_WARMUP_IDS[i]) }
+        }
+    }
+}
+
+private const val OSD_WARMUP_DELAY_MS = 1_500L
+private val OSD_WARMUP_IDS = intArrayOf(
+    R.drawable.nuvio_c_ic_clean_play, R.drawable.nuvio_c_ic_clean_pause, R.drawable.nuvio_c_ic_clean_subtitles,
+    R.drawable.nuvio_c_ic_clean_audio, R.drawable.nuvio_c_ic_clean_sources, R.drawable.nuvio_c_ic_clean_episodes,
+    R.drawable.nuvio_c_ic_clean_start_over, R.drawable.nuvio_c_ic_clean_next, R.drawable.nuvio_c_ic_clean_details,
+    R.drawable.nuvio_c_ic_clean_stream_info, R.drawable.nuvio_c_ic_clean_chapters, R.drawable.nuvio_c_ic_clean_more,
+    R.drawable.nuvio_c_ic_clean_speed, R.drawable.nuvio_c_ic_clean_aspect, R.drawable.nuvio_c_ic_clean_engine,
+    R.drawable.nuvio_c_ic_clean_external, R.drawable.nuvio_c_ic_clean_auto_skip, R.drawable.nuvio_c_ic_clean_party,
+    R.drawable.nuvio_c_ic_start_over, R.drawable.nuvio_c_ic_shuffle,
+    R.drawable.nuvio_c_logo_dolby_vision, R.drawable.nuvio_c_logo_dolby_atmos, R.drawable.nuvio_c_logo_dolby_digital,
+    R.drawable.nuvio_c_logo_dolby_digital_plus, R.drawable.nuvio_c_logo_dts
+)

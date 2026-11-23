@@ -4,7 +4,7 @@ Read this first in every session. It tells you where things are so you open only
 Fork-specific behaviour (what each tweak does, its switch, its screen) lives in `docs/FORK_CHANGES.md`.
 Current state, last build and open issues live in `docs/STATUS.md`.
 
-Last verified against: branch `nuvio-c` round 63, official base `1.2.0-beta.3` (`552cacf5`), 2026-11-23.
+Last verified against: branch `nuvio-c` round 64, official base `1.2.0-beta.3` (`552cacf5`), 2026-11-23.
 
 ## 1. What this is
 
@@ -125,7 +125,7 @@ Manual build: `gh workflow run nuvio-c.yml -R savantguarded/NuvioTV --ref nuvio-
 - Tests (same flags): `:app:testFullDebugUnitTest --tests '*NuvioC*' --tests '*Calendar*'`
 - Known noise: Maven Central 429 on cold cache (retry, `--max-workers=1`); `checkFullDebugAarMetadata` "path is null" once (retry).
 
-**TV checks**: adb from the owner's PC folder `nuvio-debug`, TV `<TV LAN address>:5555`, `adb connect` on every call.
+**TV checks**: adb from the owner's PC folder `nuvio-debug`, TV `<TV LAN address>:5555`, `adb connect` on every call. Run perfetto on the TV with `--background` (a client killed with the shell call loses the trace); map the obfuscated res file names in a trace with `aapt2 dump resources` on the pulled APK.
 **Installing over adb**: always `adb install-multiple -r <apk> <same-name>.dm` with the release's `-api31.dm` (renamed to match the APK), then `cmd package compile -m speed-profile -f com.nuvio.tv.c`. A bare `adb install` drops the baseline profile: the details page opened with ~1.4 s frames and JIT work (measured 2026-11-22), against ~0.3 s with the profile. The in-app updater already sends the .dm.
 
 ## 8. Conventions
@@ -152,7 +152,7 @@ Manual build: `gh workflow run nuvio-c.yml -R savantguarded/NuvioTV --ref nuvio-
 | Home rows, hero, Featured | `ui/screens/home/` (`ModernHome*`, `ClassicHomeContent.kt`, `NuvioCHome*`, `NuvioCHero*`), `ui/components/HeroCarousel.kt` |
 | Card sizes, posters | `ui/components/NuvioCCardSize.kt`, `ContentCard.kt`, `PosterCardDefaults.kt` |
 | Details page | `ui/screens/detail/MetaDetailsScreen.kt`, `HeroSection.kt`, `NuvioCDetail*.kt` (opening placeholder / fade: `NuvioCDetailOpen.kt`) |
-| Details quality badges | `data/quality/` (parser, plan, cache, Torrentio / QualiCache), `ui/screens/detail/NuvioCQualityLine.kt`, logos `res/drawable/nuvio_c_logo_*.xml` |
+| Details quality badges, editions | `data/quality/` (parser incl. editions, plan, cache, Torrentio / QualiCache), `ui/screens/detail/NuvioCQualityLine.kt`, logos `res/drawable/nuvio_c_logo_*.xml` (OSD reuses them) |
 | Background trailers | `ui/components/BackgroundTrailerLayer.kt`, `NuvioCTrailer*.kt`, `core/player/BackgroundTrailerController.kt`, `data/trailer/` |
 | Ratings dialog / sync to trackers | `data/nuvioc/NuvioCRatingService.kt`, `core/tracking/TrackingRatings.kt` |
 | Calendar / Upcoming row | `core/calendar/`, `ui/screens/calendar/`, `ui/screens/home/HomeComingUp.kt` |

@@ -12,7 +12,8 @@ sealed interface QualityLineState {
     data object Absent : QualityLineState
     /** Dashed ghost pills while looking up. */
     data object Checking : QualityLineState
-    data class Found(val labels: List<String>) : QualityLineState
+    /** Round 64: [editions] are edition labels seen in any release (at most two, priority order). */
+    data class Found(val labels: List<String>, val editions: List<String> = emptyList()) : QualityLineState
     /** One dim pill: NOT YET RELEASED, NOT YET ON DIGITAL or QUALITY UNAVAILABLE. */
     data class Dim(val label: String) : QualityLineState
 
@@ -29,7 +30,9 @@ data class QualityTitle(
     val imdbId: String?,
     val isSeries: Boolean,
     val released: String?,
-    val episodes: List<QualityEpisode> = emptyList()
+    val episodes: List<QualityEpisode> = emptyList(),
+    /** Round 64: the title's name, taken out of release names before looking for editions. */
+    val name: String? = null
 )
 
 data class QualityEpisode(val season: Int?, val episode: Int?, val released: String?)

@@ -1018,4 +1018,16 @@ object NuvioCFeatures {
     const val AWARDS_BY_LINE = true
     /** Details quality line: runtime as 1 hr 49 min / 24 min (was 1h 49m / 24m); more room around the dot between year and runtime and between badges (6 dp); Dolby Vision and Atmos in an outlined box the size of the other badges. Off = round 62 line. */
     const val QUALITY_LINE_V63 = true
+
+    // ---- Round 64 (2026-11-23) ----
+    /** Details quality line: resolution, source, one visual tag, one sound tag, Dolby Vision and Atmos last; DD, DD+ (official logos), DTS / DTS-HD / DTS:X (DTS logo), TrueHD and FLAC shown again; one line, extra tags drop before resolution or source. Off = round 63 line. */
+    const val QUALITY_LINE_V64 = true
+    /** Details quality line: after a hairline, up to two editions seen in ANY release of a film (Extended, Director's Cut, Special Edition, IMAX, Final Cut, Ultimate Cut, Redux, Criterion, Open Matte, B&W), read from the rest of the Torrentio list after the badge pick; the film's own title is ignored. Off = no editions. */
+    const val QUALITY_EDITIONS = true
+    /** Details rows: More like this and episode Ratings leave the tabs and become rows of their own (More like this under Creator and Cast), the Trailers tab is gone, and every row header has one look (22 sp title, 20 dp above). With only Creator and Cast left, there is no tab bar. Off = official tabs. */
+    const val DETAIL_ROWS_V64 = true
+    /** Player OSD badges: the details page's order (resolution, source, visual, sound, Dolby Vision, Atmos), then IMAX and the file size; resolution in capitals (1080P); Dolby Vision, Atmos, DD, DD+ and DTS as the details page's logos; no channel count. Off = round 31 badges. */
+    const val OSD_BADGES_V64 = true
+    /** Player: 1.5 s after the player opens, the OSD's icons and badge logos are read one per frame in the background, so the first OSD open no longer reads ~20 icons from the APK in one frame (~75 ms measured). Off = read on first open. */
+    const val OSD_WARMUP = true
 }

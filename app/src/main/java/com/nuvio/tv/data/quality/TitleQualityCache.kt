@@ -15,20 +15,23 @@ data class CachedQuality(val kind: CachedKind, val quality: TitleQuality?, val f
 
     fun encode(): String = listOf(
         kind.name, quality?.resolution?.name.orEmpty(), quality?.range?.name.orEmpty(), quality?.audio?.name.orEmpty(),
-        quality?.source?.name.orEmpty(), fetchedAt.toString(), expiresAt.toString()
+        quality?.source?.name.orEmpty(), fetchedAt.toString(), expiresAt.toString(),
+        quality?.editions.orEmpty().joinToString(",") { it.name } // round 64
     ).joinToString("|")
 
     companion object {
         fun decode(raw: String?): CachedQuality? = runCatching {
             val p = raw!!.split("|")
-            if (p.size != 7) return null
+            // round 64: 8 fields (editions last); a round 60-63 entry (7 fields) is read again once
+            if (p.size != 8) return null
             val kind = CachedKind.valueOf(p[0])
             val q = p[1].takeIf { it.isNotEmpty() }?.let { r ->
                 TitleQuality(
                     QualityResolution.valueOf(r),
                     p[2].takeIf { it.isNotEmpty() }?.let { QualityRange.valueOf(it) },
                     p[3].takeIf { it.isNotEmpty() }?.let { QualityAudio.valueOf(it) },
-                    p[4].takeIf { it.isNotEmpty() }?.let { QualitySource.valueOf(it) }
+                    p[4].takeIf { it.isNotEmpty() }?.let { QualitySource.valueOf(it) },
+                    p[7].split(",").filter { it.isNotEmpty() }.mapNotNull { n -> runCatching { QualityEdition.valueOf(n) }.getOrNull() }
                 )
             }
             if (kind == CachedKind.FOUND && q == null) return null

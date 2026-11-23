@@ -1818,6 +1818,7 @@ fun PlayerScreen(
 
         // Controls overlay
         val nuvioCControlsVisible = playerControlsVisible // [fork] also drives the Nuvio C subtitle lift
+        NuvioCOsdWarmup() // [fork] round 64 osd_warmup
         NuvioCSubtitleLiftEffect(viewModel, nuvioCControlsVisible, nuvioCLift, uiState.subtitleStyle, pauseShown = com.nuvio.tv.NuvioCFeatures.PAUSE_SCREEN_C && nuvioCPauseVisible, officialLiftPx = if (com.nuvio.tv.NuvioCFeatures.PLAYER_LIFT_LIGHT) 0f else nuvioCOfficialLiftKey, officialLift = if (com.nuvio.tv.NuvioCFeatures.PLAYER_LIFT_LIGHT) nuvioCOfficialLiftRead else null) // [fork] subtitles clear the OSD / the pause screen's progress line
         AnimatedVisibility(
             visible = playerControlsVisible,

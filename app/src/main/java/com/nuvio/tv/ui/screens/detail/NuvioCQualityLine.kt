@@ -79,7 +79,8 @@ internal fun Meta.nuvioCQualityTitle(): QualityTitle = QualityTitle(
     imdbId = imdbId,
     isSeries = type == ContentType.SERIES || type == ContentType.TV,
     released = released,
-    episodes = videos.map { QualityEpisode(it.season, it.episode, it.released) }
+    episodes = videos.map { QualityEpisode(it.season, it.episode, it.released) },
+    name = name
 )
 
 @HiltViewModel
@@ -141,13 +142,20 @@ class NuvioCQualityViewModel @Inject constructor(
         }
         val lookup = plan as? QualityPlan.Lookup ?: return
         withContext(Dispatchers.IO) { repo.cache.get(lookup.cacheKey) }?.let { withContext(Dispatchers.IO) { repo.cache.link(t.id, lookup.cacheKey) }; publish(t, it.toState()); return }
-        val (result, nextRefresh) = repo.lookup(lookup.targets, lookup.year)
+        val (result, nextRefresh) = repo.lookup(lookup.targets, lookup.year, movieTitle = t.name)
         val now = System.currentTimeMillis()
         when (result) {
             is QualityLookup.Found -> {
                 val c = CachedQuality(CachedKind.FOUND, result.quality, now, TitleQualityPlanner.expiry(now, lookup.releaseDate, today, nextRefresh))
                 withContext(Dispatchers.IO) { repo.cache.put(lookup.cacheKey, c, t.id) }
                 publish(t, QualityLineState.Found(result.quality.labels))
+                // round 64: editions arrive a moment later, once the rest of the list was read (films only)
+                val eds = result.editions?.let { d -> withTimeoutOrNull(EDITIONS_WAIT_MS) { d.await() } }.orEmpty()
+                if (eds.isNotEmpty()) {
+                    val q = result.quality.copy(editions = eds)
+                    withContext(Dispatchers.IO) { repo.cache.put(lookup.cacheKey, c.copy(quality = q), t.id) }
+                    publish(t, q.toFound())
+                }
             }
             else -> {
                 val info = NuvioCDetailInfoStore.current.value?.takeIf { it.metaId == t.id } ?: NuvioCDetailInfoStore.cached(t.id)
@@ -163,13 +171,20 @@ class NuvioCQualityViewModel @Inject constructor(
 
     private fun publish(t: QualityTitle, s: QualityLineState) { _state.value = t.id to s }
 
-    private companion object { const val SETTLE_MS = 1_200L } // same settle as the Information block
+    private companion object {
+        const val SETTLE_MS = 1_200L // same settle as the Information block
+        const val EDITIONS_WAIT_MS = 20_000L
+    }
 
     private fun CachedQuality.toState(): QualityLineState = when (kind) {
-        CachedKind.FOUND -> quality?.let { QualityLineState.Found(it.labels) } ?: QualityLineState.Checking
+        CachedKind.FOUND -> quality?.toFound() ?: QualityLineState.Checking
         CachedKind.NOT_ON_DIGITAL -> QualityLineState.Dim(QualityLineState.NOT_YET_ON_DIGITAL)
     }
 }
+
+private fun com.nuvio.tv.data.quality.TitleQuality.toFound() = QualityLineState.Found(
+    labels, if (NuvioCFeatures.QUALITY_EDITIONS) editions.map { it.label } else emptyList()
+)
 
 private const val QL_DIM_ALPHA = 0.65f // round 60d: readable from the sofa
 // round 60d: soft-fill pills (white at 12% once the line takes the synopsis opacity), synopsis-colour text, a touch
@@ -212,6 +227,27 @@ internal fun nuvioCLabels62(labels: List<String>): List<String> {
 }
 
 /**
+ * [fork] round 64 quality_line_v64: resolution, source (REMUX reads BLURAY), one visual tag, one sound tag, with Dolby
+ * Vision and Atmos always last (e.g. 4K BLURAY TRUEHD [DV], 1080P BLURAY HDR10 [DTS], 4K BLURAY [DV] [ATMOS]). Every
+ * sound format is shown again (DD, DD+, DTS, DTS-HD, DTS:X as logos; TrueHD and FLAC as pills). Dim labels pass through.
+ */
+internal fun nuvioCLabels64(labels: List<String>): List<String> {
+    if (labels.isEmpty()) return labels
+    val ranges = setOf("DOLBY VISION", "HDR10", "HDR10+")
+    val sources = setOf("DVD", "HDTV", "WEB-DL", "BLURAY", "REMUX")
+    val res = labels.first()
+    val rest = labels.drop(1)
+    val source = rest.firstOrNull { it in sources }?.let { if (it == "REMUX") "BLURAY" else it }
+    val range = rest.firstOrNull { it in ranges }
+    val sound = rest.firstOrNull { it !in sources && it !in ranges }
+    return listOfNotNull(
+        res, source,
+        range?.takeIf { it != "DOLBY VISION" }, sound?.takeIf { it != "ATMOS" },
+        range?.takeIf { it == "DOLBY VISION" }, sound?.takeIf { it == "ATMOS" }
+    )
+}
+
+/**
  * The line under the synopsis: age rating, a hairline, then the quality badges of one release. Nothing when the title
  * has neither a rating nor a usable ID. Drawn in the synopsis colour; the caller gives it the synopsis opacity. While
  * checking, the space is held and only the rating is drawn; a result that arrives later fades in beside it, so nothing
@@ -243,11 +279,19 @@ internal fun NuvioCQualityLine(meta: Meta, modifier: Modifier = Modifier, lead: 
         letterSpacing = 0.2.sp, color = color
     )
     val quality: List<String>? = when (state) {
-        is QualityLineState.Found -> if (NuvioCFeatures.QUALITY_LINE_V62) nuvioCLabels62(state.labels) else state.labels
+        is QualityLineState.Found -> when {
+            NuvioCFeatures.QUALITY_LINE_V64 -> nuvioCLabels64(state.labels)
+            NuvioCFeatures.QUALITY_LINE_V62 -> nuvioCLabels62(state.labels)
+            else -> state.labels
+        }
         is QualityLineState.Dim -> if (state.label == QualityLineState.UNAVAILABLE) null else listOf(state.label)
         else -> null
     }
     val dim = state is QualityLineState.Dim
+    val editions = (state as? QualityLineState.Found)?.editions.orEmpty().take(2)
+    // round 64: editions fade in on their own when they arrive after the badges
+    val edFade = remember(meta.id, editions) { Animatable(if (editions.isEmpty() || state == first) 1f else 0f) }
+    LaunchedEffect(edFade) { if (edFade.value < 1f) edFade.animateTo(1f, tween(220)) }
     // round 60d flicker fix: a result that arrives after the first frame starts at 0 in that same frame, then fades in
     val fade = remember(meta.id, quality) { Animatable(if (quality == null || state == first) 1f else 0f) }
     LaunchedEffect(fade) { if (fade.value < 1f) fade.animateTo(1f, tween(220)) }
@@ -271,7 +315,20 @@ internal fun NuvioCQualityLine(meta: Meta, modifier: Modifier = Modifier, lead: 
                     Box(Modifier.width(1.dp).height(QL_SEP_HEIGHT).background(color.copy(alpha = QL_SEP_ALPHA)))
                     Spacer(Modifier.width(QL_SEP_SPACE))
                 }
-                BadgeRow { quality.forEach { label -> if (big) Badge61(label, textStyle, color, logoHeight) else Pill(label, textStyle, color, lineHeight) } }
+                if (NuvioCFeatures.QUALITY_LINE_V64 && !dim) {
+                    // round 64: one line; when space runs out the second edition goes, then the first (with its
+                    // hairline), then the visual pill, then the sound pill. Resolution and source never go.
+                    val ranks = quality.mapIndexed { i, l -> if (i < 2 || l == "DOLBY VISION" || l == "ATMOS") 0 else if (l in setOf("HDR10", "HDR10+")) 2 else 1 }
+                    // hairline: 0 here, it leaves with the last edition; first edition 4, second 5
+                    val edRanks = if (editions.isEmpty()) emptyList() else listOf(0) + listOf(4, 5).take(editions.size)
+                    DropRow(ranks + edRanks) {
+                        quality.forEach { label -> Badge61(label, textStyle, color, logoHeight) }
+                        if (editions.isNotEmpty()) {
+                            Box(Modifier.graphicsLayer { alpha = edFade.value }.padding(horizontal = 1.dp).width(1.dp).height(QL_SEP_HEIGHT).background(color.copy(alpha = QL_SEP_ALPHA)))
+                            editions.forEach { e -> Box(Modifier.graphicsLayer { alpha = edFade.value }) { Pill(e, textStyle, color, QL_HEIGHT) } }
+                        }
+                    }
+                } else BadgeRow { quality.forEach { label -> if (big) Badge61(label, textStyle, color, logoHeight) else Pill(label, textStyle, color, lineHeight) } }
             }
         }
     }
@@ -289,6 +346,8 @@ private fun Badge61(label: String, style: TextStyle, color: Color, height: andro
         label == "DOLBY VISION" -> com.nuvio.tv.R.drawable.nuvio_c_logo_dolby_vision
         label == "ATMOS" -> com.nuvio.tv.R.drawable.nuvio_c_logo_dolby_atmos
         label.startsWith("DTS") -> com.nuvio.tv.R.drawable.nuvio_c_logo_dts
+        NuvioCFeatures.QUALITY_LINE_V64 && label == "DOLBY DIGITAL" -> com.nuvio.tv.R.drawable.nuvio_c_logo_dolby_digital
+        NuvioCFeatures.QUALITY_LINE_V64 && label == "DOLBY DIGITAL PLUS" -> com.nuvio.tv.R.drawable.nuvio_c_logo_dolby_digital_plus
         else -> null
     }
     if (res == null) { Pill(label, style, color, if (NuvioCFeatures.QUALITY_LINE_V62) QL_HEIGHT else height); return }
@@ -300,12 +359,17 @@ private fun Badge61(label: String, style: TextStyle, color: Color, height: andro
             Modifier.height(QL_HEIGHT).border(1.dp, color.copy(alpha = QL_BOX_BORDER_63), RoundedCornerShape(QL_RADIUS)).padding(horizontal = QL_PAD),
             contentAlignment = Alignment.Center
         ) {
-            androidx.compose.foundation.Image(
-                painter = painter,
-                contentDescription = label,
-                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(color),
-                modifier = Modifier.height(QL_BOX_LOGO_63).width(QL_BOX_LOGO_63 * ratio)
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.foundation.Image(
+                    painter = painter,
+                    contentDescription = label,
+                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(color),
+                    modifier = Modifier.height(QL_BOX_LOGO_63).width(QL_BOX_LOGO_63 * ratio)
+                )
+                // round 64: DTS:X and DTS-HD keep the DTS logo with a short suffix in the same box
+                val suffix = if (NuvioCFeatures.QUALITY_LINE_V64) nuvioCDtsSuffix(label) else null
+                if (suffix != null) Text(text = suffix, style = style, maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 2.dp))
+            }
         }
         return
     }
@@ -315,6 +379,42 @@ private fun Badge61(label: String, style: TextStyle, color: Color, height: andro
         colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(color),
         modifier = Modifier.height(height).width(height * ratio)
     )
+}
+
+/** Round 64: the text after the DTS logo: ":X" for DTS:X, "HD" for DTS-HD, nothing for plain DTS. */
+internal fun nuvioCDtsSuffix(label: String): String? = when (label) {
+    "DTS:X" -> ":X"
+    "DTS-HD" -> "HD"
+    else -> null
+}
+
+/**
+ * Round 64: badges in one row; [ranks] (one per child) say what goes when the row is too wide: the highest rank
+ * first, 0 never. Children that stay keep their order.
+ */
+@Composable
+private fun DropRow(ranks: List<Int>, content: @Composable () -> Unit) {
+    Layout(content = content) { measurables, constraints ->
+        val gap = QL_GAP_63.roundToPx()
+        val placeables = measurables.map { it.measure(Constraints()) }
+        val keep = BooleanArray(placeables.size) { true }
+        fun width(): Int { val kept = placeables.indices.filter { keep[it] }; return kept.sumOf { placeables[it].width } + gap * (kept.size - 1).coerceAtLeast(0) }
+        val order = placeables.indices.filter { (ranks.getOrNull(it) ?: 0) > 0 }.sortedWith(compareByDescending<Int> { ranks.getOrNull(it) ?: 0 }.thenByDescending { it })
+        val isEdition = { i: Int -> (ranks.getOrNull(i) ?: 0) >= 4 }
+        val hairline = ranks.indices.firstOrNull { i -> ranks[i] == 0 && i + 1 < ranks.size && isEdition(i + 1) }
+        for (i in order) {
+            if (!constraints.hasBoundedWidth || width() <= constraints.maxWidth) break
+            keep[i] = false
+            // the hairline goes with the last edition
+            if (hairline != null && placeables.indices.none { keep[it] && isEdition(it) }) keep[hairline] = false
+        }
+        val kept = placeables.indices.filter { keep[it] }
+        val h = kept.maxOfOrNull { placeables[it].height } ?: 0
+        layout(width().coerceAtMost(constraints.maxWidth), h) {
+            var x = 0
+            kept.forEach { i -> val p = placeables[i]; p.place(x, (h - p.height) / 2); x += p.width + gap }
+        }
+    }
 }
 
 @Composable
