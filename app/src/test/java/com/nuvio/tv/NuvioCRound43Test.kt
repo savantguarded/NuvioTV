@@ -34,7 +34,7 @@ class NuvioCRound43Test {
         assertEquals(3, a.bodies.size)
         val names = mapOf(NuvioCAwardBody.OSCARS to "Academy Awards", NuvioCAwardBody.GLOBES to "Golden Globes")
         assertEquals(
-            "Academy Awards: Best Picture, Best Visual Effects · Golden Globes: Best Actress – Motion Picture Drama · Palme d'Or",
+            "Academy Awards: Best Picture, Best Visual Effects\nGolden Globes: Best Actress – Motion Picture Drama\nPalme d'Or",
             NuvioCAwardBodies.winsText(a, names)
         )
         assertNull(NuvioCAwardBodies.winsText(NuvioCAwards(emptyMap()), names))

@@ -174,6 +174,12 @@ internal fun NuvioCTasteTabsV2(
     LaunchedEffect(all != null, nuvioCShown) {
         if (all == null || !nuvioCShown) return@LaunchedEffect
         if (current == Tab53.DISCOVER && viewModel.discoverFocusKey != null) return@LaunchedEffect
+        // [fork] round 63 taste_return_focus: a row is taking focus back; only if it can't (list changed) does the tab get it
+        if (com.nuvio.tv.NuvioCFeatures.TASTE_RETURN_FOCUS && NuvioCTasteReturn.key != null) {
+            kotlinx.coroutines.delay(900)
+            if (NuvioCTasteReturn.key == null) return@LaunchedEffect
+            NuvioCTasteReturn.key = null
+        }
         tabFocus.getValue(current).requestFocusAfterFrames()
     }
     // years and months that have history, newest first
@@ -1139,18 +1145,24 @@ private fun Rows57(
             val shown = lines.take(fit)
             Column(Modifier.fillMaxSize()) {
                 shown.forEachIndexed { i, l ->
+                    // [fork] round 63 taste_return_focus: remember which row opened a title; Back lands on it again
+                    val returnKey = "$title|${l.id}|${l.type}"
+                    val returning = com.nuvio.tv.NuvioCFeatures.TASTE_RETURN_FOCUS && NuvioCTasteReturn.key == returnKey
+                    val returnReq = if (returning) remember { FocusRequester() } else null
+                    if (returnReq != null) LaunchedEffect(Unit) { if (runCatching { returnReq.requestFocusAfterFrames(3) }.getOrDefault(false)) NuvioCTasteReturn.key = null }
                     Row57(
                         line = l, index = if (numbered) i + 1 else null, meta = meta(l), accent = accent, rankColor = color,
                         // [fork] round 61 taste_top_stack: fixed rows from the top, never stretched apart
                         modifier = Modifier.fillMaxWidth().then(if (com.nuvio.tv.NuvioCFeatures.TASTE_TOP_STACK) Modifier.height(40.dp) else Modifier.weight(1f))
                             .then(if (i == 0 && first != null) Modifier.focusRequester(first) else Modifier)
+                            .then(if (returnReq != null) Modifier.focusRequester(returnReq) else Modifier)
                             .focusProperties {
                                 if (i == 0 && up != null) this.up = up
                                 if (i == shown.lastIndex) down = FocusRequester.Cancel
                                 if (lastColumn) right = FocusRequester.Cancel
                                 else if (rightOut != null && i == 0) right = rightOut
                             },
-                        onOpen = onOpen
+                        onOpen = { id, type -> if (com.nuvio.tv.NuvioCFeatures.TASTE_RETURN_FOCUS) NuvioCTasteReturn.key = returnKey; onOpen(id, type) }
                     )
                 }
             }
@@ -1355,3 +1367,6 @@ internal fun NuvioCTasteLoading57(state: com.nuvio.tv.data.nuvioc.NuvioCTasteSta
         }
     }
 }
+
+/** [fork] round 63 taste_return_focus: the list row that last opened a title ("card title|id|type"); cleared once it has focus again. */
+internal object NuvioCTasteReturn { @Volatile var key: String? = null }

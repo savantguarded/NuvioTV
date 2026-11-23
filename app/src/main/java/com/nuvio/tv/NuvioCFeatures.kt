@@ -1006,4 +1006,16 @@ object NuvioCFeatures {
     const val RATINGS_ROW_V62 = true
     /** Details opening: the MDBList user-rating lookup reuses one media index per sync (it rebuilt one over the whole watch history per lookup, on the main thread); the unused official rating pill lookup is skipped; the backdrop stays under the placeholder while the page fades in. Off = round 61 opening. */
     const val DETAIL_OPEN_FAST = true
+
+    // ---- Round 63 (2026-11-23) ----
+    /** Details opened from a Home row or Continue Watching keep the card's picture behind the placeholder (the hero and Featured already did), instead of opening on black. Off = only the hero / Featured hand over a picture. */
+    const val DETAIL_OPEN_PICTURE = true
+    /** Details opening, less work in the first seconds: the held-back loads start one after another (trailer link, More like this, comments, collection, episode ratings, 200 ms apart) instead of together; the facts line no longer listens to the release-info store (its countdown moved to the ratings row in round 61). Off = round 62. */
+    const val DETAIL_TRIM_63 = true
+    /** Taste: Back from a title opened from a list card (Recently finished, Binges, Top shows, Top films) lands on that row again. Off = focus goes to the tab. */
+    const val TASTE_RETURN_FOCUS = true
+    /** Details Information: Awards lists one award body per line (Oscars, Emmys, Golden Globes, BAFTA, festivals). Off = one line joined with dots. */
+    const val AWARDS_BY_LINE = true
+    /** Details quality line: runtime as 1 hr 49 min / 24 min (was 1h 49m / 24m); more room around the dot between year and runtime and between badges (6 dp); Dolby Vision and Atmos in an outlined box the size of the other badges. Off = round 62 line. */
+    const val QUALITY_LINE_V63 = true
 }

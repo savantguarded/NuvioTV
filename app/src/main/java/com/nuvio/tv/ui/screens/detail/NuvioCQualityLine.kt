@@ -188,7 +188,12 @@ private val QL_HEIGHT_61 = 17.dp
 private const val QL_TEXT_SP_61 = 11f
 private const val QL_DOT_ALPHA = 0.62f
 private val QL_DOT_SPACE = 6.dp
-private val QL_LOGO_62 = 12.dp // round 62: logos sit inside the 15 dp row, closer to the Apple TV scale
+private val QL_LOGO_62 = 12.dp
+// round 63
+private val QL_GAP_63 = 6.dp
+private val QL_LEAD_DOT_63 = 7.dp
+private val QL_BOX_LOGO_63 = 10.dp
+private const val QL_BOX_BORDER_63 = 0.45f // round 62: logos sit inside the 15 dp row, closer to the Apple TV scale
 
 /**
  * [fork] round 62 quality_line_v62: resolution, source (REMUX reads BLURAY), TrueHD, visual, Atmos. One sound label per
@@ -248,7 +253,14 @@ internal fun NuvioCQualityLine(meta: Meta, modifier: Modifier = Modifier, lead: 
     LaunchedEffect(fade) { if (fade.value < 1f) fade.animateTo(1f, tween(220)) }
 
     Row(modifier.height(lineHeight), verticalAlignment = Alignment.CenterVertically) {
-        if (leadText != null) Text(text = leadText, style = leadStyle(color), maxLines = 1, softWrap = false)
+        if (leadText != null) {
+            if (NuvioCFeatures.QUALITY_LINE_V63) { // round 63: more room around the dot between year and runtime
+                leadText.split(" \u2022 ").forEachIndexed { i, part ->
+                    if (i > 0) Text(text = "\u2022", style = leadStyle(color).copy(color = color.copy(alpha = QL_DOT_ALPHA)), modifier = Modifier.padding(horizontal = QL_LEAD_DOT_63))
+                    Text(text = part, style = leadStyle(color), maxLines = 1, softWrap = false)
+                }
+            } else Text(text = leadText, style = leadStyle(color), maxLines = 1, softWrap = false)
+        }
         if (rating != null) Pill(rating, textStyle, color, lineHeight)
         if (quality != null) {
             Row(Modifier.graphicsLayer { alpha = fade.value * if (dim) QL_DIM_ALPHA else 1f }, verticalAlignment = Alignment.CenterVertically) {
@@ -283,6 +295,20 @@ private fun Badge61(label: String, style: TextStyle, color: Color, height: andro
     val painter = androidx.compose.ui.res.painterResource(res)
     val size = painter.intrinsicSize
     val ratio = if (size.height > 0f) size.width / size.height else 2.5f
+    if (NuvioCFeatures.QUALITY_LINE_V63) { // round 63: the logo in an outlined box the size of the other badges
+        Box(
+            Modifier.height(QL_HEIGHT).border(1.dp, color.copy(alpha = QL_BOX_BORDER_63), RoundedCornerShape(QL_RADIUS)).padding(horizontal = QL_PAD),
+            contentAlignment = Alignment.Center
+        ) {
+            androidx.compose.foundation.Image(
+                painter = painter,
+                contentDescription = label,
+                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(color),
+                modifier = Modifier.height(QL_BOX_LOGO_63).width(QL_BOX_LOGO_63 * ratio)
+            )
+        }
+        return
+    }
     androidx.compose.foundation.Image(
         painter = painter,
         contentDescription = label,
@@ -308,7 +334,7 @@ private fun Pill(label: String, style: TextStyle, color: Color, height: androidx
 @Composable
 private fun BadgeRow(content: @Composable () -> Unit) {
     Layout(content = content) { measurables, constraints ->
-        val gap = QL_GAP.roundToPx()
+        val gap = (if (NuvioCFeatures.QUALITY_LINE_V63) QL_GAP_63 else QL_GAP).roundToPx()
         val placeables = measurables.map { it.measure(Constraints()) }
         var count = placeables.size
         fun width(n: Int) = placeables.take(n).sumOf { it.width } + gap * (n - 1).coerceAtLeast(0)

@@ -808,11 +808,13 @@ class MetaDetailsViewModel @Inject constructor(
     // (counted once per load), or until the page moves (the screen calls nuvioCOpenDeferGate), so the opening
     // frames carry only the hero.
     fun nuvioCOpenDeferGate() { nuvioCDeferOpen.value = true }
-    private suspend fun nuvioCDeferGate() {
+    private suspend fun nuvioCDeferGate(stagger: Int = 0) {
         if (!com.nuvio.tv.NuvioCFeatures.DETAIL_DEFER_LOADS || nuvioCDeferOpen.value) return
         val now = android.os.SystemClock.uptimeMillis()
         if (nuvioCDeferUntil == 0L) nuvioCDeferUntil = now + NUVIO_C_DEFER_MS
-        val wait = nuvioCDeferUntil - now
+        // [fork] round 63 detail_trim_63: one after another, 200 ms apart, so their page updates don't land in one frame
+        val step = if (com.nuvio.tv.NuvioCFeatures.DETAIL_TRIM_63) stagger * NUVIO_C_DEFER_STEP_MS else 0L
+        val wait = nuvioCDeferUntil + step - now
         if (wait > 0) withTimeoutOrNull(wait) { nuvioCDeferOpen.first { it } }
         nuvioCDeferOpen.value = true
     }
@@ -1199,7 +1201,7 @@ class MetaDetailsViewModel @Inject constructor(
                     )
                 }
             }
-            if (!forceRefresh) nuvioCDeferGate() // [fork] round 61
+            if (!forceRefresh) nuvioCDeferGate(2) // [fork] round 61; round 63: third
 
             try {
                 val page = traktCommentsService.getCommentsPage(
@@ -1366,7 +1368,7 @@ class MetaDetailsViewModel @Inject constructor(
     private fun loadMoreLikeThisAsync(meta: Meta) {
         moreLikeThisJob?.cancel()
         moreLikeThisJob = viewModelScope.launch {
-            nuvioCDeferGate() // [fork] round 61
+            nuvioCDeferGate(1) // [fork] round 61; round 63: second
             val source = when {
                 shouldLoadSimklMoreLikeThis() -> MoreLikeThisSource.SIMKL
                 shouldLoadTraktMoreLikeThis(meta) -> MoreLikeThisSource.TRAKT
@@ -1477,7 +1479,7 @@ class MetaDetailsViewModel @Inject constructor(
     private fun loadCollectionAsync(collectionId: Int, collectionName: String?, settings: TmdbSettings) {
         collectionJob?.cancel()
         collectionJob = viewModelScope.launch {
-            nuvioCDeferGate() // [fork] round 61
+            nuvioCDeferGate(3) // [fork] round 61; round 63: fourth
             if (!settings.enabled || !settings.useCollections) {
                 _uiState.update { it.copy(collection = emptyList(), collectionName = null) }
                 return@launch
@@ -1557,7 +1559,7 @@ class MetaDetailsViewModel @Inject constructor(
                     episodeRatingsError = null
                 )
             }
-            nuvioCDeferGate() // [fork] round 61
+            nuvioCDeferGate(4) // [fork] round 61; round 63: fifth
 
             // Ratings the addon supplied on meta.videos[].rating. The repository below
             // still wins wherever it has an entry.
@@ -3269,3 +3271,4 @@ class MetaDetailsViewModel @Inject constructor(
 
 /** [fork] round 61 detail_defer_loads */
 private const val NUVIO_C_DEFER_MS = 1_200L
+private const val NUVIO_C_DEFER_STEP_MS = 200L // [fork] round 63

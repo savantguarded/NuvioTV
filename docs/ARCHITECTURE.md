@@ -4,7 +4,7 @@ Read this first in every session. It tells you where things are so you open only
 Fork-specific behaviour (what each tweak does, its switch, its screen) lives in `docs/FORK_CHANGES.md`.
 Current state, last build and open issues live in `docs/STATUS.md`.
 
-Last verified against: branch `nuvio-c` round 62, official base `1.2.0-beta.3` (`552cacf5`), 2026-11-23.
+Last verified against: branch `nuvio-c` round 63, official base `1.2.0-beta.3` (`552cacf5`), 2026-11-23.
 
 ## 1. What this is
 

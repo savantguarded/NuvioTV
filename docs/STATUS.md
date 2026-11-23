@@ -2,18 +2,20 @@
 
 Rewrite this file at the end of every build session (do not append). History lives in git log.
 
-Updated: 2026-11-23 (round 62)
+Updated: 2026-11-23 (round 63)
 
 ## Where things stand
-- Branch `nuvio-c` = round 62 on official `1.2.0-beta.3` (still the newest official tag on 2026-11-23). CI picks the highest version.
+- Branch `nuvio-c` = round 63 on official `1.2.0-beta.3` (still the newest official tag on 2026-11-23). CI picks the highest version.
 - Only branch left: `nuvio-c`.
 - Round 61 (canvas "Nuvio C: Details page round 61 (mockup)", boards A to J): hero lines, Dolby / DTS logos, trailer block dim, two-line company chips, opening placeholder + fade, deferred loads, Taste top stack. 61b fixed a crash on opening details (defer-gate fields declared after `init`).
 - Round 62 (same canvas, boards K to R + N2), owner decisions: hairline A, logos 12 dp, order resolution / source / TrueHD / visual / Atmos, keep one sound label per release (no parser change), REMUX reads BLURAY, block dim 60%, 12 dp rhythm only (no 3-line synopsis, no ratings cap), no MDBList shimmer.
 - Opening jank, measured on the TV 2026-11-23 (perfetto + simpleperf, release build is profileable): the first page frame ~210 ms (137 ms composition + 64 ms draw), then ~180 ms of main-thread work with no frames, which was the MDBList user-rating lookup building `MdbListMediaIndex` over the whole history on every call (official code; cached per snapshot under `DETAIL_OPEN_FAST`). The black frame came from the fade's underlay having no picture.
 - adb from the desktop VM: Linux platform-tools in the VM home, the folder's `adb-key` copied to ~/.android; target in `grab-crash.bat`. Release APK names are obfuscated; use simpleperf + androguard on the APK to map hot classes.
-- Tests: `NuvioC*` and `Calendar*` pass, incl. `NuvioCRound62Test` (label order, years).
+- Round 63 (owner asked to build without a mockup while away; no adb this time, so not checked on the TV): runtime hr / min, wider dot and badge spacing, boxed Dolby logos, row / Continue Watching picture handoff, staggered held-back loads, facts line off the info store, Taste return focus, Awards one body per line. Round 62 measured: first page frame ~120 ms, no frozen gap; remaining 60 to 80 ms frames as rows join.
+- Tests: `NuvioC*` and `Calendar*` pass, incl. `NuvioCRound62Test` (label order, years) and `NuvioCRound63Test` (hr / min, awards lines).
 
 ## Still to check on the TV
+- Round 63: everything (built while the owner was away): opening from a Home row and from Continue Watching (picture behind the placeholder), boxed Dolby logos, runtime text, Taste Back from a list row, Awards lines.
 - Round 62: opening feel (cached and cold titles); badge order and 12 dp logos; ratings row icon sizes; a show without ratings (no gap); not-released titles (one separator).
 - Round 61:  70% block over a trailer (focus lift on each button, synopsis readable); opening fade on a cold and a cached title; Down soon after open loads rows at once; trailer autostart still fires; a series without MDBList shows IMDb / TMDB and the countdown; company names with two lines and the scroll; Taste cards with one or two entries.
 - Round 60: quality line for a `tmdb:` id title; series latest-aired episode.

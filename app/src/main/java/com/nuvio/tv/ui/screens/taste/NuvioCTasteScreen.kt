@@ -96,7 +96,7 @@ class NuvioCTasteViewModel @Inject constructor(
     var tasteScopeKey by mutableStateOf(nuvioCDefaultScope())
     /** [fork] round 58: Taste opens on this month (Month first, All time last). */
     fun nuvioCDefaultScope(): String = if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) "m:" + java.time.YearMonth.now() else "all"
-    fun nuvioCOpenFresh() { if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) { tasteScopeKey = nuvioCDefaultScope(); discoverFocusKey = null } }
+    fun nuvioCOpenFresh() { NuvioCTasteReturn.key = null; if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) { tasteScopeKey = nuvioCDefaultScope(); discoverFocusKey = null } } // [fork] round 63: a fresh entry forgets the return row
     private val _scope = MutableStateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteScopeData?>(null)
     val scope: StateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteScopeData?> = _scope.asStateFlow()
     private var scopeJob: kotlinx.coroutines.Job? = null

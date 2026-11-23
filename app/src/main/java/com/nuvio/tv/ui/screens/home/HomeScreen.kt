@@ -163,9 +163,11 @@ fun HomeScreen(
         }
     }
 
+    val nuvioCLatestUi = androidx.compose.runtime.rememberUpdatedState(uiState) // [fork] round 63
     val onNavigateToDetailStable = remember(onNavigateToDetail, viewModel) {
         { itemId: String, itemType: String, addonBaseUrl: String ->
             viewModel.beginTrailerHandoff(itemId)
+            nuvioCSeedDetailPicture(nuvioCLatestUi.value, itemId) // [fork] round 63 detail_open_picture
             onNavigateToDetail(itemId, itemType, addonBaseUrl)
         }
     }
@@ -174,8 +176,8 @@ fun HomeScreen(
         { item: ContinueWatchingItem ->
             if (latestContinueWatchingClickAction.value.opensDetails(item)) {
                 when (item) {
-                    is ContinueWatchingItem.InProgress -> onNavigateToDetail(item.progress.contentId, item.progress.contentType, "")
-                    is ContinueWatchingItem.NextUp -> onNavigateToDetail(item.info.contentId, item.info.contentType, "")
+                    is ContinueWatchingItem.InProgress -> { nuvioCSeedPicture(item.progress.backdrop); onNavigateToDetail(item.progress.contentId, item.progress.contentType, "") } // [fork] round 63
+                    is ContinueWatchingItem.NextUp -> { nuvioCSeedPicture(item.info.backdrop); onNavigateToDetail(item.info.contentId, item.info.contentType, "") } // [fork] round 63
                 }
             } else {
                 onContinueWatchingClick(item)
@@ -840,3 +842,19 @@ private fun HomePosterOptionsDialog(
     }
 }
 
+// ---- [fork] round 63 detail_open_picture ----
+// A details page opened from a row (not the hero / Featured, which already hand over their picture) opened on black:
+// the page had no picture to show behind its placeholder. Hand over the card's backdrop the same way.
+private fun nuvioCSeedPicture(url: String?) {
+    if (!com.nuvio.tv.NuvioCFeatures.DETAIL_OPEN_PICTURE) return
+    if (!HeroBackdropState.currentHeroBackdropUrl.isNullOrBlank()) return
+    HeroBackdropState.seedNext(url)
+}
+
+private fun nuvioCSeedDetailPicture(state: HomeUiState, itemId: String) {
+    if (!com.nuvio.tv.NuvioCFeatures.DETAIL_OPEN_PICTURE) return
+    if (!HeroBackdropState.currentHeroBackdropUrl.isNullOrBlank()) return
+    val url = state.heroItems.firstOrNull { it.id == itemId }?.backdropUrl
+        ?: state.catalogRows.firstNotNullOfOrNull { row -> row.items.firstOrNull { it.id == itemId }?.backdropUrl }
+    HeroBackdropState.seedNext(url)
+}

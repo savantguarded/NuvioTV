@@ -116,7 +116,7 @@ internal object NuvioCAwardBodies {
             if (body == NuvioCAwardBody.FESTIVALS) cats.joinToString(", ")
             else "${names[body]}: ${cats.joinToString(", ")}"
         }
-        return parts.joinToString(" · ").takeIf { it.isNotBlank() }
+        return parts.joinToString(if (com.nuvio.tv.NuvioCFeatures.AWARDS_BY_LINE) "\n" else " · ").takeIf { it.isNotBlank() } // [fork] round 63: one award body per line
     }
 }
 

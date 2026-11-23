@@ -1234,10 +1234,14 @@ private fun NuvioCHeroFacts(meta: Meta, hideImdbRating: Boolean, tmdbRating: Flo
         }
     }
     val chip = meta.ageRating?.trim()?.takeIf { it.isNotBlank() }
-    val info by NuvioCDetailInfoStore.current.collectAsState()
-    val countdown = if (com.nuvio.tv.NuvioCFeatures.DETAIL_NEXT_EP_BADGE && isSeries && !v61) { // [fork] round 61: on the ratings row
-        info?.takeIf { it.metaId == meta.id }?.next?.let { nuvioCNextEpisodeBadge(it) }
-    } else null
+    // [fork] round 63 detail_trim_63: with the round 61 lines the countdown lives on the ratings row, so this line doesn't
+    // listen to the info store at all (each update used to recompose it)
+    val countdown = if (com.nuvio.tv.NuvioCFeatures.DETAIL_TRIM_63 && v61) null else {
+        val info by NuvioCDetailInfoStore.current.collectAsState()
+        if (com.nuvio.tv.NuvioCFeatures.DETAIL_NEXT_EP_BADGE && isSeries && !v61) { // [fork] round 61: on the ratings row
+            info?.takeIf { it.metaId == meta.id }?.next?.let { nuvioCNextEpisodeBadge(it) }
+        } else null
+    }
     val imdb = if (hideImdbRating || v61) null else meta.imdbRating // [fork] round 61: scores live on the ratings row
     val tmdbShown = tmdbRating.takeIf { !v61 }
     val small = com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL // [fork] round 44: 12 sp, one meta tier with the synopsis
@@ -1293,10 +1297,20 @@ private fun NuvioCLift(alpha: () -> Float, content: @Composable () -> Unit) {
 /** Under the synopsis: year • duration (a show's episode length). */
 internal fun nuvioCQualityLead(meta: Meta): String? {
     val year = formatYearRange(meta.releaseInfo)?.let { if (com.nuvio.tv.NuvioCFeatures.QUALITY_LINE_V62) nuvioCYears62(it) else it }
-    val runtime = meta.runtime?.let { formatRuntime(it) }
+    val runtime = meta.runtime?.let { formatRuntime(it) }?.let { if (com.nuvio.tv.NuvioCFeatures.QUALITY_LINE_V63) nuvioCHrMin(it) else it }
     // round 62: blanks dropped, so a missing runtime never leaves a dangling separator
     return listOfNotNull(year, runtime).map { it.trim() }.filter { it.isNotEmpty() }.joinToString(" \u2022 ").takeIf { it.isNotBlank() }
 }
+
+/** [fork] round 63: 1h 49m reads 1 hr 49 min, 2h reads 2 hr, 24m reads 24 min. */
+internal fun nuvioCHrMin(short: String): String =
+    short.trim().split(Regex("\\s+")).joinToString(" ") { part ->
+        when {
+            part.endsWith("h") && part.dropLast(1).all { it.isDigit() } -> part.dropLast(1) + " hr"
+            part.endsWith("m") && part.dropLast(1).all { it.isDigit() } -> part.dropLast(1) + " min"
+            else -> part
+        }
+    }
 
 /** [fork] round 62: "2023-" (still running) reads 2023; "2019-2023" reads 2019–2023 with an en dash. */
 internal fun nuvioCYears62(raw: String): String {
