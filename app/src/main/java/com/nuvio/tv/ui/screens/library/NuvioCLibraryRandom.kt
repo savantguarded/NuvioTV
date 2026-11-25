@@ -195,10 +195,12 @@ internal fun NuvioCRandomPickDialog(
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally)
+            horizontalArrangement = Arrangement.spacedBy(com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.gap, Alignment.CenterHorizontally) // [fork] round 65
         ) {
+            val nuvioCPill = if (com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.on) com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.buttonPadding else ButtonDefaults.ContentPadding
             Button(
                 onClick = { if (!rolling) onPickAgain() },
+                contentPadding = nuvioCPill,
                 colors = ButtonDefaults.colors(
                     containerColor = NuvioTheme.colors.BackgroundCard,
                     contentColor = NuvioTheme.colors.TextPrimary
@@ -211,6 +213,7 @@ internal fun NuvioCRandomPickDialog(
             Button(
                 onClick = { if (!rolling) onOpen() },
                 modifier = Modifier.focusRequester(openRequester),
+                contentPadding = nuvioCPill,
                 colors = ButtonDefaults.colors(
                     containerColor = NuvioTheme.colors.BackgroundCard,
                     contentColor = NuvioTheme.colors.TextPrimary

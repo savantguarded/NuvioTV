@@ -934,6 +934,8 @@ fun MetaDetailsScreen(
                         if (com.nuvio.tv.NuvioCFeatures.DETAIL_OPEN_SMOOTH) compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha // [fork] no full-screen offscreen buffer
                     },
                     nuvioCStageRows = nuvioCStageRows, // [fork] round 61
+                    nuvioCLoadGraph = viewModel::nuvioCLoadGraphRatings, // [fork] round 65
+                    nuvioCMyEpisodeScores = viewModel::nuvioCMyEpisodeScores, // [fork] round 65
                     nuvioCOnScrolled = { viewModel.nuvioCOpenDeferGate() }, // [fork] round 61 detail_defer_loads
                     heroBackdropUrl = heroBackdropUrl,
                     meta = meta,
@@ -1298,6 +1300,8 @@ fun MetaDetailsScreen(
 private fun MetaDetailsContent(
     modifier: Modifier = Modifier,
     nuvioCStageRows: Boolean = false, // [fork] round 61 detail_open_smooth
+    nuvioCLoadGraph: () -> Unit = {}, // [fork] round 65 series_graph: episode ratings load when the graph opens
+    nuvioCMyEpisodeScores: suspend () -> Map<Pair<Int, Int>, Int> = { emptyMap() }, // [fork] round 65 series_graph: Mine
     nuvioCOnScrolled: () -> Unit = {}, // [fork] round 61 detail_defer_loads
     heroBackdropUrl: String? = null,
     meta: Meta,
@@ -1524,6 +1528,9 @@ private fun MetaDetailsContent(
     // [fork] round 61c: with RATINGS_MULTI the official pill state is unused (Nuvio C's score drives it); its lookup cost ~100 ms at open
     val titleRatingState: com.nuvio.tv.core.tracking.TrackingRatingState = if (com.nuvio.tv.NuvioCFeatures.RATINGS_MULTI && com.nuvio.tv.NuvioCFeatures.DETAIL_OPEN_FAST) remember { com.nuvio.tv.core.tracking.TrackingRatingState() } else rememberRatingState(titleRatingMedia).value
     var showSynopsisOverlay by rememberSaveable(meta.id) { mutableStateOf(false) }
+    var nuvioCShowGraph by rememberSaveable(meta.id) { mutableStateOf(false) } // [fork] round 65 series_graph
+    val nuvioCGraphFocus = remember { FocusRequester() } // [fork] round 65: Back from the graph lands here
+    var nuvioCGraphReturn by remember { mutableIntStateOf(0) } // [fork] round 65
     var showRandomEpisodeOverlay by rememberSaveable(meta.id) { mutableStateOf(false) }
     var randomEpisodePlaybackPending by rememberSaveable(meta.id) { mutableStateOf(false) }
     var stoppingShuffle by remember(meta.id) { mutableStateOf(false) }
@@ -2061,7 +2068,9 @@ private fun MetaDetailsContent(
     val showStandardOverallRatings = overallRatingsVisibility
         .showStandardDetailRatings(isMdbListRatingsActive)
     val visibleMdbListRatings = mdbListRatings.takeIf { isMdbListRatingsActive }
-    val hasRatingsSection = isTvShow && showEpisodeImdbRatings
+    // [fork] round 65 series_graph: the Ratings row leaves the page; a hero button opens the graph instead
+    val nuvioCGraphAvailable = com.nuvio.tv.NuvioCFeatures.SERIES_GRAPH && isTvShow && showEpisodeImdbRatings
+    val hasRatingsSection = isTvShow && showEpisodeImdbRatings && !com.nuvio.tv.NuvioCFeatures.SERIES_GRAPH
     val strTabCast = stringResource(R.string.detail_tab_cast)
     val strTabRatings = stringResource(R.string.detail_tab_ratings)
     val strTabMoreLikeThis = stringResource(R.string.detail_tab_more_like_this)
@@ -2681,6 +2690,7 @@ private fun MetaDetailsContent(
                                     PeopleSectionTab.RATINGS -> ratingsContentFocusRequester
                                 }
                                 name == "collection_section" -> collectionSectionFocusRequester
+                                name == "nuvio_c_more_like_row" && com.nuvio.tv.NuvioCFeatures.SERIES_GRAPH -> moreLikeSectionFocusRequester // [fork] round 65
                                 name == "trakt_comments" -> when {
                                     comments.isNotEmpty() -> commentsRowEntryFocusRequester
                                     canToggleEpisodeComments -> commentsSelectedModeFocusRequester
@@ -2813,7 +2823,10 @@ private fun MetaDetailsContent(
                         nuvioCRateFocusRequester = nuvioCRateFocus, // [fork]
                         nuvioCBellAvailable = nuvioCBell.available, // [fork] round 38 detail_bell
                         nuvioCBellOn = nuvioCBell.on, // [fork]
-                        onNuvioCBell = nuvioCBell.toggle // [fork]
+                        onNuvioCBell = nuvioCBell.toggle, // [fork]
+                        nuvioCGraphAvailable = nuvioCGraphAvailable, // [fork] round 65 series_graph
+                        onNuvioCGraph = { nuvioCLoadGraph(); nuvioCShowGraph = true }, // [fork]
+                        nuvioCGraphFocusRequester = nuvioCGraphFocus // [fork]
                     )
                 }
             }
@@ -3519,6 +3532,25 @@ private fun MetaDetailsContent(
             )
         }
 
+        if (nuvioCShowGraph && nuvioCGraphAvailable) { // [fork] round 65 series_graph: a full-screen layer like the synopsis
+            var nuvioCMine by remember(meta.id) { mutableStateOf<Map<Pair<Int, Int>, Int>>(emptyMap()) }
+            LaunchedEffect(meta.id) { nuvioCMine = runCatching { nuvioCMyEpisodeScores() }.getOrDefault(emptyMap()) }
+            NuvioCSeriesGraphOverlay(
+                name = meta.name,
+                logo = meta.logo,
+                videos = meta.videos,
+                imdb = visibleEpisodeImdbRatings,
+                loading = isEpisodeRatingsLoading,
+                mine = nuvioCMine,
+                isWatched = { key -> episodeProgressMap[key]?.isCompleted() == true || watchedEpisodes.contains(key) },
+                next = nextToWatch?.let { n -> n.nextSeason?.let { s -> n.nextEpisode?.let { e -> s to e } } },
+                onOpenEpisode = { video -> nuvioCShowGraph = false; episodeClick(video) },
+                onDismiss = { nuvioCShowGraph = false; nuvioCGraphReturn++ }
+            )
+        }
+        LaunchedEffect(nuvioCGraphReturn) { // [fork] round 65: Back returns focus to the graph button
+            if (nuvioCGraphReturn > 0) repeat(6) { androidx.compose.runtime.withFrameNanos { }; if (runCatching { nuvioCGraphFocus.requestFocus() }.getOrDefault(false)) return@LaunchedEffect }
+        }
         meta.description?.takeIf { showSynopsisOverlay && it.isNotBlank() }?.let { synopsis ->
             SynopsisOverlay(
                 title = meta.name,

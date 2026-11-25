@@ -875,7 +875,7 @@ private fun NuvioCFeaturedSlide(
             var focusedButton by remember { mutableIntStateOf(-1) }
             val nuvioCButtons = com.nuvio.tv.NuvioCFeatures.FEATURED_BUTTONS // [fork] round 51 featured_buttons
             Row(
-                horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
+                horizontalArrangement = Arrangement.spacedBy(com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.gap), // round 65 hero_row_v65
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .then(if (nuvioCButtons) Modifier.padding(vertical = 6.dp) else Modifier) // room for the focus ring and zoom: nothing clips
@@ -1164,7 +1164,7 @@ private fun NuvioCFeaturedDetailsButton(enabled: Boolean, onClick: () -> Unit, m
         border = ButtonDefaults.border(
             focusedBorder = Border(border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs), shape = shape)
         ),
-        contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xl, vertical = 14.dp)
+        contentPadding = com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.pillPadding // round 65 hero_row_v65
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm)) {
             Icon(imageVector = Icons.Outlined.Info, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -1180,7 +1180,7 @@ private fun NuvioCFeaturedDetailsIcon(enabled: Boolean, onClick: () -> Unit, mod
         onClick = onClick,
         enabled = enabled,
         modifier = modifier
-            .size(NuvioTheme.spacing.xxxl)
+            .size(com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.round) // round 65 hero_row_v65
             .focusProperties { up = FocusRequester.Cancel },
         colors = IconButtonDefaults.colors(
             containerColor = NuvioTheme.colors.BackgroundCard,
@@ -1201,7 +1201,7 @@ private fun NuvioCFeaturedDetailsIcon(enabled: Boolean, onClick: () -> Unit, mod
         Icon(
             imageVector = Icons.Outlined.Info,
             contentDescription = stringResource(R.string.nuvio_c_featured_details),
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.glyph) // round 65
         )
     }
 }

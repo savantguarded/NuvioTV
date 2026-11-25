@@ -649,14 +649,17 @@ private fun ShuffleStage(
                     overflow = TextOverflow.Ellipsis
                 )
                 }
-                Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                // [fork] round 65 hero_row_v65: the details hero's pill size (44 dp, 16 dp sides, 8 dp apart)
+                val nuvioCPill = if (com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.on) com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.buttonPadding else ButtonDefaults.ContentPadding
+                Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.gap)) {
                     if (pick.episode != null) {
                         // [fork] round 37 roulette_episodes: Play follows the app's playback rule; hold = pick the source
                         Button(
                             onClick = { if (landed) onPlay(false) },
                             onLongClick = { if (landed) onPlay(true) },
                             modifier = Modifier.focusRequester(openFocus),
-                            colors = ButtonDefaults.colors(
+                            contentPadding = nuvioCPill,
+                        colors = ButtonDefaults.colors(
                                 containerColor = Color.White.copy(alpha = 0.16f),
                                 contentColor = Color.White,
                                 focusedContainerColor = Color.White,
@@ -671,6 +674,7 @@ private fun ShuffleStage(
                     Button(
                         onClick = { if (landed) onOpen() },
                         modifier = if (pick.episode == null) Modifier.focusRequester(openFocus) else Modifier,
+                        contentPadding = nuvioCPill,
                         colors = ButtonDefaults.colors(
                             containerColor = Color.White.copy(alpha = 0.16f),
                             contentColor = Color.White,
@@ -684,6 +688,7 @@ private fun ShuffleStage(
                     }
                     Button(
                         onClick = { if (landed) onAgain() },
+                        contentPadding = nuvioCPill,
                         colors = ButtonDefaults.colors(
                             containerColor = Color.White.copy(alpha = 0.16f),
                             contentColor = Color.White,

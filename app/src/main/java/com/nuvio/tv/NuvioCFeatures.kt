@@ -1066,4 +1066,8 @@ object NuvioCFeatures {
     const val ROULETTE_SPIN_V65 = true
     /** Details editions: shown only when named by 2+ different releases with 10+ seeders between them, ordered by those seeders (tie: Extended, Director's Cut); fan edits / recuts / despecialized ignored; no Criterion (media properties only). Quality cache re-read once. Off = round 64 (any release, priority order). */
     const val EDITIONS_BY_SEEDERS = true
+    /** Play / Open pills and the round buttons beside them, app-wide (details hero, Featured carousel, Roulette result, Library Random pick, episode shuffle preview): pill 44 dp tall with 16 dp sides, round buttons 44 dp with 20 dp glyphs, 8 dp gaps; makes room for the series graph button. Off = 48 dp / 24 dp sides / 12 dp gaps. */
+    const val HERO_ROW_V65 = true
+    /** Series details: the Ratings row is gone; a round "Ratings graph" hero button (after Rate) opens a full-screen season x episode grid with season averages, IMDb / Mine, watched and next-episode marks. Episode ratings load when it opens, not while details open. Off = round 64c Ratings row. */
+    const val SERIES_GRAPH = true
 }

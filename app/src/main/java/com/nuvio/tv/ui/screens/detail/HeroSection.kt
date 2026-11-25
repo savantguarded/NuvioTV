@@ -91,6 +91,7 @@ import com.nuvio.tv.ui.components.SynopsisDescription
 import com.nuvio.tv.ui.theme.NuvioTheme
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsNone
@@ -159,7 +160,10 @@ fun HeroContentSection(
     nuvioCRateFocusRequester: FocusRequester? = null, // [fork]
     nuvioCBellAvailable: Boolean = false, // [fork] round 38 detail_bell
     nuvioCBellOn: Boolean = false, // [fork]
-    onNuvioCBell: () -> Unit = {} // [fork]
+    onNuvioCBell: () -> Unit = {}, // [fork]
+    nuvioCGraphAvailable: Boolean = false, // [fork] round 65 series_graph
+    onNuvioCGraph: () -> Unit = {}, // [fork]
+    nuvioCGraphFocusRequester: FocusRequester? = null // [fork]
 ) {
     val context = LocalContext.current
     // [fork] Nuvio C dimming over a background trailer (Apple TV look), full brightness when the synopsis is focused
@@ -370,7 +374,7 @@ fun HeroContentSection(
                         Spacer(modifier = Modifier.height(if (shouldShowLogo || (com.nuvio.tv.NuvioCFeatures.DETAIL_TAGLINE && !nuvioCTagline.isNullOrBlank())) 7.dp else 12.dp))
                     }
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md),
+                        horizontalArrangement = Arrangement.spacedBy(NuvioCHeroRow65.gap), // [fork] round 65 hero_row_v65
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         NuvioCLift(nuvioCBlockLift) { // [fork] round 61 trailer_block_dim: focused button back to full
@@ -466,6 +470,18 @@ fun HeroContentSection(
                                     onClick = onRateClick,
                                     onFocused = onHeroActionFocused,
                                     nuvioCFocusRequester = nuvioCRateFocusRequester // [fork] focus comes back here after the rating panel
+                                )
+                            }
+                        }
+
+                        if (nuvioCGraphAvailable) { // [fork] round 65 series_graph: right after Rate, series only
+                            NuvioCLift(nuvioCBlockLift) {
+                                ActionIconButton(
+                                    icon = Icons.Default.BarChart,
+                                    contentDescription = stringResource(R.string.nuvio_c_graph_button),
+                                    onClick = onNuvioCGraph,
+                                    onFocused = onHeroActionFocused,
+                                    focusRequester = nuvioCGraphFocusRequester
                                 )
                             }
                         }
@@ -685,7 +701,7 @@ internal fun PlayButton(
             )
         ),
         scale = nuvioCPill?.scale ?: ButtonDefaults.scale(), // [fork] pill_focus_growth
-        contentPadding = PaddingValues(horizontal = NuvioTheme.spacing.xl, vertical = 14.dp)
+        contentPadding = NuvioCHeroRow65.pillPadding // [fork] round 65 hero_row_v65
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -730,7 +746,7 @@ private fun ActionIconButtonPainter(
         onClick = onClick,
         enabled = enabled,
         modifier = Modifier
-            .size(NuvioTheme.spacing.xxxl)
+            .size(NuvioCHeroRow65.round) // [fork] round 65
             .onFocusChanged { state ->
                 nuvioCFocused = state.isFocused
                 if (state.isFocused) onFocused()
@@ -756,7 +772,7 @@ private fun ActionIconButtonPainter(
         Icon(
             painter = painter,
             contentDescription = contentDescription,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(NuvioCHeroRow65.glyph) // [fork] round 65
         )
     }
 }
@@ -794,7 +810,7 @@ private fun ActionIconButton(
         enabled = enabled,
         modifier = Modifier
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
-            .size(NuvioTheme.spacing.xxxl)
+            .size(NuvioCHeroRow65.round) // [fork] round 65
             .onFocusChanged { state ->
                 nuvioCFocused = state.isFocused
                 if (state.isFocused) onFocused()
@@ -859,12 +875,12 @@ private fun ActionIconButton(
             painter != null -> Icon(
                 painter = painter,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(NuvioCHeroRow65.glyph) // [fork] round 65
             )
             icon != null -> Icon(
                 imageVector = icon,
                 contentDescription = contentDescription,
-                modifier = Modifier.size(NuvioTheme.spacing.xl)
+                modifier = Modifier.size(NuvioCHeroRow65.vectorGlyph) // [fork] round 65
             )
         }
     }

@@ -114,8 +114,8 @@ internal fun RatingActionButton(
     ) {
         Row(
             modifier = Modifier
-                .height(NuvioTheme.spacing.xxxl)
-                .defaultMinSize(minWidth = NuvioTheme.spacing.xxxl)
+                .height(NuvioCHeroRow65.round) // [fork] round 65 hero_row_v65
+                .defaultMinSize(minWidth = NuvioCHeroRow65.round)
                 .animateContentSize(
                     animationSpec = tween(
                         durationMillis = NuvioMotion.tokens.durations.fast,
@@ -131,7 +131,7 @@ internal fun RatingActionButton(
                 contentDescription = null,
                 tint = if (rated && !focused) NuvioTheme.colors.Secondary else LocalContentColor.current,
                 modifier = Modifier
-                    .size(NuvioTheme.spacing.xl)
+                    .size(NuvioCHeroRow65.vectorGlyph) // [fork] round 65
                     .graphicsLayer {
                         val progress = twirl.value
                         val pop = 1f + 0.3f * sin(PI * progress.coerceIn(0f, 1f)).toFloat()

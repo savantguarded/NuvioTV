@@ -121,6 +121,7 @@ class MetaDetailsViewModel @Inject constructor(
     private val metaDetailsSessionState: MetaDetailsSessionState,
     private val watchedSeriesStateHolder: com.nuvio.tv.data.local.WatchedSeriesStateHolder,
     val posterOptions: com.nuvio.tv.ui.components.posteroptions.PosterOptionsController,
+    private val nuvioCRatingService: com.nuvio.tv.data.nuvioc.NuvioCRatingService, // [fork] round 65 series_graph (Mine)
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val itemId: String = savedStateHandle["itemId"] ?: ""
@@ -821,6 +822,7 @@ class MetaDetailsViewModel @Inject constructor(
 
     private fun loadMeta() {
         nuvioCDeferUntil = 0L // [fork] round 61
+        nuvioCGraphLoadedFor = null // [fork] round 65
         nuvioCDeferOpen.value = false
         viewModelScope.launch {
             cancelCommentsRequests()
@@ -1121,7 +1123,8 @@ class MetaDetailsViewModel @Inject constructor(
         // Ratings don't depend on watch progress, so start them before the remote
         // progress wait below, which can take long or never finish if the sync keeps failing.
         if (!isServerItem) {
-            loadEpisodeRatingsAsync(enriched)
+            // [fork] round 65 series_graph: episode ratings load when the graph opens, not during the details opening
+            if (!com.nuvio.tv.NuvioCFeatures.SERIES_GRAPH) loadEpisodeRatingsAsync(enriched) else nuvioCGraphMeta = enriched
             viewModelScope.launch { loadMDBListRatings(enriched) }
         }
 
@@ -1536,7 +1539,27 @@ class MetaDetailsViewModel @Inject constructor(
         }
     }
 
-    private fun loadEpisodeRatingsAsync(meta: Meta) {
+    // ---- [fork] round 65 SERIES_GRAPH ----
+    @Volatile private var nuvioCGraphMeta: Meta? = null
+    private var nuvioCGraphLoadedFor: String? = null
+
+    /** The graph opened: load this show's episode ratings once (cached by the repository), without the opening gate. */
+    fun nuvioCLoadGraphRatings() {
+        val meta = nuvioCGraphMeta ?: _uiState.value.meta ?: return
+        if (nuvioCGraphLoadedFor == meta.id) return
+        nuvioCGraphLoadedFor = meta.id
+        loadEpisodeRatingsAsync(meta, nuvioCNoGate = true)
+    }
+
+    /** Your own episode ratings for this show (Trakt, and those sent from this TV), per profile. Empty = Mine hidden. */
+    suspend fun nuvioCMyEpisodeScores(): Map<Pair<Int, Int>, Int> {
+        val meta = nuvioCGraphMeta ?: _uiState.value.meta ?: return emptyMap()
+        val imdbId = extractImdbId(meta.id) ?: extractImdbId(itemId) ?: meta.imdbId
+        val tmdbId = runCatching { tmdbService.ensureTmdbId(meta.id, resolveTmdbContentType(meta).toApiString(), fallbackImdbId = meta.imdbId)?.toIntOrNull() }.getOrNull()
+        return nuvioCRatingService.episodeScores(imdbId, tmdbId)
+    }
+
+    private fun loadEpisodeRatingsAsync(meta: Meta, nuvioCNoGate: Boolean = false) {
         episodeRatingsJob?.cancel()
 
         val isSeries = meta.type == ContentType.SERIES || meta.type == ContentType.TV || meta.apiType in listOf("series", "tv")
@@ -1562,7 +1585,7 @@ class MetaDetailsViewModel @Inject constructor(
                     episodeRatingsError = null
                 )
             }
-            nuvioCDeferGate(4) // [fork] round 61; round 63: fifth
+            if (!nuvioCNoGate) nuvioCDeferGate(4) // [fork] round 61; round 63: fifth; round 65: not when the graph asks
 
             // Ratings the addon supplied on meta.videos[].rating. The repository below
             // still wins wherever it has an entry.

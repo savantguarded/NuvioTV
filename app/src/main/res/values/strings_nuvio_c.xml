@@ -405,4 +405,22 @@
     <!-- [fork] round 48 -->
     <string name="nuvio_c_next_label">Next · S%1$d E%2$d</string>
     <string name="nuvio_c_finding_streams">Finding streams</string>
+    <!-- [fork] round 65 series graph -->
+    <string name="nuvio_c_graph_button">Ratings graph</string>
+    <string name="nuvio_c_graph_summary">Episode ratings · %1$d seasons · %2$d episodes · series average %3$s</string>
+    <string name="nuvio_c_graph_mine">Mine</string>
+    <string name="nuvio_c_graph_loading">Loading ratings…</string>
+    <string name="nuvio_c_graph_window">Seasons %1$d–%2$d of %3$d · Episodes %4$d–%5$d of %6$d · Left / Right and Up / Down past the edge scroll</string>
+    <string name="nuvio_c_graph_aired">Aired %1$s</string>
+    <string name="nuvio_c_graph_ok_opens">OK opens this episode · Back returns to the details page</string>
+    <string name="nuvio_c_graph_best">Best: %1$s</string>
+    <string name="nuvio_c_graph_lowest">Lowest: %1$s</string>
+    <string name="nuvio_c_graph_marks">● watched · dashed = up next</string>
+    <string name="nuvio_c_graph_averages">SEASON AVERAGES</string>
+    <string name="nuvio_c_graph_averages_all">SEASON AVERAGES · ALL %1$d · BRIGHT = ON SCREEN</string>
+    <string name="nuvio_c_graph_on_par">level with its season</string>
+    <string name="nuvio_c_graph_above">%1$s above its season</string>
+    <string name="nuvio_c_graph_below">%1$s below its season</string>
+    <string name="nuvio_c_graph_best_of">Best of season %1$d</string>
+    <string name="nuvio_c_graph_lowest_of">Lowest of season %1$d</string>
 </resources>

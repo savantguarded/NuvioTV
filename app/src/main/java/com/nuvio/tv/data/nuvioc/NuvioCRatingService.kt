@@ -94,6 +94,10 @@ internal interface NuvioCTraktRatingsApi {
 
     @GET("sync/ratings/shows")
     suspend fun showRatings(@Header("Authorization") authorization: String): Response<ResponseBody>
+
+    /** [fork] round 65 series_graph: your episode ratings (Mine). */
+    @GET("sync/ratings/episodes")
+    suspend fun episodeRatings(@Header("Authorization") authorization: String): Response<ResponseBody>
 }
 
 @Singleton
@@ -257,6 +261,39 @@ class NuvioCRatingService @Inject constructor(
         target.keys().forEach { if (score == null) r.scores.remove(it) else r.scores[it] = score }
     }
 
+    // ---- [fork] round 65 series_graph: Mine ----
+    private class EpisodeScores(val profile: Int, val at: Long, val scores: Map<String, Int>)
+    @Volatile private var episodeScoreCache: EpisodeScores? = null
+
+    /**
+     * Your own ratings of this show's episodes, per profile: Trakt's (refreshed at most every 15 min) with the
+     * scores sent from this TV (Trakt / MDBList) on top. Empty when there are none (the graph hides Mine then).
+     */
+    suspend fun episodeScores(imdbId: String?, tmdbId: Int?): Map<Pair<Int, Int>, Int> = runCatching {
+        val show = NuvioCRatingTarget(isShow = true, imdbId = imdbId, tmdbId = tmdbId)
+        val prefixes = show.keys()
+        if (prefixes.isEmpty()) return emptyMap()
+        val out = HashMap<Pair<Int, Int>, Int>()
+        fun take(key: String, score: Int) {
+            val m = NUVIO_C_EPISODE_KEY_PARTS.find(key) ?: return
+            if (m.groupValues[1] !in prefixes) return
+            val s = m.groupValues[2].toIntOrNull() ?: return
+            val e = m.groupValues[3].toIntOrNull() ?: return
+            if (score in 1..10) out[s to e] = score
+        }
+        if (NuvioCTracker.TRAKT in connected()) {
+            val profile = profiles.activeProfileId.value
+            val now = System.currentTimeMillis()
+            val cached = episodeScoreCache?.takeIf { it.profile == profile && now - it.at < CHECK_EVERY_MS }
+                ?: fetchBody { traktApi.episodeRatings(it) }?.let { EpisodeScores(profile, now, parseTraktEpisodeRatings(it)) }
+                    ?.also { episodeScoreCache = it }
+            cached?.scores?.forEach { (k, v) -> take(k, v) }
+        }
+        val prefix = profileKey("")
+        prefs.all.forEach { (k, v) -> if (k.startsWith(prefix)) (v as? Int)?.let { take(k.removePrefix(prefix), it) } }
+        out
+    }.getOrDefault(emptyMap())
+
     /** [fork] round 28 post_play_rating: asked once after finishing this title already (per profile). */
     fun askedAfterFinish(target: NuvioCRatingTarget): Boolean = prefs.getBoolean(profileKey("asked:" + target.key), false)
 
@@ -375,6 +412,27 @@ class NuvioCRatingService @Inject constructor(
             return out
         }
 
+        /** [fork] round 65: Trakt `sync/ratings/episodes` answer -> "show:tt…:s1e2" (and tmdb key) -> score. */
+        fun parseTraktEpisodeRatings(body: String): Map<String, Int> {
+            val out = HashMap<String, Int>()
+            Json.parseToJsonElement(body).jsonArray.forEach { el ->
+                val item = el as? JsonObject ?: return@forEach
+                val rating = item["rating"]?.jsonPrimitive?.intOrNull?.takeIf { it in 1..10 } ?: return@forEach
+                val ep = item["episode"]?.jsonObject ?: return@forEach
+                val season = ep["season"]?.jsonPrimitive?.intOrNull ?: return@forEach
+                val number = ep["number"]?.jsonPrimitive?.intOrNull ?: return@forEach
+                val ids = item["show"]?.jsonObject?.get("ids")?.jsonObject ?: return@forEach
+                NuvioCRatingTarget(
+                    isShow = true,
+                    imdbId = ids["imdb"]?.jsonPrimitive?.contentOrNull?.takeIf { it.startsWith("tt") },
+                    tmdbId = ids["tmdb"]?.jsonPrimitive?.intOrNull,
+                    season = season,
+                    episode = number
+                ).keys().forEach { out[it] = rating }
+            }
+            return out
+        }
+
         /** [fork] round 40: Trakt ratings answer -> first key per title -> rated_at (epoch ms). */
         fun parseTraktRatedAt(body: String): Map<String, Long> {
             val out = HashMap<String, Long>()
@@ -452,3 +510,6 @@ class NuvioCRatingService @Inject constructor(
 
 /** [fork] beta.3 merge: suffix of an episode rating key (see [NuvioCRatingTarget.key]). */
 private val NUVIO_C_EPISODE_KEY = Regex(":s\\d+e\\d+$")
+
+/** [fork] round 65: "show:tt123:s1e2" -> ("show:tt123", 1, 2). */
+private val NUVIO_C_EPISODE_KEY_PARTS = Regex("^(show:[^:]+):s(\\d+)e(\\d+)$")
