@@ -42,6 +42,7 @@
     <string name="nuvio_c_update_installing">After you confirm, Nuvio C closes while Android installs and optimises the update (about a minute), then opens again.</string>
     <!-- round 27 -->
     <string name="nuvio_c_random_pick">Random pick</string>
+    <string name="nuvio_c_reel_your_pick">YOUR PICK</string>
     <string name="nuvio_c_random_pick_again">Pick again</string>
     <string name="nuvio_c_random_open">Open</string>
     <!-- round 28: rating after a finished movie -->

@@ -59,9 +59,18 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.pow
 
-/** One spin of the reel: [strip] posters left to right, landing on [landIndex]. A new [token] starts a new spin. */
+/**
+ * One spin of the reel: [strip] posters left to right, landing on [landIndex]. A new [token] starts a new spin.
+ * [fork] round 65: [pending] = the pick isn't known yet, [strip] loops; [continues] = the landing of a pending spin.
+ */
 @Immutable
-data class NuvioCReelSpin(val token: Int, val strip: List<String?>, val landIndex: Int)
+data class NuvioCReelSpin(
+    val token: Int,
+    val strip: List<String?>,
+    val landIndex: Int,
+    val pending: Boolean = false,
+    val continues: Boolean = false
+)
 
 private const val REEL_FILLERS = 12
 
@@ -112,6 +121,10 @@ internal fun NuvioCPosterReel(
     durationMs: Int = 1800,
     onLanded: (Int) -> Unit
 ) {
+    if (com.nuvio.tv.NuvioCFeatures.ROULETTE_SPIN_V65) { // [fork] round 65
+        NuvioCPosterReelV65(spin, cardWidth, cardHeight, edgeColor, modifier, gap, edgeFade, durationMs, onLanded)
+        return
+    }
     val context = LocalContext.current
     val density = LocalDensity.current
     val wPx = with(density) { cardWidth.roundToPx() }

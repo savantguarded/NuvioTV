@@ -1062,4 +1062,6 @@ object NuvioCFeatures {
     const val FEATURED_YOU_RATED = true
     /** Every ratings line (Home hero, Featured, Roulette, OSD About, loading screen, post-play, IMDb-only lines) uses the details hero's round 62 look: 16 dp square marks, IMDb 26 x 13 dp, even-width digits, TMDB whole, 16 dp gaps. The 2.5 s empty-space hold stays on the details page only. Off = old sizes outside details. */
     const val RATINGS_LINE_EVERYWHERE = true
+    /** Roulette and Library Random pick reel: starts moving at once at a constant speed over posters already in memory, then eases out onto the pick (no still poster); spinning posters blurred (tiny decode drawn large) and dimmed, a pulsing "?" in the frame; on landing the pick sharpens with "YOUR PICK". Off = round 28 reel. */
+    const val ROULETTE_SPIN_V65 = true
 }

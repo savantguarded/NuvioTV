@@ -251,6 +251,14 @@ class NuvioCShuffleViewModel @Inject constructor(
         setMood(next, reroll = true)
     }
 
+    /** [fork] round 65: posters of the last spin, reused to start the next one at once. */
+    private var nuvioCLastStrip: List<String> = emptyList()
+
+    /** [fork] round 65: posters already in memory for a pending spin: the one on screen, the last strip, the fans. */
+    private fun nuvioCFillers(state: NuvioCShuffleUi, from: String?): List<String?> =
+        (listOf(from) + nuvioCLastStrip + state.fans[state.kind].orEmpty() + state.fans.values.flatten())
+            .filter { !it.isNullOrBlank() }.distinct().take(16)
+
     /** Rolls with the current choices. The reel shows the poster on screen now and then lands on the pick. */
     fun roll() {
         rollJob?.cancel()
@@ -264,7 +272,9 @@ class NuvioCShuffleViewModel @Inject constructor(
                 landed = false,
                 nothingLeft = false,
                 empty = null,
-                spin = NuvioCReelSpin(-myToken, listOf(from), 0), // still frame while the pick is found
+                // [fork] round 65 ROULETTE_SPIN_V65: the reel moves at once over posters already in memory
+                spin = if (com.nuvio.tv.NuvioCFeatures.ROULETTE_SPIN_V65) com.nuvio.tv.ui.components.nuvioCReelPending(myToken, nuvioCFillers(state, from))
+                else NuvioCReelSpin(-myToken, listOf(from), 0), // still frame while the pick is found
                 changed = false,
                 spins = it.spins + 1, // [fork] round 36 roulette_copy
                 poolSize = null
@@ -281,8 +291,11 @@ class NuvioCShuffleViewModel @Inject constructor(
                     val pick = outcome.pick
                     pick.item.background?.let { context.imageLoader.enqueue(shuffleBackdropRequest(context, it)) }
                     val strip = pool.posters(state.kind, 16)
+                    if (com.nuvio.tv.NuvioCFeatures.ROULETTE_SPIN_V65) nuvioCLastStrip = strip
                     _ui.update {
-                        it.copy(pick = pick, spin = nuvioCReelSpin(myToken, pick.item.poster, strip, from))
+                        if (token != myToken) it
+                        else if (com.nuvio.tv.NuvioCFeatures.ROULETTE_SPIN_V65) it.copy(pick = pick, spin = com.nuvio.tv.ui.components.nuvioCReelLanding(myToken, pick.item.poster, strip))
+                        else it.copy(pick = pick, spin = nuvioCReelSpin(myToken, pick.item.poster, strip, from))
                     }
                     loadRatings(pick) // [fork] round 35
                 }
