@@ -1072,4 +1072,6 @@ object NuvioCFeatures {
     const val SERIES_GRAPH = true
     /** Taste: every Overview / Stats / Wrapped card with data takes focus (8% lighter fill, 2 dp accent edge, "Open ›", no zoom) and opens its page: breakdown + titles, timeline, or ranked list, built from data on the TV, following the page's Month / Year / All time (Wrapped: its year); Firsts / Highlights lines open their target; Back lands on the card. Strictly per profile. Off = cards not focusable. */
     const val TASTE_CARDS_OPEN = true
+    /** Featured carousel: the whole 16:9 backdrop (no crop), ~78% of the screen width at the top right, fading into the page on its left and bottom; text over the solid left; decoded at that size. Off = full-screen cropped backdrop. */
+    const val FEATURED_BACKDROP_WHOLE = true
 }

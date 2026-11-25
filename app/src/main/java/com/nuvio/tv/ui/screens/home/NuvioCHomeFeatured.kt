@@ -802,6 +802,27 @@ private fun NuvioCFeaturedSlide(
     }
 
     Box(Modifier.fillMaxSize()) {
+        // [fork] round 65 featured_backdrop_whole: the whole 16:9 picture, no crop, ~78% of the width at the top right,
+        // fading into the page on its left (~300 dp) and bottom; the text sits on the solid left. Decoded at that size.
+        if (com.nuvio.tv.NuvioCFeatures.FEATURED_BACKDROP_WHOLE) androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().background(bg)) {
+            val picW = maxWidth * 0.78f
+            val picH = picW * 9f / 16f
+            val pw = with(density) { picW.roundToPx() }.coerceAtLeast(1)
+            val ph = with(density) { picH.roundToPx() }.coerceAtLeast(1)
+            Box(Modifier.align(Alignment.TopEnd).width(picW).height(picH)) {
+                Crossfade(targetState = index, animationSpec = tween(420), label = "nuvioCFeaturedBackdrop65") { i ->
+                    val slide = items.getOrNull(i) ?: return@Crossfade
+                    val model = remember(slide.backdropUrl, pw, ph) { backdropRequest(context, slide.backdropUrl, pw, ph) }
+                    AsyncImage(model = model, contentDescription = null, contentScale = ContentScale.Crop, alignment = Alignment.Center, modifier = Modifier.fillMaxSize())
+                }
+                Box(Modifier.fillMaxSize().drawWithCache {
+                    val fadeW = 300.dp.toPx().coerceAtMost(size.width)
+                    val left = Brush.horizontalGradient(0f to bg, 1f to bg.copy(alpha = 0f), startX = 0f, endX = fadeW)
+                    val bottom = Brush.verticalGradient(0.62f to bg.copy(alpha = 0f), 1f to bg, startY = 0f, endY = size.height)
+                    onDrawBehind { drawRect(left, size = androidx.compose.ui.geometry.Size(fadeW, size.height)); drawRect(bottom) }
+                })
+            }
+        } else
         // Backdrop: the full-screen picture, cut where the peek strip starts (the box ends there).
         Crossfade(targetState = index, animationSpec = tween(420), label = "nuvioCFeaturedBackdrop") { i ->
             val slide = items.getOrNull(i) ?: return@Crossfade
@@ -819,7 +840,8 @@ private fun NuvioCFeaturedSlide(
             Modifier
                 .fillMaxSize()
                 .drawWithCache {
-                    val left = Brush.horizontalGradient(
+                    val nuvioCWhole = com.nuvio.tv.NuvioCFeatures.FEATURED_BACKDROP_WHOLE // [fork] round 65: the picture fades itself; only a light wash for the text
+                    val left = if (nuvioCWhole) Brush.horizontalGradient(0f to bg.copy(alpha = 0.6f), 0.35f to bg.copy(alpha = 0.2f), 0.5f to Color.Transparent, endX = size.width) else Brush.horizontalGradient(
                         0f to bg.copy(alpha = 0.92f),
                         0.30f to bg.copy(alpha = 0.72f),
                         0.55f to bg.copy(alpha = 0.25f),
