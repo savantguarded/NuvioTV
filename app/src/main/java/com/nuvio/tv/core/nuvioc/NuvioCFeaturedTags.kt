@@ -184,5 +184,8 @@ internal object NuvioCFeaturedTagRules {
 
 
 /** [fork] round 53 featured_rating_plain: "YOUR RATING 8/10" (no star, which sat off the text line). */
-internal fun nuvioCYourRating(r: Any): String =
-    if (com.nuvio.tv.NuvioCFeatures.FEATURED_RATING_PLAIN) "YOUR RATING $r/10" else "YOUR RATING ★ $r"
+internal fun nuvioCYourRating(r: Any): String = when {
+    com.nuvio.tv.NuvioCFeatures.FEATURED_YOU_RATED -> "YOU RATED THIS $r/10" // [fork] round 65
+    com.nuvio.tv.NuvioCFeatures.FEATURED_RATING_PLAIN -> "YOUR RATING $r/10"
+    else -> "YOUR RATING ★ $r"
+}

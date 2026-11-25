@@ -1056,4 +1056,8 @@ object NuvioCFeatures {
     const val CALENDAR_NO_ZONE_LINE = true
     /** Calendar side panel: picture and logo are chosen once per focused row (waits up to 300 ms for its details), never swapped when details arrive; the previous row's picture stays until the next has decoded. Off = picture / name switch as details arrive. */
     const val CALENDAR_PANEL_STEADY = true
+    /** Cast page filmography: no counts inside the Movies / Series tabs (the header count stays). Off = "Movies 42". */
+    const val FILMOGRAPHY_TABS_NO_COUNT = true
+    /** Featured carousel tag: "YOU RATED THIS 5/10" (was "YOUR RATING 5/10"). Off = old wording. */
+    const val FEATURED_YOU_RATED = true
 }
