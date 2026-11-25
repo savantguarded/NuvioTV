@@ -1,34 +1,40 @@
 # Nuvio C
 
-A personal build of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Android TV. It follows every official release, betas included, and adds small refinements to playback, Home and browsing. Sync, integrations and login work as in the official app, and Nuvio C installs alongside it.
+Nuvio C is a personal fork of [Nuvio TV](https://github.com/NuvioMedia/NuvioTV) for Android TV. It tracks every official release, betas included, and layers a set of user-experience features on top of it. Accounts, Nuvio Sync, add-ons and integrations behave exactly as in the official app, and Nuvio C installs side by side with it (`com.nuvio.tv.c`).
 
-**Download:** [latest release](https://github.com/savantguarded/NuvioTV/releases/latest) (armeabi-v7a Android TV)
+**Download:** [latest release](https://github.com/savantguarded/NuvioTV/releases/latest) (Android TV, armeabi-v7a)
 
-## What it adds
+## Features
 
-**Playback**
-- Two control layouts in Settings > Playback: Default and Modern. Modern is compact: Subtitles and Audio pills on the left, Play in the centre, icons in one rounded pill on the right, the rest under More. The chapter name sits above the elapsed time.
-- Press Left or Right twice on the seek bar to jump chapters; Start over then Previous episode.
-- Subtitles lift clear of the controls; subtitles and controls dim during HDR and Dolby Vision.
-- Subtitles and Audio open as one card on the left with tabs (Tracks / Style / Language, Tracks / Sound).
-- Subtitle styling (fonts, background, outline width, shadow), night mode for passthrough setups, a stream information panel, cleaner track names, a pause screen with titles only.
-- Choose which formats go to the soundbar; switched-off formats (e.g. DTS) are decoded on the TV with clearer dialogue and multichannel output. A small chip shows when the connection drops.
+**Player**
+- Two control layouts: Default and Modern (compact pills, centred transport, icon group, More sheet).
+- Title logo, release quality badges and per-chapter seeking in the on-screen controls; cast, crew and synopsis side panel.
+- Subtitle engine refinements: lift above the controls, font and style options, SDH handling, HDR and Dolby Vision dimming.
+- Per-format audio passthrough with on-device multichannel decoding for formats the receiver does not support, plus a scheduled night mode.
+- Stream information panel and a redesigned loading and pause screen.
 
-**Home**
-- Featured carousel: Play, Details icon and separate Previous / Next arrows, with one context tag (airs today, new on digital, in cinemas, up next, your rating, collection progress...). A crossfade into Continue Watching. Soft glow on focused posters.
-- A profile screen background made from what is trending today, different for each profile.
-- Upcoming row fed by the Calendar, slim sidebar, a smooth start-up, and a start-up queue that keeps background work off the first seconds.
+**Details**
+- Redesigned hero with title logo, facts, ratings from MDBList, IMDb and TMDB, and a quality line built from real releases (resolution, source, HDR, audio and editions).
+- Series ratings graph: every episode rating in a season-by-episode grid with season averages.
+- Multi-tracker ratings (Trakt, Simkl, MDBList), background trailers with an IMDb fallback, and a full filmography on cast pages.
 
-**Calendar, details, taste**
-- List and Month views, library and TMDB "coming soon" sources, bell on any title, exact air times from TheTVDB (with your key) and Trakt, usual-hour estimates for Hulu, Peacock and Paramount+, no old-film re-releases.
-- Half-star ratings to Trakt, Simkl and MDBList, richer details pages, trailers, Roulette and Shuffle, and a per-profile Taste page in four tabs (Overview, Charts, Discover, Wrapped).
+**Home and browsing**
+- Featured layout: a full-screen carousel with contextual tags.
+- Calendar with list and month views, release reminders and an Upcoming row on Home.
+- Roulette for picking something to watch from a large film and series pool, with filters.
+- Taste: per-profile viewing statistics, discovery and a yearly Wrapped, each card opening a detailed view.
+- Library list picker, Watched tab and random pick for every source, including Nuvio Sync.
+
+**Profiles**
+- Profile screen with a per-profile background from trending titles or chosen catalogs.
+- Fork settings stored per profile and synced through the Nuvio account.
 
 ## Switches and builds
 
-Every change sits behind a switch in [`NuvioCFeatures.kt`](app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt); off means official behaviour. To turn some off without editing code, set the repository variable `NUVIO_C_OFF` to a comma-separated list of lower-case switch names, then run **Actions > Nuvio C build** with *force* ticked.
+Every change sits behind a switch in [`NuvioCFeatures.kt`](app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt); off restores official behaviour. Switches can also be turned off without code changes by setting the repository variable `NUVIO_C_OFF` to a comma-separated list of lower-case switch names and running **Actions > Nuvio C build** with *force* ticked.
 
-A workflow checks for new official releases hourly, rebuilds each with the Nuvio C changes and publishes it. A conflict is reported once per release, not hourly.
+A scheduled workflow picks up new official releases, applies the Nuvio C changes and publishes the build.
 
 ## Credits and licence
 
-Built on Nuvio TV by the Nuvio team, with ideas adapted from [ysosrs123/NuvioTV-Fork](https://github.com/ysosrs123/NuvioTV-Fork) and [TitansparkDev/NuvioTV](https://github.com/TitansparkDev/NuvioTV). [GNU GPL v3.0](./LICENSE).
+Built on Nuvio TV by the Nuvio team, with ideas adapted from [ysosrs123/NuvioTV-Fork](https://github.com/ysosrs123/NuvioTV-Fork) and [TitansparkDev/NuvioTV](https://github.com/TitansparkDev/NuvioTV). Licensed under the [GNU GPL v3.0](./LICENSE).
