@@ -118,6 +118,7 @@ Official gives the local (Nuvio Sync) source no list tabs. `LibraryViewModel` sw
 CI does not run unit tests. Run them locally before pushing.
 
 Manual build: `gh workflow run nuvio-c.yml -R savantguarded/NuvioTV --ref nuvio-c -f force=true`
+Pinned base (round 65, while the beta.4 merge waits): add `-f release=1.2.0-beta.3`; scheduled runs still take the highest version and stop on its conflicts (issue #58).
 
 **Local compile in a Claude session (about 7 GB RAM)**
 - SDK into `/home/claude/android-sdk` (`platforms;android-36`, `build-tools;36.0.0`, `platform-tools`), `local.properties`: `sdk.dir=...`. Dummy `TRAKT_CLIENT_ID` / `TRAKT_CLIENT_SECRET` needed for Trakt tests. Keys list: `local.example.properties`.

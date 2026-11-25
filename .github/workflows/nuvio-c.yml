@@ -31,6 +31,10 @@ on:
         description: "Feature switches to turn off for this build only, comma list (e.g. osd_badges,subtitle_lift). Blank = repo variable NUVIO_C_OFF"
         type: string
         default: ""
+      release:
+        description: "Official release to build on, e.g. 1.2.0-beta.3 (blank = the highest official version)"
+        type: string
+        default: ""
 
 permissions:
   contents: write
@@ -112,6 +116,10 @@ jobs:
           # Newest published official release, pre-releases included (drafts never are public)
           # [fork] 2026-11-21 `ci_highest_version`: the HIGHEST version wins, not the newest date, so a hotfix on an
           # older line (1.1.1 published after 1.2.0-beta.3) never moves Nuvio C back. 1.2.0-beta.3 < 1.2.0 < 1.2.1.
+          # [fork] round 65 `ci_pinned_release`: a manual run can name the official release to build on (the owner held
+          # back the beta.4 merge for round 65); blank keeps the highest version.
+          release="${{ inputs.release }}"
+          if [ -z "$release" ]; then
           release="$(gh api "repos/${UPSTREAM_SLUG}/releases?per_page=30" \
             --jq '.[] | select(.draft | not) | .tag_name' | python3 -c '
           import re, sys
@@ -123,6 +131,7 @@ jobs:
           tags = [(key(t), t) for t in sys.stdin.read().split() if key(t)]
           print(max(tags)[1] if tags else "")
           ')"
+          fi
           if [ -z "$release" ]; then
             echo "::error::Could not read the official release list."
             exit 1
