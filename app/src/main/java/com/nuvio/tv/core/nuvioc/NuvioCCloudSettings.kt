@@ -308,10 +308,10 @@ class NuvioCCloudSettings @Inject constructor(
         private val ENTRY = stringPreferencesKey("nuvio_c_settings")
         private const val MIGRATED = "per_profile_migrated" // [fork] round 56
 
-        /** [fork] round 65: Roulette catalogs: "auto" (Automatic) or "set:" + keys joined by "|". Pure, for tests. */
-        fun encodeRouletteCatalogs(keys: Set<String>?): String = if (keys == null) "auto" else "set:" + keys.sorted().joinToString("|")
+        /** [fork] round 65: Roulette catalogs: "auto" (Automatic) or "set:" + keys one per line (keys hold "|"). Pure, for tests. */
+        fun encodeRouletteCatalogs(keys: Set<String>?): String = if (keys == null) "auto" else "set:" + keys.sorted().joinToString("\n")
         fun decodeRouletteCatalogs(raw: String): Set<String>? = when {
-            raw.startsWith("set:") -> raw.removePrefix("set:").split('|').filter { it.isNotBlank() }.toSet()
+            raw.startsWith("set:") -> raw.removePrefix("set:").split('\n').filter { it.isNotBlank() }.toSet()
             else -> null
         }
 

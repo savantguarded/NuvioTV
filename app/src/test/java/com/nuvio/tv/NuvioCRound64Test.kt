@@ -55,8 +55,10 @@ class NuvioCRound64Test {
             s("Some.Film.2010.IMAX.Enhanced.2160p.WEB-DL.DDP5.1"),
             s("Some.Film.2010.Open.Matte.1080p.WEB-DL")
         )
-        assertEquals(listOf(QualityEdition.EXTENDED, QualityEdition.DIRECTORS_CUT), TitleQualityParser.editions(streams, "Some Film", 2010))
-        assertEquals(listOf(QualityEdition.IMAX, QualityEdition.OPEN_MATTE), TitleQualityParser.editions(streams.drop(3), "Some Film", 2010))
+        // round 65: an edition needs two releases (10+ seeders between them), so each release is listed twice here
+        val twice = streams.flatMap { listOf(it, QualityStreamText(it.name, it.title!!.replace("\n", " x265\n"), null)) }
+        assertEquals(listOf(QualityEdition.EXTENDED, QualityEdition.DIRECTORS_CUT), TitleQualityParser.editions(twice, "Some Film", 2010))
+        assertEquals(listOf(QualityEdition.IMAX, QualityEdition.OPEN_MATTE), TitleQualityParser.editions(twice.drop(6), "Some Film", 2010))
         assertEquals(setOf(QualityEdition.DIRECTORS_CUT), TitleQualityParser.editionsOf(s("Some.Film.2010.Director's.Cut.1080p"), "Some Film", 2010))
         assertEquals(setOf(QualityEdition.BLACK_AND_WHITE), TitleQualityParser.editionsOf(s("Some Film 2010 B&W 1080p"), "Some Film", 2010))
         assertEquals(setOf(QualityEdition.SPECIAL_EDITION), TitleQualityParser.editionsOf(s("Some.Film.2010.Special.Edition.1080p"), "Some Film", 2010))
@@ -80,8 +82,8 @@ class NuvioCRound64Test {
         assertTrue(QualityEdition.REDUX in all)
         assertTrue(QualityEdition.FINAL_CUT in all)
         assertTrue(QualityEdition.CRITERION !in all) // only named by a pack of another film
-        // Extended releases exist in this answer, so Extended leads by priority
-        assertEquals(QualityEdition.EXTENDED, TitleQualityParser.editions(fixture("apocalypse_now"), "Apocalypse Now", 1979).first())
+        // round 65: ordered by seeders across releases; Redux has the most here
+        assertEquals(QualityEdition.REDUX, TitleQualityParser.editions(fixture("apocalypse_now"), "Apocalypse Now", 1979).first())
         assertEquals(2, TitleQualityParser.editions(fixture("apocalypse_now"), "Apocalypse Now", 1979).size)
         // the live answer still gives one usable release, and the early read agrees with the full read
         val full = TitleQualityParser.best(fixture("apocalypse_now"), 1979)
