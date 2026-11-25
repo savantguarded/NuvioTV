@@ -2,11 +2,12 @@
 
 Rewrite this file at the end of every build session (do not append). History lives in git log.
 
-Updated: 2026-11-25 (round 65)
+Updated: 2026-11-25 (round 65b)
 
 ## Where things stand
 - Branch `nuvio-c` = round 65 on official `1.2.0-beta.3`, plus beta.4's trailer "audio without video" fix alone. The beta.4 merge (Usenet, Simkl rewatch runs, BDAV, subtitle auto-sync, stream ranking) was held back by the owner for a later build; plan item 1 in the project doc claude/round65-build-plan.md still applies.
 - Round 65 (plan items 2.1 to 2.15, all built, owner chose not to install over adb this time): README, Calendar zone line + steady side panel, filmography tab counts, YOU RATED THIS, ratings line everywhere, Roulette / Library reel spin, editions by seeders, series ratings graph (Ratings row gone; slimmer hero row and Play / Open pills app-wide: Featured, Roulette result, Library Random pick), Taste card pages, Featured and profile backdrops whole, profile background per profile + sync, Roulette settings sync, steady stream info, synopsis logo, lists menu Save jump.
+- Round 65b: profile screen background reworked after TV check (full height, small side crop, left fade only; no top / bottom fades or vignette). Compiled; owner installs and checks.
 - Tests: `NuvioC*` and `Calendar*` pass (588; `CalendarRefresherTest.aShowGoneFromASourceReadInFullLeavesTheCalendar` flaky again, passed on rerun). New: `NuvioCRound65Test` (graph model / window, stats rows, Roulette catalogs sync, reel window, Taste pages), `NuvioCRound65EditionsTest` (fixture `mcu_fan_edits`); `NuvioCRound64Test` editions updated to the round 65 rules (Apocalypse Now now leads with Redux).
 - Local builds: Maven Central answers 429 for minutes at a time; the compile / test scripts retry every 2 to 3 minutes.
 

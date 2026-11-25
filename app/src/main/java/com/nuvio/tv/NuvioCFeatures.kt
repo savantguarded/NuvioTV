@@ -1074,7 +1074,7 @@ object NuvioCFeatures {
     const val TASTE_CARDS_OPEN = true
     /** Featured carousel: the whole 16:9 backdrop (no crop), ~78% of the screen width at the top right, fading into the page on its left and bottom; text over the solid left; decoded at that size. Off = full-screen cropped backdrop. */
     const val FEATURED_BACKDROP_WHOLE = true
-    /** Profile screen background: the whole picture (no crop) at ~85% width (820 x 461 dp), right-aligned and centred, 28 dp fades top / bottom, light vignetting, a soft wash only under the profile column. Off = full-screen crop with the left-third wash. */
+    /** Profile screen background: the picture at ~85% width, full height, right-aligned (small side crop), blending into the page only on its left (long eased fade); no top / bottom fades or vignette (round 65b). Off = full-screen crop with the left-third wash. */
     const val PROFILE_BG_WHOLE = true
     /** Profile background "from catalogs" and the chosen catalogs are per profile (each profile's own picture pool); the TV-wide values are copied to every profile once. Off = one setting for the TV. */
     const val PROFILE_BG_PER_PROFILE = true

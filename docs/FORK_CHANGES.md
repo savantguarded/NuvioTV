@@ -96,7 +96,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Profile screen: no "Who's watching", centred block, greeting, check badge, built-in TMDB background (optionally from catalogs).
 - Start-up: no Nuvio logo on a cold start to profiles (the start-up logo is held back while the profile screen is still ahead); the profile list saved on the last run draws the profile screen from the first frame (`STARTUP_PROFILES_FIRST`, `data/local/ProfileDataStore.kt` mirror, `core/profile/ProfileManager.kt`); still logo only on the Home path, waits for profiles, sync and Home to settle, background job queue.
 - Files: `ui/components/SidebarNavigation.kt`, `NuvioCSidebarSettle.kt`, `ui/screens/profile/NuvioCProfile*.kt`, `ProfileSelectionScreen.kt`, `ui/components/NuvioCProfileBg.kt`, `NuvioCOpening.kt`, `core/nuvioc/NuvioCStartup*.kt`, `MainActivity.kt`.
-- Round 65: `PROFILE_BG_WHOLE` (whole picture ~85% wide, right, 28 dp fades, vignette, wash only under the column), `PROFILE_BG_PER_PROFILE` (from catalogs / catalogs per profile, own pool file).
+- Round 65: `PROFILE_BG_WHOLE` (picture ~85% wide, full height, right; left fade only, 65b), `PROFILE_BG_PER_PROFILE` (from catalogs / catalogs per profile, own pool file).
 
 ## Library
 - Watched tab, Random pick, list picker with your source first, poster fallback, Back keeps focus.
