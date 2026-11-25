@@ -91,7 +91,11 @@ data class NuvioCTasteYear(
     val peakPart: Int? = null,
     val busiestMonth: Int? = null,
     val rated: Int = 0,
-    val avgRating: Double? = null
+    val avgRating: Double? = null,
+    /** [fork] round 65 taste_cards_open: what the Firsts / Highlights lines open (id, type) and the top face's TMDB id */
+    val firstRef: Pair<String, String>? = null,
+    val lastRef: Pair<String, String>? = null,
+    val topFaceId: Int? = null
 )
 
 private fun usable53(w: WatchedItem) = w.contentId.startsWith("tt") || w.contentId.startsWith("tmdb:")
@@ -327,6 +331,9 @@ internal fun computeTasteYear(
         topFilms = topFilms,
         byMonth = byMonth.toList(),
         firstTitle = name53(first, titles) to at(first).toLocalDate(),
+        firstRef = id53(first) to (if (isShow53(first)) "series" else "movie"), // [fork] round 65
+        lastRef = id53(last) to (if (isShow53(last)) "series" else "movie"),
+        topFaceId = face?.let { f -> keys.firstNotNullOfOrNull { k -> titles[k]?.cast?.firstOrNull { it.name == f.first }?.id } },
         lastTitle = name53(last, titles) to at(last).toLocalDate(),
         newShows = newShows,
         newDirectors = newDirectors,

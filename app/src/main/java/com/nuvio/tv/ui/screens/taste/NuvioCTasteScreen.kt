@@ -96,10 +96,40 @@ class NuvioCTasteViewModel @Inject constructor(
     var tasteScopeKey by mutableStateOf(nuvioCDefaultScope())
     /** [fork] round 58: Taste opens on this month (Month first, All time last). */
     fun nuvioCDefaultScope(): String = if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) "m:" + java.time.YearMonth.now() else "all"
-    fun nuvioCOpenFresh() { NuvioCTasteReturn.key = null; if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) { tasteScopeKey = nuvioCDefaultScope(); discoverFocusKey = null } } // [fork] round 63: a fresh entry forgets the return row
+    fun nuvioCOpenFresh() { NuvioCTasteReturn.key = null; closeTasteCard(); if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) { tasteScopeKey = nuvioCDefaultScope(); discoverFocusKey = null } } // [fork] round 63: a fresh entry forgets the return row
     private val _scope = MutableStateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteScopeData?>(null)
     val scope: StateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteScopeData?> = _scope.asStateFlow()
     private var scopeJob: kotlinx.coroutines.Job? = null
+
+    // ---- [fork] round 65 TASTE_CARDS_OPEN: the page a card opens (kept across a title opened from it) ----
+    data class NuvioCCardOpen(val card: com.nuvio.tv.data.nuvioc.NuvioCTasteCard, val hint: String?, val crumb: String, val scopeLabel: String, val returnKey: String)
+    var openCard by mutableStateOf<NuvioCCardOpen?>(null)
+    private val _cardPage = MutableStateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteCardPage?>(null)
+    val cardPage: StateFlow<com.nuvio.tv.data.nuvioc.NuvioCTasteCardPage?> = _cardPage.asStateFlow()
+    private var cardJob: kotlinx.coroutines.Job? = null
+
+    /** Opens [card] over the page's scope (Wrapped: its year). [returnKey] is the card / line focus lands on after Back. */
+    fun openTasteCard(card: com.nuvio.tv.data.nuvioc.NuvioCTasteCard, hint: String?, crumb: String, wrapped: Boolean, scopeLabel: String, returnKey: String) {
+        openCard = NuvioCCardOpen(card, hint, crumb, scopeLabel, returnKey)
+        _cardPage.value = null
+        cardJob?.cancel()
+        val key = if (wrapped) tasteYear?.let { "y:$it" } ?: "all" else tasteScopeKey
+        cardJob = viewModelScope.launch { _cardPage.value = repository.cardPage(card, hint, nuvioCWindow(key)) }
+    }
+
+    fun closeTasteCard() { cardJob?.cancel(); openCard = null; _cardPage.value = null }
+
+    private fun nuvioCWindow(key: String): LongRange? {
+        val zone = java.time.ZoneId.systemDefault()
+        return when {
+            key.startsWith("y:") -> key.drop(2).toIntOrNull()?.let { y ->
+                java.time.LocalDate.of(y, 1, 1).atStartOfDay(zone).toInstant().toEpochMilli()..
+                    (java.time.LocalDate.of(y + 1, 1, 1).atStartOfDay(zone).toInstant().toEpochMilli() - 1)
+            }
+            key.startsWith("m:") -> runCatching { java.time.YearMonth.parse(key.drop(2)) }.getOrNull()?.let { com.nuvio.tv.data.nuvioc.tasteMonthWindow(it, zone) }
+            else -> null
+        }
+    }
 
     fun loadScope(key: String) {
         scopeJob?.cancel()

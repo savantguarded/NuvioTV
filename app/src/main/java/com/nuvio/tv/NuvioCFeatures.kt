@@ -1070,4 +1070,6 @@ object NuvioCFeatures {
     const val HERO_ROW_V65 = true
     /** Series details: the Ratings row is gone; a round "Ratings graph" hero button (after Rate) opens a full-screen season x episode grid with season averages, IMDb / Mine, watched and next-episode marks. Episode ratings load when it opens, not while details open. Off = round 64c Ratings row. */
     const val SERIES_GRAPH = true
+    /** Taste: every Overview / Stats / Wrapped card with data takes focus (8% lighter fill, 2 dp accent edge, "Open ›", no zoom) and opens its page: breakdown + titles, timeline, or ranked list, built from data on the TV, following the page's Month / Year / All time (Wrapped: its year); Firsts / Highlights lines open their target; Back lands on the card. Strictly per profile. Off = cards not focusable. */
+    const val TASTE_CARDS_OPEN = true
 }

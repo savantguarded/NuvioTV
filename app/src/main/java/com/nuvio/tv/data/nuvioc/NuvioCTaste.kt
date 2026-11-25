@@ -579,6 +579,12 @@ class NuvioCTasteRepository @Inject constructor(
         )
     }
 
+    /** [fork] round 65 taste_cards_open: what a Taste card opens, for the active profile only (null before a build). */
+    suspend fun cardPage(card: NuvioCTasteCard, hint: String?, window: LongRange?): NuvioCTasteCardPage? = withContext(Dispatchers.Default) {
+        val i = inputs?.takeIf { it.profile == profiles.activeProfileId.value } ?: return@withContext null
+        computeTasteCardPage(card, hint, i.history, titles(), i.scores, window, ZoneId.systemDefault())
+    }
+
     suspend fun year(year: Int): NuvioCTasteYear? = withContext(Dispatchers.Default) {
         val i = inputs?.takeIf { it.profile == profiles.activeProfileId.value } ?: return@withContext null
         val zone = ZoneId.systemDefault()

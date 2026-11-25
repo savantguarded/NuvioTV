@@ -154,6 +154,7 @@ internal fun NuvioCTasteTabsV2(
         empty && current == Tab53.OVERVIEW -> newProfileFocus
         current == Tab53.DISCOVER -> spinFocus
         com.nuvio.tv.NuvioCFeatures.TASTE_V58 && key == thisMonthKey && (current == Tab53.OVERVIEW && scope?.overview?.empty == true || current == Tab53.STATS && scope?.stats?.empty == true) -> earlyPill
+        com.nuvio.tv.NuvioCFeatures.TASTE_CARDS_OPEN && !empty && (current == Tab53.OVERVIEW || current == Tab53.STATS || current == Tab53.WRAPPED) -> FocusRequester.Default // [fork] round 65: cards take focus
         com.nuvio.tv.NuvioCFeatures.TASTE_V57 && current == Tab53.OVERVIEW && (scope?.overview?.recentFinished?.isNotEmpty() == true || scope?.overview?.binges?.isNotEmpty() == true) -> overviewFirstRow
         com.nuvio.tv.NuvioCFeatures.TASTE_V57 && current == Tab53.WRAPPED && (yearData?.topShows?.isNotEmpty() == true || yearData?.topFilms?.isNotEmpty() == true) -> wrappedFirstRow
         else -> FocusRequester.Cancel
@@ -174,6 +175,7 @@ internal fun NuvioCTasteTabsV2(
     LaunchedEffect(all != null, nuvioCShown) {
         if (all == null || !nuvioCShown) return@LaunchedEffect
         if (current == Tab53.DISCOVER && viewModel.discoverFocusKey != null) return@LaunchedEffect
+        if (viewModel.openCard != null) return@LaunchedEffect // [fork] round 65: the open card page holds focus
         // [fork] round 63 taste_return_focus: a row is taking focus back; only if it can't (list changed) does the tab get it
         if (com.nuvio.tv.NuvioCFeatures.TASTE_RETURN_FOCUS && NuvioCTasteReturn.key != null) {
             kotlinx.coroutines.delay(900)
@@ -215,6 +217,25 @@ internal fun NuvioCTasteTabsV2(
             TasteBuilding(state, accent)
             return@Box
         }
+        // [fork] round 65 taste_cards_open: a card's page replaces the tabs (same backdrop); Back returns to the card
+        if (com.nuvio.tv.NuvioCFeatures.TASTE_CARDS_OPEN && viewModel.openCard != null) {
+            androidx.compose.runtime.CompositionLocalProvider(LocalTasteAccent65 provides accent) { NuvioCTastePage65(viewModel, onOpenTitle) }
+            return@Box
+        }
+        val nuvioCScopeLabel = if (current == Tab53.WRAPPED) "${yearData?.year ?: ""} Wrapped" else when {
+            key == thisMonthKey -> "This month"
+            key.startsWith("m:") -> runCatching { YearMonth.parse(key.drop(2)) }.getOrNull()?.let { monthLabel(it) } ?: "Month"
+            key.startsWith("y:") -> key.drop(2)
+            else -> "All time"
+        }
+        val nuvioCOpenCard: ((com.nuvio.tv.data.nuvioc.NuvioCTasteCard, String?, String) -> Unit)? = if (!com.nuvio.tv.NuvioCFeatures.TASTE_CARDS_OPEN) null else { card, hint, returnKey ->
+            viewModel.openTasteCard(card, hint, crumb = current.label, wrapped = current == Tab53.WRAPPED, scopeLabel = nuvioCScopeLabel, returnKey = returnKey)
+        }
+        androidx.compose.runtime.CompositionLocalProvider(
+            LocalTasteOpen65 provides nuvioCOpenCard,
+            LocalTasteAccent65 provides accent,
+            LocalTastePerson65 provides onOpenPerson
+        ) {
         Column(Modifier.fillMaxSize().graphicsLayer { alpha = nuvioCFade.value }.padding(start = 40.dp, end = 40.dp, top = 18.dp, bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
                 tabs.forEachIndexed { i, tab ->
@@ -288,6 +309,7 @@ internal fun NuvioCTasteTabsV2(
                 }
             }
         }
+        } // [fork] round 65 CompositionLocalProvider
         // dropdowns float over the page under the header, never clipped by it
         val closeTo: (FocusRequester) -> Unit = { r -> menu = Menu53.NONE; runCatching { r.requestFocus() } }
         when (menu) {
@@ -487,31 +509,35 @@ private fun Overview53(o: NuvioCTasteOverview, accent: Color, firstRow: FocusReq
                 val pct = ((o.minutes - p) * 100.0 / p).toInt()
                 (if (pct >= 0) "+$pct%" else "$pct%") + " vs ${o.prevLabel?.let { l -> if (l.all { it.isDigit() }) l else l.take(3) }}"
             }
-            Tile53("Watch time", hm53(o.minutes), delta ?: "${o.daysWatched} active days", accent)
-            Tile53("Titles", "%,d".format(o.titles), "${o.films} films · ${o.shows} shows", C_TEAL)
-            Tile53("Episodes", "%,d".format(o.episodes), if (o.shows > 0) "${o.shows} shows" else "No shows", C_AMBER)
-            Tile53("Active days", "%,d".format(o.daysWatched), "of ${o.daysInRange} · best run ${o.longestStreak}", C_ROSE)
+            Tile53("Watch time", hm53(o.minutes), delta ?: "${o.daysWatched} active days", accent, Modifier.tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.WATCH_TIME, enabled = o.minutes > 0))
+            Tile53("Titles", "%,d".format(o.titles), "${o.films} films · ${o.shows} shows", C_TEAL, Modifier.tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.TITLES, enabled = o.titles > 0))
+            Tile53("Episodes", "%,d".format(o.episodes), if (o.shows > 0) "${o.shows} shows" else "No shows", C_AMBER, Modifier.tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.EPISODES, enabled = o.episodes > 0))
+            Tile53("Active days", "%,d".format(o.daysWatched), "of ${o.daysInRange} · best run ${o.longestStreak}", C_ROSE, Modifier.tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.ACTIVE_DAYS, enabled = o.daysWatched > 0))
         }
         Row(Modifier.fillMaxWidth().height(if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) 84.dp else 116.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             val ms = o.mostShow
-            Fact53("Top show", ms?.name ?: "–", ms?.let { "${it.episodes} eps · ${hm53(it.minutes)}" }, C_VIOLET, thumb = ms?.poster, twoLines = true)
+            Fact53("Top show", ms?.name ?: "–", ms?.let { "${it.episodes} eps · ${hm53(it.minutes)}" }, C_VIOLET, thumb = ms?.poster, twoLines = true,
+                open = Modifier.tasteOpen65(null, enabled = ms?.id != null, returnKey = "TOP_SHOW") { ms?.id?.let { onOpen(it, "series") } }) // [fork] round 65: opens the show
             val b = o.biggestDay
             Fact53("Biggest day", b?.let { hm53(it.minutes) } ?: "–",
                 if (com.nuvio.tv.NuvioCFeatures.TASTE_V59) b?.topTitle else b?.let { listOfNotNull(it.date.dayOfWeek.nuvioC3() + " " + day53(it.date), it.topTitle).joinToString(" · ") }, C_AMBER,
-                aside = b?.let { it.date.dayOfWeek.nuvioC3() + " " + day53(it.date) }, twoLines = true)
+                aside = b?.let { it.date.dayOfWeek.nuvioC3() + " " + day53(it.date) }, twoLines = true,
+                open = Modifier.tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.BIGGEST_DAY, hint = b?.date?.toString(), enabled = b != null))
             val shows = o.finishedShows + o.inProgressShows + o.upToDateShows
             Fact53("Shows", if (shows == 0) "–" else "${o.finishedShows} finished",
-                if (shows == 0) null else "${o.inProgressShows} ongoing · ${o.upToDateShows} caught up", C_TEAL)
+                if (shows == 0) null else "${o.inProgressShows} ongoing · ${o.upToDateShows} caught up", C_TEAL,
+                open = Modifier.tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.SHOWS, enabled = shows > 0))
             Fact53("New releases", o.freshPercent?.let { "$it%" } ?: "–", o.oldest?.let { if (com.nuvio.tv.NuvioCFeatures.TASTE_V59) it.first else "Oldest: ${it.first}, ${it.second}" }, C_ROSE, ring = if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) null else o.freshPercent,
-                aside = o.oldest?.let { "oldest from ${it.second}" }, twoLines = true) // [fork] round 58: no chart
+                aside = o.oldest?.let { "oldest from ${it.second}" }, twoLines = true, // [fork] round 58: no chart
+                open = Modifier.tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.NEW_RELEASES, enabled = o.freshPercent != null))
         }
         Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) {
                 val rightFirst = remember { FocusRequester() }
                 Rows57(Modifier.weight(1f).fillMaxHeight(), "Recently finished", "Films & shows", o.recentFinished, "Nothing finished yet", C_TEAL, accent,
-                    first = if (o.recentFinished.isNotEmpty()) firstRow else null, up = tab, rightOut = rightFirst.takeIf { o.binges.isNotEmpty() }, onOpen = onOpen) { l -> l.sub + " · " + day53(l.date) }
+                    first = if (o.recentFinished.isNotEmpty()) firstRow else null, up = if (com.nuvio.tv.NuvioCFeatures.TASTE_CARDS_OPEN) null else tab, rightOut = rightFirst.takeIf { o.binges.isNotEmpty() }, onOpen = onOpen) { l -> l.sub + " · " + day53(l.date) }
                 Rows57(Modifier.weight(1f).fillMaxHeight(), "Binges", "Most eps in a day", o.binges, "No binge days yet", C_AMBER, accent,
-                    first = if (o.recentFinished.isEmpty()) firstRow else rightFirst, up = tab, lastColumn = true, onOpen = onOpen) { l -> l.sub + " · " + day53(l.date) }
+                    first = if (o.recentFinished.isEmpty()) firstRow else rightFirst, up = if (com.nuvio.tv.NuvioCFeatures.TASTE_CARDS_OPEN) null else tab, lastColumn = true, onOpen = onOpen) { l -> l.sub + " · " + day53(l.date) }
             } else {
             List53(Modifier.weight(1f).fillMaxHeight(), "Recently finished", "Films & shows", o.recentFinished, "Nothing finished yet", accent)
             List53(Modifier.weight(1f).fillMaxHeight(), "Binges", "Most eps in a day", o.binges, "No binge days yet", C_AMBER)
@@ -521,9 +547,9 @@ private fun Overview53(o: NuvioCTasteOverview, accent: Color, firstRow: FocusReq
 }
 
 @Composable
-private fun RowScope.Tile53(label: String, value: String, sub: String, color: Color) {
+private fun RowScope.Tile53(label: String, value: String, sub: String, color: Color, open: Modifier = Modifier) {
     if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) { // [fork] round 57 taste_v3: label, big number, quiet note; even padding
-        Column(Modifier.weight(1f).fillMaxHeight().background(C_CARD, RoundedCornerShape(14.dp)).border(1.dp, C_EDGE, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.SpaceBetween) {
+        Column(Modifier.weight(1f).fillMaxHeight().then(open).background(C_CARD, RoundedCornerShape(14.dp)).border(1.dp, C_EDGE, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 12.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Label53(label, color)
             Text(value, style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"), fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, softWrap = false)
             Text(sub, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Normal, color = C_MUTE, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
@@ -538,10 +564,10 @@ private fun RowScope.Tile53(label: String, value: String, sub: String, color: Co
 }
 
 @Composable
-private fun RowScope.Fact53(label: String, main: String, sub: String?, color: Color, thumb: String? = null, ring: Int? = null, aside: String? = null, twoLines: Boolean = false) {
-    if (com.nuvio.tv.NuvioCFeatures.TASTE_V59 && twoLines) { Fact59(label, main, sub, color, thumb, aside); return }
+private fun RowScope.Fact53(label: String, main: String, sub: String?, color: Color, thumb: String? = null, ring: Int? = null, aside: String? = null, twoLines: Boolean = false, open: Modifier = Modifier) {
+    if (com.nuvio.tv.NuvioCFeatures.TASTE_V59 && twoLines) { Fact59(label, main, sub, color, thumb, aside, open); return }
     if (com.nuvio.tv.NuvioCFeatures.TASTE_V57) { // [fork] round 57 taste_v3: one-line value, optional poster or ring on the right
-        Row(Modifier.weight(1f).fillMaxHeight().background(C_CARD, RoundedCornerShape(14.dp)).border(1.dp, C_EDGE, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 12.dp),
+        Row(Modifier.weight(1f).fillMaxHeight().then(open).background(C_CARD, RoundedCornerShape(14.dp)).border(1.dp, C_EDGE, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
                 Label53(label, color)
@@ -575,8 +601,8 @@ private fun RowScope.Fact53(label: String, main: String, sub: String?, color: Co
  * the number and the note below gets two lines.
  */
 @Composable
-private fun RowScope.Fact59(label: String, main: String, sub: String?, color: Color, thumb: String?, aside: String?) {
-    Row(Modifier.weight(1f).fillMaxHeight().background(C_CARD, RoundedCornerShape(14.dp)).border(1.dp, C_EDGE, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 10.dp),
+private fun RowScope.Fact59(label: String, main: String, sub: String?, color: Color, thumb: String?, aside: String?, open: Modifier = Modifier) {
+    Row(Modifier.weight(1f).fillMaxHeight().then(open).background(C_CARD, RoundedCornerShape(14.dp)).border(1.dp, C_EDGE, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.SpaceBetween) {
             Label53(label, color)
@@ -630,7 +656,7 @@ private fun List53(modifier: Modifier, title: String, sub: String, lines: List<N
 private fun Stats53(s: NuvioCTasteStats, f: com.nuvio.tv.data.nuvioc.NuvioCTasteFacts, strip: NuvioCTasteStatsStrip, accent: Color) {
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth().weight(1.1f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Card53(Modifier.weight(2f).fillMaxHeight()) {
+            Card53(Modifier.weight(2f).fillMaxHeight().tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.VIEWING_HOURS, enabled = f.byHour.any { it > 0 })) {
                 val peakHour = f.byHour.indices.maxByOrNull { f.byHour[it] }?.takeIf { f.byHour[it] > 0 }
                 val peakDay = com.nuvio.tv.data.nuvioc.tastePeakWeekday(f.byWeekday)
                 Title53("Viewing hours", C_TEAL, listOfNotNull(peakHour?.let { "Peak %02d:00".format(it) }, peakDay?.nuvioC3()).joinToString(" · "))
@@ -644,7 +670,7 @@ private fun Stats53(s: NuvioCTasteStats, f: com.nuvio.tv.data.nuvioc.NuvioCTaste
                     Bars53(f.byWeekday, f.byWeekday.indices.maxByOrNull { f.byWeekday[it] }, listOf("M", "T", "W", "T", "F", "S", "S"), Modifier.weight(2f).fillMaxHeight(), C_TEAL)
                 }
             }
-            Card53(Modifier.weight(1f).fillMaxHeight()) {
+            Card53(Modifier.weight(1f).fillMaxHeight().tasteOpen65(if (s.ratingCounts.sum() > 0) com.nuvio.tv.data.nuvioc.NuvioCTasteCard.RATINGS else com.nuvio.tv.data.nuvioc.NuvioCTasteCard.COMPLETION, enabled = s.ratingCounts.sum() > 0 || s.finishedPercent != null)) {
                 val counts = s.ratingCounts.takeIf { it.size == 10 } ?: List(10) { 0 }
                 val rated = counts.sum()
                 if (rated == 0) {
@@ -666,26 +692,26 @@ private fun Stats53(s: NuvioCTasteStats, f: com.nuvio.tv.data.nuvioc.NuvioCTaste
             }
         }
         Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Card53(Modifier.weight(1f).fillMaxHeight()) {
+            Card53(Modifier.weight(1f).fillMaxHeight().tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.GENRES, enabled = s.genres.isNotEmpty())) {
                 Title53("Genres", C_VIOLET, "Titles")
                 val top = s.genres.take(5)
                 val max = top.maxOfOrNull { it.count }?.coerceAtLeast(1) ?: 1
                 val palette = listOf(C_VIOLET, C_ROSE, C_AMBER, C_TEAL, accent)
                 FitColumn53(Modifier.fillMaxWidth().weight(1f)) { top.forEachIndexed { i, g -> HBar53(g.name, "%,d".format(g.count), g.count.toFloat() / max, palette[i % palette.size]) } }
             }
-            Card53(Modifier.weight(1f).fillMaxHeight()) {
+            Card53(Modifier.weight(1f).fillMaxHeight().tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.DECADES, enabled = s.decades.isNotEmpty())) {
                 val decades = s.decades.takeLast(8)
                 Title53("Decades", C_AMBER, null)
                 Bars53(decades.map { it.second }, decades.indices.maxByOrNull { decades[it].second },
                     decades.map { "${it.first % 100}".padStart(2, '0') + "s" }, Modifier.fillMaxWidth().weight(1f), C_AMBER, values = true)
             }
-            Card53(Modifier.weight(1f).fillMaxHeight()) {
+            Card53(Modifier.weight(1f).fillMaxHeight().tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.STUDIOS, enabled = f.studios.isNotEmpty())) {
                 Title53("Studios & networks", C_ROSE, null)
                 val max = f.studios.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1
                 if (f.studios.isEmpty()) Text("Not enough data yet", style = MaterialTheme.typography.bodySmall, color = C_MUTE)
                 FitColumn53(Modifier.fillMaxWidth().weight(1f)) { f.studios.forEach { (name, n) -> HBar53(name, n.toString(), n.toFloat() / max, C_ROSE) } }
             }
-            if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) Card53(Modifier.weight(1f).fillMaxHeight()) { // [fork] round 58: Languages gets its own card
+            if (com.nuvio.tv.NuvioCFeatures.TASTE_V58) Card53(Modifier.weight(1f).fillMaxHeight().tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.LANGUAGES, enabled = strip.languages.isNotEmpty())) { // [fork] round 58: Languages gets its own card
                 Title53("Languages", C_TEAL, "Share of titles")
                 val lang = strip.languages
                 val max = lang.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1
@@ -694,10 +720,14 @@ private fun Stats53(s: NuvioCTasteStats, f: com.nuvio.tv.data.nuvioc.NuvioCTaste
             }
         }
         if (com.nuvio.tv.NuvioCFeatures.TASTE_V59) Row(Modifier.fillMaxWidth().height(64.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) { // [fork] round 59: four cards under the four above
-            StripCard59("Countries", strip.countries.takeIf { it > 0 }?.toString(), strip.topCountries.takeIf { it.isNotEmpty() }?.joinToString(" · "), C_AMBER)
-            StripCard59("Avg film", strip.avgFilmMinutes?.let { hm53(it) }, strip.longestFilm?.let { "Longest ${hm53(it.second)}" }, C_ROSE)
-            StripCard59("Avg episode", strip.avgEpisodeMinutes?.let { hm53(it) }, strip.showCount.takeIf { it > 0 }?.let { "Across %,d shows".format(it) }, C_VIOLET)
-            StripCard59("vs TMDB", s.vsCrowd?.let { "%+.1f".format(it) }, s.vsCrowd?.let { if (it >= 0) "You rate higher" else "You rate lower" } ?: "Needs 10 ratings", accent)
+            StripCard59("Countries", strip.countries.takeIf { it > 0 }?.toString(), strip.topCountries.takeIf { it.isNotEmpty() }?.joinToString(" · "), C_AMBER,
+                Modifier.tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.COUNTRIES, enabled = strip.countries > 0, hintLabel = false))
+            StripCard59("Avg film", strip.avgFilmMinutes?.let { hm53(it) }, strip.longestFilm?.let { "Longest ${hm53(it.second)}" }, C_ROSE,
+                Modifier.tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.AVG_FILM, enabled = strip.avgFilmMinutes != null, hintLabel = false))
+            StripCard59("Avg episode", strip.avgEpisodeMinutes?.let { hm53(it) }, strip.showCount.takeIf { it > 0 }?.let { "Across %,d shows".format(it) }, C_VIOLET,
+                Modifier.tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.AVG_EPISODE, enabled = strip.avgEpisodeMinutes != null, hintLabel = false))
+            StripCard59("vs TMDB", s.vsCrowd?.let { "%+.1f".format(it) }, s.vsCrowd?.let { if (it >= 0) "You rate higher" else "You rate lower" } ?: "Needs 10 ratings", accent,
+                Modifier.tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.VS_TMDB, enabled = s.vsCrowd != null, hintLabel = false))
         } else
         Row(Modifier.fillMaxWidth().height(64.dp).background(C_CARD, RoundedCornerShape(14.dp)).padding(vertical = 10.dp)) {
             val lang = strip.languages
@@ -711,8 +741,8 @@ private fun Stats53(s: NuvioCTasteStats, f: com.nuvio.tv.data.nuvioc.NuvioCTaste
 }
 
 @Composable
-private fun RowScope.StripCard59(label: String, value: String?, sub: String?, color: Color) {
-    Column(Modifier.weight(1f).fillMaxHeight().background(C_CARD, RoundedCornerShape(14.dp)).border(1.dp, C_EDGE, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp),
+private fun RowScope.StripCard59(label: String, value: String?, sub: String?, color: Color, open: Modifier = Modifier) {
+    Column(Modifier.weight(1f).fillMaxHeight().then(open).background(C_CARD, RoundedCornerShape(14.dp)).border(1.dp, C_EDGE, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)) {
         Label53(label, color)
         Row {
@@ -1211,7 +1241,7 @@ private fun Row57(line: NuvioCTasteLine, index: Int?, meta: String, accent: Colo
 
 /** Label / value lines spread down the card, hairlines between, values right-aligned and cut to one line. */
 @Composable
-private fun Ledger57(modifier: Modifier, title: String, color: Color, lines: List<Pair<String, String?>>) {
+private fun Ledger57(modifier: Modifier, title: String, color: Color, lines: List<Pair<String, String?>>, lineOpens: List<Modifier> = emptyList()) {
     Card53(modifier) {
         Label53(title, color)
         Spacer(Modifier.height(6.dp))
@@ -1219,7 +1249,7 @@ private fun Ledger57(modifier: Modifier, title: String, color: Color, lines: Lis
             val shown = lines.take((maxHeight / 26.dp).toInt().coerceAtLeast(1))
             Column(Modifier.fillMaxSize()) {
                 shown.forEachIndexed { i, (label, value) ->
-                    Row(Modifier.fillMaxWidth().weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().weight(1f).then(lineOpens.getOrNull(i) ?: Modifier).padding(horizontal = if (lineOpens.isNotEmpty()) 6.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) { // [fork] round 65: lines open their target
                         Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Normal, color = C_MUTE, maxLines = 1, softWrap = false)
                         Spacer(Modifier.width(12.dp))
                         Text(value ?: "–", style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, fontFeatureSettings = "tnum"), fontWeight = FontWeight.Normal, color = Color.White,
@@ -1235,21 +1265,27 @@ private fun Ledger57(modifier: Modifier, title: String, color: Color, lines: Lis
 /** [fork] round 58: top row totals / hours by month / Firsts; bottom row Top shows / Top films (top five) / Highlights. */
 @Composable
 private fun Wrapped58(y: NuvioCTasteYear, accent: Color, firstRow: FocusRequester?, tab: FocusRequester?, onOpen: (String, String) -> Unit, soFar: Boolean) {
+    val person65 = LocalTastePerson65.current // [fork] round 65
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth().weight(0.42f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Card53(Modifier.weight(1f).fillMaxHeight()) {
+            Card53(Modifier.weight(1f).fillMaxHeight().tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.YOUR_YEAR, enabled = y.titles > 0)) {
                 Label53("Your ${y.year}" + if (soFar) " so far" else "", C_VIOLET)
                 Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.SpaceEvenly) {
                     Row(Modifier.fillMaxWidth()) { Num57("%,d".format(y.hours), "hours watched", Modifier.weight(1f)); Num57("%,d".format(y.titles), "titles", Modifier.weight(1f)) }
                     Row(Modifier.fillMaxWidth()) { Num57("%,d".format(y.films), "films", Modifier.weight(1f)); Num57("%,d".format(y.episodes), "episodes", Modifier.weight(1f)) }
                 }
             }
-            Card53(Modifier.weight(1f).fillMaxHeight()) {
+            Card53(Modifier.weight(1f).fillMaxHeight().tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.HOURS_BY_MONTH, enabled = y.byMonth.any { it > 0 })) {
                 val peak = y.busiestMonth
                 Title53("Hours by month", accent, peak?.let { java.time.Month.of(it + 1).nuvioC3() + " peak" })
                 Bars53(y.byMonth.map { it / 60 }, peak, listOf("J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"), Modifier.fillMaxWidth().weight(1f), accent, values = true)
             }
-            Ledger57(Modifier.weight(1f).fillMaxHeight(), "Firsts", C_VIOLET, listOf(
+            Ledger57(Modifier.weight(1f).fillMaxHeight(), "Firsts", C_VIOLET, lineOpens = if (!com.nuvio.tv.NuvioCFeatures.TASTE_CARDS_OPEN) emptyList() else listOf(
+                Modifier.tasteOpen65(null, enabled = y.firstRef != null, returnKey = "W_FIRST", radius = 6, hintLabel = false) { y.firstRef?.let { onOpen(it.first, it.second) } },
+                Modifier.tasteOpen65(null, enabled = y.lastRef != null, returnKey = "W_LAST", radius = 6, hintLabel = false) { y.lastRef?.let { onOpen(it.first, it.second) } },
+                Modifier.tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.NEW_SHOWS, enabled = y.newShows > 0, radius = 6, hintLabel = false),
+                Modifier.tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.NEW_DIRECTORS, enabled = y.newDirectors > 0, radius = 6, hintLabel = false)
+            ), lines = listOf(
                 "First watch" to y.firstTitle?.let { "${it.first} · ${day53(it.second)}" },
                 (if (soFar) "Latest" else "Last watch") to y.lastTitle?.let { "${it.first} · ${day53(it.second)}" },
                 "New shows" to "%,d".format(y.newShows),
@@ -1259,10 +1295,19 @@ private fun Wrapped58(y: NuvioCTasteYear, accent: Color, firstRow: FocusRequeste
         Row(Modifier.fillMaxWidth().weight(0.58f), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             val showsFirst = y.topShows.isNotEmpty()
             Rows57(Modifier.weight(1f).fillMaxHeight(), "Top shows", "By episodes", y.topShows, "No shows this year", C_TEAL, accent,
-                first = if (showsFirst) firstRow else null, up = tab, numbered = true, onOpen = onOpen) { it.sub }
+                first = if (showsFirst) firstRow else null, up = if (com.nuvio.tv.NuvioCFeatures.TASTE_CARDS_OPEN) null else tab, numbered = true, onOpen = onOpen) { it.sub }
             Rows57(Modifier.weight(1f).fillMaxHeight(), "Top films", "By rating", y.topFilms, "No films this year", C_AMBER, accent,
-                first = if (!showsFirst && y.topFilms.isNotEmpty()) firstRow else null, up = tab, numbered = true, onOpen = onOpen) { it.sub }
-            Ledger57(Modifier.weight(1f).fillMaxHeight(), "Highlights", C_ROSE, listOf(
+                first = if (!showsFirst && y.topFilms.isNotEmpty()) firstRow else null, up = if (com.nuvio.tv.NuvioCFeatures.TASTE_CARDS_OPEN) null else tab, numbered = true, onOpen = onOpen) { it.sub }
+            Ledger57(Modifier.weight(1f).fillMaxHeight(), "Highlights", C_ROSE, lineOpens = if (!com.nuvio.tv.NuvioCFeatures.TASTE_CARDS_OPEN) emptyList() else listOf(
+                Modifier.tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.GENRES, hint = y.topGenre, enabled = y.topGenre != null, returnKey = "W_GENRE", radius = 6, hintLabel = false),
+                Modifier.tasteOpen65(null, enabled = y.topFaceId != null && person65 != null, returnKey = "W_FACE", radius = 6, hintLabel = false) {
+                    val id = y.topFaceId; val f = y.topFace; if (id != null && f != null) person65?.invoke(id, f.first, false)
+                },
+                Modifier.tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.WATCH_TIME, hint = y.biggestDay?.toString(), enabled = y.biggestDay != null, returnKey = "W_BIGDAY", radius = 6, hintLabel = false),
+                Modifier.tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.WATCH_TIME, enabled = y.longestStreak > 0, returnKey = "W_STREAK", radius = 6, hintLabel = false),
+                Modifier.tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.VIEWING_HOURS, enabled = y.peakPart != null, radius = 6, hintLabel = false),
+                Modifier.tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.RATINGS, enabled = y.avgRating != null, radius = 6, hintLabel = false)
+            ), lines = listOf(
                 "Top genre" to y.topGenre,
                 "Most seen face" to y.topFace?.let { "${it.first} · ${it.second}" },
                 "Biggest day" to y.biggestDay?.let { day53(it) + " · " + hm53(y.biggestDayMinutes) },
