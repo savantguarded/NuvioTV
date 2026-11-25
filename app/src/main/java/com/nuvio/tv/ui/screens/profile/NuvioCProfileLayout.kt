@@ -30,6 +30,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -104,7 +107,7 @@ internal val NUVIO_C_SIDE_NAME_GAP = 18.dp
 
 internal fun Modifier.nuvioCProfileSideWidth(): Modifier = widthIn(max = 420.dp)
 
-internal fun Modifier.nuvioCProfileLeftWash(): Modifier = drawBehind {
+internal fun Modifier.nuvioCProfileLeftWash(): Modifier = if (NuvioCFeatures.PROFILE_BG_WHOLE) this else drawBehind { // [fork] round 65: the picture carries its own soft wash
     drawRect(
         Brush.horizontalGradient(
             0f to Color.Black.copy(alpha = 0.82f),
@@ -270,3 +273,28 @@ internal fun Modifier.nuvioCProfileGlow(color: Color, ring: androidx.compose.ui.
         center = center
     )
 }
+
+// ---- [fork] round 65 PROFILE_BG_WHOLE --------------------------------------------------------------------------
+internal val NUVIO_C_PROFILE_BG_BASE = Color(0xFF0B0B0D)
+
+/**
+ * The profile background box: ~85% of the width (820 x 461 dp on 960 x 540), 16:9 so the picture is whole, with 28 dp
+ * fades top and bottom, light vignetting, and a soft wash only where it runs under the profile column on the left.
+ */
+internal fun Modifier.nuvioCProfileBgWhole(): Modifier = this
+    .fillMaxWidth(0.854f)
+    .aspectRatio(16f / 9f)
+    .drawWithContent {
+        drawContent()
+        val base = NUVIO_C_PROFILE_BG_BASE
+        val fade = 28.dp.toPx()
+        drawRect(Brush.verticalGradient(0f to base, 1f to base.copy(alpha = 0f), startY = 0f, endY = fade), size = androidx.compose.ui.geometry.Size(size.width, fade))
+        drawRect(Brush.verticalGradient(0f to base.copy(alpha = 0f), 1f to base, startY = size.height - fade, endY = size.height),
+            topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - fade), size = androidx.compose.ui.geometry.Size(size.width, fade))
+        // the profile column ends ~300 dp from the screen edge; the picture starts ~140 dp in
+        val washW = 300.dp.toPx().coerceAtMost(size.width)
+        drawRect(Brush.horizontalGradient(0f to base.copy(alpha = 0.78f), 0.55f to base.copy(alpha = 0.35f), 1f to base.copy(alpha = 0f), startX = 0f, endX = washW),
+            size = androidx.compose.ui.geometry.Size(washW, size.height))
+        drawRect(Brush.radialGradient(0.55f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.35f),
+            center = center, radius = maxOf(size.width, size.height) * 0.75f))
+    }

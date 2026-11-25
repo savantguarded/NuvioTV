@@ -877,6 +877,9 @@ private fun ProfileSelectionBackground(
     val halfFadeStrong = animatedAvatarColor.copy(alpha = 0.26f)
     val halfFadeSoft = animatedAvatarColor.copy(alpha = 0.08f)
 
+    // [fork] round 65 profile_bg_whole: the whole picture (no crop) at ~85% width, right-aligned and centred
+    val nuvioCWhole = com.nuvio.tv.NuvioCFeatures.PROFILE_BG_WHOLE && nuvioCProfileLeft() && profileBackground != null
+    Box(Modifier.fillMaxSize().then(if (nuvioCWhole) Modifier.background(NUVIO_C_PROFILE_BG_BASE) else Modifier)) {
     AnimatedContent(
         targetState = profileBackground,
         transitionSpec = {
@@ -890,7 +893,7 @@ private fun ProfileSelectionBackground(
                 null -> null
             }
         },
-        modifier = Modifier.fillMaxSize(),
+        modifier = if (nuvioCWhole) Modifier.align(Alignment.CenterEnd).nuvioCProfileBgWhole() else Modifier.fillMaxSize(), // [fork] round 65
         label = "profileBackground"
     ) { background ->
         when (background) {
@@ -933,6 +936,7 @@ private fun ProfileSelectionBackground(
             }
         }
     }
+    } // [fork] round 65 profile_bg_whole Box
 }
 
 @Composable
