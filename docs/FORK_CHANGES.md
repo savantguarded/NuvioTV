@@ -4,7 +4,7 @@ How Nuvio C differs from official NuvioTV, grouped by area: what you see, the sw
 Per-switch detail: every switch in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt` has a one-line comment. This file is the overview, not a copy of that list.
 Paths below are relative to `app/src/main/java/com/nuvio/tv/` unless they start with `app/`, `.github/` or `scripts/`.
 
-Base: official `1.2.0-beta.3` (`552cacf5`). Fork footprint vs that tag (round 59): 404 files added, 175 official files edited, about 62,800 lines added; round 60 adds 6 files, round 61 adds 4 (one Kotlin file, three logo drawables), round 64 adds 2 logo drawables. 461 switches, 1 off.
+Base: official `1.2.0-beta.3` (`552cacf5`). Fork footprint vs that tag (round 59): 404 files added, 175 official files edited, about 62,800 lines added; round 60 adds 6 files, round 61 adds 4 (one Kotlin file, three logo drawables), round 64 adds 2 logo drawables, round 65 adds 7 Kotlin files. 478 switches, 1 off.
 Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream merge).
 
 ## Build and distribution
@@ -42,6 +42,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Loading screen: provider line, filename, ratings and synopsis in a bottom band; quiet version (`LOADING_QUIET`): lower and dimmer, synopsis 11 sp / 3 lines, filename on one line cut in the middle under a FILENAME label. Netflix-style pause screen. Placeholder-clip detection opens Sources.
 - Stream info HUD on the right (ysosrs123 style), fixed box, larger text.
 - Files: `player/NuvioCLoading*.kt`, `NuvioCPauseScreen.kt`, `NuvioCPlaceholder.kt`, `NuvioCStatsPanel.kt`, `NuvioCPlayerInfo.kt`, `NuvioCPlaybackStats.kt`.
+- Round 65 `STATS_STEADY`: stream info rows fixed per engine from the start ("—" / "OK"), scale worked out once, tabular digits.
 
 ## Playback flow
 - Next with no countdown (unattended auto-play keeps it), episode titles from your meta add-on, sources warmed after 15 s, playing source matched by filename, single-source picker without tabs, Sources Up-jump to the first result.
@@ -51,6 +52,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Back from Sources (Play / Play manually / a held episode card) jumps straight to the saved spot; for 2.5 s or until a key press, Play or the episode card keeps asking for focus so a row rebuild can't move it (`DETAIL_RETURN_FOCUS`, `DETAIL_RETURN_GUARD`, `ui/screens/detail/NuvioCDetailReturnGuard.kt`). Back on the play options returns to Play. Episode cards always use the page's current focus requester and none are dropped, so focus can reach them after a return (`EPISODE_REQUESTER_LIVE`); `DETAIL_FOCUS_LOG` writes info lines tagged NuvioCFocus for adb checks. The restore lock never blocks a card once the restore id is cleared (the restored card lost focus in that frame, `EPISODE_LOCK_RACE`). Sources opened by hand from the Play / Resume pill return to the pill and keep the season (`DETAIL_HERO_RETURN`). Focus arriving at the episodes row goes to the card last focused in that season, or the nearest card on screen, never an invisible spot (`EPISODE_ENTRY_FALLBACK`, `NuvioCDetailSmooth.kt`).
 - Hero spec (logo box, facts line above, wider synopsis, tagline), round Shuffle / Rate / Bell buttons with focus labels, Information ledger with fixed slots (Awards wins via OMDb), collection on its own row (episode Find was removed in round 56: it caused the lost focus on series pages), smoother scrolling and focus.
 - Files: `ui/screens/detail/NuvioCDetail*.kt`, `NuvioCCredits.kt`, `HeroSection.kt`, `MetaDetailsScreen.kt`, `EpisodesSection.kt`, `ui/screens/calendar/NuvioCDetailBell.kt`.
+- Round 65: `SERIES_GRAPH` (no Ratings row; a round Ratings graph hero button after Rate opens a full-screen season x episode grid like the synopsis, IMDb / Mine (Trakt + this TV's episode ratings), watched / next marks, season averages; ratings load when it opens; `NuvioCSeriesGraph.kt`), `HERO_ROW_V65` (pill 44 dp, 16 dp sides, round buttons 44 dp, 8 dp gaps; also Featured, Roulette, Library Random pick; `NuvioCHeroRow65.kt`), `SYNOPSIS_LOGO`, `EDITIONS_BY_SEEDERS` (2+ releases, 10+ seeders, by seeders; no fan edits, no Criterion; cache marked `e65`).
 - Round 61 hero lines (`HERO_LINES_V61`): under the buttons `[age rating] • genres • N seasons`; the quality line under the synopsis starts with `year • duration` (a show's episode length), a dot, then the badges. Without MDBList, IMDb / TMDB take the ratings row; the next-episode badge sits at the end of the ratings row either way. Dolby Vision, Dolby Atmos and DTS (any DTS) are white logos (`res/drawable/nuvio_c_logo_*.xml`, from Wikimedia Commons; Atmos and DTS traced from bitmaps), the whole line 17 dp (`QUALITY_LOGOS`).
 - Round 62 (`QUALITY_LINE_V62`, `HERO_RHYTHM_V62`, `RATINGS_ROW_V62`, `DETAIL_OPEN_FAST`): quality line back to 15 dp with 10 sp pills, Dolby logos 12 dp inside; `year • duration`, a hairline, then resolution, source (REMUX reads BLURAY), TrueHD, visual, Atmos (one sound label per release as before; DTS / DD / DD+ not shown); show years read `2023` (running) or `2019–2023`. No dot after the age rating chip; one 12 dp gap between facts, ratings, synopsis and the quality line. Ratings row: square marks 16 dp, IMDb 26 x 13 dp, even-width digits, TMDB whole, 16 dp between sources; the empty-space hold gives up after 2.5 s; no empty fallback row. Opening: the MDBList user-rating lookup reuses one media index per sync (`data/mdblist/MdbListUserRatings.kt`; it rebuilt one over the whole watch history per lookup, ~180 ms on the main thread at open), the unused official rating pill lookup is skipped, the fork's MDBList score read runs off the main thread, and the picture stays under the placeholder while the page fades in.
 - Round 63: quality line runtime reads `1 hr 49 min` / `24 min`, 7 dp either side of the dot between year and runtime, 6 dp between badges, Dolby Vision / Atmos in an outlined box the badges' height (`QUALITY_LINE_V63`). Opening: Home rows and Continue Watching hand their picture to the details page like the hero does (`DETAIL_OPEN_PICTURE`, `ui/screens/home/HomeScreen.kt`); held-back loads start 200 ms apart and the facts line no longer listens to the info store (`DETAIL_TRIM_63`). Information Awards: one award body per line (`AWARDS_BY_LINE`).
@@ -69,17 +71,20 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 ## Trailers
 - Layer on official background trailers: sound toggle, one Back exits, skip watched titles, resume after Sources, keep focus. Trailer screen gets the seek bar and a logo. IMDb backup when YouTube rate-limits.
 - Optional patches (see CI): file lists in `nuvio-c.yml` `TRAILER_PATHS` and `IMDB_PATHS`.
+- Round 65: official 1.2.0-beta.4's trailer "audio without video" fix taken alone (`TrailerPlayer.kt`, `BackgroundTrailerLayer.kt`); the rest of beta.4 is not merged.
 - Files: `ui/components/BackgroundTrailerLayer.kt`, `NuvioCTrailerHold.kt`, `NuvioCTrailerResume.kt`, `data/trailer/NuvioCImdbTrailerResolver.kt`, `NuvioCTrailerBackup.kt`, `ui/screens/settings/NuvioCTrailerSettings.kt`.
 
 ## Cast page
 - Acting credits only with the character under each title, director / writer job lines, All / Movies / Shows chips, Back jumps to first. Optional patch `FILMOGRAPHY_PATHS`.
 - Files: `ui/screens/cast/NuvioCCast*.kt`, `core/tmdb/NuvioCFilmography.kt`.
+- Round 65 `FILMOGRAPHY_TABS_NO_COUNT`: no counts inside the Movies / Series tabs.
 
 ## Home
 - Continue Watching / Upcoming landscape cards: title and episode name scroll on focus, taking turns (`CW_TURN_MARQUEE`, `ui/components/ContinueWatchingSection.kt`).
 - More cut text scrolls on focus: Taste list rows (title and details take turns), Spin card genre line, faces' role line, Modern Home card titles, collection folder titles, Calendar reminder rows (`MARQUEE_MORE`).
 - Fourth layout "Featured" (full-screen carousel, contextual tags, split arrows, top-3 ratings), hero pool shuffle, auto-advance, synopsis fit, Extra large card size, Grid hidden, offline card, clock, poster glow.
 - Switches: `HOME_FEATURED`, `FEATURED_*`, `HERO_*`, `CARD_SIZE_XL`, `NO_GRID_LAYOUT`, `OFFLINE_*`, `BROWSE_CLOCK`, `POSTER_GLOW*`.
+- Round 65: `FEATURED_BACKDROP_WHOLE` (whole 16:9 picture ~78% wide, top right, fading left / bottom), `FEATURED_YOU_RATED` ("YOU RATED THIS 5/10"), `RATINGS_LINE_EVERYWHERE` (details ratings-line look on every ratings line).
 - Files: `ui/screens/home/NuvioC*.kt`, `ModernHomeHero.kt`, `ModernHomeContent.kt`, `ui/components/NuvioCCardSize.kt`, `NuvioCHeroSpec.kt`, `NuvioCClock.kt`, `NuvioCPosterGlow.kt`, `core/nuvioc/NuvioCFeaturedTags.kt`, `core/di/NuvioCFeaturedModule.kt`.
 
 ## Look and feel (app-wide)
@@ -91,21 +96,25 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Profile screen: no "Who's watching", centred block, greeting, check badge, built-in TMDB background (optionally from catalogs).
 - Start-up: no Nuvio logo on a cold start to profiles (the start-up logo is held back while the profile screen is still ahead); the profile list saved on the last run draws the profile screen from the first frame (`STARTUP_PROFILES_FIRST`, `data/local/ProfileDataStore.kt` mirror, `core/profile/ProfileManager.kt`); still logo only on the Home path, waits for profiles, sync and Home to settle, background job queue.
 - Files: `ui/components/SidebarNavigation.kt`, `NuvioCSidebarSettle.kt`, `ui/screens/profile/NuvioCProfile*.kt`, `ProfileSelectionScreen.kt`, `ui/components/NuvioCProfileBg.kt`, `NuvioCOpening.kt`, `core/nuvioc/NuvioCStartup*.kt`, `MainActivity.kt`.
+- Round 65: `PROFILE_BG_WHOLE` (whole picture ~85% wide, right, 28 dp fades, vignette, wash only under the column), `PROFILE_BG_PER_PROFILE` (from catalogs / catalogs per profile, own pool file).
 
 ## Library
 - Watched tab, Random pick, list picker with your source first, poster fallback, Back keeps focus.
 - Nuvio Sync source gets the list picker too: "Library" (saved items) and "Watched" (Nuvio watch history, one card per film / show, newest first; date sorts use when it was watched). Same filters, sorts, poster fallback and focus handling as the tracker sources (`LIBRARY_WATCHED_LOCAL`).
 - Files: `ui/screens/library/NuvioCLibrary*.kt`, `ui/components/NuvioCLibraryPicker.kt`, `data/nuvioc/NuvioCWatchedLibrary.kt`.
+- Round 65 `LISTS_SAVE_JUMP`: lists menu Left / Right to Save, Up back to the row; whole 40 dp rows, 6 dp focus room.
 
 ## Calendar and Upcoming (from ysosrs123, fully Nuvio C's since 2026-11-20)
 - Calendar page (List / Month; the Week view was removed), sources TVDB, Trakt, MDBList calendar, TMDB Coming soon (digital only), bells shared with Details, Upcoming row (14 days, future only).
 - Switches: `LIBRARY_CALENDAR`, `CALENDAR_*`, `UPCOMING_*`, `TMDB_SOON_*`, `BELL_SYNC`.
 - Files: `core/calendar/`, `ui/screens/calendar/`, `ui/screens/home/HomeComingUp.kt`, `ui/screens/settings/CalendarSettingsSection.kt`.
+- Round 65: `CALENDAR_NO_ZONE_LINE`, `CALENDAR_PANEL_STEADY` (side panel picture / logo chosen once per row after up to 300 ms, kept until the next decodes; `NuvioCCalendarPanelArt.kt`).
 
 ## Roulette (sidebar "Roulette", action "Shuffle")
 - On the reel / result, changing filters never spins; an amber dot sits on Shuffle again (`ROULETTE_HOLD`). Unwatched / Watched / All titles is a dropdown (`ROULETTE_WATCH_DROPDOWN`). Movies / Shows cards have no glow or fill on focus (`ROULETTE_TILE_NO_GLOW`). Mood-screen backdrop decoded larger and softly blurred (`BACKDROP_SMOOTH`).
 - Movies / Shows mood screen over a large raw TMDB pool, Refine dialog (popularity, decade, region, theme…), watched cycle, ratings line, backdrop.
 - Files: `ui/screens/shuffle/`, `data/nuvioc/NuvioCShuffle*.kt`, `NuvioCRoulette*.kt`, `ui/screens/settings/NuvioCShuffleSettings.kt`.
+- Round 65 `ROULETTE_SPIN_V65`: the reel moves at once over posters in memory, eases onto the pick; spinning posters blurred (1/8 decode) and dimmed, pulsing "?", the pick sharpens with YOUR PICK; Library Random pick too (`ui/components/NuvioCPosterReelV65.kt`).
 
 ## Taste page
 - Per-profile stats and discovery: Overview / Discover / Stats / Wrapped tabs.
@@ -115,10 +124,12 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Round 61 (`TASTE_TOP_STACK`): list cards stack fixed 40 dp rows from the top (one or two entries no longer spread apart); Faces start at the first position with a 24 dp gap when the row isn't full.
 - Round 59 (`TASTE_V59`): long names get two lines: Top show name wraps (note one line); Biggest day / New releases put the date / oldest year beside the number and the title gets two lines below; list rows (Recently finished, Binges, Top shows, Top films) are title line + details line. Wrapped chart keeps a line above the bars for the peak number; Wrapped dates read "11 Nov". Stats bottom strip is four cards lined up under the four cards above; Avg episode notes how many shows.
 - Files: `ui/screens/taste/`, `data/nuvioc/NuvioCTaste*.kt`. Rule: strictly per profile.
+- Round 65 `TASTE_CARDS_OPEN`: every card with data focuses and opens a page (breakdown + titles, timeline, ranked list) for the page's scope; Firsts / Highlights lines open their target; Back lands on the card (`NuvioCTastePages65.kt`, `data/nuvioc/NuvioCTasteCards.kt`).
 
 ## Trackers and sync
 - Simkl AUTH V2 device login (`SIMKL_V2`, `data/simkl/SimklAuthRepository.kt`), Trakt keeps login on soft refresh failures (`TRAKT_KEEP_LOGIN`), MDBList rating batching.
 - Fork settings travel with the Nuvio profile (`NUVIO_C_CLOUD_SETTINGS`, `CLOUD_SETTINGS_*`, `core/nuvioc/NuvioCCloudSettings.kt`). Each profile also keeps its own copy on the TV and it is loaded on every profile switch before any sync, so one profile's settings never land in another's (`CLOUD_SETTINGS_PER_PROFILE`). Passthrough switches stay on this TV, per profile, never synced. Roulette's seen list and the post-play rating marker are per profile (`PROFILE_LOCAL_HISTORY`, `core/nuvioc/NuvioCActiveProfile.kt`). TVDB key in Integrations (`API_KEYS`, `core/nuvioc/NuvioCApiKeys.kt`).
+- Round 65 `CLOUD_SETTINGS_65`: profile background settings and Roulette sidebar / catalogs / weights sync too.
 
 ## Performance
 - Round 64c: `PLAYER_EXIT_FAST` (plain Back out of the player releases the stopped player 0.9 s later; the key press held ~190 ms in ExoPlayer.release()), `DETAIL_CACHE_WINDOW` (details rows stay built ~1 screen above / half below, no rebuild hitch scrolling back up), `RATINGS_STEADY` (Ratings row shows tabs and dimmed chips while loading, no height jump, one less page-state pass), `ROW_LOADING_NAV` (Home / Search rows no longer block Up / Down while a focused row swaps placeholders for cards; `ui/components/CatalogRowSection.kt`), `OSD_DDP_ATMOS_NAME` (DD+ track in an Atmos-named release shows the Atmos logo).

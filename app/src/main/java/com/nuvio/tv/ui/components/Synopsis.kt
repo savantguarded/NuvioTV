@@ -37,6 +37,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import com.nuvio.tv.ui.util.nuvioCLogoContrast
+import coil3.request.crossfade
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
