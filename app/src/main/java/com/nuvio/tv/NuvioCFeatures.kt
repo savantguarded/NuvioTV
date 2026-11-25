@@ -1050,4 +1050,10 @@ object NuvioCFeatures {
     const val ROW_LOADING_NAV = true
     /** Passthrough switches: with a format switched off, the starting audio track is picked by the usual rules (language, default flag, channels, bitrate), not by which decoder plays it; after PASSTHROUGH_KEEP_OTHERS a DTS + DD+ release started on DD+. Off = Media3 prefers the TV's own decoder. */
     const val PASSTHROUGH_TRACK_PICK = true
+
+    // ---- Round 65 (2026-11-25) ----
+    /** Calendar: no "Times in <zone>" line under the title. Off = official line. */
+    const val CALENDAR_NO_ZONE_LINE = true
+    /** Calendar side panel: picture and logo are chosen once per focused row (waits up to 300 ms for its details), never swapped when details arrive; the previous row's picture stays until the next has decoded. Off = picture / name switch as details arrive. */
+    const val CALENDAR_PANEL_STEADY = true
 }

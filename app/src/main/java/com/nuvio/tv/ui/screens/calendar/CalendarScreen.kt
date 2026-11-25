@@ -278,7 +278,7 @@ private fun CalendarHeader(
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 0.5.sp
             )
-            uiState.zone?.let { zone ->
+            uiState.zone?.takeIf { !NuvioCFeatures.CALENDAR_NO_ZONE_LINE }?.let { zone -> // [fork] round 65
                 val name = remember(zone, uiState.now, formats.locale) {
                     calendarZoneName(zone, uiState.now, formats.locale, androidExemplarCity(formats.locale))
                 }
@@ -963,6 +963,7 @@ private fun CalendarSidePanel(
     container {
         Column(Modifier.fillMaxSize().verticalScroll(scroll)) {
             Box(Modifier.fillMaxWidth().height(calendarMetrics().panelArtHeight)) {
+                if (NuvioCFeatures.CALENDAR_PANEL_STEADY) { NuvioCCalendarSteadyArt(row, details); return@Box } // [fork] round 65
                 CalendarArtImage(
                     url = details?.still(row.season, row.episode),
                     alternate = row.backdrop ?: details?.backdrop,
