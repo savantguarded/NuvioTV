@@ -1080,4 +1080,6 @@ object NuvioCFeatures {
     const val PROFILE_BG_PER_PROFILE = true
     /** Cloud settings also carry the profile background settings and Roulette's sidebar entry, catalogs / Automatic and source weights. Passthrough switches and the saved night level stay on the TV. Off = round 52 set. */
     const val CLOUD_SETTINGS_65 = true
+    /** Stream info panel: every row that can apply to this engine is there from the start ("—" until known, "OK" for Paging / Thermal), its scale is worked out once when it opens, tabular digits; size and row positions never change while open. Off = rows come and go, re-scaled each time. */
+    const val STATS_STEADY = true
 }

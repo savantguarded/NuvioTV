@@ -64,8 +64,30 @@ internal object NuvioCStreamServer {
     }
 }
 
-private data class NuvioCStatsRow(val label: String, val value: String, val severity: DebugStatSeverity = DebugStatSeverity.NORMAL, val marquee: Boolean = false)
-private data class NuvioCStatsSection(val header: String, val rows: List<NuvioCStatsRow>)
+internal data class NuvioCStatsRow(val label: String, val value: String, val severity: DebugStatSeverity = DebugStatSeverity.NORMAL, val marquee: Boolean = false)
+internal data class NuvioCStatsSection(val header: String, val rows: List<NuvioCStatsRow>)
+
+/**
+ * [fork] round 65 STATS_STEADY: every row that can apply to this engine, in a fixed order, from the first second:
+ * "—" until known, "OK" for Paging / Thermal when they are fine. The panel's rows (and so its size) never change
+ * while it is open. Pure, for tests.
+ */
+internal fun nuvioCStatsTemplate(isMpv: Boolean, full: Boolean): List<Pair<String, List<String>>> = listOfNotNull(
+    if (full) "PLAYBACK" to listOf("Position", "Rebuffers") else null,
+    "SOURCE" to listOf("Engine", "Add-on", "Server", "File", "Container", "Size", "File bitrate"),
+    "VIDEO" to listOf("Video", "Picture", "HDR", "Decoder", "Display", "Frame lead", "Bitrate", "Dropped"),
+    "AUDIO" to listOf("Audio", "Route", "Output", "Decoder", "Underruns"),
+    "NETWORK" to (listOf("Buffer", "Speed") + (if (isMpv) listOf("Cache") else emptyList()) + listOf("Loaded", "Last request", "Load errors")),
+    "SYSTEM" to listOf("CPU", "Memory", "Paging", "Thermal", "Throttle", "CPU clock")
+)
+
+internal fun nuvioCSteadySections(sampled: List<NuvioCStatsSection>, isMpv: Boolean, full: Boolean): List<NuvioCStatsSection> =
+    nuvioCStatsTemplate(isMpv, full).map { (header, labels) ->
+        val got = sampled.firstOrNull { it.header == header }?.rows.orEmpty().associateBy { it.label }
+        NuvioCStatsSection(header, labels.map { label ->
+            got[label] ?: NuvioCStatsRow(label, if (label == "Paging" || label == "Thermal") "OK" else "—", marquee = label == "File" && full)
+        })
+    }
 
 @OptIn(UnstableApi::class)
 @Composable
@@ -198,7 +220,7 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
                     live["throttle"]?.let { NuvioCStatsRow("Throttle", it.value, it.severity) },
                     if (full) NuvioCPlaybackStats.cpuClock()?.let { NuvioCStatsRow("CPU clock", it) } else null
                 )))
-            }.filter { it.rows.isNotEmpty() }
+            }.filter { it.rows.isNotEmpty() }.let { if (com.nuvio.tv.NuvioCFeatures.STATS_STEADY) nuvioCSteadySections(it, isMpv, full) else it } // [fork] round 65
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (t: Throwable) {
@@ -218,10 +240,12 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
     val lineH = if (fixed) 16.sp else if (big) 15.sp else if (fit) 12.sp else 13.sp
     val textSize = if (fixed) 14.sp else if (big) 12.5.sp else 10.5.sp
     val labelStyle = MaterialTheme.typography.labelSmall.copy(fontSize = textSize, lineHeight = lineH, fontWeight = FontWeight.Medium)
-    val valueStyle = MaterialTheme.typography.labelSmall.copy(fontSize = textSize, lineHeight = lineH)
+    val valueStyle = MaterialTheme.typography.labelSmall.copy(fontSize = textSize, lineHeight = lineH,
+        fontFeatureSettings = if (com.nuvio.tv.NuvioCFeatures.STATS_STEADY) "tnum" else null) // [fork] round 65: tabular digits
+    val nuvioCScale = remember { floatArrayOf(-1f) } // [fork] round 65 stats_steady: the fit scale, worked out once
     Column(
         modifier = modifier
-            .then(if (fit) Modifier.nuvioCScaleToFitHeight() else Modifier)
+            .then(if (fit) Modifier.nuvioCScaleToFitHeight(if (com.nuvio.tv.NuvioCFeatures.STATS_STEADY) nuvioCScale else null) else Modifier)
             .width(if (fixed) 520.dp else if (big) 460.dp else 380.dp)
             .clip(RoundedCornerShape(10.dp))
             .background(Color(0xB8000000))
@@ -270,12 +294,14 @@ internal fun NuvioCStatsPanel(viewModel: PlayerViewModel, modifier: Modifier = M
  * [fork] round 35 hud_fit: measures the content at its natural height and, when that is taller than the space it was
  * given, scales it down from the top-right corner so all of it shows. No change when it already fits.
  */
-private fun Modifier.nuvioCScaleToFitHeight(): Modifier = this.layout { measurable, constraints ->
+private fun Modifier.nuvioCScaleToFitHeight(once: FloatArray? = null): Modifier = this.layout { measurable, constraints ->
     val placeable = measurable.measure(constraints.copy(minHeight = 0, maxHeight = androidx.compose.ui.unit.Constraints.Infinity))
     val maxH = constraints.maxHeight
-    val scale = if (constraints.hasBoundedHeight && placeable.height > maxH && placeable.height > 0) maxH.toFloat() / placeable.height else 1f
+    val fresh = if (constraints.hasBoundedHeight && placeable.height > maxH && placeable.height > 0) maxH.toFloat() / placeable.height else 1f
+    // [fork] round 65 stats_steady: the first measure (full row set) decides the scale for as long as the panel is open
+    val scale = if (once == null) fresh else { if (once[0] < 0f) once[0] = fresh; once[0] }
     val w = placeable.width
-    val h = if (scale < 1f) maxH else placeable.height
+    val h = (placeable.height * scale).toInt().coerceAtLeast(1)
     layout(w, h) {
         placeable.placeWithLayer(0, 0) {
             scaleX = scale
