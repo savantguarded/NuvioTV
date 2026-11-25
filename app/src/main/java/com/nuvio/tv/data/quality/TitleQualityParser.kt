@@ -257,10 +257,22 @@ object TitleQualityParser {
      * Round 64: the editions one release names. The film's own [title] is taken out first (so "The Final Cut" or
      * "Redux" in a title never counts); CAM / zero-seeder releases and, for a film, other-year releases don't count.
      */
-    fun editionsOf(stream: QualityStreamText, title: String? = null, year: Int? = null): Set<QualityEdition> {
+    fun editionsOf(stream: QualityStreamText, title: String? = null, year: Int? = null): Set<QualityEdition> =
+        editionHit(stream, title, year).first
+
+    /** Round 65: a release's editions and its seeders (0 = doesn't count). */
+    internal fun editionHit(stream: QualityStreamText, title: String? = null, year: Int? = null): Pair<Set<QualityEdition>, Int> {
         val raw = listOfNotNull(stream.name, stream.title, stream.filename).joinToString(" ").lowercase()
         val seeders = SEEDERS.find(raw)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+        return editionsIn(raw, seeders, title, year) to seeders
+    }
+
+    // round 65 editions_by_seeders: fan projects (MCU fan edits were showing a fake "Extended")
+    private val FAN_EDIT = Regex(" (fan ?edit|fan ?cut|fan made|recut|despecialized) ")
+
+    private fun editionsIn(raw: String, seeders: Int, title: String?, year: Int?): Set<QualityEdition> {
         if (seeders <= 0) return emptySet()
+        if (com.nuvio.tv.NuvioCFeatures.EDITIONS_BY_SEEDERS && FAN_EDIT.containsMatchIn(" " + words(raw) + " ")) return emptySet()
         var t = SEEDERS.replace(raw, " ")
         if (CAM.containsMatchIn(t)) return emptySet()
         if (year != null) {
@@ -277,11 +289,41 @@ object TitleQualityParser {
             .joinToString(" ") { if (tw == null) it else it.replace(tw, " ") }
         if (t.isBlank()) return emptySet()
         t = t.replace(Regex(" +"), " ")
-        return EDITION_RULES.filter { (_, re) -> re.containsMatchIn(t) }.mapTo(LinkedHashSet()) { it.first }
+        return EDITION_RULES
+            .filter { (e, _) -> !(com.nuvio.tv.NuvioCFeatures.EDITIONS_BY_SEEDERS && e == QualityEdition.CRITERION) } // round 65: media properties only
+            .filter { (_, re) -> re.containsMatchIn(t) }.mapTo(LinkedHashSet()) { it.first }
+    }
+
+    /** Round 65: an edition needs this many different releases naming it ... */
+    const val EDITION_MIN_RELEASES = 2
+    /** ... with at least this many seeders between them. */
+    const val EDITION_MIN_SEEDERS = 10
+
+    /**
+     * Round 65 editions_by_seeders: editions named by at least [EDITION_MIN_RELEASES] different releases with
+     * [EDITION_MIN_SEEDERS]+ seeders in total, ordered by those seeders (tie: Extended, Director's Cut, then the
+     * enum order), at most [max].
+     */
+    fun editionsBySeeders(streams: Iterable<QualityStreamText>, title: String? = null, year: Int? = null, max: Int = 2): List<QualityEdition> {
+        val releases = HashMap<QualityEdition, HashSet<String>>()
+        val seeds = HashMap<QualityEdition, Int>()
+        streams.forEach { s ->
+            val (found, seeders) = editionHit(s, title, year)
+            if (found.isEmpty()) return@forEach
+            val id = words(listOfNotNull(s.title?.substringBefore('\n'), s.filename).joinToString(" "))
+            found.forEach { e ->
+                if (releases.getOrPut(e) { HashSet() }.add(id)) seeds[e] = (seeds[e] ?: 0) + seeders
+            }
+        }
+        return releases.keys
+            .filter { (releases[it]?.size ?: 0) >= EDITION_MIN_RELEASES && (seeds[it] ?: 0) >= EDITION_MIN_SEEDERS }
+            .sortedWith(compareByDescending<QualityEdition> { seeds[it] ?: 0 }.thenBy { it.ordinal })
+            .take(max)
     }
 
     /** Round 64: editions across all [streams], in priority order, at most [max]. */
     fun editions(streams: Iterable<QualityStreamText>, title: String? = null, year: Int? = null, max: Int = 2): List<QualityEdition> {
+        if (com.nuvio.tv.NuvioCFeatures.EDITIONS_BY_SEEDERS) return editionsBySeeders(streams, title, year, max)
         val seen = HashSet<QualityEdition>()
         streams.forEach { seen += editionsOf(it, title, year) }
         return QualityEdition.entries.filter { it in seen }.take(max)

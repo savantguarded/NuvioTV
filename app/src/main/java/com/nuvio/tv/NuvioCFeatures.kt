@@ -1064,4 +1064,6 @@ object NuvioCFeatures {
     const val RATINGS_LINE_EVERYWHERE = true
     /** Roulette and Library Random pick reel: starts moving at once at a constant speed over posters already in memory, then eases out onto the pick (no still poster); spinning posters blurred (tiny decode drawn large) and dimmed, a pulsing "?" in the frame; on landing the pick sharpens with "YOUR PICK". Off = round 28 reel. */
     const val ROULETTE_SPIN_V65 = true
+    /** Details editions: shown only when named by 2+ different releases with 10+ seeders between them, ordered by those seeders (tie: Extended, Director's Cut); fan edits / recuts / despecialized ignored; no Criterion (media properties only). Quality cache re-read once. Off = round 64 (any release, priority order). */
+    const val EDITIONS_BY_SEEDERS = true
 }
