@@ -40,7 +40,9 @@ fun NuvioCImdbRating(
     val context = LocalContext.current
     val model = remember(context) { ImageRequest.Builder(context).data(R.raw.imdb_logo_2016).build() }
     Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-        AsyncImage(model = model, contentDescription = null, modifier = Modifier.size(iconSize), contentScale = ContentScale.Fit)
-        Text(text = nuvioCImdbValue(rating), style = textStyle, color = textColor, maxLines = 1)
+        // [fork] round 65 ratings_line_everywhere: same IMDb mark box (26 x 13 dp) and even-width digits as the ratings line
+        val nuvioCV62 = com.nuvio.tv.NuvioCFeatures.RATINGS_LINE_EVERYWHERE
+        AsyncImage(model = model, contentDescription = null, modifier = if (nuvioCV62) Modifier.size(width = 26.dp, height = 13.dp) else Modifier.size(iconSize), contentScale = ContentScale.Fit)
+        Text(text = nuvioCImdbValue(rating), style = if (nuvioCV62) textStyle.copy(fontFeatureSettings = "tnum") else textStyle, color = textColor, maxLines = 1)
     }
 }

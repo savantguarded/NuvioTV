@@ -33,16 +33,19 @@ fun MDBListRatingsRow(
     fitOneLine: Boolean = false, // [fork] round 38 roulette_ratings_all: one line, as many whole badges as fit
     nuvioCV62: Boolean = false // [fork] round 62 ratings_row_v62 (details hero): even icons, tabular digits, TMDB whole, 16 dp gaps
 ) {
+    // [fork] round 65 ratings_line_everywhere: every ratings line (Home hero, Featured, Roulette, OSD About, loading,
+    // post-play) uses the details hero's round 62 look
+    val nuvioCV62 = nuvioCV62 || com.nuvio.tv.NuvioCFeatures.RATINGS_LINE_EVERYWHERE
     val orderedProviders = remember(ratings, maxItems, order) {
         order.filter { provider -> getRatingValue(ratings, provider) != null }
             .take(maxItems)
     }
 
     if (fitOneLine) {
-        NuvioCFitOneLine(modifier = modifier, gap = 14.dp) {
+        NuvioCFitOneLine(modifier = modifier, gap = if (nuvioCV62) 16.dp else 14.dp) {
             orderedProviders.forEach { provider ->
                 val rating = getRatingValue(ratings, provider) ?: return@forEach
-                RatingBadge(provider = provider, rating = rating, ratings = ratings, iconSize = iconSize)
+                RatingBadge(provider = provider, rating = rating, ratings = ratings, iconSize = iconSize, nuvioCV62 = nuvioCV62)
             }
         }
         return

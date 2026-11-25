@@ -1060,4 +1060,6 @@ object NuvioCFeatures {
     const val FILMOGRAPHY_TABS_NO_COUNT = true
     /** Featured carousel tag: "YOU RATED THIS 5/10" (was "YOUR RATING 5/10"). Off = old wording. */
     const val FEATURED_YOU_RATED = true
+    /** Every ratings line (Home hero, Featured, Roulette, OSD About, loading screen, post-play, IMDb-only lines) uses the details hero's round 62 look: 16 dp square marks, IMDb 26 x 13 dp, even-width digits, TMDB whole, 16 dp gaps. The 2.5 s empty-space hold stays on the details page only. Off = old sizes outside details. */
+    const val RATINGS_LINE_EVERYWHERE = true
 }
