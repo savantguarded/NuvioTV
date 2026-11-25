@@ -3555,7 +3555,8 @@ private fun MetaDetailsContent(
             SynopsisOverlay(
                 title = meta.name,
                 description = synopsis,
-                onDismiss = { showSynopsisOverlay = false }
+                onDismiss = { showSynopsisOverlay = false },
+                nuvioCLogo = meta.logo // [fork] round 65 synopsis_logo
             )
         }
         if (randomEpisodePlaybackPending) {

@@ -1082,4 +1082,6 @@ object NuvioCFeatures {
     const val CLOUD_SETTINGS_65 = true
     /** Stream info panel: every row that can apply to this engine is there from the start ("—" until known, "OK" for Paging / Thermal), its scale is worked out once when it opens, tabular digits; size and row positions never change while open. Off = rows come and go, re-scaled each time. */
     const val STATS_STEADY = true
+    /** Expanded synopsis: the title's logo (same request as the details page, details logo height) in place of the title text; the name when there is no logo. Off = title text. */
+    const val SYNOPSIS_LOGO = true
 }

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -34,6 +35,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import com.nuvio.tv.ui.util.nuvioCLogoContrast
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -169,7 +172,8 @@ fun SynopsisDescription(
 fun SynopsisOverlay(
     title: String,
     description: String,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    nuvioCLogo: String? = null // [fork] round 65 synopsis_logo: the title's logo in place of the title text
 ) {
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
@@ -236,6 +240,22 @@ fun SynopsisOverlay(
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.md)
             ) {
+                // [fork] round 65 synopsis_logo: the details page's logo request (a memory hit), the name as fallback
+                var nuvioCLogoFailed by remember(nuvioCLogo) { mutableStateOf(false) }
+                if (com.nuvio.tv.NuvioCFeatures.SYNOPSIS_LOGO && !nuvioCLogo.isNullOrBlank() && !nuvioCLogoFailed) {
+                    val nuvioCContext = androidx.compose.ui.platform.LocalContext.current
+                    val nuvioCModel = remember(nuvioCContext, nuvioCLogo) {
+                        coil3.request.ImageRequest.Builder(nuvioCContext).data(nuvioCLogo).crossfade(true).nuvioCLogoContrast().build()
+                    }
+                    coil3.compose.AsyncImage(
+                        model = nuvioCModel,
+                        contentDescription = title,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                        alignment = Alignment.CenterStart,
+                        onError = { nuvioCLogoFailed = true },
+                        modifier = Modifier.height(com.nuvio.tv.ui.components.NuvioCHeroSpec.logoHeight).fillMaxWidth(0.45f)
+                    )
+                } else
                 Text(
                     text = title,
                     style = MaterialTheme.typography.headlineSmall,
