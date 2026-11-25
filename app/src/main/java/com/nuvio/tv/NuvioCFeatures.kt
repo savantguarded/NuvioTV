@@ -1076,4 +1076,8 @@ object NuvioCFeatures {
     const val FEATURED_BACKDROP_WHOLE = true
     /** Profile screen background: the whole picture (no crop) at ~85% width (820 x 461 dp), right-aligned and centred, 28 dp fades top / bottom, light vignetting, a soft wash only under the profile column. Off = full-screen crop with the left-third wash. */
     const val PROFILE_BG_WHOLE = true
+    /** Profile background "from catalogs" and the chosen catalogs are per profile (each profile's own picture pool); the TV-wide values are copied to every profile once. Off = one setting for the TV. */
+    const val PROFILE_BG_PER_PROFILE = true
+    /** Cloud settings also carry the profile background settings and Roulette's sidebar entry, catalogs / Automatic and source weights. Passthrough switches and the saved night level stay on the TV. Off = round 52 set. */
+    const val CLOUD_SETTINGS_65 = true
 }

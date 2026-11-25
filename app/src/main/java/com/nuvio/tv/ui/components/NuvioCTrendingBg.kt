@@ -50,22 +50,77 @@ object NuvioCTrendingBg {
     val catalogOn = androidx.compose.runtime.mutableStateOf(false)
     val catalogKeys = androidx.compose.runtime.mutableStateOf<List<String>>(emptyList())
 
-    fun loadSettings(context: Context) {
+    // ---- [fork] round 65 PROFILE_BG_PER_PROFILE: "from catalogs" and the chosen catalogs belong to each profile ----
+    private fun perProfile() = NuvioCFeatures.PROFILE_BG_PER_PROFILE
+    private fun activeId() = com.nuvio.tv.core.nuvioc.NuvioCActiveProfile.id()
+    private fun pk(profile: Int, key: String) = if (perProfile()) "p$profile:$key" else key
+
+    /** Copies the TV-wide values to [profile] the first time it is read, so nothing changes for anyone on update. */
+    private fun migrate(p: android.content.SharedPreferences, profile: Int) {
+        if (!perProfile() || p.contains("p$profile:$KEY_CATALOG_ON")) return
+        p.edit().putBoolean("p$profile:$KEY_CATALOG_ON", p.getBoolean(KEY_CATALOG_ON, false))
+            .putString("p$profile:$KEY_CATALOG_KEYS", p.getString(KEY_CATALOG_KEYS, "").orEmpty()).apply()
+    }
+
+    fun catalogOnFor(context: Context, profile: Int): Boolean {
         val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        catalogOn.value = NuvioCFeatures.PROFILE_BG_CATALOGS && p.getBoolean(KEY_CATALOG_ON, false)
-        catalogKeys.value = p.getString(KEY_CATALOG_KEYS, "").orEmpty().split('|').filter { it.isNotBlank() }
+        migrate(p, profile)
+        return NuvioCFeatures.PROFILE_BG_CATALOGS && p.getBoolean(pk(profile, KEY_CATALOG_ON), false)
+    }
+
+    fun catalogKeysFor(context: Context, profile: Int): List<String> {
+        val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        migrate(p, profile)
+        return p.getString(pk(profile, KEY_CATALOG_KEYS), "").orEmpty().split('|').filter { it.isNotBlank() }
+    }
+
+    /** [fork] round 65: values written by the cloud sync for [profile]. */
+    fun applySynced(context: Context, profile: Int, on: Boolean?, keys: List<String>?) {
+        if (!perProfile()) return
+        val p = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        migrate(p, profile)
+        p.edit().apply {
+            on?.let { putBoolean("p$profile:$KEY_CATALOG_ON", it) }
+            keys?.let { putString("p$profile:$KEY_CATALOG_KEYS", it.joinToString("|")) }
+        }.apply()
+        if (profile == activeId()) loadSettings(context)
+        profilePools.remove(profile)
+        picks.remove(profile)
+    }
+
+    fun loadSettings(context: Context) {
+        val profile = activeId()
+        catalogOn.value = catalogOnFor(context, profile)
+        catalogKeys.value = catalogKeysFor(context, profile)
     }
 
     fun setCatalogOn(context: Context, on: Boolean) {
         catalogOn.value = on
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_CATALOG_ON, on).apply()
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(pk(activeId(), KEY_CATALOG_ON), on).apply()
+        if (perProfile()) { profilePools.remove(activeId()); picks.remove(activeId()) }
         switchPool(context.applicationContext)
     }
 
     fun setCatalogKeys(context: Context, keys: List<String>) {
         catalogKeys.value = keys
-        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(KEY_CATALOG_KEYS, keys.joinToString("|")).apply()
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(pk(activeId(), KEY_CATALOG_KEYS), keys.joinToString("|")).apply()
     }
+
+    /** [fork] round 65: each profile's catalog pool file (falls back to the shared one written before round 65). */
+    private fun catalogPoolFile(app: Context, profile: Int): File =
+        if (perProfile()) File(dir(app), "pool_catalogs_p$profile.json").takeIf { it.exists() } ?: File(dir(app), CATALOG_POOL) else File(dir(app), CATALOG_POOL)
+    private val profilePools = java.util.concurrent.ConcurrentHashMap<Int, List<Entry>>()
+
+    /** The pool [profile] draws from: its catalogs when it has "from catalogs" on and pictures for them, else trending. */
+    private fun poolFor(app: Context, profile: Int): List<Entry> {
+        if (!perProfile()) return pool
+        return profilePools.getOrPut(profile) {
+            val catalogs = if (catalogOnFor(app, profile)) parse(runCatching { catalogPoolFile(app, profile).readText() }.getOrDefault("[]")) else emptyList()
+            catalogs.ifEmpty { trendingPool(app) }
+        }
+    }
+    private fun trendingPool(app: Context): List<Entry> =
+        if (poolIsTrending && pool.isNotEmpty()) pool else parse(runCatching { File(dir(app), POOL).readText() }.getOrDefault("[]"))
 
     /**
      * New pictures from the chosen catalogs (logo, genres). Saved for the next cold start; used at once when this
@@ -74,11 +129,16 @@ object NuvioCTrendingBg {
     fun setCatalogPool(context: Context, entries: List<Entry>) {
         if (entries.isEmpty()) return
         val app = context.applicationContext
+        val profile = activeId()
         thread(name = TAG, isDaemon = true, priority = Thread.MIN_PRIORITY) {
             runCatching {
-                File(dir(app), CATALOG_POOL).writeText(JSONArray(entries.map { it.toJson() }).toString())
+                // [fork] round 65: the active profile's own pool file
+                (if (perProfile()) File(dir(app), "pool_catalogs_p$profile.json") else File(dir(app), CATALOG_POOL)).writeText(JSONArray(entries.map { it.toJson() }).toString())
+                if (perProfile()) { profilePools.remove(profile) }
                 if (catalogOn.value && (pool.isEmpty() || poolIsTrending)) { pool = entries; poolIsTrending = false; picks.clear() }
-                val keep = (entries + parse(runCatching { File(dir(app), POOL).readText() }.getOrDefault("[]"))).map { fileFor(app, it).name }.toSet()
+                val keep = (entries + parse(runCatching { File(dir(app), POOL).readText() }.getOrDefault("[]")) +
+                    (dir(app).listFiles()?.filter { it.name.startsWith("pool_catalogs") }?.flatMap { f -> parse(runCatching { f.readText() }.getOrDefault("[]")) }.orEmpty()))
+                    .map { fileFor(app, it).name }.toSet()
                 dir(app).listFiles()?.filter { it.name.endsWith(".jpg") && it.name !in keep }?.forEach { it.delete() }
                 val heads = nextIds(app).toSet()
                 val missing = entries.filter { fileFor(app, it).length() == 0L }
@@ -118,7 +178,8 @@ object NuvioCTrendingBg {
                 val saved = parse(runCatching { File(dir(app), POOL).readText() }.getOrDefault("[]"))
                 if (NuvioCFeatures.PROFILE_BG_POOL_WIDE) {
                     // [fork] round 53: keep the folder to the pool, fetch what profiles show next, then up to 8 more a launch
-                    val keep = (saved + parse(runCatching { File(dir(app), CATALOG_POOL).readText() }.getOrDefault("[]"))).map { fileFor(app, it).name }.toSet()
+                    val keep = (saved + (dir(app).listFiles()?.filter { it.name.startsWith("pool_catalogs") }?.flatMap { f -> parse(runCatching { f.readText() }.getOrDefault("[]")) }.orEmpty())) // [fork] round 65: every profile's pool
+                        .map { fileFor(app, it).name }.toSet()
                     dir(app).listFiles()?.filter { it.name.endsWith(".jpg") && it.name !in keep }?.forEach { it.delete() }
                     val heads = nextIds(app).toSet()
                     val missing = saved.filter { fileFor(app, it).length() == 0L }
@@ -132,7 +193,7 @@ object NuvioCTrendingBg {
     /** The picture for [profileId] this launch, never the one it had last launch. Null = use the profile's own. */
     fun entryFor(context: Context, profileId: Int, profileIndex: Int): Entry? {
         if (!NuvioCFeatures.PROFILE_BG_BUILTIN) return null
-        val p = pool
+        val p = poolFor(context.applicationContext, profileId) // [fork] round 65: per profile
         if (p.isEmpty()) return null
         val index = picks.getOrPut(profileId) {
             val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

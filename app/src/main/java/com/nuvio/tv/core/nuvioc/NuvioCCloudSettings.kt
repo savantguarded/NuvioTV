@@ -85,7 +85,7 @@ class NuvioCCloudSettings @Inject constructor(
                         calendar.settings,
                         prefsTicks(prefs),
                         prefsTicks(viewPrefs),
-                        combine(prefsTicks(osdPrefs), prefsTicks(audioPrefs), prefsTicks(keyPrefs), prefsTicks(shufflePrefs)) { _, _, _, _ -> } // [fork] round 52: + Roulette
+                        combine(prefsTicks(osdPrefs), prefsTicks(audioPrefs), prefsTicks(keyPrefs), prefsTicks(shufflePrefs), prefsTicks(trendingPrefs)) { _, _, _, _, _ -> } // [fork] round 52: + Roulette; round 65: + profile background
                     ) { remote, _, _, _, _ -> profile to remote }
                 }.debounce(400).collect { (profile, remote) -> reconcile(profile, remote) }
             }.onFailure { Log.w(TAG, "stopped", it) }
@@ -212,7 +212,42 @@ class NuvioCCloudSettings @Inject constructor(
         "roulette_kind" to JsonPrimitive(shufflePrefs.getString(rk("kind"), "") ?: ""),
         "roulette_watch_filter" to JsonPrimitive(shufflePrefs.getString(rk("watch_filter"), "") ?: ""),
         "roulette_refine" to JsonPrimitive(shufflePrefs.getString(rk("refine"), "") ?: "")
-    )
+    ) + (if (NuvioCFeatures.CLOUD_SETTINGS_65) syncLocal65() else emptyMap())
+
+    // [fork] round 65 cloud_settings_65: the profile background's "from catalogs" and catalogs, and Roulette's sidebar,
+    // catalogs / Automatic and source weights (all per profile already on the TV) travel with the profile
+    private val trendingPrefs: SharedPreferences by lazy { context.getSharedPreferences("nuvio_c_trending", Context.MODE_PRIVATE) }
+    private fun syncLocal65(): Map<String, JsonPrimitive> {
+        val p = profiles.activeProfileId.value
+        return mapOf(
+            "profile_bg_catalogs_on" to JsonPrimitive(com.nuvio.tv.ui.components.NuvioCTrendingBg.catalogOnFor(context, p)),
+            "profile_bg_catalog_keys" to JsonPrimitive(com.nuvio.tv.ui.components.NuvioCTrendingBg.catalogKeysFor(context, p).joinToString("|")),
+            "roulette_menu" to JsonPrimitive(shufflePrefs.getBoolean(rk("menu"), true)),
+            "roulette_catalogs" to JsonPrimitive(encodeRouletteCatalogs(shufflePrefs.getStringSet(rk("catalogs"), null))),
+            "roulette_weights" to JsonPrimitive(com.nuvio.tv.data.nuvioc.NuvioCShuffleSource.entries.joinToString(",") { "${it.key}=${shufflePrefs.getInt(rk("w_${it.key}"), it.defaultWeight)}" })
+        )
+    }
+
+    private fun applySynced65(v: Map<String, JsonPrimitive>) {
+        val p = profiles.activeProfileId.value
+        com.nuvio.tv.ui.components.NuvioCTrendingBg.applySynced(
+            context, p,
+            v["profile_bg_catalogs_on"]?.booleanOrNull,
+            v["profile_bg_catalog_keys"]?.contentOrNull?.split('|')?.filter { it.isNotBlank() }
+        )
+        shufflePrefs.edit {
+            v["roulette_menu"]?.booleanOrNull?.let { putBoolean(rk("menu"), it) }
+            v["roulette_catalogs"]?.contentOrNull?.let { raw ->
+                val set = decodeRouletteCatalogs(raw)
+                if (set == null) remove(rk("catalogs")) else putStringSet(rk("catalogs"), set)
+            }
+            v["roulette_weights"]?.contentOrNull?.let { raw ->
+                raw.split(',').mapNotNull { e -> e.split('=').takeIf { it.size == 2 }?.let { it[0] to it[1].toIntOrNull() } }.forEach { (k, w) ->
+                    if (w != null && com.nuvio.tv.data.nuvioc.NuvioCShuffleSource.entries.any { it.key == k }) putInt(rk("w_$k"), w.coerceIn(0, 3))
+                }
+            }
+        }
+    }
 
     private suspend fun apply(v: Map<String, JsonPrimitive>) {
         prefs.edit {
@@ -261,6 +296,7 @@ class NuvioCCloudSettings @Inject constructor(
                     v["roulette_$key"]?.contentOrNull?.let { if (it.isBlank()) remove(rk(key)) else putString(rk(key), it) }
                 }
             }
+            if (NuvioCFeatures.CLOUD_SETTINGS_65) applySynced65(v) // [fork] round 65
         }
     }
 
@@ -271,6 +307,13 @@ class NuvioCCloudSettings @Inject constructor(
         private const val LAYOUT = "layout_settings"
         private val ENTRY = stringPreferencesKey("nuvio_c_settings")
         private const val MIGRATED = "per_profile_migrated" // [fork] round 56
+
+        /** [fork] round 65: Roulette catalogs: "auto" (Automatic) or "set:" + keys joined by "|". Pure, for tests. */
+        fun encodeRouletteCatalogs(keys: Set<String>?): String = if (keys == null) "auto" else "set:" + keys.sorted().joinToString("|")
+        fun decodeRouletteCatalogs(raw: String): Set<String>? = when {
+            raw.startsWith("set:") -> raw.removePrefix("set:").split('|').filter { it.isNotBlank() }.toSet()
+            else -> null
+        }
 
         /** Same keys and order every time, so equal settings give an equal string. */
         fun encode(values: Map<String, JsonPrimitive>): String =
