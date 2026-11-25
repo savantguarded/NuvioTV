@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -160,8 +161,10 @@ fun PosterListPickerDialog(
             )
         }
 
+        val nuvioCSaveLink = androidx.compose.runtime.remember { com.nuvio.tv.ui.components.NuvioCPickerSaveLink(FocusRequester()) } // [fork] round 65
         if (com.nuvio.tv.ui.components.NuvioCLibraryPicker.enabled) { // [fork] library source first, no zoom clipping
-            com.nuvio.tv.ui.components.NuvioCLibraryPickerList(tabs, nuvioCSource, membership, isPending, primaryFocusRequester, onToggle)
+            com.nuvio.tv.ui.components.NuvioCLibraryPickerList(tabs, nuvioCSource, membership, isPending, primaryFocusRequester, onToggle,
+                nuvioCSave = if (com.nuvio.tv.NuvioCFeatures.LISTS_SAVE_JUMP) nuvioCSaveLink else null) // [fork] round 65
         } else
         LazyColumn(
             modifier = Modifier
@@ -215,6 +218,9 @@ fun PosterListPickerDialog(
             Button(
                 onClick = onSave,
                 enabled = !isPending,
+                modifier = if (!com.nuvio.tv.NuvioCFeatures.LISTS_SAVE_JUMP) Modifier else Modifier // [fork] round 65: Up returns to the row it came from
+                    .focusRequester(nuvioCSaveLink.save)
+                    .focusProperties { nuvioCSaveLink.lastRow?.let { up = it } },
                 colors = ButtonDefaults.colors(
                     containerColor = NuvioTheme.colors.BackgroundCard,
                     contentColor = NuvioTheme.colors.TextPrimary

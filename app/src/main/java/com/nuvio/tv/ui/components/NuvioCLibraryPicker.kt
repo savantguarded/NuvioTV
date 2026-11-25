@@ -17,6 +17,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.layout.height
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -67,13 +70,18 @@ fun NuvioCLibraryPickerList(
     membership: Map<String, Boolean>,
     isPending: Boolean,
     firstFocusRequester: FocusRequester,
-    onToggle: (String) -> Unit
+    onToggle: (String) -> Unit,
+    nuvioCSave: NuvioCPickerSaveLink? = null // [fork] round 65 lists_save_jump
 ) {
     val room = 6.dp
+    // [fork] round 65 LISTS_SAVE_JUMP: whole rows only (n x 40 dp + gaps) with 6 dp focus room all round, never a cut row
+    val v65 = com.nuvio.tv.NuvioCFeatures.LISTS_SAVE_JUMP
+    val shownRows = tabs.size.coerceIn(1, NUVIO_C_PICKER_MAX_ROWS)
+    val rowReqs = androidx.compose.runtime.remember(tabs) { tabs.associate { it.key to FocusRequester() } }
     LazyColumn(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = 300.dp)
+            .then(if (v65) Modifier.height(NUVIO_C_PICKER_ROW * shownRows + NUVIO_C_PICKER_GAP * (shownRows - 1) + room * 2) else Modifier.heightIn(max = 300.dp))
             .nuvioCFocusRoom(horizontal = room, top = room, bottom = room),
         contentPadding = nuvioCFocusRoomPadding(horizontal = room, top = room, bottom = room),
         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -85,11 +93,18 @@ fun NuvioCLibraryPickerList(
                 onClick = { onToggle(tab.key) },
                 enabled = !isPending,
                 scale = ButtonDefaults.scale(focusedScale = 1f),
-                modifier = if (tab.key == tabs.firstOrNull()?.key) {
+                modifier = (if (tab.key == tabs.firstOrNull()?.key) {
                     Modifier.fillMaxWidth().focusRequester(firstFocusRequester)
                 } else {
                     Modifier.fillMaxWidth()
-                },
+                }).then(if (!v65) Modifier else Modifier
+                    .height(NUVIO_C_PICKER_ROW)
+                    .focusRequester(rowReqs.getValue(tab.key))
+                    .onFocusChanged { if (it.isFocused) nuvioCSave?.lastRow = rowReqs.getValue(tab.key) }
+                    .focusProperties {
+                        // Left or Right from any list row goes to Save
+                        nuvioCSave?.save?.let { left = it; right = it }
+                    }),
                 colors = ButtonDefaults.colors(
                     containerColor = if (selected) NuvioTheme.colors.FocusBackground else NuvioTheme.colors.BackgroundCard,
                     contentColor = NuvioTheme.colors.TextPrimary
@@ -146,4 +161,14 @@ fun NuvioCLibraryPickerList(
             }
         }
     }
+}
+
+// ---- [fork] round 65 LISTS_SAVE_JUMP -----------------------------------------------------------------------------
+internal val NUVIO_C_PICKER_ROW = 40.dp
+internal val NUVIO_C_PICKER_GAP = 10.dp
+internal const val NUVIO_C_PICKER_MAX_ROWS = 5
+
+/** Links the list and the Save button: Left / Right from a row go to [save]; Up from Save returns to [lastRow]. */
+class NuvioCPickerSaveLink(val save: FocusRequester) {
+    var lastRow: FocusRequester? = null
 }

@@ -1084,4 +1084,6 @@ object NuvioCFeatures {
     const val STATS_STEADY = true
     /** Expanded synopsis: the title's logo (same request as the details page, details logo height) in place of the title text; the name when there is no logo. Off = title text. */
     const val SYNOPSIS_LOGO = true
+    /** Lists menu: Left or Right from any list row jumps to Save, Up from Save returns to that row; the list box is a whole number of 40 dp rows with 6 dp focus room, so no row or focus ring is cut. Off = round 60 menu. */
+    const val LISTS_SAVE_JUMP = true
 }
