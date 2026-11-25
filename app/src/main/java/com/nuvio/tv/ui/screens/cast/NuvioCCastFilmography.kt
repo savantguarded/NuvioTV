@@ -276,7 +276,7 @@ internal fun NuvioCFilmographyFilterRow(
         NuvioCFilmographyFilter.MOVIES to androidx.compose.ui.res.stringResource(com.nuvio.tv.R.string.nuvio_c_film_movies),
         NuvioCFilmographyFilter.SHOWS to androidx.compose.ui.res.stringResource(com.nuvio.tv.R.string.nuvio_c_film_shows)
     )
-    val labels = base.map { (f, label) -> f to (counts[f]?.takeIf { inline && f != NuvioCFilmographyFilter.ALL }?.let { "$label $it" } ?: label) }
+    val labels = base.map { (f, label) -> f to (counts[f]?.takeIf { inline && f != NuvioCFilmographyFilter.ALL && !com.nuvio.tv.NuvioCFeatures.FILMOGRAPHY_TABS_NO_COUNT }?.let { "$label $it" } ?: label) }
     val requesters = remember { NuvioCFilmographyFilter.entries.associateWith { androidx.compose.ui.focus.FocusRequester() } }
     var refocus by remember { mutableStateOf<NuvioCFilmographyFilter?>(null) }
     androidx.compose.runtime.LaunchedEffect(refocus) {

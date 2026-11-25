@@ -661,7 +661,7 @@ private fun FilmographyFilterTabs(
                         FilmographyFilter.ALL -> stringResource(R.string.cast_detail_filter_all)
                         FilmographyFilter.MOVIES -> stringResource(R.string.type_movies)
                         FilmographyFilter.SERIES -> stringResource(R.string.type_series)
-                    } + (nuvioCCount?.let { " $it" } ?: ""),
+                    } + (nuvioCCount?.takeIf { !com.nuvio.tv.NuvioCFeatures.FILMOGRAPHY_TABS_NO_COUNT }?.let { " $it" } ?: ""), // [fork] round 65
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(
                         horizontal = NuvioTheme.spacing.lg,
