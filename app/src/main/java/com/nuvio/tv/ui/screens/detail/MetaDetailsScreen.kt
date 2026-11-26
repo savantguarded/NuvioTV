@@ -3550,6 +3550,22 @@ private fun MetaDetailsContent(
             )
         }
 
+        // [fork] round 66 graph_v66: OK on an episode closes the graph and puts focus on that episode's card (its season
+        // first) through the page's own episode restore, the one used after the player; no playback. Stable lambda.
+        val nuvioCGraphOpenEpisode: (Video) -> Unit = remember(episodeClick) {
+            { video: Video ->
+                nuvioCShowGraph = false
+                if (com.nuvio.tv.NuvioCFeatures.GRAPH_V66) {
+                    markEpisodeRestore(video.id)
+                    savedRestoreScrollIndex = -1 // the card brings itself into view
+                    restoreOnNextResume = true
+                    coroutineScope.launch {
+                        repeat(2) { androidx.compose.runtime.withFrameNanos { } }
+                        launchPendingFocusRestore()
+                    }
+                } else episodeClick(video)
+            }
+        }
         if (nuvioCShowGraph && nuvioCGraphAvailable) { // [fork] round 65 series_graph: a full-screen layer like the synopsis
             var nuvioCMine by remember(meta.id) { mutableStateOf<Map<Pair<Int, Int>, Int>>(emptyMap()) }
             LaunchedEffect(meta.id) { nuvioCMine = runCatching { nuvioCMyEpisodeScores() }.getOrDefault(emptyMap()) }
@@ -3562,7 +3578,7 @@ private fun MetaDetailsContent(
                 mine = nuvioCMine,
                 isWatched = { key -> episodeProgressMap[key]?.isCompleted() == true || watchedEpisodes.contains(key) },
                 next = nextToWatch?.let { n -> n.nextSeason?.let { s -> n.nextEpisode?.let { e -> s to e } } },
-                onOpenEpisode = { video -> nuvioCShowGraph = false; episodeClick(video) },
+                onOpenEpisode = nuvioCGraphOpenEpisode,
                 onDismiss = { nuvioCShowGraph = false; nuvioCGraphReturn++ }
             )
         }

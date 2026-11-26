@@ -1090,4 +1090,6 @@ object NuvioCFeatures {
     // ---- Round 66 ----
     /** Modern subtitle panel: official beta.4's format tag (SRT / ASS / VTT...) at the end of each row's second line, after the language and the SDH / Forced / CC tag. Off = no format tag. */
     const val SUB_FORMAT_TAG = true
+    /** Series ratings graph polish: the side panel starts 24 dp after the grid's real right edge (no overlap at any season count), season year on its own two-line header, long-show season bars labelled from an overlay row, only the focused season's bar bright, no hint lines, empty state as one centred line, OK on an episode closes the graph and focuses that episode card (no playback). Off = round 65 graph. */
+    const val GRAPH_V66 = true
 }

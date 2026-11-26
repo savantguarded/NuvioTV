@@ -72,6 +72,10 @@ import java.util.Locale
 /** Seasons and episodes visible at once (fixed: nothing changes size on a large show). */
 internal const val NUVIO_C_GRAPH_SEASONS = 7
 internal const val NUVIO_C_GRAPH_EPISODES = 13
+/** [fork] round 66 graph_v66: grid right edge for the full season window, so the panel never overlaps (dp). */
+internal fun nuvioCGraphGridRight(seasons: Int): Int = 40 + 28 + seasons * (6 + 56)
+/** [fork] round 66: the side panel's x and width on a 960 dp screen, 24 dp after the widest grid. */
+internal fun nuvioCGraphPanel(): Pair<Int, Int> { val x = nuvioCGraphGridRight(NUVIO_C_GRAPH_SEASONS) + 24; return x to (960 - 40 - x) }
 
 @Immutable
 internal data class NuvioCGraphCell(val season: Int, val episode: Int, val title: String?, val year: String?, val rating: Double?)
@@ -256,7 +260,13 @@ internal fun NuvioCSeriesGraphOverlay(
             }
 
             // ---- grid ----
-            if (seasons.isEmpty() || (loading && imdb.isEmpty() && !mineOn)) {
+            val v66 = com.nuvio.tv.NuvioCFeatures.GRAPH_V66
+            val noGrid = seasons.isEmpty() || (loading && imdb.isEmpty() && !mineOn) || (v66 && !loading && model.average == null)
+            if (noGrid && v66) { // [fork] round 66: one centred line, nothing else
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(stringResource(if (loading && seasons.isNotEmpty()) R.string.nuvio_c_graph_loading else R.string.ratings_unavailable), fontSize = 14.sp, color = Mid)
+                }
+            } else if (noGrid) {
                 Text(
                     stringResource(if (seasons.isEmpty() || !loading) R.string.ratings_unavailable else R.string.nuvio_c_graph_loading),
                     fontSize = 13.sp, color = Mid, modifier = Modifier.padding(start = 40.dp, top = 120.dp)
@@ -265,7 +275,7 @@ internal fun NuvioCSeriesGraphOverlay(
                 val visSeasons = seasons.drop(firstSeason).take(NUVIO_C_GRAPH_SEASONS)
                 val epRows = (firstEpisode until (firstEpisode + NUVIO_C_GRAPH_EPISODES).coerceAtMost(model.maxEpisodes)).toList()
                 Row(Modifier.offset(x = 40.dp, y = 104.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Column(Modifier.padding(top = 22.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Column(Modifier.padding(top = if (v66) 29.dp else 22.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         epRows.forEach { e ->
                             Box(Modifier.height(22.dp).width(28.dp), contentAlignment = Alignment.CenterStart) { Text("E${e + 1}", fontSize = 10.sp, color = Dim, maxLines = 1) }
                         }
@@ -276,9 +286,9 @@ internal fun NuvioCSeriesGraphOverlay(
                     visSeasons.forEachIndexed { vi, s ->
                         val sIndex = firstSeason + vi
                         Column(Modifier.width(56.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Column(Modifier.height(19.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("S${s.number}", fontSize = 11.sp, lineHeight = 11.sp, color = Light, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                                Text(s.year.orEmpty(), fontSize = 8.sp, lineHeight = 8.sp, color = Dim, maxLines = 1)
+                            Column(Modifier.height(if (v66) 26.dp else 19.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = if (v66) Arrangement.spacedBy(2.dp) else Arrangement.Top) { // [fork] round 66: room for the year
+                                Text("S${s.number}", fontSize = 11.sp, lineHeight = if (v66) 13.sp else 11.sp, color = Light, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                Text(s.year.orEmpty(), fontSize = 8.sp, lineHeight = if (v66) 10.sp else 8.sp, color = Dim, maxLines = 1)
                             }
                             epRows.forEach { e ->
                                 val cell = s.cells.getOrNull(e)
@@ -298,7 +308,7 @@ internal fun NuvioCSeriesGraphOverlay(
                         }
                     }
                 }
-                if (seasons.size > NUVIO_C_GRAPH_SEASONS || model.maxEpisodes > NUVIO_C_GRAPH_EPISODES) {
+                if (!v66 && (seasons.size > NUVIO_C_GRAPH_SEASONS || model.maxEpisodes > NUVIO_C_GRAPH_EPISODES)) {
                     val lastS = (firstSeason + NUVIO_C_GRAPH_SEASONS).coerceAtMost(seasons.size)
                     val lastE = (firstEpisode + NUVIO_C_GRAPH_EPISODES).coerceAtMost(model.maxEpisodes)
                     Text(
@@ -312,7 +322,9 @@ internal fun NuvioCSeriesGraphOverlay(
             }
 
             // ---- right panel ----
-            Column(Modifier.offset(x = 480.dp, y = 104.dp).width(440.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            val (panelX, panelW) = if (com.nuvio.tv.NuvioCFeatures.GRAPH_V66) nuvioCGraphPanel() else 480 to 440 // [fork] round 66: after the grid's real edge
+            val panelHidden = com.nuvio.tv.NuvioCFeatures.GRAPH_V66 && (seasons.isEmpty() || (loading && imdb.isEmpty() && !mineOn) || (!loading && model.average == null))
+            if (!panelHidden) Column(Modifier.offset(x = panelX.dp, y = 104.dp).width(panelW.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 val panel = RoundedCornerShape(12.dp)
                 Column(
                     Modifier.fillMaxWidth().clip(panel).background(Color.White.copy(alpha = 0.06f)).border(1.dp, Color.White.copy(alpha = 0.10f), panel)
@@ -332,8 +344,11 @@ internal fun NuvioCSeriesGraphOverlay(
                         }
                         Text(c?.let { compareLine(it, seasons) } ?: "", fontSize = 12.sp, color = Mid, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    Text(stringResource(R.string.nuvio_c_graph_ok_opens), fontSize = 12.sp, color = Color(0xFF8A8A92), maxLines = 1)
-                    Row(Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (!com.nuvio.tv.NuvioCFeatures.GRAPH_V66) Text(stringResource(R.string.nuvio_c_graph_ok_opens), fontSize = 12.sp, color = Color(0xFF8A8A92), maxLines = 1)
+                    if (com.nuvio.tv.NuvioCFeatures.GRAPH_V66) Row(Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) { // [fork] round 66: no separators, no marks legend
+                        model.best?.let { Text(stringResource(R.string.nuvio_c_graph_best, "S${it.season} E${it.episode} · ${fmt(it.rating!!)}"), fontSize = 11.sp, color = Light, maxLines = 1) }
+                        model.lowest?.let { Text(stringResource(R.string.nuvio_c_graph_lowest, "S${it.season} E${it.episode} · ${fmt(it.rating!!)}"), fontSize = 11.sp, color = Light, maxLines = 1) }
+                    } else Row(Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val best = model.best?.let { stringResource(R.string.nuvio_c_graph_best, "S${it.season} E${it.episode} · ${fmt(it.rating!!)}") } ?: ""
                         val low = model.lowest?.let { stringResource(R.string.nuvio_c_graph_lowest, "S${it.season} E${it.episode} · ${fmt(it.rating!!)}") } ?: ""
                         Text(best, fontSize = 11.sp, color = Light, maxLines = 1)
@@ -353,7 +368,7 @@ internal fun NuvioCSeriesGraphOverlay(
                         else stringResource(R.string.nuvio_c_graph_averages),
                         fontSize = 11.sp, letterSpacing = 1.5.sp, color = Mid, fontWeight = FontWeight.SemiBold, maxLines = 1
                     )
-                    SeasonBars(seasons, firstSeason)
+                    SeasonBars(seasons, firstSeason, focusedSeason = si)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     listOf("9.7+" to 9.8, "9.0" to 9.0, "8.0" to 8.0, "7.5" to 7.5, "7.0" to 7.0, "6.0" to 6.0, "<6" to 5.0).forEach { (t, v) ->
@@ -422,14 +437,15 @@ private fun GraphCell(cell: NuvioCGraphCell?, mine: Boolean, focused: Boolean, n
 }
 
 @Composable
-private fun SeasonBars(seasons: List<NuvioCGraphSeason>, firstVisible: Int) {
+private fun SeasonBars(seasons: List<NuvioCGraphSeason>, firstVisible: Int, focusedSeason: Int = -1) {
+    val v66 = com.nuvio.tv.NuvioCFeatures.GRAPH_V66
     val avgs = seasons.mapNotNull { it.average }
     val lo = ((avgs.minOrNull() ?: 5.0) - 0.5).coerceAtMost(9.0)
     val few = seasons.size <= 10
     val tickEvery = if (few) 1 else ((seasons.size + 9) / 10)
     Row(Modifier.fillMaxWidth().height(110.dp), horizontalArrangement = Arrangement.spacedBy(if (few) 14.dp else 2.dp), verticalAlignment = Alignment.Bottom) {
         seasons.forEachIndexed { i, s ->
-            val onScreen = i in firstVisible until firstVisible + NUVIO_C_GRAPH_SEASONS
+            val onScreen = if (v66) i == focusedSeason else i in firstVisible until firstVisible + NUVIO_C_GRAPH_SEASONS // [fork] round 66: only the focused season
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (few) Text(s.average?.let(::fmt) ?: "—", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFEDEDED), maxLines = 1)
                 val frac = s.average?.let { ((it - lo) / (10.0 - lo)).toFloat().coerceIn(0.05f, 1f) } ?: 0.03f
@@ -438,7 +454,7 @@ private fun SeasonBars(seasons: List<NuvioCGraphSeason>, firstVisible: Int) {
                         .clip(RoundedCornerShape(topStart = if (few) 4.dp else 2.dp, topEnd = if (few) 4.dp else 2.dp))
                         .background((s.average?.let(::nuvioCGraphColor) ?: Color(0xFF34343E)).copy(alpha = if (onScreen) 1f else 0.35f))
                 )
-                Text(
+                if (!v66 || few) Text(
                     if (few) "S${s.number}" else if (i % tickEvery == 0) "${s.number}" else "",
                     fontSize = if (few) 10.sp else 7.sp, color = Color(0xFF8A8A92), maxLines = 1, textAlign = TextAlign.Center,
                     modifier = Modifier.heightIn(min = if (few) 12.dp else 9.dp)
@@ -446,4 +462,26 @@ private fun SeasonBars(seasons: List<NuvioCGraphSeason>, firstVisible: Int) {
             }
         }
     }
+    if (v66 && !few) { // [fork] round 66: tick labels in their own row, centred under their bar, never cut to one bar's width
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().height(12.dp)) {
+            val n = seasons.size
+            val slot = (maxWidth + 2.dp) / n
+            nuvioCGraphTicks(n).forEach { i ->
+                val centre = slot * i + (slot - 2.dp) / 2
+                Text(
+                    "${seasons[i].number}", fontSize = 9.sp, color = Color(0xFF8A8A92), maxLines = 1, softWrap = false, textAlign = TextAlign.Center,
+                    modifier = Modifier.width(28.dp).offset(x = (centre - 14.dp).coerceIn(0.dp, maxWidth - 28.dp))
+                )
+            }
+        }
+    }
+}
+
+/** [fork] round 66: which season bars get a number under them on a long show (every Nth, about 8 labels, always the last). */
+internal fun nuvioCGraphTicks(count: Int): List<Int> {
+    if (count <= 0) return emptyList()
+    val every = ((count + 7) / 8).coerceAtLeast(1)
+    val ticks = (0 until count step every).toMutableList()
+    if (ticks.last() != count - 1) { if (count - 1 - ticks.last() < every / 2 + 1 && ticks.size > 1) ticks.removeAt(ticks.lastIndex); ticks += count - 1 }
+    return ticks
 }
