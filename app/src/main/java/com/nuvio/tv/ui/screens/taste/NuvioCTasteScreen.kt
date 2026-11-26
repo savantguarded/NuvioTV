@@ -109,11 +109,12 @@ class NuvioCTasteViewModel @Inject constructor(
     private var cardJob: kotlinx.coroutines.Job? = null
 
     /** Opens [card] over the page's scope (Wrapped: its year). [returnKey] is the card / line focus lands on after Back. */
-    fun openTasteCard(card: com.nuvio.tv.data.nuvioc.NuvioCTasteCard, hint: String?, crumb: String, wrapped: Boolean, scopeLabel: String, returnKey: String) {
+    fun openTasteCard(card: com.nuvio.tv.data.nuvioc.NuvioCTasteCard, hint: String?, crumb: String, wrapped: Boolean, scopeLabel: String, returnKey: String, wrappedYear: Int? = null) {
         openCard = NuvioCCardOpen(card, hint, crumb, scopeLabel, returnKey)
         _cardPage.value = null
         cardJob?.cancel()
-        val key = if (wrapped) tasteYear?.let { "y:$it" } ?: "all" else tasteScopeKey
+        val key = if (wrapped && com.nuvio.tv.NuvioCFeatures.TASTE_V66) nuvioCWrappedKey(wrappedYear, _year.value?.year, tasteYear, java.time.Year.now().value) // [fork] round 66: never All time
+            else if (wrapped) tasteYear?.let { "y:$it" } ?: "all" else tasteScopeKey
         cardJob = viewModelScope.launch { _cardPage.value = repository.cardPage(card, hint, nuvioCWindow(key)) }
     }
 
@@ -495,3 +496,6 @@ fun NuvioCTasteScreen(
 }
 
 // ---- parts -----------------------------------------------------------------------------------------------
+
+/** [fork] round 66 taste_v66: the window key for a card opened from Wrapped: the year on screen, else the loaded one, else the picked one, else this year. Never All time. Pure, for tests. */
+internal fun nuvioCWrappedKey(shown: Int?, loaded: Int?, picked: Int?, thisYear: Int): String = "y:${shown ?: loaded ?: picked ?: thisYear}"

@@ -272,9 +272,10 @@ internal fun computeTasteCardPage(
             timeline(c, k, hint, window, zone, now)
         NuvioCTasteCard.VIEWING_HOURS -> {
             val byHour = (0 until 24).map { h -> c.hist.filter { Instant.ofEpochMilli(it.watchedAt).atZone(zone).hour == h } }
-            val bars = byHour.mapIndexed { h, ws -> bar(c, "%02d".format(h), "%02d:00 – %02d:59".format(h, h), ws) }
+            val v66 = com.nuvio.tv.NuvioCFeatures.TASTE_V66 // [fork] round 66: 12-hour clock, a tick every 3 h
+            val bars = byHour.mapIndexed { h, ws -> if (v66) bar(c, nuvioCHourTick(h), nuvioCHour12(h) + " – " + nuvioCHour12((h + 1) % 24), ws) else bar(c, "%02d".format(h), "%02d:00 – %02d:59".format(h, h), ws) }
             val peak = bars.indices.maxByOrNull { bars[it].minutes } ?: 0
-            NuvioCTasteCardPage(k, k.title, "Peak %02d:00 · uses finish time".format(peak), barsTitle = "BY HOUR OF THE DAY", bars = bars,
+            NuvioCTasteCardPage(k, k.title, if (v66) "Peak ${nuvioCHour12(peak)} · uses finish time" else "Peak %02d:00 · uses finish time".format(peak), barsTitle = "BY HOUR OF THE DAY", bars = bars,
                 focusBar = hint?.toIntOrNull()?.coerceIn(0, 23) ?: peak)
         }
         NuvioCTasteCard.NEW_RELEASES -> {
@@ -334,7 +335,7 @@ private fun bar(c: Ctx, tick: String, heading: String, ws: List<WatchedItem>): N
         "Watched" to tasteHm65(minutes),
         "Titles" to "${byKey.size}",
         "Episodes" to "${ws.count { it.season != null }}",
-        "Busiest hour" to (busiest?.let { "%02d:00".format(it) } ?: "–")
+        "Busiest hour" to (busiest?.let { if (com.nuvio.tv.NuvioCFeatures.TASTE_V66) nuvioCHour12(it) else "%02d:00".format(it) } ?: "–")
     ), items)
 }
 
@@ -380,4 +381,18 @@ private fun timeline(c: Ctx, card: NuvioCTasteCard, hint: String?, window: LongR
         else -> tasteHm65(total) + (if (title == "BY DAY") " · $active active days · best run $best" else "")
     }
     return NuvioCTasteCardPage(card, card.title, summary, barsTitle = title, bars = bars, focusBar = focus.coerceIn(0, (bars.size - 1).coerceAtLeast(0)))
+}
+
+/** [fork] round 66 taste_v66: an hour of the day in 12-hour time, "12 AM", "9 PM". */
+fun nuvioCHour12(hour: Int): String {
+    val h = ((hour % 24) + 24) % 24
+    val twelve = if (h % 12 == 0) 12 else h % 12
+    return "$twelve ${if (h < 12) "AM" else "PM"}"
+}
+
+/** [fork] round 66: chart tick under an hour bar, every 3 hours ("12a", "3a" ... "9p"), blank otherwise. */
+fun nuvioCHourTick(hour: Int): String {
+    if (hour % 3 != 0) return ""
+    val twelve = if (hour % 12 == 0) 12 else hour % 12
+    return "$twelve${if (hour < 12) "a" else "p"}"
 }

@@ -1100,4 +1100,6 @@ object NuvioCFeatures {
     const val QUALITY_REFRESH_V66 = true
     /** Details editions also need a fair share of the title's releases: the edition's releases hold 15%+ of all seeders seen for the film and 25+ seeders, from 2+ different release groups; a built-in list of films with no official Extended / Director's Cut (MCU first, `NuvioCEditionBlocklist`) never shows those two. Cache mark e66. Off = round 65 rules. */
     const val EDITIONS_V66 = true
+    /** Taste polish: 3 dp focus room at the top and bottom of every card-page list (whole-rows rule counts it), no "Open ›" drawn on focused cards (the accent edge already says it opens; it covered posters), page header on one baseline, no key-hint copy, held Up / Down scroll a list one row at a time and stay in it (only a single Up from the first row leaves), hours in 12-hour time (ticks every 3 h), and everything opened from Wrapped uses that Wrapped year, never All time. Off = round 65 Taste. */
+    const val TASTE_V66 = true
 }

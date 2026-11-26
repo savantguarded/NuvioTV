@@ -45,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
+import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
@@ -132,7 +133,7 @@ internal fun Modifier.tasteOpen65(
                 drawRoundRect(Color.White.copy(alpha = 0.08f), cornerRadius = r)
                 val w = 2.dp.toPx()
                 drawRoundRect(accent, topLeft = Offset(w / 2, w / 2), size = Size(size.width - w, size.height - w), cornerRadius = r, style = Stroke(w))
-                if (hintLabel) {
+                if (hintLabel && !com.nuvio.tv.NuvioCFeatures.TASTE_V66) { // [fork] round 66: no "Open ›" over the card's content
                     val text = tm.measure("Open ›", TextStyle(fontSize = 10.sp, color = accent, fontWeight = FontWeight.SemiBold))
                     drawText(text, topLeft = Offset(size.width - text.size.width - 12.dp.toPx(), 10.dp.toPx()))
                 }
@@ -155,7 +156,15 @@ internal fun NuvioCTastePage65(viewModel: NuvioCTasteViewModel, onOpenTitle: (St
         onOpenTitle(id, type)
     }
     Column(Modifier.fillMaxSize().padding(start = 40.dp, end = 40.dp, top = 24.dp, bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(Modifier.fillMaxWidth().height(30.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (com.nuvio.tv.NuvioCFeatures.TASTE_V66) Row(Modifier.fillMaxWidth().height(32.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // [fork] round 66: crumb, title, summary and the scope chip share one baseline, centred in the row
+            Text("${open.crumb} ›", fontSize = 12.sp, color = P_MUTE, maxLines = 1, modifier = Modifier.alignByBaseline())
+            Text(page?.title ?: open.card.title, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, modifier = Modifier.alignByBaseline())
+            Text(page?.summary.orEmpty(), fontSize = 12.sp, color = P_MUTE, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                style = TextStyle(fontFeatureSettings = "tnum"), modifier = Modifier.weight(1f).alignByBaseline())
+            Text(scopeChip(open), fontSize = 12.sp, color = Color.White, maxLines = 1,
+                modifier = Modifier.alignByBaseline().clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.1f)).padding(horizontal = 12.dp, vertical = 4.dp))
+        } else Row(Modifier.fillMaxWidth().height(30.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("${open.crumb} ›", fontSize = 12.sp, color = P_MUTE, maxLines = 1)
             Spacer(Modifier.width(10.dp))
             Text(page?.title ?: open.card.title, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1)
@@ -192,13 +201,43 @@ private fun PanelCard(modifier: Modifier, title: String, dot: Color, aside: Stri
     }
 }
 
-/** Rows stack from the top; the box is a whole number of 40 dp rows so no row is ever cut. */
+/** Rows stack from the top; the box is a whole number of 40 dp rows so no row is ever cut (round 66: plus the focus room). */
 @Composable
 private fun WholeRows(content: @Composable (rows: Int) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val rows = (maxHeight.value / ROW).toInt().coerceAtLeast(1)
-        Box(Modifier.fillMaxWidth().height((rows * ROW).dp)) { content(rows) }
+        val room = if (com.nuvio.tv.NuvioCFeatures.TASTE_V66) FOCUS_ROOM_66 * 2 else 0
+        val rows = ((maxHeight.value - room) / ROW).toInt().coerceAtLeast(1)
+        Box(Modifier.fillMaxWidth().height((rows * ROW + room).dp)) { content(rows) }
     }
+}
+
+/** [fork] round 66: dp of focus room above the first and below the last row of every list. */
+private const val FOCUS_ROOM_66 = 3
+private val listPad66: androidx.compose.foundation.layout.PaddingValues
+    get() = androidx.compose.foundation.layout.PaddingValues(vertical = if (com.nuvio.tv.NuvioCFeatures.TASTE_V66) FOCUS_ROOM_66.dp else 0.dp)
+
+/**
+ * [fork] round 66 taste_v66: a held Up / Down moves one row at a time at the list's pace (repeats closer than 110 ms
+ * are dropped) and never leaves the list; a single, deliberate press can still leave it (Up from the first row).
+ */
+@Composable
+private fun Modifier.heldListKeys66(): Modifier {
+    if (!com.nuvio.tv.NuvioCFeatures.TASTE_V66) return this
+    val state = remember { longArrayOf(0L, 0L) } // [0] last move time, [1] 1 = the key is held
+    return this
+        .onPreviewKeyEvent { e ->
+            if (e.key != Key.DirectionUp && e.key != Key.DirectionDown) return@onPreviewKeyEvent false
+            if (e.type == KeyEventType.KeyUp) { state[1] = 0L; return@onPreviewKeyEvent false }
+            if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+            val held = e.nativeKeyEvent.repeatCount > 0
+            state[1] = if (held) 1L else 0L
+            val now = android.os.SystemClock.uptimeMillis()
+            if (held && now - state[0] < 110L) return@onPreviewKeyEvent true
+            state[0] = now
+            false
+        }
+        .focusProperties { onExit = { if (state[1] == 1L) cancelFocusChange() } }
+        .focusGroup()
 }
 
 @Composable
@@ -267,7 +306,7 @@ private fun Breakdown65(p: NuvioCTasteCardPage, onOpen: (String, String, String)
     Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         PanelCard(Modifier.width(260.dp).fillMaxHeight(), p.leftTitle, accent) {
             WholeRows { _ ->
-                LazyColumn(Modifier.fillMaxSize()) {
+                LazyColumn(Modifier.fillMaxSize().heldListKeys66(), contentPadding = listPad66) {
                     itemsIndexed(p.groups) { i, g ->
                         var focused by remember { mutableStateOf(false) }
                         Row(
@@ -302,7 +341,8 @@ private fun Breakdown65(p: NuvioCTasteCardPage, onOpen: (String, String, String)
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxSize().focusProperties { left = groupReqs.getOrNull(selected) ?: FocusRequester.Default }
+                    modifier = Modifier.fillMaxSize().focusProperties { left = groupReqs.getOrNull(selected) ?: FocusRequester.Default }.heldListKeys66(),
+                    contentPadding = listPad66
                 ) {
                     itemsIndexed(group?.items.orEmpty(), key = { i, it -> "${group?.label}|$i|${it.id}" }) { i, item ->
                         ItemRow65(item, "${p.card.name}|${group?.label}|${item.id}", Modifier.fillMaxWidth().then(if (i == 0) Modifier.focusRequester(firstTitle) else Modifier), onOpen = onOpen)
@@ -325,7 +365,7 @@ private fun Timeline65(p: NuvioCTasteCardPage, onOpen: (String, String, String) 
     LaunchedEffect(p) { if (NuvioCTasteReturn.key?.startsWith("page|") != true) runCatching { chartReq.requestFocusAfterFrames(3) } }
     val max = p.bars.maxOfOrNull { it.minutes }?.coerceAtLeast(1) ?: 1
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        PanelCard(Modifier.fillMaxWidth().height(190.dp), p.barsTitle, teal, aside = "Left / Right walks the bars · Down lists the titles", horizontal = 16) {
+        PanelCard(Modifier.fillMaxWidth().height(190.dp), p.barsTitle, teal, aside = if (com.nuvio.tv.NuvioCFeatures.TASTE_V66) null else "Left / Right walks the bars · Down lists the titles", horizontal = 16) {
             Row(
                 Modifier.fillMaxSize()
                     .focusRequester(chartReq)
@@ -372,7 +412,7 @@ private fun Timeline65(p: NuvioCTasteCardPage, onOpen: (String, String, String) 
             PanelCard(Modifier.weight(1f).fillMaxHeight(), "Watched then", teal) {
                 if (bar == null || bar.items.isEmpty()) Text("Nothing watched", fontSize = 12.sp, color = P_MUTE, modifier = Modifier.padding(horizontal = 8.dp))
                 else WholeRows { _ ->
-                    LazyColumn(Modifier.fillMaxSize().focusProperties { up = chartReq }) {
+                    LazyColumn(Modifier.fillMaxSize().focusProperties { up = chartReq }.heldListKeys66(), contentPadding = listPad66) {
                         itemsIndexed(bar.items, key = { i, it -> "$focus|$i|${it.id}" }) { _, item ->
                             ItemRow65(item, "${p.card.name}|${bar.heading}|${item.id}", Modifier.fillMaxWidth(), onOpen = onOpen) {
                                 Text(item.value.orEmpty(), fontSize = 11.sp, color = P_MUTE, maxLines = 1, style = TextStyle(fontFeatureSettings = "tnum"))
@@ -422,7 +462,7 @@ private fun Ranked65(p: NuvioCTasteCardPage, onOpen: (String, String, String) ->
             }
             if (rows.isEmpty()) Text("Nothing here", fontSize = 12.sp, color = P_MUTE, modifier = Modifier.padding(8.dp))
             else WholeRows { _ ->
-                LazyColumn(Modifier.fillMaxSize()) {
+                LazyColumn(Modifier.fillMaxSize().heldListKeys66(), contentPadding = listPad66) {
                     itemsIndexed(rows, key = { i, it -> "$mode|$i|${it.id}" }) { i, item ->
                         ItemRow65(item, "${p.card.name}|${mode.name}|${item.id}", Modifier.fillMaxWidth().then(if (i == 0) Modifier.focusRequester(firstRow) else Modifier),
                             index = i + 1, onOpen = onOpen) {

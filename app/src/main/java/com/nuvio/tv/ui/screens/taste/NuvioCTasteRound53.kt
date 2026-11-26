@@ -229,7 +229,8 @@ internal fun NuvioCTasteTabsV2(
             else -> "All time"
         }
         val nuvioCOpenCard: ((com.nuvio.tv.data.nuvioc.NuvioCTasteCard, String?, String) -> Unit)? = if (!com.nuvio.tv.NuvioCFeatures.TASTE_CARDS_OPEN) null else { card, hint, returnKey ->
-            viewModel.openTasteCard(card, hint, crumb = current.label, wrapped = current == Tab53.WRAPPED, scopeLabel = nuvioCScopeLabel, returnKey = returnKey)
+            viewModel.openTasteCard(card, hint, crumb = current.label, wrapped = current == Tab53.WRAPPED, scopeLabel = nuvioCScopeLabel, returnKey = returnKey,
+                wrappedYear = yearData?.year) // [fork] round 66: the Wrapped year on screen
         }
         androidx.compose.runtime.CompositionLocalProvider(
             LocalTasteOpen65 provides nuvioCOpenCard,
@@ -659,7 +660,7 @@ private fun Stats53(s: NuvioCTasteStats, f: com.nuvio.tv.data.nuvioc.NuvioCTaste
             Card53(Modifier.weight(2f).fillMaxHeight().tasteOpen65(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.VIEWING_HOURS, enabled = f.byHour.any { it > 0 })) {
                 val peakHour = f.byHour.indices.maxByOrNull { f.byHour[it] }?.takeIf { f.byHour[it] > 0 }
                 val peakDay = com.nuvio.tv.data.nuvioc.tastePeakWeekday(f.byWeekday)
-                Title53("Viewing hours", C_TEAL, listOfNotNull(peakHour?.let { "Peak %02d:00".format(it) }, peakDay?.nuvioC3()).joinToString(" · "))
+                Title53("Viewing hours", C_TEAL, listOfNotNull(peakHour?.let { if (com.nuvio.tv.NuvioCFeatures.TASTE_V66) "Peak " + com.nuvio.tv.data.nuvioc.nuvioCHour12(it) else "Peak %02d:00".format(it) }, peakDay?.nuvioC3()).joinToString(" · "))
                 Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                     Column(Modifier.weight(3f).fillMaxHeight()) {
                         Bars53(f.byHour, peakHour, null, Modifier.fillMaxWidth().weight(1f), C_TEAL)
