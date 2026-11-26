@@ -1942,14 +1942,15 @@ private fun NuvioCFeaturedTextV66b(item: MetaPreview, info: com.nuvio.tv.core.di
         val genres = remember(item.id, item.genres, item.seasonCount) {
             listOfNotNull(
                 item.genres.take(3).filter { it.isNotBlank() }.joinToString(" · ") { localizedGenreLabel(context, it) }.takeIf { it.isNotBlank() },
-                if (isSeries) item.seasonCount?.takeIf { it > 0 }?.let { context.resources.getQuantityString(R.plurals.nuvio_c_featured_seasons, it, it) } else null
+                // [fork] round 66d: seasons move to the year line
+                if (isSeries && !com.nuvio.tv.NuvioCFeatures.FEATURED_BADGES_V66D) item.seasonCount?.takeIf { it > 0 }?.let { context.resources.getQuantityString(R.plurals.nuvio_c_featured_seasons, it, it) } else null
             ).joinToString(" · ")
         }
         val rating = info?.certificate ?: item.ageRating?.takeIf { it.isNotBlank() }
         if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66C) {
             // [fork] round 66c: the details facts line: its age rating chip, then genres · seasons in its own style
             if (genres.isNotBlank() || rating != null) {
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(if (com.nuvio.tv.NuvioCFeatures.FEATURED_BADGES_V66D) 8.dp else 10.dp))
                 val (factsStyle, factsColor) = com.nuvio.tv.ui.screens.detail.nuvioCFactsTextStyle()
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     rating?.let { com.nuvio.tv.ui.screens.detail.NuvioCAgeRatingChip(it) }
@@ -1960,22 +1961,26 @@ private fun NuvioCFeaturedTextV66b(item: MetaPreview, info: com.nuvio.tv.core.di
             Spacer(Modifier.height(10.dp))
             Text(genres, style = MaterialTheme.typography.labelMedium, color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.78f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        val lead = remember(item.id, item.releaseInfo, item.runtime) {
-            listOfNotNull(com.nuvio.tv.ui.screens.detail.nuvioCYearText(item.releaseInfo), com.nuvio.tv.ui.screens.detail.nuvioCRuntimeHrMin(item.runtime))
+        val lead = remember(item.id, item.releaseInfo, item.runtime, item.seasonCount) {
+            // [fork] round 66d: shows read "2022 • 5 seasons" (length when the season count is unknown); films keep the length
+            val seasons = if (com.nuvio.tv.NuvioCFeatures.FEATURED_BADGES_V66D && isSeries) item.seasonCount?.takeIf { it > 0 }
+                ?.let { context.resources.getQuantityString(R.plurals.nuvio_c_featured_seasons, it, it) } else null
+            listOfNotNull(com.nuvio.tv.ui.screens.detail.nuvioCYearText(item.releaseInfo), seasons ?: com.nuvio.tv.ui.screens.detail.nuvioCRuntimeHrMin(item.runtime))
                 .joinToString(" \u2022 ").takeIf { it.isNotBlank() }
         }
         val lineRating = if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66C) null else rating
         if (lead != null || labels.isNotEmpty() || lineRating != null) {
             Spacer(Modifier.height(8.dp))
-            com.nuvio.tv.ui.screens.detail.NuvioCQualityLineStatic(lead = lead, labels = labels, max = 4, rating = lineRating, filled = com.nuvio.tv.NuvioCFeatures.FEATURED_V66C)
+            com.nuvio.tv.ui.screens.detail.NuvioCQualityLineStatic(lead = lead, labels = labels, max = 4, rating = lineRating, filled = com.nuvio.tv.NuvioCFeatures.FEATURED_V66C, compact = com.nuvio.tv.NuvioCFeatures.FEATURED_BADGES_V66D)
         }
         val synopsis = item.description?.let { NuvioCHeroSpec.homeSynopsis(it) }
         if (!synopsis.isNullOrBlank()) {
             Spacer(Modifier.height(10.dp))
             Text(
                 text = synopsis,
-                style = NuvioCHeroSpec.detailSynopsisStyle(MaterialTheme.typography.bodyMedium),
-                color = NuvioTheme.colors.TextPrimary.copy(alpha = NuvioCHeroSpec.DETAIL_SYNOPSIS_ALPHA),
+                // [fork] round 66d: a touch smaller and dimmer so the logo and Play lead
+                style = NuvioCHeroSpec.detailSynopsisStyle(MaterialTheme.typography.bodyMedium).let { if (com.nuvio.tv.NuvioCFeatures.FEATURED_BADGES_V66D) it.copy(fontSize = 11.5.sp, lineHeight = 16.5.sp) else it },
+                color = NuvioTheme.colors.TextPrimary.copy(alpha = if (com.nuvio.tv.NuvioCFeatures.FEATURED_BADGES_V66D) 0.64f else NuvioCHeroSpec.DETAIL_SYNOPSIS_ALPHA),
                 maxLines = if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66C) 3 else 2, // [fork] round 66c: three lines
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(0.95f)

@@ -1140,4 +1140,8 @@ object NuvioCFeatures {
     const val PROFILE_SHADE_V66C = true
     /** Modern player More panel: "Sync subtitles to audio now" entry while an add-on subtitle is on (same action as the subtitles panel row). Off = subtitles panel only. */
     const val SYNC_AUDIO_IN_MORE = true
+
+    // ---- Round 66d ----
+    /** Featured carousel 66d: smaller, quieter badge line (11 dp outlined badges, text at 80%, Dolby / DTS logos in the same 11 dp box, 4 dp apart); shows put "5 seasons" on the year line in place of the episode length, so the genres line is genres only; synopsis a touch smaller and dimmer (11.5 sp at 64%, still three lines); 8 dp between the genres line and the logo. Off = round 66c carousel (filled tiles). */
+    const val FEATURED_BADGES_V66D = true
 }

@@ -462,7 +462,7 @@ private fun BadgeRow(content: @Composable () -> Unit) {
  * at most [max] badges in the details order. Nothing is looked up here.
  */
 @Composable
-internal fun NuvioCQualityLineStatic(lead: String?, labels: List<String>, modifier: Modifier = Modifier, max: Int = 4, rating: String? = null, filled: Boolean = false) {
+internal fun NuvioCQualityLineStatic(lead: String?, labels: List<String>, modifier: Modifier = Modifier, max: Int = 4, rating: String? = null, filled: Boolean = false, compact: Boolean = false) {
     val color = com.nuvio.tv.ui.theme.NuvioTheme.colors.TextPrimary
     val textStyle = androidx.tv.material3.MaterialTheme.typography.labelMedium.copy(
         fontSize = QL_TEXT_SP.sp, lineHeight = (QL_TEXT_SP * 1.2f).sp, fontWeight = FontWeight.SemiBold,
@@ -484,12 +484,13 @@ internal fun NuvioCQualityLineStatic(lead: String?, labels: List<String>, modifi
         if (quality.isNotEmpty() || ratingText != null) {
             if (leadText != null) {
                 Spacer(Modifier.width(QL_SEP_SPACE))
-                Box(Modifier.width(1.dp).height(QL_SEP_HEIGHT).background(color.copy(alpha = QL_SEP_ALPHA)))
+                Box(Modifier.width(1.dp).height(if (compact) QL_SEP_HEIGHT_66D else QL_SEP_HEIGHT).background(color.copy(alpha = QL_SEP_ALPHA)))
                 Spacer(Modifier.width(QL_SEP_SPACE))
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(QL_GAP_63), verticalAlignment = Alignment.CenterVertically) {
+            Row(horizontalArrangement = Arrangement.spacedBy(if (compact) QL_GAP_66D else QL_GAP_63), verticalAlignment = Alignment.CenterVertically) {
                 if (ratingText != null) Pill(ratingText, textStyle, color, QL_HEIGHT)
-                quality.forEach { label ->
+                if (compact) quality.forEach { label -> CompactBadge66d(label, textStyle, color) }
+                else quality.forEach { label ->
                     // [fork] round 66c: on the carousel, word badges are solid light tiles like the Modern player's size badge
                     if (filled && !nuvioCIsLogoLabel(label)) FilledTile66c(label, textStyle)
                     else Badge61(label, textStyle, color, if (NuvioCFeatures.QUALITY_LINE_V62) QL_LOGO_62 else QL_HEIGHT)
@@ -514,3 +515,58 @@ private fun FilledTile66c(label: String, style: TextStyle) {
         Text(text = label, style = style.copy(color = Color(0xFF151515), fontWeight = FontWeight.Bold), maxLines = 1, softWrap = false)
     }
 }
+
+// [fork] round 66d: the carousel's smaller, quieter badge line
+private val QL_HEIGHT_66D = 11.dp
+private const val QL_TEXT_SP_66D = 7.5f
+private val QL_LOGO_66D = 7.5.dp
+private val QL_GAP_66D = 4.dp
+private val QL_PAD_66D = 3.5.dp
+private val QL_SEP_HEIGHT_66D = 8.dp
+private const val QL_TEXT_ALPHA_66D = 0.8f
+
+/**
+ * [fork] round 66d: one carousel badge, 11 dp: words as an outlined box with text at 80%; Dolby / DTS logos (DTS:X and
+ * DTS-HD keep their suffix) in the same outlined box.
+ */
+@Composable
+private fun CompactBadge66d(label: String, style: TextStyle, color: Color) {
+    val text = color.copy(alpha = QL_TEXT_ALPHA_66D)
+    val small = style.copy(fontSize = QL_TEXT_SP_66D.sp, lineHeight = (QL_TEXT_SP_66D * 1.15f).sp, fontWeight = FontWeight.Bold, letterSpacing = 0.3.sp, color = text)
+    val res = when {
+        label == "DOLBY VISION" -> com.nuvio.tv.R.drawable.nuvio_c_logo_dolby_vision
+        label == "ATMOS" -> com.nuvio.tv.R.drawable.nuvio_c_logo_dolby_atmos
+        label.startsWith("DTS") -> com.nuvio.tv.R.drawable.nuvio_c_logo_dts
+        NuvioCFeatures.QUALITY_LINE_V64 && label == "DOLBY DIGITAL" -> com.nuvio.tv.R.drawable.nuvio_c_logo_dolby_digital
+        NuvioCFeatures.QUALITY_LINE_V64 && label == "DOLBY DIGITAL PLUS" -> com.nuvio.tv.R.drawable.nuvio_c_logo_dolby_digital_plus
+        else -> null
+    }
+    Box(
+        Modifier.height(QL_HEIGHT_66D).border(1.dp, color.copy(alpha = QL_BOX_BORDER_63), RoundedCornerShape(2.dp)).padding(horizontal = QL_PAD_66D),
+        contentAlignment = Alignment.Center
+    ) {
+        if (res == null) {
+            Text(text = label, style = small, maxLines = 1, softWrap = false)
+        } else {
+            val painter = androidx.compose.ui.res.painterResource(res)
+            val size = painter.intrinsicSize
+            val ratio = if (size.height > 0f) size.width / size.height else 2.5f
+            val suffix = if (NuvioCFeatures.QUALITY_LINE_V64) nuvioCDtsSuffix(label) else null
+            Row {
+                androidx.compose.foundation.Image(
+                    painter = painter,
+                    contentDescription = label,
+                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(text),
+                    modifier = Modifier.height(QL_LOGO_66D).width(QL_LOGO_66D * ratio).alignBy { it.measuredHeight }
+                )
+                if (suffix != null) Text(
+                    text = suffix, style = small.copy(fontSize = (QL_TEXT_SP_66D * 0.9f).sp), maxLines = 1, softWrap = false,
+                    modifier = Modifier.padding(start = 1.5.dp).alignByBaseline()
+                )
+            }
+        }
+    }
+}
+
+/** [fork] round 66d: the carousel badge height, for tests. */
+internal val NUVIO_C_CAROUSEL_BADGE_HEIGHT_66D get() = QL_HEIGHT_66D
