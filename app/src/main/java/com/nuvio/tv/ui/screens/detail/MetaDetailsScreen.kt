@@ -106,6 +106,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListPrefetchStrategy
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.draw.clip
 import androidx.tv.material3.Border
@@ -167,6 +168,7 @@ private class DetailTapScroll {
 }
 
 private const val RAPID_DOWN_TAP_MS = 280L
+private const val LEFT_GRADIENT_FADE_FRACTION = 0.78f
 
 private enum class PeopleSectionTab {
     CAST,
@@ -937,6 +939,7 @@ fun MetaDetailsScreen(
                     nuvioCLoadGraph = viewModel::nuvioCLoadGraphRatings, // [fork] round 65
                     nuvioCMyEpisodeScores = viewModel::nuvioCMyEpisodeScores, // [fork] round 65
                     nuvioCOnScrolled = { viewModel.nuvioCOpenDeferGate() }, // [fork] round 61 detail_defer_loads
+                    drawBackground = playOnLoad && !playOnLoadReturnContentRevealed,
                     heroBackdropUrl = heroBackdropUrl,
                     meta = meta,
                     detailReturnEpisodeFocusRequest = DetailReturnEpisodeFocusRequest(
@@ -954,6 +957,7 @@ fun MetaDetailsScreen(
                     nextToWatch = uiState.nextToWatch,
                     episodeProgressMap = uiState.episodeProgressMap,
                     watchedEpisodes = uiState.watchedEpisodes,
+                    rewatchEpisodes = uiState.rewatchEpisodes,
                     episodeWatchedPendingKeys = uiState.episodeWatchedPendingKeys,
                     blurUnwatchedEpisodes = uiState.blurUnwatchedEpisodes,
                     seasonPostersEnabled = uiState.seasonPostersEnabled,
@@ -1048,6 +1052,12 @@ fun MetaDetailsScreen(
                     onToggleMovieWatched = { viewModel.onEvent(MetaDetailsEvent.OnToggleMovieWatched) },
                     onToggleEpisodeWatched = { video ->
                         viewModel.onEvent(MetaDetailsEvent.OnToggleEpisodeWatched(video))
+                    },
+                    onMarkEpisodeRewatched = { video ->
+                        viewModel.onEvent(MetaDetailsEvent.OnMarkEpisodeRewatched(video))
+                    },
+                    onUnmarkEpisodeRewatched = { video ->
+                        viewModel.onEvent(MetaDetailsEvent.OnUnmarkEpisodeRewatched(video))
                     },
                     onMarkSeasonWatched = { season ->
                         viewModel.onEvent(MetaDetailsEvent.OnMarkSeasonWatched(season))
@@ -1303,6 +1313,7 @@ private fun MetaDetailsContent(
     nuvioCLoadGraph: () -> Unit = {}, // [fork] round 65 series_graph: episode ratings load when the graph opens
     nuvioCMyEpisodeScores: suspend () -> Map<Pair<Int, Int>, Int> = { emptyMap() }, // [fork] round 65 series_graph: Mine
     nuvioCOnScrolled: () -> Unit = {}, // [fork] round 61 detail_defer_loads
+    drawBackground: Boolean = false,
     heroBackdropUrl: String? = null,
     meta: Meta,
     detailReturnEpisodeFocusRequest: DetailReturnEpisodeFocusRequest? = null,
@@ -1317,6 +1328,7 @@ private fun MetaDetailsContent(
     nextToWatch: NextToWatch?,
     episodeProgressMap: Map<Pair<Int, Int>, WatchProgress>,
     watchedEpisodes: Set<Pair<Int, Int>>,
+    rewatchEpisodes: Set<Pair<Int, Int>> = emptySet(),
     episodeWatchedPendingKeys: Set<String>,
     blurUnwatchedEpisodes: Boolean,
     seasonPostersEnabled: Boolean,
@@ -1368,6 +1380,8 @@ private fun MetaDetailsContent(
     onLibraryLongPress: () -> Unit,
     onToggleMovieWatched: () -> Unit,
     onToggleEpisodeWatched: (Video) -> Unit,
+    onMarkEpisodeRewatched: (Video) -> Unit = {},
+    onUnmarkEpisodeRewatched: (Video) -> Unit = {},
     onMarkSeasonWatched: (Int) -> Unit,
     onMarkSeasonUnwatched: (Int) -> Unit,
     onMarkPreviousEpisodesWatched: (Video) -> Unit,
@@ -1445,7 +1459,7 @@ private fun MetaDetailsContent(
     @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
     val listState = if (com.nuvio.tv.NuvioCFeatures.DETAIL_CACHE_WINDOW) {
         rememberLazyListState(cacheWindow = androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow(ahead = 360.dp, behind = 720.dp))
-    } else rememberLazyListState(prefetchStrategy = nestedPrefetchStrategy)
+    } else rememberLazyListState(cacheWindow = remember { LazyLayoutCacheWindow(aheadFraction = 1f, behindFraction = 1f) }) // official beta.4
     // [fork] round 61 detail_open_smooth: on a fresh open the rows under the hero join one frame after it
     var nuvioCRowsReady by remember { mutableStateOf(!nuvioCStageRows) }
     if (!nuvioCRowsReady) LaunchedEffect(Unit) { withFrameNanos { }; nuvioCRowsReady = true }
@@ -2459,7 +2473,7 @@ private fun MetaDetailsContent(
         val transparent = backgroundColor.copy(alpha = 0f).toArgb()
         val bmp = android.graphics.Bitmap.createBitmap(w, 2, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bmp)
-        val fadeWidth = w * (if (com.nuvio.tv.NuvioCFeatures.HERO_SYNOPSIS_WIDE) 0.86f else 0.78f) // [fork] round 43: covers the wider synopsis
+        val fadeWidth = w * (if (com.nuvio.tv.NuvioCFeatures.HERO_SYNOPSIS_WIDE) 0.86f else LEFT_GRADIENT_FADE_FRACTION) // [fork] round 43: covers the wider synopsis
         val shader = if (isRtl) {
             android.graphics.LinearGradient(
                 w.toFloat(), 0f, w - fadeWidth, 0f,
@@ -2538,6 +2552,7 @@ private fun MetaDetailsContent(
         modifier = modifier
             .fillMaxSize()
             .drawBehind {
+                if (!drawBackground) return@drawBehind
                 val ownTrailerRendering = (isTrailerPlaying || isBackgroundTrailerPlaying) &&
                     contentBackgroundTrailerController?.isRendering(trailerUrl) == true
                 if (!ownTrailerRendering) drawRect(backgroundColor)
@@ -2870,6 +2885,7 @@ private fun MetaDetailsContent(
                             episodeProgressMap = episodeProgressMap,
                             episodeRatings = visibleEpisodeImdbRatings,
                             watchedEpisodes = watchedEpisodes,
+                            rewatchedEpisodes = rewatchEpisodes,
                             episodeWatchedPendingKeys = episodeWatchedPendingKeys,
                             blurUnwatchedEpisodes = blurUnwatchedEpisodes,
                             episodeOptionsOverlayStyle = episodeOptionsOverlayStyle,
@@ -2883,6 +2899,8 @@ private fun MetaDetailsContent(
                             },
                             showManualPlayOption = showManualPlayOption,
                             onToggleEpisodeWatched = onToggleEpisodeWatched,
+                            onMarkEpisodeRewatched = onMarkEpisodeRewatched,
+                            onUnmarkEpisodeRewatched = onUnmarkEpisodeRewatched,
                             onMarkSeasonWatched = onMarkSeasonWatched,
                             onMarkSeasonUnwatched = onMarkSeasonUnwatched,
                             isSeasonFullyWatched = isSeasonFullyWatched(selectedSeason),
@@ -3784,9 +3802,22 @@ private fun BackdropLayer(
                 .drawWithCache {
                     onDrawBehind {
                         if (gradientAlphaState.value > 0f) {
+                            val srcWidth = kotlin.math.ceil(leftGradient.width * LEFT_GRADIENT_FADE_FRACTION).toInt()
+                                .coerceIn(1, leftGradient.width)
+                            val dstWidth = kotlin.math.ceil(size.width * srcWidth / leftGradient.width).toInt()
+                            val rtl = layoutDirection == LayoutDirection.Rtl
                             drawImage(
                                 leftGradient,
-                                dstSize = androidx.compose.ui.unit.IntSize(size.width.toInt(), size.height.toInt()),
+                                srcOffset = androidx.compose.ui.unit.IntOffset(
+                                    if (rtl) leftGradient.width - srcWidth else 0,
+                                    0
+                                ),
+                                srcSize = androidx.compose.ui.unit.IntSize(srcWidth, leftGradient.height),
+                                dstOffset = androidx.compose.ui.unit.IntOffset(
+                                    if (rtl) size.width.toInt() - dstWidth else 0,
+                                    0
+                                ),
+                                dstSize = androidx.compose.ui.unit.IntSize(dstWidth, size.height.toInt()),
                                 alpha = gradientAlphaState.value,
                                 filterQuality = androidx.compose.ui.graphics.FilterQuality.Low
                             )

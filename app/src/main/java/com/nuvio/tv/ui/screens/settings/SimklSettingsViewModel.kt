@@ -10,6 +10,7 @@ import com.nuvio.tv.data.simkl.SimklAuthException
 import com.nuvio.tv.data.simkl.SimklAuthRepository
 import com.nuvio.tv.data.simkl.SimklConnectionMode
 import com.nuvio.tv.data.simkl.SimklPinPollResult
+import com.nuvio.tv.data.simkl.SimklRewatchConsentRepository
 import com.nuvio.tv.data.simkl.SimklSyncRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -44,6 +45,7 @@ data class SimklSettingsUiState(
 class SimklSettingsViewModel @Inject constructor(
     private val authRepository: SimklAuthRepository,
     private val syncRepository: SimklSyncRepository,
+    private val rewatchConsentRepository: SimklRewatchConsentRepository,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
@@ -154,6 +156,10 @@ class SimklSettingsViewModel @Inject constructor(
     fun onDisconnect() {
         viewModelScope.launch {
             pollJob?.cancel()
+            // The answers and the question must not survive signing out: the overlay would stay on
+            // screen, and a confirmation or an earlier yes would then write to an account that is no
+            // longer connected.
+            rewatchConsentRepository.clear()
             authRepository.disconnect()
             syncRepository.clearCurrentProfile()
             _uiState.update {

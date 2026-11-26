@@ -1086,4 +1086,8 @@ object NuvioCFeatures {
     const val SYNOPSIS_LOGO = true
     /** Lists menu: Left or Right from any list row jumps to Save, Up from Save returns to that row; the list box is a whole number of 40 dp rows with 6 dp focus room, so no row or focus ring is cut. Off = round 60 menu. */
     const val LISTS_SAVE_JUMP = true
+
+    // ---- Round 66 ----
+    /** Modern subtitle panel: official beta.4's format tag (SRT / ASS / VTT...) at the end of each row's second line, after the language and the SDH / Forced / CC tag. Off = no format tag. */
+    const val SUB_FORMAT_TAG = true
 }

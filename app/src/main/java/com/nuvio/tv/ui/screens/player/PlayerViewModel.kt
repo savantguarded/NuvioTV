@@ -103,6 +103,7 @@ class PlayerViewModel @Inject constructor(
     private val tvRecommendationManager: com.nuvio.tv.core.recommendations.TvRecommendationManager,
     private val serverPlayback: com.nuvio.tv.data.mediaserver.ServerPlayback,
     private val serverStreams: com.nuvio.tv.data.mediaserver.ServerStreams,
+    private val usenetSourceSettings: com.nuvio.tv.core.usenet.UsenetSourceSettings,
     partyRepository: com.nuvio.tv.core.party.PartyRepository,
     profileManager: com.nuvio.tv.core.profile.ProfileManager,
     savedStateHandle: SavedStateHandle
@@ -155,6 +156,7 @@ class PlayerViewModel @Inject constructor(
         tvRecommendationManager = tvRecommendationManager,
         serverPlayback = serverPlayback,
         serverStreams = serverStreams,
+        usenetSourceSettings = usenetSourceSettings,
         party = partyRepository,
         profileId = savedStateHandle.get<String>("profileId")?.toIntOrNull()
             ?: profileManager.activeProfileId.value,
@@ -228,6 +230,9 @@ class PlayerViewModel @Inject constructor(
     fun getCurrentStreamUrl(): String = controller.getCurrentStreamUrl()
 
     fun getCurrentHeaders(): Map<String, String> = controller.getCurrentHeaders()
+
+    internal fun getStreamTypeLabel(): String =
+        streamTypeLabel(controller.currentStreamType(), uiState.value.currentStreamAddonName)
 
     fun getCurrentFileSizeBytes(): Long? = controller.currentVideoSize
 

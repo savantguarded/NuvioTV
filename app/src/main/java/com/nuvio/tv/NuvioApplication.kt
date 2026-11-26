@@ -7,6 +7,9 @@ import android.os.Build
 import android.os.StrictMode
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
+import coil3.network.NetworkFetcher
+import coil3.network.okhttp.asNetworkClient
+import com.nuvio.tv.core.image.CollectionCoverNetworkClient
 import com.nuvio.tv.core.image.CustomPosterFallbackInterceptor
 import com.nuvio.tv.core.image.HardwareBitmapSettingInterceptor
 import coil3.disk.DiskCache
@@ -27,7 +30,7 @@ import com.nuvio.tv.core.sync.StartupSyncService
 import com.nuvio.tv.core.sync.androidtv.AndroidTvChannelSyncService
 import com.nuvio.tv.core.network.IPv4FirstDns
 import com.nuvio.tv.core.network.NoDelaySocketFactory
-import com.nuvio.tv.core.network.imageNetworkFetcherFactory
+import com.nuvio.tv.core.network.imageConnectivityChecker
 import com.nuvio.tv.data.local.ImagePerformancePreferences
 import com.nuvio.tv.data.local.SentrySettingsDataStore
 import com.nuvio.tv.data.mediaserver.ServerUserStateProjection
@@ -95,6 +98,7 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
         // Before super.onCreate(): Hilt creates injected services there, and the budget is read once.
         MemoryBudget.init(this)
         super.onCreate()
+        registerActivityLifecycleCallbacks(com.nuvio.tv.core.usenet.UsenetAppLifecycle())
         if (!NuvioCFeatures.NO_CRASH_REPORTING) SentryInitializer.start(this, sentrySettingsDataStore) // [fork] no_crash_reporting
         PluginRuntimeHooks.onApplicationCreate(this)
         if (NuvioCFeatures.NO_TV_CHANNELS) com.nuvio.tv.core.nuvioc.NuvioCStartup.stopTvChannels(this) // [fork] no_tv_channels
@@ -157,14 +161,15 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
                 }
                 add(SvgDecoder.Factory())
                 add(
-                    imageNetworkFetcherFactory(
-                        callFactory = { imageOkHttpClient },
+                    NetworkFetcher.Factory(
+                        networkClient = { CollectionCoverNetworkClient(imageOkHttpClient.asNetworkClient()) },
                         cacheStrategy = {
                             StaleWhileRevalidateCacheStrategy(
                                 revalidationClient = { imageOkHttpClient },
                                 imageLoaderProvider = imageLoaderRef,
                             )
                         },
+                        connectivityChecker = ::imageConnectivityChecker,
                     )
                 )
             }
