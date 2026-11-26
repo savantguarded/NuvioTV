@@ -29,6 +29,9 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.withStyle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.runtime.Composable
@@ -1833,9 +1836,10 @@ private fun NuvioCFeaturedTextV66(item: MetaPreview, info: com.nuvio.tv.core.di.
         val starring = info?.starring.orEmpty()
         if (starring.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
+            val starringLabel = stringResource(R.string.nuvio_c_featured_starring)
             Text(
                 text = androidx.compose.ui.text.buildAnnotatedString {
-                    withStyle(androidx.compose.ui.text.SpanStyle(color = Color.White.copy(alpha = 0.55f))) { append(stringResource(R.string.nuvio_c_featured_starring)); append(" ") }
+                    withStyle(androidx.compose.ui.text.SpanStyle(color = Color.White.copy(alpha = 0.55f))) { append(starringLabel); append(" ") }
                     append(starring.take(3).joinToString(", "))
                 },
                 style = MaterialTheme.typography.labelMedium,
