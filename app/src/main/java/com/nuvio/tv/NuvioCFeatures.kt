@@ -1102,4 +1102,10 @@ object NuvioCFeatures {
     const val EDITIONS_V66 = true
     /** Taste polish: 3 dp focus room at the top and bottom of every card-page list (whole-rows rule counts it), no "Open ›" drawn on focused cards (the accent edge already says it opens; it covered posters), page header on one baseline, no key-hint copy, held Up / Down scroll a list one row at a time and stay in it (only a single Up from the first row leaves), hours in 12-hour time (ticks every 3 h), and everything opened from Wrapped uses that Wrapped year, never All time. Off = round 65 Taste. */
     const val TASTE_V66 = true
+    /** Cast page filmography: titles with no release date yet (announced, in production) count as the newest and come first; dated titles follow, newest first as before. Off = undated last (official). */
+    const val FILMO_UNDATED_FIRST = true
+    /** Modern player controls: the left pills are 3 dp narrower per side (text-only pills 13 dp sides, at least 74 dp wide); text size, height, alignment and focus rings unchanged. Off = round 57 pills. */
+    const val CLEAN_PILLS_NARROW = true
+    /** Profile screen background: a profile with no picture uses the page's own colour with a soft tint (no grey), inside the same right-aligned box, so switching profiles never changes the box; focusing Add Profile keeps the last picture; old and new pictures crossfade at one size; the startup splash draws the picture in that same box with the same left fade and shade, so the hand-over shows no change. Off = round 65b. */
+    const val PROFILE_BG_V66 = true
 }

@@ -154,7 +154,7 @@ internal fun NuvioCOsdPill(
         // [fork] round 57 `CLEAN_PILL_TEXT_ONLY`: no icon, the label centred in a pill at least 88 dp wide
         if (NuvioCFeatures.CLEAN_PILL_TEXT_ONLY) {
             Box(
-                Modifier.widthIn(min = 80.dp).padding(horizontal = 16.dp).fillMaxHeight(),
+                Modifier.widthIn(min = if (NuvioCFeatures.CLEAN_PILLS_NARROW) 74.dp else 80.dp).padding(horizontal = if (NuvioCFeatures.CLEAN_PILLS_NARROW) 13.dp else 16.dp).fillMaxHeight(), // [fork] round 66
                 contentAlignment = Alignment.Center
             ) {
                 Text(label, style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp, lineHeight = 16.sp), fontWeight = FontWeight.Medium, maxLines = 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
@@ -162,7 +162,7 @@ internal fun NuvioCOsdPill(
             return@Surface
         }
         Row(
-            Modifier.padding(start = if (NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH) 12.dp else if (compact) 10.dp else 11.dp, end = if (NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH) 14.dp else if (compact) 12.dp else 14.dp).fillMaxHeight(),
+            Modifier.padding(start = (if (NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH) 12.dp else if (compact) 10.dp else 11.dp) - (if (NuvioCFeatures.CLEAN_PILLS_NARROW) 3.dp else 0.dp), end = (if (NuvioCFeatures.CLEAN_PILL_HEIGHT_MATCH) 14.dp else if (compact) 12.dp else 14.dp) - (if (NuvioCFeatures.CLEAN_PILLS_NARROW) 3.dp else 0.dp)).fillMaxHeight(), // [fork] round 66 clean_pills_narrow
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(if (compact) 6.dp else 8.dp)
         ) {

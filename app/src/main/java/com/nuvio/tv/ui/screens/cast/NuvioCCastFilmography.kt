@@ -79,7 +79,11 @@ internal fun nuvioCCastLayout(person: PersonDetail, landscapePosters: Boolean): 
  * too. Titles TMDB gives no date at all go last (as official).
  */
 internal fun nuvioCNewestFirst(credits: List<MetaPreview>, dates: Map<String, String>): List<MetaPreview> =
-    credits.sortedByDescending { NuvioCFilmography.sortDate(dates, nuvioCKey(it), it.releaseInfo) }
+    credits.sortedByDescending { nuvioCFilmoSortKey(NuvioCFilmography.sortDate(dates, nuvioCKey(it), it.releaseInfo)) }
+
+/** [fork] round 66 filmo_undated_first: no date = newer than any dated title. Pure, for tests. */
+internal fun nuvioCFilmoSortKey(date: String): String =
+    if (date.isEmpty() && com.nuvio.tv.NuvioCFeatures.FILMO_UNDATED_FIRST) "9999-99-99" else date
 
 /**
  * The role line adds ~18 dp under each poster, which pushed the row past the bottom of the screen.
