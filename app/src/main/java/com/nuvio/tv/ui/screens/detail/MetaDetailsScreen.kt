@@ -2004,7 +2004,8 @@ private fun MetaDetailsContent(
     // Track if scrolled past hero (first item)
     val isScrolledPastHero by remember {
         derivedStateOf {
-            listState.firstVisibleItemIndex > 0 ||
+            if (com.nuvio.tv.NuvioCFeatures.DETAIL_SCRIM_V66) nuvioCHeroMostlyOffScreen(listState.layoutInfo) // [fork] round 66
+            else listState.firstVisibleItemIndex > 0 ||
             (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset > 200)
         }
     }
@@ -2473,7 +2474,7 @@ private fun MetaDetailsContent(
         val transparent = backgroundColor.copy(alpha = 0f).toArgb()
         val bmp = android.graphics.Bitmap.createBitmap(w, 2, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = android.graphics.Canvas(bmp)
-        val fadeWidth = w * (if (com.nuvio.tv.NuvioCFeatures.HERO_SYNOPSIS_WIDE) 0.86f else LEFT_GRADIENT_FADE_FRACTION) // [fork] round 43: covers the wider synopsis
+        val fadeWidth = w * (if (com.nuvio.tv.NuvioCFeatures.HERO_SYNOPSIS_WIDE && !com.nuvio.tv.NuvioCFeatures.DETAIL_SCRIM_V66) 0.86f else LEFT_GRADIENT_FADE_FRACTION) // [fork] round 43 wide; round 66 detail_scrim_v66: official again
         val shader = if (isRtl) {
             android.graphics.LinearGradient(
                 w.toFloat(), 0f, w - fadeWidth, 0f,
@@ -3983,3 +3984,19 @@ private fun PeopleSectionTabButton(
     }
 }
 
+
+/**
+ * [fork] round 66 detail_scrim_v66: the hero (first page item) counts as scrolled past when less than 45% of it is
+ * still on screen, or it is gone. Independent of which rows follow it.
+ */
+internal fun nuvioCHeroMostlyOffScreen(info: androidx.compose.foundation.lazy.LazyListLayoutInfo): Boolean {
+    val hero = info.visibleItemsInfo.firstOrNull { it.index == 0 } ?: return info.totalItemsCount > 0
+    return nuvioCHeroPast(hero.offset, hero.size, info.viewportStartOffset)
+}
+
+/** Pure part, for tests: [offset] of the hero item from the viewport start, its [size]. */
+internal fun nuvioCHeroPast(offset: Int, size: Int, viewportStart: Int): Boolean {
+    if (size <= 0) return false
+    val visible = (offset + size - viewportStart).coerceAtMost(size)
+    return visible < size * 0.45f
+}

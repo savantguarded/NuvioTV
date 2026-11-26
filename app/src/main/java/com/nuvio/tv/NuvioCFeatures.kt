@@ -1094,4 +1094,6 @@ object NuvioCFeatures {
     const val GRAPH_V66 = true
     /** Roulette / Library reel: a landing whose pending spin was never drawn (fast pick, second and later shuffles) still spins in full over fillers and eases onto the pick (1.8 s), and Roulette keeps the pending spin on screen at least 600 ms; spinning posters blurred harder (1/16 decode), dimmed to ~33% and slightly desaturated. Off = round 65 reel. */
     const val REEL_V66 = true
+    /** Details left darkening uses official's proportions (78% wide, official stops), drawn uncut; the "scrolled past the hero" check (left darkening fade-out and the trailer's Pause on scroll) looks at how much of the hero is still on screen (under 45% = past), not at row indices, so removed or added rows can't shift it. Off = round 65 (86% fade cut at 78%, index check). */
+    const val DETAIL_SCRIM_V66 = true
 }
