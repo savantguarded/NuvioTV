@@ -59,6 +59,15 @@ fun StartupSplashScreen(
                     .diskCacheKey(nuvioCKey)
                     .placeholderMemoryCacheKey(nuvioCKey)
             }
+            if (com.nuvio.tv.NuvioCFeatures.PROFILE_BG_V66 && com.nuvio.tv.NuvioCFeatures.PROFILE_BG_WHOLE && com.nuvio.tv.ui.screens.profile.nuvioCProfileLeft()) {
+                // [fork] round 66 profile_bg_v66: the profile screen's own box, left fade and shade, so the hand-over shows no change
+                Box(Modifier.fillMaxSize().background(com.nuvio.tv.ui.screens.profile.NUVIO_C_PROFILE_BG_BASE)) {
+                    Box(Modifier.align(Alignment.CenterEnd).let { with(com.nuvio.tv.ui.screens.profile.NuvioCProfileBgBox) { it.box() } }) {
+                        AsyncImage(model = request.build(), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                        com.nuvio.tv.ui.screens.profile.NuvioCProfileShade()
+                    }
+                }
+            } else
             AsyncImage(
                 model = request.build(),
                 contentDescription = null,

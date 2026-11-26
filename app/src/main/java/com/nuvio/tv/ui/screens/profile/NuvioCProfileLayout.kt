@@ -2,6 +2,7 @@ package com.nuvio.tv.ui.screens.profile
 
 // [fork] Nuvio C profile screen tweaks (choosing a profile; "Manage profiles" stays official).
 
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.background
@@ -301,3 +302,28 @@ internal fun Modifier.nuvioCProfileBgWhole(): Modifier = this
             size = androidx.compose.ui.geometry.Size(fadeW, size.height)
         )
     }
+
+// ---- [fork] round 66 PROFILE_BG_V66 ----------------------------------------------------------------------------
+/**
+ * The shade drawn over a profile picture (round 53 PROFILE_BG_TEXT_V2): darker on the left where the profiles sit,
+ * a bottom fade for the title block. Shared by the profile screen and the startup splash so both look the same.
+ */
+@androidx.compose.runtime.Composable
+internal fun NuvioCProfileShade() {
+    if (!NuvioCFeatures.PROFILE_BG_TEXT_V2) return
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(
+        0f to Color(0xFF050507).copy(alpha = 0.92f), 0.38f to Color(0xFF050507).copy(alpha = 0.78f),
+        0.7f to Color(0xFF050507).copy(alpha = 0.25f), 1f to Color(0xFF050507).copy(alpha = 0.35f))))
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.6f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.75f))))
+}
+
+/** A profile with no picture: the page's own colour with a soft tint of the profile colour on the left, no grey. */
+@androidx.compose.runtime.Composable
+internal fun NuvioCProfileNoPicture(tint: Color) {
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().background(NUVIO_C_PROFILE_BG_BASE).background(Brush.radialGradient(
+        0f to tint.copy(alpha = 0.16f), 1f to tint.copy(alpha = 0f),
+        center = androidx.compose.ui.geometry.Offset(0.55f * 1920f, 0.4f * 1080f), radius = 1400f)))
+}
+
+/** [fork] round 66: [nuvioCProfileBgWhole] for callers outside this package (the startup splash). */
+object NuvioCProfileBgBox { fun Modifier.box(): Modifier = nuvioCProfileBgWhole() }
