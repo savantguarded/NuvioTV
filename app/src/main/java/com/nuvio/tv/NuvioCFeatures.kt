@@ -1108,4 +1108,6 @@ object NuvioCFeatures {
     const val CLEAN_PILLS_NARROW = true
     /** Profile screen background: a profile with no picture uses the page's own colour with a soft tint (no grey), inside the same right-aligned box, so switching profiles never changes the box; focusing Add Profile keeps the last picture; old and new pictures crossfade at one size; the startup splash draws the picture in that same box with the same left fade and shade, so the hand-over shows no change. Off = round 65b. */
     const val PROFILE_BG_V66 = true
+    /** Background trailer layer: a new trailer (another details page opened from More like this, a filmography, etc.) gets a fresh player view keyed on its link; the old view lets go of the shared player before the new one takes it, so the new page always gets picture and its own first-frame signal (no black screen with sound). The Home-to-details hand-over (same link) is unchanged. Off = one view reused across links. */
+    const val TRAILER_HANDOVER_V66 = true
 }

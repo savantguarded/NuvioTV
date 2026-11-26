@@ -121,6 +121,8 @@ fun BackgroundTrailerLayer(
                         }
                     }
             ) {
+                // [fork] round 66 trailer_handover_v66: one player view per trailer link
+                androidx.compose.runtime.key(if (com.nuvio.tv.NuvioCFeatures.TRAILER_HANDOVER_V66) request.videoUrl else "") {
                 TrailerPlayer(
                     trailerUrl = request.videoUrl,
                     trailerAudioUrl = request.audioUrl,
@@ -150,6 +152,7 @@ fun BackgroundTrailerLayer(
                             compositingStrategy = CompositingStrategy.ModulateAlpha
                         }
                 )
+                } // [fork] round 66 key
             }
         }
     }
