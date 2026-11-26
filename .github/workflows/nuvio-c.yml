@@ -510,25 +510,8 @@ jobs:
           tag="${{ steps.plan.outputs.tag }}"
           gh release delete "$tag" --yes --cleanup-tag >/dev/null 2>&1 || true
           rel="${{ steps.plan.outputs.release }}"
-          notes="Nuvio C, built from official NuvioTV release [${rel}](https://github.com/${UPSTREAM_SLUG}/releases/tag/${rel}) (commit ${{ steps.plan.outputs.upstream_sha }}) plus the Nuvio C player tweaks."
-          if [ "${{ steps.apk.outputs.trailer }}" = "applied" ]; then
-            notes="${notes} Nuvio C trailer layer included."
-          else
-            notes="${notes} Nuvio C trailer layer NOT included in this build (official background trailers, see issues)."
-          fi
-          if [ "${{ steps.apk.outputs.imdb }}" = "applied" ]; then
-            notes="${notes} IMDb trailer backup included."
-          else
-            notes="${notes} IMDb trailer backup NOT included in this build (see issues)."
-          fi
-          if [ "${{ steps.apk.outputs.film }}" = "applied" ]; then
-            notes="${notes} Cast filmography included."
-          else
-            notes="${notes} Cast filmography NOT included in this build (official cast page, see issues)."
-          fi
-          if [ -n "${{ steps.switches.outputs.off }}" ]; then
-            notes="${notes} Switched off in this build: ${{ steps.switches.outputs.off }}."
-          fi
+          # [fork] round 66c: one plain line, no feature list or warnings (the run log still shows what was applied)
+          notes="Nuvio C, a personal fork of NuvioTV, based on official ${rel}."
           # Hidden run number: the in-app updater offers a rebuild of the same official release when it is newer than the installed APK
           notes="$(printf '%s\n\n<!-- nuvioc-build:%s -->' "$notes" "$GITHUB_RUN_NUMBER")"
           gh release create "$tag" "$out" "${dm_files[@]}" --target "$GITHUB_SHA" \

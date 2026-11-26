@@ -1388,19 +1388,6 @@ private fun NuvioCNextEpisodeChip(meta: Meta, modifier: Modifier = Modifier) {
     Box(modifier) { HeroMetaBadge(text = text, contentColor = NuvioTheme.colors.Secondary, nuvioCSmall = com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) }
 }
 
-/** [fork] round 66b featured_v66b: the details page's own trailer button, for the Featured carousel. */
-@Composable
-internal fun NuvioCDetailTrailerButton(onClick: () -> Unit, onFocused: () -> Unit, enabled: Boolean = true) {
-    val painter = rememberRawSvgPainter(rawIconRes = com.nuvio.tv.R.raw.trailer_play_button)
-    ActionIconButtonPainter(
-        painter = painter,
-        contentDescription = stringResource(R.string.hero_play_trailer),
-        onClick = onClick,
-        onFocused = onFocused,
-        enabled = enabled
-    )
-}
-
 /** [fork] round 66b: details' runtime text (1 hr 49 min) for a raw runtime string, or null. */
 internal fun nuvioCRuntimeHrMin(raw: String?): String? =
     raw?.let { formatRuntime(it) }?.takeIf { it.isNotBlank() }?.let { if (com.nuvio.tv.NuvioCFeatures.QUALITY_LINE_V63) nuvioCHrMin(it) else it }
@@ -1408,3 +1395,15 @@ internal fun nuvioCRuntimeHrMin(raw: String?): String? =
 /** [fork] round 66b: details' year text (2019, 2019–2023, 2023 while running) for a raw releaseInfo. */
 internal fun nuvioCYearText(releaseInfo: String?): String? =
     formatYearRange(releaseInfo)?.let { if (com.nuvio.tv.NuvioCFeatures.QUALITY_LINE_V62) nuvioCYears62(it) else it }?.takeIf { it.isNotBlank() }
+
+/** [fork] round 66c featured_v66c: the details facts line's age rating chip, exactly as drawn there, for the carousel. */
+@Composable
+internal fun NuvioCAgeRatingChip(text: String) = HeroMetaBadge(text = text, nuvioCSmall = com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL)
+
+/** [fork] round 66c: the details facts line's text style and colour (genres, seasons), for the carousel. */
+@Composable
+internal fun nuvioCFactsTextStyle(): Pair<androidx.compose.ui.text.TextStyle, Color> {
+    val small = com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL
+    return (if (small) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge) to
+        (if (small) NuvioTheme.extendedColors.textSecondary.copy(alpha = 0.85f) else NuvioTheme.extendedColors.textSecondary)
+}

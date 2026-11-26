@@ -4009,6 +4009,17 @@ private fun NuvioCCleanControlsV2(
     val audioDelayLabel = stringResource(R.string.nuvio_c_more_audio_delay)
     val keepSoundLabel = stringResource(R.string.nuvio_c_more_keep_sound)
     val unavailableText = stringResource(R.string.nuvio_c_more_unavailable)
+    // [fork] round 66c sync_audio_in_more: "Sync subtitles to audio now" in More; greyed with the reason when it can't run
+    val syncAudioLabel = stringResource(R.string.nuvio_c_more_sync_audio)
+    val syncAudioTexts = mapOf(
+        NuvioCAudioSyncNow.NO_ADDON_SUBTITLE to stringResource(R.string.nuvio_c_more_sync_addon_only),
+        NuvioCAudioSyncNow.SETTING_OFF to stringResource(R.string.nuvio_c_more_sync_setting_off),
+        NuvioCAudioSyncNow.MPV_SAMPLING_OFF to stringResource(R.string.nuvio_c_more_sync_sampling_off),
+        NuvioCAudioSyncNow.UNAVAILABLE to stringResource(R.string.nuvio_c_more_sync_unavailable),
+        NuvioCAudioSyncNow.STARTED to stringResource(R.string.nuvio_c_more_sync_started)
+    )
+    val syncAddonUrl = uiState.selectedAddonSubtitle?.url
+    var syncAudioResult by remember(syncAddonUrl) { mutableStateOf<NuvioCAudioSyncNow?>(null) }
     val nightEnabled by NuvioCNight.enabled.collectAsState()
     val nightActive = remember { NuvioCNight.active(context) }
     val nightLevel by NuvioCNight.level.collectAsState()
@@ -4135,6 +4146,14 @@ private fun NuvioCCleanControlsV2(
             if (uiState.subtitleDelayMs > 0) "+${uiState.subtitleDelayMs} ms" else "${uiState.subtitleDelayMs} ms",
             onClick = { viewModel.onEvent(PlayerEvent.OnShowSubtitleDelayOverlay) }, arrow = true
         ))
+        if (com.nuvio.tv.NuvioCFeatures.SYNC_AUDIO_IN_MORE && com.nuvio.tv.NuvioCFeatures.SYNC_AUDIO_NOW) {
+            val dim = syncAddonUrl == null || NuvioCAudioSyncHook.run == null
+            val shown = if (syncAddonUrl == null) NuvioCAudioSyncNow.NO_ADDON_SUBTITLE else syncAudioResult
+            add(NuvioCMoreItem.Action(
+                "sync_audio", syncAudioLabel, secPlayback, shown?.let { syncAudioTexts[it] },
+                onClick = { syncAudioResult = NuvioCAudioSyncHook.run?.invoke() }, dim = dim, stay = true
+            ))
+        }
         // (no Subtitles / Audio lines: those buttons always sit on a side and their panels hold style and delays)
         // [fork] round 57 more_sound: the Audio panel's Sound tab lives here now (the panel is tracks only)
         if (com.nuvio.tv.NuvioCFeatures.MORE_SOUND) {

@@ -426,12 +426,14 @@
     <string name="nuvio_c_sync_audio_now">Sync to audio now</string>
     <string name="nuvio_c_sync_audio_setting_off">Turn on Sync subtitles to audio in Settings first</string>
     <string name="nuvio_c_sync_audio_sampling_off">With mpv, set Audio sampling to Low or High first</string>
+    <string name="nuvio_c_more_sync_audio">Sync subtitles to audio now</string>
+    <string name="nuvio_c_more_sync_addon_only">Add-on subtitles only</string>
+    <string name="nuvio_c_more_sync_setting_off">Off in Settings</string>
+    <string name="nuvio_c_more_sync_sampling_off">Audio sampling is Off</string>
+    <string name="nuvio_c_more_sync_unavailable">Unavailable</string>
+    <string name="nuvio_c_more_sync_started">Syncing…</string>
     <string name="nuvio_c_sync_audio_unavailable">Audio sync isn\'t available for this subtitle</string>
     <!-- round 66 featured_v66 -->
-    <string name="nuvio_c_featured_watchlist">Watchlist</string>
-    <string name="nuvio_c_featured_trailer">Trailer</string>
-    <string name="nuvio_c_featured_starring">Starring</string>
-    <string name="nuvio_c_featured_in_watchlist">In your watchlist</string>
     <plurals name="nuvio_c_featured_seasons">
         <item quantity="one">%d season</item>
         <item quantity="other">%d seasons</item>

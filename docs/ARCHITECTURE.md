@@ -4,7 +4,7 @@ Read this first in every session. It tells you where things are so you open only
 Fork-specific behaviour (what each tweak does, its switch, its screen) lives in `docs/FORK_CHANGES.md`.
 Current state, last build and open issues live in `docs/STATUS.md`.
 
-Last verified against: branch `nuvio-c` round 66b, official base `1.2.0-beta.4` (`77cc0bb5`), 2026-11-26.
+Last verified against: branch `nuvio-c` round 66c, official base `1.2.0-beta.4` (`77cc0bb5`), 2026-11-26.
 
 ## 1. What this is
 
@@ -113,7 +113,7 @@ Official gives the local (Nuvio Sync) source no list tabs. `LibraryViewModel` sw
 1. Hourly (or manual "force"): reads the official release with the highest version number (betas included; not the newest by date, so a hotfix on an older line such as 1.1.1 is ignored).
 2. Takes the diff of `nuvio-c` against official and replays it onto that release as patches: a core patch plus three optional patches (trailer, IMDb backup, cast filmography; file lists in the workflow's `TRAILER_PATHS` / `IMDB_PATHS` / `FILMOGRAPHY_PATHS`). An optional patch that conflicts is dropped, not the build.
 3. Applies branding (name, `com.nuvio.tv.c`, updater points at this repo, `armeabi-v7a` only) and the `NUVIO_C_OFF` switch list.
-4. `./gradlew :app:assembleFullRelease -x lintVitalFullRelease` (CI-only speed-ups in `gradle.properties`: build cache, parallel, 8 GB heap), publishes release tag `<official>+nuvioc` with the APK.
+4. `./gradlew :app:assembleFullRelease -x lintVitalFullRelease` (CI-only speed-ups in `gradle.properties`: build cache, parallel, 8 GB heap), publishes release tag `<official>+nuvioc` with the APK and a one-line note ("Nuvio C, a personal fork of NuvioTV, based on official <tag>.", since round 66c) plus the hidden run number.
 5. Opens an issue if upstream edited OSD files listed in `OSD_FILES`.
 CI does not run unit tests. Run them locally before pushing.
 

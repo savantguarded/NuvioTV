@@ -313,6 +313,31 @@ internal fun Modifier.nuvioCProfileBgWhole(): Modifier = this
 @androidx.compose.runtime.Composable
 internal fun NuvioCProfileShade() {
     if (!NuvioCFeatures.PROFILE_BG_TEXT_V2) return
+    if (NuvioCFeatures.PROFILE_SHADE_V66C) {
+        // [fork] round 66c: page colour, S-curve ending at 30% of the width, dithered; the picture past it untouched
+        val base = NUVIO_C_PROFILE_BG_BASE
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().drawWithCache {
+            val w = size.width; val h = size.height
+            val r = (base.red * 255f).toInt(); val g = (base.green * 255f).toInt(); val b = (base.blue * 255f).toInt()
+            fun shade(a: Float) = android.graphics.Color.argb((a * 255f).toInt(), r, g, b)
+            val stops = nuvioCProfileShadeStops66c()
+            val left = android.graphics.Paint().apply {
+                isDither = true
+                shader = android.graphics.LinearGradient(0f, 0f, w, 0f,
+                    stops.map { shade(it.second) }.toIntArray(), stops.map { it.first }.toFloatArray(), android.graphics.Shader.TileMode.CLAMP)
+            }
+            val bottom = android.graphics.Paint().apply {
+                isDither = true
+                shader = android.graphics.LinearGradient(0f, 0f, 0f, h,
+                    intArrayOf(shade(0f), shade(0f), shade(0.45f), shade(0.8f)),
+                    floatArrayOf(0f, 0.6f, 0.82f, 1f), android.graphics.Shader.TileMode.CLAMP)
+            }
+            onDrawBehind {
+                drawIntoCanvas { c -> c.nativeCanvas.drawRect(0f, 0f, w, h, left); c.nativeCanvas.drawRect(0f, 0f, w, h, bottom) }
+            }
+        })
+        return
+    }
     if (NuvioCFeatures.PROFILE_SHADE_V66B) {
         // [fork] round 66b: ~10% darker, more stops, drawn dithered so the dark steps never band
         androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().drawWithCache {
@@ -352,3 +377,8 @@ internal fun NuvioCProfileNoPicture(tint: Color) {
 
 /** [fork] round 66: [nuvioCProfileBgWhole] for callers outside this package (the startup splash). */
 object NuvioCProfileBgBox { fun Modifier.box(): Modifier = nuvioCProfileBgWhole() }
+
+/** [fork] round 66c: (position, alpha) stops of the profile left darkening: an S-curve from 97% to 0 at 30% of the width. Pure, for tests. */
+internal fun nuvioCProfileShadeStops66c(end: Float = 0.30f): List<Pair<Float, Float>> =
+    listOf(0f to 0.97f, 0.20f to 0.96f, 0.40f to 0.90f, 0.55f to 0.76f, 0.68f to 0.56f, 0.79f to 0.34f, 0.88f to 0.16f, 0.95f to 0.05f, 1f to 0f)
+        .map { (x, a) -> x * end to a } + (1f to 0f)

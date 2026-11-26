@@ -462,7 +462,7 @@ private fun BadgeRow(content: @Composable () -> Unit) {
  * at most [max] badges in the details order. Nothing is looked up here.
  */
 @Composable
-internal fun NuvioCQualityLineStatic(lead: String?, labels: List<String>, modifier: Modifier = Modifier, max: Int = 4, rating: String? = null) {
+internal fun NuvioCQualityLineStatic(lead: String?, labels: List<String>, modifier: Modifier = Modifier, max: Int = 4, rating: String? = null, filled: Boolean = false) {
     val color = com.nuvio.tv.ui.theme.NuvioTheme.colors.TextPrimary
     val textStyle = androidx.tv.material3.MaterialTheme.typography.labelMedium.copy(
         fontSize = QL_TEXT_SP.sp, lineHeight = (QL_TEXT_SP * 1.2f).sp, fontWeight = FontWeight.SemiBold,
@@ -489,8 +489,28 @@ internal fun NuvioCQualityLineStatic(lead: String?, labels: List<String>, modifi
             }
             Row(horizontalArrangement = Arrangement.spacedBy(QL_GAP_63), verticalAlignment = Alignment.CenterVertically) {
                 if (ratingText != null) Pill(ratingText, textStyle, color, QL_HEIGHT)
-                quality.forEach { label -> Badge61(label, textStyle, color, if (NuvioCFeatures.QUALITY_LINE_V62) QL_LOGO_62 else QL_HEIGHT) }
+                quality.forEach { label ->
+                    // [fork] round 66c: on the carousel, word badges are solid light tiles like the Modern player's size badge
+                    if (filled && !nuvioCIsLogoLabel(label)) FilledTile66c(label, textStyle)
+                    else Badge61(label, textStyle, color, if (NuvioCFeatures.QUALITY_LINE_V62) QL_LOGO_62 else QL_HEIGHT)
+                }
             }
         }
+    }
+}
+
+/** [fork] round 66c: labels drawn as a logo by [Badge61]. */
+internal fun nuvioCIsLogoLabel(label: String): Boolean =
+    label == "DOLBY VISION" || label == "ATMOS" || label.startsWith("DTS") ||
+        (NuvioCFeatures.QUALITY_LINE_V64 && (label == "DOLBY DIGITAL" || label == "DOLBY DIGITAL PLUS"))
+
+/** [fork] round 66c: a solid light tile with dark text, the Modern player's file-size badge look, at the line's height. */
+@Composable
+private fun FilledTile66c(label: String, style: TextStyle) {
+    Box(
+        Modifier.height(QL_HEIGHT).background(Color(0xFFDCDCDC), RoundedCornerShape(QL_RADIUS)).padding(horizontal = QL_PAD),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text = label, style = style.copy(color = Color(0xFF151515), fontWeight = FontWeight.Bold), maxLines = 1, softWrap = false)
     }
 }

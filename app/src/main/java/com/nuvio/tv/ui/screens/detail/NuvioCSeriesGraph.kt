@@ -361,7 +361,7 @@ internal fun NuvioCSeriesGraphOverlay(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        if (seasons.size > NUVIO_C_GRAPH_SEASONS) stringResource(R.string.nuvio_c_graph_averages_all, seasons.size)
+                        if (seasons.size > NUVIO_C_GRAPH_SEASONS && !com.nuvio.tv.NuvioCFeatures.GRAPH_AVG_PLAIN) stringResource(R.string.nuvio_c_graph_averages_all, seasons.size)
                         else stringResource(R.string.nuvio_c_graph_averages),
                         fontSize = 11.sp, letterSpacing = 1.5.sp, color = Mid, fontWeight = FontWeight.SemiBold, maxLines = 1
                     )

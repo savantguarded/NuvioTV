@@ -34,8 +34,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.withStyle
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.outlined.Movie
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -355,11 +353,7 @@ internal class NuvioCFeaturedActions(
     val onContinueWatchingPlayManually: (ContinueWatchingItem) -> Unit,
     /** itemId, type, backdrop, manual source selection: details page with official "play on load". */
     val onPlayFromDetails: ((String, String, String?, Boolean) -> Unit)?,
-    val autoplayEnabled: Boolean,
-    // [fork] round 66 featured_v66: Watchlist and Trailer buttons
-    val onToggleWatchlist: ((MetaPreview) -> Unit)? = null,
-    val onRefreshWatchlist: ((MetaPreview) -> Unit)? = null,
-    val inWatchlist: (MetaPreview) -> Boolean? = { null }
+    val autoplayEnabled: Boolean
 )
 
 /**
@@ -391,7 +385,7 @@ internal fun NuvioCFeaturedGate(
     }
 }
 
-private val SLIDE_MS = if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) 380 else if (com.nuvio.tv.NuvioCFeatures.CAROUSEL_CW_FADE) 300 else if (com.nuvio.tv.NuvioCFeatures.FEATURED_FAST_FOCUS) 260 else 380
+private val SLIDE_MS = if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66C) 300 else if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) 380 else if (com.nuvio.tv.NuvioCFeatures.CAROUSEL_CW_FADE) 300 else if (com.nuvio.tv.NuvioCFeatures.FEATURED_FAST_FOCUS) 260 else 380
 
 /** [fork] round 52 carousel_cw_fade: how far (share of its height) the carousel rises while it fades. */
 private const val CAROUSEL_FADE_LIFT = 0.18f
@@ -731,8 +725,12 @@ private fun NuvioCFeaturedHome(
                             val p = progress.value
                             // [fork] round 66b: a smaller lift and a fade over the whole move, so the picture crossfades
                             // straight into the Continue watching picture (never through plain background)
-                            translationY = -p * carouselHeightPx * (if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) 0.08f else CAROUSEL_FADE_LIFT)
-                            alpha = reveal.value * (if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) (1f - p) else (1f - p / 0.7f)).coerceIn(0f, 1f)
+                            // [fork] round 66c: back to round 52's motion (lift 18%, gone at 70%), drawn as one layer with
+                            // its alpha applied straight to each draw (no full-screen copy per frame)
+                            val v66b = com.nuvio.tv.NuvioCFeatures.FEATURED_V66B && !com.nuvio.tv.NuvioCFeatures.FEATURED_V66C
+                            translationY = -p * carouselHeightPx * (if (v66b) 0.08f else CAROUSEL_FADE_LIFT)
+                            alpha = reveal.value * (if (v66b) (1f - p) else (1f - p / 0.7f)).coerceIn(0f, 1f)
+                            if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66C) compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
                         } else {
                             translationY = -progress.value * carouselHeightPx
                             alpha = reveal.value // [fork] featured_cold_start: 1 except during the one first fade-in
@@ -773,8 +771,9 @@ private fun NuvioCFeaturedHome(
                     onButtonFocused = { lastButton = it },
                     onNext = {
                         index = NuvioCFeaturedRules.nextIndex(index, items.size)
-                        lastButton = 0
-                        runCatching { playRequester.requestFocus() }
+                        // [fork] round 66c: Right on the last button keeps focus on that button
+                        lastButton = 1
+                        runCatching { detailsRequester.requestFocus() }
                     },
                     onPrevious = {
                         index = NuvioCFeaturedRules.previousIndex(index, items.size)
@@ -783,7 +782,7 @@ private fun NuvioCFeaturedHome(
                     },
                     timer = featuredTimer.takeIf { com.nuvio.tv.NuvioCFeatures.FEATURED_POLISH && com.nuvio.tv.NuvioCFeatures.IDLE_TIMER_LIGHT },
                     quality = nuvioCQuality,
-                    textAlpha = { if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) (1f - progress.value / 0.4f).coerceIn(0f, 1f) else 1f }
+                    textAlpha = { if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B && !com.nuvio.tv.NuvioCFeatures.FEATURED_V66C) (1f - progress.value / 0.4f).coerceIn(0f, 1f) else 1f }
                 ) else if (!com.nuvio.tv.NuvioCFeatures.FEATURED_ROWS_LIGHT || shown || sliding) NuvioCFeaturedSlide(
                     items = items,
                     index = index.coerceIn(0, items.size - 1),
@@ -1731,12 +1730,15 @@ private fun NuvioCFeaturedSlideV66(
             next.logo?.let { context.imageLoader.enqueue(logoRequest(context, it)) }
         }
     }
-    if (!com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) LaunchedEffect(item.id) { actions?.onRefreshWatchlist?.invoke(item) }
 
     Box(Modifier.fillMaxSize().background(bg)) {
         Box(Modifier.align(Alignment.TopEnd).width(picW).fillMaxHeight().then(
             // [fork] round 66b: the picture's own left edge fades in, so no hard bar where it starts
-            if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) Modifier.graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+            if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66C) Modifier.drawWithCache {
+                    // [fork] round 66c: the same edge fade as a page-colour overlay: no extra full-screen layer per frame
+                    val edge = Brush.horizontalGradient(0f to bg, 0.22f to bg.copy(alpha = 0f), endX = size.width)
+                    onDrawWithContent { drawContent(); drawRect(edge) }
+                } else if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) Modifier.graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
                 .drawWithCache {
                     val mask = Brush.horizontalGradient(0f to Color.Transparent, 0.22f to Color.Black, endX = size.width)
                     onDrawWithContent { drawContent(); drawRect(mask, blendMode = androidx.compose.ui.graphics.BlendMode.DstIn) }
@@ -1765,27 +1767,28 @@ private fun NuvioCFeaturedSlideV66(
         ) {
             NuvioCFadeThrough(target = item, key = { it.id }, contentAlignment = Alignment.BottomStart) { slide ->
                 if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) NuvioCFeaturedTextV66b(slide, infos[slide.id], quality[slide.id].orEmpty())
-                else NuvioCFeaturedTextV66(slide, infos[slide.id], actions?.inWatchlist?.invoke(slide))
+                else NuvioCFeaturedTextV66(slide, infos[slide.id], null)
             }
             Spacer(Modifier.height(12.dp))
             val label = NuvioCFeaturedRules.labelFor(cw)
+            val isShow = item.apiType.equals("series", true) || item.apiType.equals("tv", true)
             val playText = when {
                 label.season != null && label.episode != null -> stringResource(
                     if (label.resume) R.string.nuvio_c_featured_resume_episode else R.string.nuvio_c_featured_play_episode, label.season, label.episode
                 )
                 label.resume -> stringResource(R.string.nuvio_c_featured_resume)
+                // [fork] round 66c: an unstarted show names its first episode, like the details page
+                isShow && com.nuvio.tv.NuvioCFeatures.FEATURED_V66B -> stringResource(R.string.nuvio_c_featured_play_episode, 1, 1)
                 else -> stringResource(R.string.nuvio_c_featured_play)
             }
             val latestNext by rememberUpdatedState(onNext)
             val latestPrevious by rememberUpdatedState(onPrevious)
             var focusedButton by remember { mutableIntStateOf(-1) }
             var leftArmed by remember { mutableStateOf(false) }
-            val hasTrailer = item.trailerYtIds.isNotEmpty() || item.trailers.isNotEmpty()
-            val watch = if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) null else actions?.onToggleWatchlist
-            val lastButton = when { hasTrailer -> 3; watch != null -> 2; else -> 1 }
-            fun focused(i: Int) { focusedButton = i; onButtonFocused(if (i == 0) 0 else 1) }
+            val lastButton = 1 // Play, Details
+            fun focused(i: Int) { focusedButton = i; onButtonFocused(i) }
             Row(
-                horizontalArrangement = Arrangement.spacedBy(com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.gap),
+                horizontalArrangement = Arrangement.spacedBy(if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) 14.dp else com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.gap),
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .padding(vertical = 6.dp)
@@ -1821,34 +1824,6 @@ private fun NuvioCFeaturedSlideV66(
                     icon = Icons.Outlined.Info, description = stringResource(R.string.nuvio_c_featured_details), enabled = focusable, onClick = onDetails,
                     modifier = Modifier.focusRequester(detailsRequester).onFocusChanged { if (it.isFocused) focused(1) else if (focusedButton == 1) focusedButton = -1 }
                 )
-                if (watch != null) {
-                    val inList = actions?.inWatchlist?.invoke(item) == true
-                    NuvioCFeaturedRoundButton(
-                        icon = if (inList) Icons.Filled.Check else Icons.Filled.Add,
-                        description = stringResource(R.string.nuvio_c_featured_watchlist), enabled = focusable, onClick = { watch(item) },
-                        modifier = Modifier.onFocusChanged { if (it.isFocused) focused(2) else if (focusedButton == 2) focusedButton = -1 }
-                    )
-                }
-                if (hasTrailer && com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) {
-                    // [fork] round 66b: the details page's own trailer button; opens details straight into the trailer
-                    com.nuvio.tv.ui.screens.detail.NuvioCDetailTrailerButton(
-                        onClick = {
-                            com.nuvio.tv.ui.screens.detail.NuvioCOpenTrailer.pendingId = item.id
-                            onDetails()
-                        },
-                        onFocused = { focused(3) },
-                        enabled = focusable
-                    )
-                } else if (hasTrailer) {
-                    NuvioCFeaturedRoundButton(
-                        icon = Icons.Outlined.Movie, description = stringResource(R.string.nuvio_c_featured_trailer), enabled = focusable,
-                        onClick = {
-                            com.nuvio.tv.ui.screens.detail.NuvioCOpenTrailer.pendingId = item.id
-                            onDetails()
-                        },
-                        modifier = Modifier.onFocusChanged { if (it.isFocused) focused(3) else if (focusedButton == 3) focusedButton = -1 }
-                    )
-                }
             }
             if (items.size > 1) {
                 Spacer(Modifier.height(10.dp))
@@ -1871,7 +1846,6 @@ private fun NuvioCFeaturedTextV66(item: MetaPreview, info: com.nuvio.tv.core.di.
             context66?.let { add(it to true) }
             if (rank != null && rankEntry != null) add(stringResource(R.string.nuvio_c_featured_rank, rank, rankEntry.catalogName) to false)
             status?.let { add(stringResource(if (it == NuvioCFeaturedBadgeRules.Status.NEW_SEASON) R.string.nuvio_c_featured_new_season else R.string.nuvio_c_featured_new) to false) }
-            if (inWatchlist == true) add(stringResource(R.string.nuvio_c_featured_in_watchlist) to false)
         }
         if (tags.isNotEmpty()) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1935,21 +1909,6 @@ private fun NuvioCFeaturedTextV66(item: MetaPreview, info: com.nuvio.tv.core.di.
                 modifier = Modifier.fillMaxWidth(0.95f)
             )
         }
-        val starring = info?.starring.orEmpty()
-        if (starring.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            val starringLabel = stringResource(R.string.nuvio_c_featured_starring)
-            Text(
-                text = androidx.compose.ui.text.buildAnnotatedString {
-                    withStyle(androidx.compose.ui.text.SpanStyle(color = Color.White.copy(alpha = 0.55f))) { append(starringLabel); append(" ") }
-                    append(starring.take(3).joinToString(", "))
-                },
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.88f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
     }
 }
 
@@ -1986,7 +1945,18 @@ private fun NuvioCFeaturedTextV66b(item: MetaPreview, info: com.nuvio.tv.core.di
                 if (isSeries) item.seasonCount?.takeIf { it > 0 }?.let { context.resources.getQuantityString(R.plurals.nuvio_c_featured_seasons, it, it) } else null
             ).joinToString(" · ")
         }
-        if (genres.isNotBlank()) {
+        val rating = info?.certificate ?: item.ageRating?.takeIf { it.isNotBlank() }
+        if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66C) {
+            // [fork] round 66c: the details facts line: its age rating chip, then genres · seasons in its own style
+            if (genres.isNotBlank() || rating != null) {
+                Spacer(Modifier.height(10.dp))
+                val (factsStyle, factsColor) = com.nuvio.tv.ui.screens.detail.nuvioCFactsTextStyle()
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    rating?.let { com.nuvio.tv.ui.screens.detail.NuvioCAgeRatingChip(it) }
+                    if (genres.isNotBlank()) Text(genres, style = factsStyle, color = factsColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        } else if (genres.isNotBlank()) {
             Spacer(Modifier.height(10.dp))
             Text(genres, style = MaterialTheme.typography.labelMedium, color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.78f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
@@ -1994,10 +1964,10 @@ private fun NuvioCFeaturedTextV66b(item: MetaPreview, info: com.nuvio.tv.core.di
             listOfNotNull(com.nuvio.tv.ui.screens.detail.nuvioCYearText(item.releaseInfo), com.nuvio.tv.ui.screens.detail.nuvioCRuntimeHrMin(item.runtime))
                 .joinToString(" \u2022 ").takeIf { it.isNotBlank() }
         }
-        val rating = info?.certificate ?: item.ageRating?.takeIf { it.isNotBlank() }
-        if (lead != null || labels.isNotEmpty() || rating != null) {
+        val lineRating = if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66C) null else rating
+        if (lead != null || labels.isNotEmpty() || lineRating != null) {
             Spacer(Modifier.height(8.dp))
-            com.nuvio.tv.ui.screens.detail.NuvioCQualityLineStatic(lead = lead, labels = labels, max = 4, rating = rating)
+            com.nuvio.tv.ui.screens.detail.NuvioCQualityLineStatic(lead = lead, labels = labels, max = 4, rating = lineRating, filled = com.nuvio.tv.NuvioCFeatures.FEATURED_V66C)
         }
         val synopsis = item.description?.let { NuvioCHeroSpec.homeSynopsis(it) }
         if (!synopsis.isNullOrBlank()) {
@@ -2006,7 +1976,7 @@ private fun NuvioCFeaturedTextV66b(item: MetaPreview, info: com.nuvio.tv.core.di
                 text = synopsis,
                 style = NuvioCHeroSpec.detailSynopsisStyle(MaterialTheme.typography.bodyMedium),
                 color = NuvioTheme.colors.TextPrimary.copy(alpha = NuvioCHeroSpec.DETAIL_SYNOPSIS_ALPHA),
-                maxLines = 2,
+                maxLines = if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66C) 3 else 2, // [fork] round 66c: three lines
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(0.95f)
             )

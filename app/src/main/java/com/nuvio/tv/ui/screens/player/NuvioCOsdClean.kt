@@ -187,7 +187,11 @@ internal sealed class NuvioCMoreItem {
     data class Action(
         override val key: String, override val label: String, override val section: String, val value: String? = null, val onClick: () -> Unit,
         /** [fork] round 47: an arrow after the line: it opens a page or panel. */
-        val arrow: Boolean = false
+        val arrow: Boolean = false,
+        /** [fork] round 66c: greyed; OK does nothing (the value says why). */
+        val dim: Boolean = false,
+        /** [fork] round 66c: runs in place, the sheet stays open so the value can show the result. */
+        val stay: Boolean = false
     ) : NuvioCMoreItem()
     /** Opens a sub-list in the same panel; the current pick is ticked and focused. */
     data class Choice(override val key: String, override val label: String, override val section: String, val value: String, val options: List<NuvioCMoreOption>) : NuvioCMoreItem()
@@ -321,7 +325,7 @@ private fun NuvioCMoreLine(state: NuvioCMoreSheetState, item: NuvioCMoreItem, re
     val onClick: () -> Unit = {
         state.lastKey = item.key
         when (item) {
-            is NuvioCMoreItem.Action -> {
+            is NuvioCMoreItem.Action -> if (item.dim) Unit else if (item.stay) item.onClick() else {
                 state.open = false; state.page = null
                 if (NuvioCFeatures.MORE_RETURN && item.arrow && item.key != "external") { state.reopen = true; state.seenOpen = false }
                 item.onClick()
@@ -358,7 +362,8 @@ private fun NuvioCMoreLine(state: NuvioCMoreSheetState, item: NuvioCMoreItem, re
         )
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(item.label, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Text(item.label, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                color = if (item is NuvioCMoreItem.Action && item.dim && !focused) NuvioTheme.colors.TextSecondary else Color.Unspecified)
             when (item) {
                 is NuvioCMoreItem.Action -> Row(verticalAlignment = Alignment.CenterVertically) {
                     item.value?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = secondary, maxLines = 1, modifier = Modifier.padding(start = 12.dp)) }

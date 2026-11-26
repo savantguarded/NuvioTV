@@ -1130,4 +1130,14 @@ object NuvioCFeatures {
     const val CALENDAR_SYNC = true
     /** Taste hours read "9pm" / ticks "12am 3am … 9pm" (lowercase, no space). Off = "9 PM" / "9p". */
     const val TASTE_HOURS_PM = true
+
+    // ---- Round 66c ----
+    /** Featured carousel 66c: Play and Details only (14 dp apart; Trailer and Watchlist removed), Play names the episode for shows (Play S1 E1 when unstarted), Right on Details changes the title and keeps focus there; age rating chip (the details facts-line chip) starts the genres line; word quality badges are solid light tiles (Modern player size badge look), Dolby / DTS stay logos; synopsis three lines; picture edge fade drawn as an overlay; move into Continue watching back to round 52 (300 ms, lift 18%, gone at 70%) with alpha applied per draw. Off = round 66b carousel. */
+    const val FEATURED_V66C = true
+    /** Series graph: the season averages card's header says only "SEASON AVERAGES". Off = "… · ALL 38 · BRIGHT = ON SCREEN" on long shows. */
+    const val GRAPH_AVG_PLAIN = true
+    /** Profile background left darkening in the page's own colour, ending at 30% of the width (smooth S-curve, dithered); the picture right of it untouched; bottom fade as before. Off = round 66b shade. */
+    const val PROFILE_SHADE_V66C = true
+    /** Modern player More panel: "Sync subtitles to audio now" entry while an add-on subtitle is on (same action as the subtitles panel row). Off = subtitles panel only. */
+    const val SYNC_AUDIO_IN_MORE = true
 }

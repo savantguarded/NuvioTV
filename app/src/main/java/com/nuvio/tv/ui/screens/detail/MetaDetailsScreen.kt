@@ -470,19 +470,6 @@ fun MetaDetailsScreen(
 ) {
     val playbackAvailability = LocalPlaybackAvailability.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    // [fork] round 66 featured_v66: the carousel's Trailer button opens this page and starts its trailer once it is known
-    if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66) {
-        val nuvioCTrailerUrl = uiState.trailerUrl
-        val nuvioCMetaId = uiState.meta?.id
-        LaunchedEffect(nuvioCMetaId, nuvioCTrailerUrl) {
-            val pending = NuvioCOpenTrailer.pendingId ?: return@LaunchedEffect
-            if (nuvioCMetaId == null || nuvioCTrailerUrl.isNullOrBlank()) return@LaunchedEffect
-            if (pending == nuvioCMetaId || nuvioCMetaId.endsWith(pending)) {
-                NuvioCOpenTrailer.pendingId = null
-                viewModel.onEvent(MetaDetailsEvent.OnTrailerButtonClick)
-            }
-        }
-    }
     // [fork] round 31 detail_info_block / detail_next_ep_badge: release info and next-episode time (NuvioCDetailInfo.kt)
     val nuvioCInfoViewModel: NuvioCDetailInfoViewModel = hiltViewModel()
     LaunchedEffect(uiState.meta?.id) { uiState.meta?.let(nuvioCInfoViewModel::load) }
@@ -3995,9 +3982,4 @@ internal fun nuvioCHeroPast(offset: Int, size: Int, viewportStart: Int): Boolean
     if (size <= 0) return false
     val visible = (offset + size - viewportStart).coerceAtMost(size)
     return visible < size * 0.45f
-}
-
-/** [fork] round 66 featured_v66: a details page to open with its trailer playing (the Featured carousel's Trailer button). */
-object NuvioCOpenTrailer {
-    @Volatile var pendingId: String? = null
 }
