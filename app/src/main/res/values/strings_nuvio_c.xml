@@ -437,4 +437,5 @@
         <item quantity="one">%d season</item>
         <item quantity="other">%d seasons</item>
     </plurals>
+    <string name="nuvio_c_customize_ass_desc">Apply your subtitle size, colours and outline to styled ASS/SSA subtitles too</string>
 </resources>

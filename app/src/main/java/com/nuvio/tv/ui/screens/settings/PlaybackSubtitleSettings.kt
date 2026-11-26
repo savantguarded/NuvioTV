@@ -88,6 +88,16 @@ internal fun PlaybackSubtitlesSection(
         onToggle = { onUpdate { setSubtitleStripSdh(!style.stripSdh) } },
         enabled = enabled
     )
+    if (com.nuvio.tv.NuvioCFeatures.SUB_ASS_IN_SETTINGS) { // [fork] round 66: official's ASS switch, also here
+        val ass = settings.assSubtitleStyle
+        SettingsToggleRow(
+            title = stringResource(R.string.subtitle_style_customize_ass),
+            subtitle = stringResource(R.string.nuvio_c_customize_ass_desc),
+            checked = ass.customizeAss,
+            onToggle = { onUpdate { setSubtitleCustomizeAss(!ass.customizeAss) } },
+            enabled = enabled
+        )
+    }
 
     SettingsSectionLabel(text = stringResource(R.string.sub_style_label))
     SettingsActionRow(
