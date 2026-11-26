@@ -79,8 +79,20 @@ private const val REEL_PENDING_SPEED = 8f
 private const val REEL_LAND_STEPS = 5
 /** Spinning posters are drawn at this brightness. */
 private const val REEL_DIM_ALPHA = 0.55f
-/** Tiny decode for the blur: 1/8 of the card. */
-private const val REEL_BLUR_DIVISOR = 8
+/** Tiny decode for the blur: 1/8 of the card (round 66 REEL_V66: 1/16). */
+private val REEL_BLUR_DIVISOR get() = if (com.nuvio.tv.NuvioCFeatures.REEL_V66) 16 else 8
+/** [fork] round 66: spinning posters at ~33% brightness, slightly desaturated. */
+private val REEL_DIM get() = if (com.nuvio.tv.NuvioCFeatures.REEL_V66) 0.67f else REEL_DIM_ALPHA
+private val ReelDesaturate = androidx.compose.ui.graphics.ColorFilter.colorMatrix(androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(0.55f) })
+/** Posters a full spin travels before the pick when no pending phase was drawn. */
+private const val REEL_FULL_STEPS = 12
+
+/**
+ * [fork] round 66 REEL_V66: a landing needs a full spin of its own when its pending phase was never composed (the pick
+ * arrived in the same frame) or the reel still holds the previous landing. Pure, for tests.
+ */
+internal fun nuvioCReelLandingNeedsFullSpin(continues: Boolean, cycleEmpty: Boolean, previousPickIndex: Int): Boolean =
+    com.nuvio.tv.NuvioCFeatures.REEL_V66 && continues && (cycleEmpty || previousPickIndex >= 0)
 
 private val ReelEasing65 = Easing { t -> if (t >= 1f) 1f else 1f - 2f.pow(-10f * t) }
 private val ReelLandEasing = Easing { t -> val u = 1f - t; 1f - u * u * u }
@@ -164,6 +176,19 @@ internal fun NuvioCPosterReelV65(
     LaunchedEffect(spin.token, spin.pending, spin.continues) {
         sharpen.snapTo(0f)
         when {
+            !spin.pending && nuvioCReelLandingNeedsFullSpin(spin.continues, cycle.isEmpty(), pickIndex) -> {
+                // [fork] round 66: spin in full over fillers (the last loop's posters, else the landing's own), then land.
+                val fill = cycle.ifEmpty { spin.strip.drop(1) }.ifEmpty { listOf<String?>(null, null, null) }
+                items = nuvioCReelWindow(fill, 0, half + REEL_FULL_STEPS) + spin.strip
+                pickIndex = half + REEL_FULL_STEPS
+                cycle = emptyList()
+                offset.snapTo(half * stepPx)
+                warm(fill, spin.strip.firstOrNull(), 250L)
+                offset.animateTo(pickIndex * stepPx, tween(1800, easing = ReelLandEasing))
+                sharpen.animateTo(1f, tween(450))
+                delay(350)
+                landed(spin.token)
+            }
             spin.pending -> {
                 // Loop the fillers: [half] posters before the frame, one full period, [half] after.
                 val c = spin.strip
@@ -234,7 +259,8 @@ internal fun NuvioCPosterReelV65(
                 ) {
                     if (!url.isNullOrBlank()) {
                         val tiny = remember(url, wPx, hPx) { tinyRequest(context, url, wPx, hPx) }
-                        AsyncImage(model = tiny, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                        AsyncImage(model = tiny, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize(),
+                            colorFilter = if (com.nuvio.tv.NuvioCFeatures.REEL_V66) ReelDesaturate else null)
                         if (isPick) {
                             val full = remember(url, wPx, hPx) { fullRequest(context, url, wPx, hPx) }
                             AsyncImage(
@@ -248,7 +274,7 @@ internal fun NuvioCPosterReelV65(
                     Box(
                         Modifier.fillMaxSize().graphicsLayer {
                             alpha = if (isPick) 1f - sharpen.value else 1f
-                        }.background(Color.Black.copy(alpha = REEL_DIM_ALPHA))
+                        }.background(Color.Black.copy(alpha = REEL_DIM))
                     )
                 }
             }

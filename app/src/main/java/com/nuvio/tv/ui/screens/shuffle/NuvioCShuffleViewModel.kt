@@ -284,6 +284,7 @@ class NuvioCShuffleViewModel @Inject constructor(
             val n = pool.poolSize(state.kind, state.mood, state.refine)
             _ui.update { if (token == myToken) it.copy(poolSize = n) else it }
         }
+        val nuvioCPendingSince = android.os.SystemClock.elapsedRealtime() // [fork] round 66 reel_v66
         rollJob = viewModelScope.launch {
             val watchedOnly = com.nuvio.tv.NuvioCFeatures.ROULETTE_WATCHED_CYCLE && state.watchFilter == com.nuvio.tv.data.nuvioc.NuvioCWatchFilter.WATCHED
             when (val outcome = pool.roll(state.kind, state.mood, state.unwatched, state.refine, watchedOnly)) {
@@ -292,6 +293,10 @@ class NuvioCShuffleViewModel @Inject constructor(
                     pick.item.background?.let { context.imageLoader.enqueue(shuffleBackdropRequest(context, it)) }
                     val strip = pool.posters(state.kind, 16)
                     if (com.nuvio.tv.NuvioCFeatures.ROULETTE_SPIN_V65) nuvioCLastStrip = strip
+                    if (com.nuvio.tv.NuvioCFeatures.REEL_V66) { // [fork] round 66: the pending spin is drawn before the landing comes
+                        val shown = android.os.SystemClock.elapsedRealtime() - nuvioCPendingSince
+                        if (shown < 600) kotlinx.coroutines.delay(600 - shown)
+                    }
                     _ui.update {
                         if (token != myToken) it
                         else if (com.nuvio.tv.NuvioCFeatures.ROULETTE_SPIN_V65) it.copy(pick = pick, spin = com.nuvio.tv.ui.components.nuvioCReelLanding(myToken, pick.item.poster, strip))

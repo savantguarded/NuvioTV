@@ -1092,4 +1092,6 @@ object NuvioCFeatures {
     const val SUB_FORMAT_TAG = true
     /** Series ratings graph polish: the side panel starts 24 dp after the grid's real right edge (no overlap at any season count), season year on its own two-line header, long-show season bars labelled from an overlay row, only the focused season's bar bright, no hint lines, empty state as one centred line, OK on an episode closes the graph and focuses that episode card (no playback). Off = round 65 graph. */
     const val GRAPH_V66 = true
+    /** Roulette / Library reel: a landing whose pending spin was never drawn (fast pick, second and later shuffles) still spins in full over fillers and eases onto the pick (1.8 s), and Roulette keeps the pending spin on screen at least 600 ms; spinning posters blurred harder (1/16 decode), dimmed to ~33% and slightly desaturated. Off = round 65 reel. */
+    const val REEL_V66 = true
 }
