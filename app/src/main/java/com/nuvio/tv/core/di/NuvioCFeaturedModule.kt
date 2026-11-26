@@ -33,7 +33,10 @@ data class NuvioCFeaturedInfo(
     val latestSeason: Int? = null,
     val latestSeasonAirDate: String? = null,
     /** [fork] round 51 featured_context_tags: the one contextual line above the logo ("NEW EPISODE TODAY · 9:00 PM"), or null. */
-    val contextTag: String? = null
+    val contextTag: String? = null,
+    /** [fork] round 66 featured_v66: up to three lead actors, and the age certificate. */
+    val starring: List<String> = emptyList(),
+    val certificate: String? = null
 )
 
 @Module

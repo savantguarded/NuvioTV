@@ -436,7 +436,10 @@ fun HomeScreen(
                                     onContinueWatchingStartFromBeginning = onContinueWatchingStartFromBeginningStable,
                                     onContinueWatchingPlayManually = onContinueWatchingPlayManuallyStable,
                                     onPlayFromDetails = nuvioCOnPlayFromDetails,
-                                    autoplayEnabled = effectiveAutoplayEnabled
+                                    autoplayEnabled = effectiveAutoplayEnabled,
+                                    onToggleWatchlist = { item -> viewModel.togglePosterLibrary(item, item.sourceAddonBaseUrl) }, // [fork] round 66
+                                    onRefreshWatchlist = { item -> viewModel.refreshPosterLibraryStatus(item) },
+                                    inWatchlist = { item -> uiState.posterLibraryMembership[homeItemStatusKey(item.id, item.apiType)] }
                                 )
                             ) {
                             ModernHomeRoute(

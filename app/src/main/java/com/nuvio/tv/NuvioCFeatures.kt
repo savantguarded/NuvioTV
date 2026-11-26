@@ -1112,4 +1112,6 @@ object NuvioCFeatures {
     const val TRAILER_HANDOVER_V66 = true
     /** Modern subtitles panel: a "Sync to audio now" row under the tracks while an add-on subtitle is on, running official's audio-based sync for that subtitle on this episode only, with official's progress / result line under it, or the reason it can't run (setting off, mpv with audio sampling off). Official automatic sync unchanged. Off = no row. */
     const val SYNC_AUDIO_NOW = true
+    /** Featured carousel round 66 (option A): picture full height, ~91% wide, right-aligned, soft left darkening close to round 64; tag chips (context, rank, new / new season, you rated) above a logo in one fixed box (same size for every title); one line of certificate, genres, year, length and the cached quality badges; two-line synopsis; "Starring" with up to 3 names; buttons Play / Resume (no progress bar), Details, Watchlist, Trailer; Right from the last button = next title, Left from Play = previous title, a second Left opens the sidebar; dots, no arrows. Slides follow the title, not its position, so a list reload never flashes another title, and page changes are single (a manual change holds the timer). Off = round 65 carousel. */
+    const val FEATURED_V66 = true
 }

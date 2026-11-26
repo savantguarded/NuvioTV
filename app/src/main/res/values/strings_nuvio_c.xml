@@ -428,4 +428,13 @@
     <string name="nuvio_c_sync_audio_setting_off">Turn on Sync subtitles to audio in Settings first</string>
     <string name="nuvio_c_sync_audio_sampling_off">With mpv, set Audio sampling to Low or High first</string>
     <string name="nuvio_c_sync_audio_unavailable">Audio sync isn\'t available for this subtitle</string>
+    <!-- round 66 featured_v66 -->
+    <string name="nuvio_c_featured_watchlist">Watchlist</string>
+    <string name="nuvio_c_featured_trailer">Trailer</string>
+    <string name="nuvio_c_featured_starring">Starring</string>
+    <string name="nuvio_c_featured_in_watchlist">In your watchlist</string>
+    <plurals name="nuvio_c_featured_seasons">
+        <item quantity="one">%d season</item>
+        <item quantity="other">%d seasons</item>
+    </plurals>
 </resources>

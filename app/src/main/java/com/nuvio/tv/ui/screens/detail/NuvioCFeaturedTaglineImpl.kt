@@ -56,7 +56,9 @@ class NuvioCFeaturedTaglineImpl @Inject constructor(
             releaseDate = enrichment.nuvioCReleaseDate,
             latestSeason = enrichment.nuvioCLatestSeason?.first,
             latestSeasonAirDate = enrichment.nuvioCLatestSeason?.second,
-            contextTag = if (NuvioCFeatures.FEATURED_CONTEXT_TAGS) runCatching { contextTagFor(item, tmdbId, enrichment) }.getOrNull() else null
+            contextTag = if (NuvioCFeatures.FEATURED_CONTEXT_TAGS) runCatching { contextTagFor(item, tmdbId, enrichment) }.getOrNull() else null,
+            starring = if (NuvioCFeatures.FEATURED_V66) enrichment.castMembers.mapNotNull { it.name.takeIf { n -> n.isNotBlank() } }.take(3) else emptyList(), // [fork] round 66
+            certificate = if (NuvioCFeatures.FEATURED_V66) enrichment.ageRating?.takeIf { it.isNotBlank() } else null
         )
     }
 
