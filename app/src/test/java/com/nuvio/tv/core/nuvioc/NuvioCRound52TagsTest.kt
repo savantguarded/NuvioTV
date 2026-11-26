@@ -23,7 +23,7 @@ class NuvioCRound52TagsTest {
     }
 
     @Test fun filmCinema() =
-        assertEquals("IN CINEMAS NOW", tag(NuvioCTagFacts(false, cinemaDate = today.minusDays(20), digitalDate = today.plusDays(40))))
+        assertEquals(if (com.nuvio.tv.NuvioCFeatures.TAGS_NO_CINEMA) null else "IN CINEMAS NOW", tag(NuvioCTagFacts(false, cinemaDate = today.minusDays(20), digitalDate = today.plusDays(40))))
 
     @Test fun filmPersonal() {
         assertEquals("YOU RATED THIS 9/10 · WATCHED 2023", tag(NuvioCTagFacts(false, userRating = 9, watchedYear = 2023)))

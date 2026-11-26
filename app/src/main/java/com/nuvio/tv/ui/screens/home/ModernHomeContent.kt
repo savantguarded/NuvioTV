@@ -1113,7 +1113,11 @@ fun ModernHomeContent(
                 } else {
                     Modifier.align(Alignment.TopEnd).offset(x = NuvioTheme.spacing.huge).fillMaxWidth(MODERN_HERO_MEDIA_WIDTH_FRACTION).height(heroBackdropHeight)
                 }.then(
-                    if (nuvioCFeaturedHeroAlpha != null) Modifier.graphicsLayer { alpha = nuvioCFeaturedHeroAlpha() } else Modifier
+                    if (nuvioCFeaturedHeroAlpha != null) Modifier.graphicsLayer {
+                        alpha = nuvioCFeaturedHeroAlpha()
+                        // [fork] round 66e cw_transition_v66e: one picture, so the fade is applied per draw (no full-screen copy per frame)
+                        if (com.nuvio.tv.NuvioCFeatures.CW_TRANSITION_V66E) compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.ModulateAlpha
+                    } else Modifier
                 )
             }
 

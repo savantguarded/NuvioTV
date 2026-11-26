@@ -216,6 +216,13 @@ class NuvioCHomeFeaturedViewModel @Inject constructor(
     private val _quality = MutableStateFlow<Map<String, List<String>>>(emptyMap())
     /** Title id -> its quality labels (cache first, then one quiet background check per title). */
     val quality: StateFlow<Map<String, List<String>>> = _quality.asStateFlow()
+    // [fork] round 66e: editions per title (any release), from the same cache answers, for the context line
+    private val _editions = MutableStateFlow<Map<String, List<String>>>(emptyMap())
+    val editions: StateFlow<Map<String, List<String>>> = _editions.asStateFlow()
+    private fun keepEditions(id: String, q: com.nuvio.tv.data.quality.TitleQuality?) {
+        val e = q?.editions?.map { it.label }?.takeIf { it.isNotEmpty() } ?: return
+        _editions.update { it + (id to e) }
+    }
     private val qualityAsked = HashSet<String>()
     private val qualityLock = kotlinx.coroutines.sync.Mutex()
 
@@ -226,6 +233,7 @@ class NuvioCHomeFeaturedViewModel @Inject constructor(
         if (fresh.isEmpty()) return
         // what the cache already knows shows at once
         val cached = fresh.mapNotNull { item -> qualityRepo.cache.peekMetaStale(item.id)?.quality?.labels?.takeIf { it.isNotEmpty() }?.let { item.id to it } }
+        fresh.forEach { item -> keepEditions(item.id, qualityRepo.cache.peekMetaStale(item.id)?.quality) }
         if (cached.isNotEmpty()) _quality.update { it + cached }
         viewModelScope.launch {
             kotlinx.coroutines.delay(4_000)
@@ -260,6 +268,7 @@ class NuvioCHomeFeaturedViewModel @Inject constructor(
         if (hit != null) {
             kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { qualityRepo.cache.link(item.id, lookup.cacheKey) }
             hit.quality?.labels?.takeIf { it.isNotEmpty() }?.let { l -> _quality.update { it + (item.id to l) } }
+            keepEditions(item.id, hit.quality)
             return
         }
         val (result, nextRefresh) = qualityRepo.lookup(lookup.targets, lookup.year, movieTitle = item.name)
@@ -269,6 +278,7 @@ class NuvioCHomeFeaturedViewModel @Inject constructor(
             com.nuvio.tv.data.quality.TitleQualityPlanner.expiry(now, lookup.releaseDate, today, nextRefresh, found.quality))
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { qualityRepo.cache.put(lookup.cacheKey, c, item.id) }
         found.quality.labels.takeIf { it.isNotEmpty() }?.let { l -> _quality.update { it + (item.id to l) } }
+        keepEditions(item.id, found.quality)
     }
 
     /** null until the store has answered, so Home never flashes plain Modern first. */
@@ -424,6 +434,8 @@ private fun NuvioCFeaturedHome(
     var rowsByUser by rememberSaveable { mutableStateOf(false) }
     val rowsTaken = if (com.nuvio.tv.NuvioCFeatures.HOME_OPEN_CAROUSEL) rowsFocused && rowsByUser else rowsFocused
     var sliding by remember { mutableStateOf(false) }
+    // [fork] round 66e cw_transition_v66e: the carousel stays built (hidden) for a while after moving into the rows
+    var nuvioCKeepBuilt by remember { mutableStateOf(false) }
     var interaction by remember { mutableIntStateOf(0) }
     val idleClock = com.nuvio.tv.ui.components.rememberNuvioCIdleClock() // [fork] idle_timer_light
     val carouselOn = shown && available
@@ -454,6 +466,7 @@ private fun NuvioCFeaturedHome(
         if (!shown || sliding) return
         scope.launch {
             sliding = true
+            if (com.nuvio.tv.NuvioCFeatures.CW_TRANSITION_V66E) nuvioCKeepBuilt = true
             shown = false
             if (com.nuvio.tv.NuvioCFeatures.FEATURED_FAST_FOCUS) {
                 // Focus goes to the rows at once (the slide only moves pictures), so the first card is
@@ -473,6 +486,20 @@ private fun NuvioCFeaturedHome(
 
     fun goToCarousel() {
         if (shown || !available || sliding) return
+        // [fork] round 66e cw_transition_v66e: still built = the move starts on the first frame; focus follows once the
+        // buttons are enabled (keys are dropped while sliding, so nothing can land in between)
+        if (com.nuvio.tv.NuvioCFeatures.CW_TRANSITION_V66E && nuvioCKeepBuilt) {
+            scope.launch {
+                sliding = true
+                shown = true
+                val move = launch { progress.animateTo(0f, tween(SLIDE_MS, easing = FastOutSlowInEasing)) }
+                withFrameNanos { }
+                runCatching { buttonRequester(lastButton).requestFocus() }
+                move.join()
+                sliding = false
+            }
+            return
+        }
         scope.launch {
             sliding = true
             shown = true
@@ -485,6 +512,13 @@ private fun NuvioCFeaturedHome(
         }
     }
 
+    // [fork] round 66e cw_transition_v66e: 20 s in the rows, then the hidden carousel is let go (featured_rows_light)
+    if (com.nuvio.tv.NuvioCFeatures.CW_TRANSITION_V66E) LaunchedEffect(shown, sliding, nuvioCKeepBuilt) {
+        if (nuvioCKeepBuilt && !shown && !sliding) {
+            kotlinx.coroutines.delay(20_000)
+            nuvioCKeepBuilt = false
+        }
+    }
     // Hero items arriving after you already moved into the rows never pop the carousel over you.
     LaunchedEffect(available) {
         if (available && rowsTaken) {
@@ -567,6 +601,7 @@ private fun NuvioCFeaturedHome(
     val taglines by viewModel.taglines.collectAsStateWithLifecycle()
     val infos by viewModel.infos.collectAsStateWithLifecycle()
     val nuvioCQuality by viewModel.quality.collectAsStateWithLifecycle() // [fork] round 66b
+    val nuvioCEditions by viewModel.editions.collectAsStateWithLifecycle() // [fork] round 66e
     LaunchedEffect(items) { if (items.isNotEmpty()) viewModel.prefetchQuality(items) }
 
     val atRest0 by remember { derivedStateOf { progress.value == 0f } }
@@ -751,7 +786,7 @@ private fun NuvioCFeaturedHome(
             ) {
                 // [fork] featured_rows_light: fully in the rows (carousel slid away and not coming back) =
                 // nothing built here, so Home updates while browsing don't rebuild the hidden carousel.
-                if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66 && (!com.nuvio.tv.NuvioCFeatures.FEATURED_ROWS_LIGHT || shown || sliding)) NuvioCFeaturedSlideV66(
+                if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66 && (!com.nuvio.tv.NuvioCFeatures.FEATURED_ROWS_LIGHT || shown || sliding || nuvioCKeepBuilt)) NuvioCFeaturedSlideV66(
                     items = items,
                     index = nuvioCShownIndex.coerceIn(0, items.size - 1),
                     cw = activeCw,
@@ -782,6 +817,10 @@ private fun NuvioCFeaturedHome(
                     },
                     timer = featuredTimer.takeIf { com.nuvio.tv.NuvioCFeatures.FEATURED_POLISH && com.nuvio.tv.NuvioCFeatures.IDLE_TIMER_LIGHT },
                     quality = nuvioCQuality,
+                    ratings = if (wantRatings) ratings else emptyMap(),
+                    ratingOrder = uiState.mdbListRatingOrder,
+                    ratingsPending = { id -> coldStart && wantRatings && id !in ratingsDone },
+                    editions = nuvioCEditions,
                     textAlpha = { if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B && !com.nuvio.tv.NuvioCFeatures.FEATURED_V66C) (1f - progress.value / 0.4f).coerceIn(0f, 1f) else 1f }
                 ) else if (!com.nuvio.tv.NuvioCFeatures.FEATURED_ROWS_LIGHT || shown || sliding) NuvioCFeaturedSlide(
                     items = items,
@@ -1707,7 +1746,12 @@ private fun NuvioCFeaturedSlideV66(
     onPrevious: () -> Unit,
     timer: NuvioCFeaturedTimer?,
     quality: Map<String, List<String>> = emptyMap(), // [fork] round 66b
-    textAlpha: () -> Float = { 1f } // [fork] round 66b: the text leaves first when moving to the rows
+    textAlpha: () -> Float = { 1f }, // [fork] round 66b: the text leaves first when moving to the rows
+    // [fork] round 66e: the ratings line, editions for the context line
+    ratings: Map<String, MDBListRatings> = emptyMap(),
+    ratingOrder: List<String> = emptyList(),
+    ratingsPending: (String) -> Boolean = { false },
+    editions: Map<String, List<String>> = emptyMap()
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -1766,7 +1810,8 @@ private fun NuvioCFeaturedSlideV66(
             verticalArrangement = Arrangement.Bottom
         ) {
             NuvioCFadeThrough(target = item, key = { it.id }, contentAlignment = Alignment.BottomStart) { slide ->
-                if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) NuvioCFeaturedTextV66b(slide, infos[slide.id], quality[slide.id].orEmpty())
+                if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66E) NuvioCFeaturedTextV66e(slide, infos[slide.id], quality[slide.id].orEmpty(), ratings[slide.id], ratingOrder, ratingsPending(slide.id), editions[slide.id].orEmpty())
+                else if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) NuvioCFeaturedTextV66b(slide, infos[slide.id], quality[slide.id].orEmpty())
                 else NuvioCFeaturedTextV66(slide, infos[slide.id], null)
             }
             Spacer(Modifier.height(12.dp))
@@ -1985,6 +2030,105 @@ private fun NuvioCFeaturedTextV66b(item: MetaPreview, info: com.nuvio.tv.core.di
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth(0.95f)
             )
+        }
+    }
+}
+
+/**
+ * [fork] round 66e featured_v66e: the details page's order. Context line (when • what), logo; age rating chip + genres
+ * on one line ("…" when long); ratings line (top 3, held while MDBList answers); synopsis, four lines; then
+ * year • seasons | badges (resolutions filled).
+ */
+@Composable
+private fun NuvioCFeaturedTextV66e(
+    item: MetaPreview,
+    info: com.nuvio.tv.core.di.NuvioCFeaturedInfo?,
+    labels: List<String>,
+    ratings: MDBListRatings?,
+    ratingOrder: List<String>,
+    ratingsPending: Boolean,
+    editions: List<String>
+) {
+    val context = LocalContext.current
+    val isSeries = item.apiType.equals("series", true) || item.apiType.equals("tv", true)
+    Column(verticalArrangement = Arrangement.Bottom) {
+        val first = info?.contextTag?.takeIf { it.isNotBlank() && com.nuvio.tv.NuvioCFeatures.FEATURED_CONTEXT_TAGS }
+        val second = if (com.nuvio.tv.NuvioCFeatures.TAGS_SECOND_PART) {
+            info?.identity
+                ?: (if (!isSeries) com.nuvio.tv.core.nuvioc.NuvioCFeaturedTag66e.edition(editions) else null)
+                ?: ratings?.let { com.nuvio.tv.core.nuvioc.NuvioCFeaturedTag66e.acclaimed(it.metacritic, it.tomatoes, it.tomatoesCertified) }
+        } else null
+        val full = com.nuvio.tv.core.nuvioc.NuvioCFeaturedTag66e.join(first, second)
+        if (full != null) {
+            // one line: when both parts don't fit, the second part goes
+            var tooLong by remember(item.id, full) { mutableStateOf(false) }
+            val shown = if (tooLong && first != null) first else full
+            Text(
+                text = shown,
+                style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.2.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                color = NuvioTheme.colors.Secondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                onTextLayout = { r -> if (!tooLong && r.hasVisualOverflow && shown == full && first != null && second != null) tooLong = true }
+            )
+            Spacer(Modifier.height(10.dp))
+        }
+        var logoFailed by remember(item.logo) { mutableStateOf(false) }
+        if (!item.logo.isNullOrBlank() && !logoFailed) {
+            val model = remember(item.logo) { logoRequest(context, item.logo) }
+            AsyncImage(
+                model = model, contentDescription = item.name, contentScale = ContentScale.Fit, alignment = Alignment.BottomStart,
+                onState = { if (it is AsyncImagePainter.State.Error) logoFailed = true },
+                modifier = Modifier.sizeIn(maxWidth = FEATURED_V66_LOGO_W, maxHeight = FEATURED_V66_LOGO_H)
+            )
+        } else {
+            Text(item.name, style = MaterialTheme.typography.headlineLarge, color = NuvioTheme.colors.TextPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = FEATURED_V66_LOGO_W * 1.4f))
+        }
+        // genres line: the details facts line's age rating chip, then genres (one line, "…" when long)
+        val genres = remember(item.id, item.genres) {
+            item.genres.take(3).filter { it.isNotBlank() }.joinToString(" · ") { localizedGenreLabel(context, it) }
+        }
+        val rating = info?.certificate ?: item.ageRating?.takeIf { it.isNotBlank() }
+        if (genres.isNotBlank() || rating != null) {
+            Spacer(Modifier.height(8.dp))
+            val (factsStyle, factsColor) = com.nuvio.tv.ui.screens.detail.nuvioCFactsTextStyle()
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                rating?.let { com.nuvio.tv.ui.screens.detail.NuvioCAgeRatingChip(it) }
+                if (genres.isNotBlank()) Text(genres, style = factsStyle, color = factsColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        // ratings line: top 3 in MDBList order; while MDBList is answering the space is held so nothing jumps
+        if (ratings != null) {
+            Spacer(Modifier.height(8.dp))
+            MDBListRatingsRow(ratings = ratings, order = ratingOrder, maxItems = 3)
+        } else if (com.nuvio.tv.ui.screens.detail.rememberNuvioCRatingsHold(ratingsPending, item.id)) {
+            Spacer(Modifier.height(8.dp))
+            MDBListRatingsRow(ratings = com.nuvio.tv.ui.screens.detail.NUVIO_C_RATINGS_PLACEHOLDER, modifier = Modifier.alpha(0f))
+        }
+        val synopsis = item.description?.let { NuvioCHeroSpec.homeSynopsis(it) }
+        if (!synopsis.isNullOrBlank()) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = synopsis,
+                style = NuvioCHeroSpec.detailSynopsisStyle(MaterialTheme.typography.bodyMedium).copy(fontSize = 11.5.sp, lineHeight = 16.5.sp),
+                color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.64f),
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(0.95f)
+            )
+        }
+        // year • seasons (TMDB, then the catalog; length when unknown) | badges
+        val seasonCount = info?.seasons ?: info?.latestSeason ?: item.seasonCount
+        val lead = remember(item.id, item.releaseInfo, item.runtime, seasonCount) {
+            val seasons = if (isSeries) seasonCount?.takeIf { it > 0 }
+                ?.let { context.resources.getQuantityString(R.plurals.nuvio_c_featured_seasons, it, it) } else null
+            listOfNotNull(com.nuvio.tv.ui.screens.detail.nuvioCYearText(item.releaseInfo), seasons ?: com.nuvio.tv.ui.screens.detail.nuvioCRuntimeHrMin(item.runtime))
+                .joinToString(" \u2022 ").takeIf { it.isNotBlank() }
+        }
+        if (lead != null || labels.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            com.nuvio.tv.ui.screens.detail.NuvioCQualityLineStatic(lead = lead, labels = labels, max = 4, compact = true)
         }
     }
 }

@@ -504,7 +504,8 @@ class TmdbMetadataService(
                         ?.let { (it.seasonNumber ?: 0) to it.airDate!! },
                     nuvioCNextEp = details?.nextEpisodeToAir?.toNuvioCFact(), // [fork] round 51 featured_context_tags
                     nuvioCLastEp = details?.lastEpisodeToAir?.toNuvioCFact(),
-                    nuvioCSeasonEpisodes = details?.seasons.orEmpty().associate { (it.seasonNumber ?: 0) to (it.episodeCount ?: 0) }
+                    nuvioCSeasonEpisodes = details?.seasons.orEmpty().associate { (it.seasonNumber ?: 0) to (it.episodeCount ?: 0) },
+                    nuvioCShowType = details?.type // [fork] round 66e
                 )
                 enrichmentCache[cacheKey] = enrichment
                 requestDeferred.complete(enrichment)
@@ -1700,7 +1701,8 @@ data class TmdbEnrichment(
     val nuvioCLatestSeason: Pair<Int, String>? = null, // [fork] Featured chips: (season number, air date) of the latest aired season
     val nuvioCNextEp: NuvioCEpisodeFact? = null, // [fork] round 51 featured_context_tags
     val nuvioCLastEp: NuvioCEpisodeFact? = null,
-    val nuvioCSeasonEpisodes: Map<Int, Int> = emptyMap() // season number -> episode count
+    val nuvioCSeasonEpisodes: Map<Int, Int> = emptyMap(), // season number -> episode count
+    val nuvioCShowType: String? = null // [fork] round 66e: TMDB show type
 )
 
 /** [fork] round 51 featured_context_tags: one episode of a show with its air date and TMDB's episode type (standard / finale / mid_season). */

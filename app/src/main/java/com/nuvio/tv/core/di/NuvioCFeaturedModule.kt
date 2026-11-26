@@ -37,7 +37,11 @@ data class NuvioCFeaturedInfo(
     /** [fork] round 66 featured_v66: the age certificate. */
     val certificate: String? = null,
     /** [fork] round 66b: the last aired episode (season, episode, air date), so a show's quality can be looked up without its episode list. */
-    val lastAired: Triple<Int, Int, String>? = null
+    val lastAired: Triple<Int, Int, String>? = null,
+    /** [fork] round 66e: number of seasons (TMDB, specials not counted), for "2022 • 5 seasons". */
+    val seasons: Int? = null,
+    /** [fork] round 66e TAGS_SECOND_PART: what the title is (LIMITED SERIES, FINAL SEASON, APPLE TV+ ORIGINAL, A24…). */
+    val identity: String? = null
 )
 
 @Module

@@ -1144,4 +1144,14 @@ object NuvioCFeatures {
     // ---- Round 66d ----
     /** Featured carousel 66d: smaller, quieter badge line (11 dp outlined badges, text at 80%, Dolby / DTS logos in the same 11 dp box, 4 dp apart); shows put "5 seasons" on the year line in place of the episode length, so the genres line is genres only; synopsis a touch smaller and dimmer (11.5 sp at 64%, still three lines); 8 dp between the genres line and the logo. Off = round 66c carousel (filled tiles). */
     const val FEATURED_BADGES_V66D = true
+
+    // ---- Round 66e ----
+    /** Featured carousel 66e, the details page's order: genres line (age rating chip, genres, one line with "…"), ratings line (top 3, MDBList order, space held while loading), synopsis four lines, then year • seasons | badges; resolution badges (4K, 1080P, 720P, 480P) filled, others outlined; seasons from TMDB (then the catalog, then the length). Off = round 66d carousel. */
+    const val FEATURED_V66E = true
+    /** Context line: "IN CINEMAS NOW" / "IN CINEMAS <day>" retired (they showed on films that went straight to streaming). "NEW ON DIGITAL" stays. Off = cinema lines back. */
+    const val TAGS_NO_CINEMA = true
+    /** Context line gets a second part after a dot saying what the title is: LIMITED SERIES, FINAL SEASON, <STREAMER> ORIGINAL (shows), A24 / NEON / STUDIO GHIBLI / PIXAR / BLUMHOUSE, <EDITION> AVAILABLE (films), CRITICALLY ACCLAIMED (Metacritic 81+ or Certified Fresh 95%+). Only data already fetched; never history. One line: the second part goes when it doesn't fit. Off = one part. */
+    const val TAGS_SECOND_PART = true
+    /** Carousel to Continue watching, same look: the Continue watching picture fades with its alpha applied per draw (no full-screen copy per frame), the carousel stays built (hidden) for 20 s after moving into the rows so Up has nothing to rebuild, and the move up starts on the first frame. Off = round 66c behaviour. */
+    const val CW_TRANSITION_V66E = true
 }

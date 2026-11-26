@@ -58,7 +58,22 @@ class NuvioCFeaturedTaglineImpl @Inject constructor(
             latestSeasonAirDate = enrichment.nuvioCLatestSeason?.second,
             contextTag = if (NuvioCFeatures.FEATURED_CONTEXT_TAGS) runCatching { contextTagFor(item, tmdbId, enrichment) }.getOrNull() else null,
             lastAired = enrichment.nuvioCLastEp?.let { ep -> ep.airDate?.let { Triple(ep.season, ep.episode, it) } },
-            certificate = if (NuvioCFeatures.FEATURED_V66) enrichment.ageRating?.takeIf { it.isNotBlank() } else null
+            certificate = if (NuvioCFeatures.FEATURED_V66) enrichment.ageRating?.takeIf { it.isNotBlank() } else null,
+            // [fork] round 66e: season count and the context line's second part, from this same TMDB answer
+            seasons = enrichment.nuvioCSeasonEpisodes.keys.count { it > 0 }.takeIf { it > 0 },
+            identity = if (NuvioCFeatures.TAGS_SECOND_PART) runCatching {
+                val isSeries = item.apiType.equals("series", true) || item.apiType.equals("tv", true)
+                com.nuvio.tv.core.nuvioc.NuvioCFeaturedTag66e.identity(
+                    isSeries = isSeries,
+                    showType = enrichment.nuvioCShowType,
+                    status = enrichment.status,
+                    hasNextEpisode = enrichment.nuvioCNextEp != null,
+                    latestSeasonAirDate = enrichment.nuvioCLatestSeason?.second?.take(10)?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() },
+                    networks = enrichment.networks.map { it.name },
+                    studios = enrichment.productionCompanies.map { it.name },
+                    today = java.time.LocalDate.now()
+                )
+            }.getOrNull() else null
         )
     }
 

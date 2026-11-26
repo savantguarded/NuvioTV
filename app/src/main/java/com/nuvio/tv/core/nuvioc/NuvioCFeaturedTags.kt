@@ -169,7 +169,8 @@ internal object NuvioCFeaturedTagRules {
             if (-ago in 1..DIGITAL_SOON_DAYS) return "ON DIGITAL " + dayWord(digital, today, locale)
         }
         val cinema = f.cinemaDate ?: f.releaseDate.takeIf { digital == null }
-        if (cinema != null && (digital == null || digital.isAfter(today))) {
+        // [fork] round 66e TAGS_NO_CINEMA: retired, it showed on films that went straight to streaming
+        if (!com.nuvio.tv.NuvioCFeatures.TAGS_NO_CINEMA && cinema != null && (digital == null || digital.isAfter(today))) {
             val ago = ChronoUnit.DAYS.between(cinema, today)
             if (ago in 0..CINEMA_NOW_DAYS) return "IN CINEMAS NOW"
             if (-ago in 1..DIGITAL_SOON_DAYS) return "IN CINEMAS " + dayWord(cinema, today, locale)

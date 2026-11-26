@@ -385,7 +385,8 @@ data class TmdbDetailsResponse(
     @Json(name = "belongs_to_collection") val belongsToCollection: TmdbCollectionSummary? = null,
     @Json(name = "seasons") val seasons: List<TmdbSeasonSummary>? = null,
     @Json(name = "next_episode_to_air") val nextEpisodeToAir: TmdbEpisodeToAir? = null, // [fork] round 51 featured_context_tags
-    @Json(name = "last_episode_to_air") val lastEpisodeToAir: TmdbEpisodeToAir? = null // [fork] round 51 featured_context_tags
+    @Json(name = "last_episode_to_air") val lastEpisodeToAir: TmdbEpisodeToAir? = null, // [fork] round 51 featured_context_tags
+    @Json(name = "type") val type: String? = null // [fork] round 66e: show type ("Miniseries" = limited series)
 )
 
 @JsonClass(generateAdapter = true)

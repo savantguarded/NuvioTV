@@ -541,6 +541,16 @@ private fun CompactBadge66d(label: String, style: TextStyle, color: Color) {
         NuvioCFeatures.QUALITY_LINE_V64 && label == "DOLBY DIGITAL PLUS" -> com.nuvio.tv.R.drawable.nuvio_c_logo_dolby_digital_plus
         else -> null
     }
+    // [fork] round 66e: resolutions are filled light tiles with dark text (like the Modern player's size badge)
+    if (NuvioCFeatures.FEATURED_V66E && res == null && nuvioCIsResolutionLabel(label)) {
+        Box(
+            Modifier.height(QL_HEIGHT_66D).background(Color(0xFFDCDCDC), RoundedCornerShape(2.dp)).padding(horizontal = QL_PAD_66D),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(text = label, style = small.copy(color = Color(0xFF151515), fontWeight = FontWeight.ExtraBold), maxLines = 1, softWrap = false)
+        }
+        return
+    }
     Box(
         Modifier.height(QL_HEIGHT_66D).border(1.dp, color.copy(alpha = QL_BOX_BORDER_63), RoundedCornerShape(2.dp)).padding(horizontal = QL_PAD_66D),
         contentAlignment = Alignment.Center
@@ -567,6 +577,10 @@ private fun CompactBadge66d(label: String, style: TextStyle, color: Color) {
         }
     }
 }
+
+/** [fork] round 66e: resolution labels (filled on the carousel). */
+internal fun nuvioCIsResolutionLabel(label: String): Boolean =
+    com.nuvio.tv.data.quality.QualityResolution.entries.any { it.label == label }
 
 /** [fork] round 66d: the carousel badge height, for tests. */
 internal val NUVIO_C_CAROUSEL_BADGE_HEIGHT_66D get() = QL_HEIGHT_66D
