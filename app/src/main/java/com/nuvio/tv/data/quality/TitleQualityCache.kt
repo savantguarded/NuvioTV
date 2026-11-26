@@ -12,6 +12,8 @@ enum class CachedKind { FOUND, NOT_ON_DIGITAL }
 
 data class CachedQuality(val kind: CachedKind, val quality: TitleQuality?, val fetchedAt: Long, val expiresAt: Long) {
     fun fresh(now: Long) = now < expiresAt
+    /** [fork] round 66: still worth showing while a new lookup runs (up to 30 days past its expiry). */
+    fun showable(now: Long) = if (com.nuvio.tv.NuvioCFeatures.QUALITY_REFRESH_V66) now < expiresAt + STALE_GRACE_MS else fresh(now)
 
     fun encode(): String = listOf(
         kind.name, quality?.resolution?.name.orEmpty(), quality?.range?.name.orEmpty(), quality?.audio?.name.orEmpty(),
@@ -21,6 +23,7 @@ data class CachedQuality(val kind: CachedKind, val quality: TitleQuality?, val f
 
     companion object {
         private const val EDITIONS_V65 = "e65"
+        const val STALE_GRACE_MS = 30L * 24 * 60 * 60_000L
 
         fun decode(raw: String?): CachedQuality? = runCatching {
             val p = raw!!.split("|")
@@ -62,7 +65,7 @@ class TitleQualityCache private constructor(context: Context) {
         val results = all.mapNotNull { (k, v) ->
             if (k.startsWith(ID_PREFIX)) null else CachedQuality.decode(v as? String)?.let { k to it }
         }
-        val keep = results.filter { it.second.fresh(now) }.sortedByDescending { it.second.fetchedAt }.take(DISK_MAX)
+        val keep = results.filter { it.second.showable(now) }.sortedByDescending { it.second.fetchedAt }.take(DISK_MAX)
         keep.reversed().forEach { (k, v) -> memory[k] = v }
         val keptKeys = keep.mapTo(HashSet()) { it.first }
         val ids = all.mapNotNull { (k, v) ->
@@ -80,6 +83,14 @@ class TitleQualityCache private constructor(context: Context) {
     /** Memory only, safe on the main thread. */
     @Synchronized fun peek(key: String, now: Long = System.currentTimeMillis()): CachedQuality? =
         memory[key]?.takeIf { it.fresh(now) }
+
+    /** [fork] round 66: memory only, an expired but showable result (shown while a new lookup runs). */
+    @Synchronized fun peekStale(key: String, now: Long = System.currentTimeMillis()): CachedQuality? =
+        memory[key]?.takeIf { it.showable(now) }
+
+    /** [fork] round 66: memory only, O(1), the last showable result for this title id, fresh or not. */
+    @Synchronized fun peekMetaStale(metaId: String, now: Long = System.currentTimeMillis()): CachedQuality? =
+        keyOfMeta[metaId]?.let { peekStale(it, now) }
 
     /** Memory only, O(1), for the first frame: the last result for this title id. */
     @Synchronized fun peekMeta(metaId: String, now: Long = System.currentTimeMillis()): CachedQuality? =

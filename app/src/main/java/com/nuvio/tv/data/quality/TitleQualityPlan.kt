@@ -100,10 +100,25 @@ object TitleQualityPlanner {
     }
 
     /** How long a found result is kept: QualiCache's own refresh time, else 1 day near release, else 7 days. */
-    fun expiry(now: Long, releaseDate: LocalDate?, today: LocalDate, nextRefreshAt: Long?): Long {
+    fun expiry(now: Long, releaseDate: LocalDate?, today: LocalDate, nextRefreshAt: Long?, quality: TitleQuality? = null): Long {
+        if (com.nuvio.tv.NuvioCFeatures.QUALITY_REFRESH_V66) { // [fork] round 66: new releases are checked again soon
+            val ttl = refreshTtlMs(releaseDate, today, quality?.resolution == QualityResolution.UHD)
+            return now + (nextRefreshAt?.takeIf { it > now }?.let { minOf(it - now, ttl) } ?: ttl)
+        }
         nextRefreshAt?.takeIf { it > now }?.let { return it }
         val recent = releaseDate != null && !releaseDate.isBefore(today.minusDays(90))
         return now + if (recent) DAY_MS else 7 * DAY_MS
+    }
+
+    /**
+     * [fork] round 66 quality_refresh_v66: 12 h for a title out in the last 120 days, or under a year old without 4K
+     * found yet (its 4K release may still come); 7 days otherwise. Pure, for tests.
+     */
+    fun refreshTtlMs(releaseDate: LocalDate?, today: LocalDate, has4k: Boolean): Long {
+        if (releaseDate == null) return 7 * DAY_MS
+        val newRelease = !releaseDate.isBefore(today.minusDays(120))
+        val young = !releaseDate.isBefore(today.minusDays(365))
+        return if (newRelease || (young && !has4k)) 12 * 60 * 60_000L else 7 * DAY_MS
     }
 
     const val RECENT_DAYS = 365L

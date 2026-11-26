@@ -100,7 +100,7 @@ class NuvioCQualityViewModel @Inject constructor(
      */
     fun initial(t: QualityTitle): QualityLineState {
         if (TitleQualityPlanner.imdbOf(t) == null && TitleQualityPlanner.tmdbOf(t) == null) return QualityLineState.Absent
-        return repo.cache.peekMeta(t.id)?.toState() ?: QualityLineState.Checking
+        return (if (NuvioCFeatures.QUALITY_REFRESH_V66) repo.cache.peekMetaStale(t.id) else repo.cache.peekMeta(t.id))?.toState() ?: QualityLineState.Checking
     }
 
     /**
@@ -129,6 +129,9 @@ class NuvioCQualityViewModel @Inject constructor(
         if (plan == QualityPlan.NotYetReleased) { publish(t, QualityLineState.Dim(QualityLineState.NOT_YET_RELEASED)); return }
         val cachedHit = (plan as? QualityPlan.Lookup)?.let { l -> withContext(Dispatchers.IO) { repo.cache.get(l.cacheKey) } }
         if (cachedHit != null) { withContext(Dispatchers.IO) { repo.cache.link(t.id, (plan as QualityPlan.Lookup).cacheKey) }; publish(t, cachedHit.toState()); return }
+        // [fork] round 66 quality_refresh_v66: an expired result stays on screen while the new lookup runs
+        val staleFound = if (NuvioCFeatures.QUALITY_REFRESH_V66) (plan as? QualityPlan.Lookup)?.let { l -> repo.cache.peekStale(l.cacheKey) }
+            ?.takeIf { it.kind == CachedKind.FOUND }?.also { publish(t, it.toState()) } else null
         // a layer like the ratings: nothing goes out until the page has opened and settled
         delay(SETTLE_MS)
         val needs = plan as? QualityPlan.NeedsImdb
@@ -146,7 +149,7 @@ class NuvioCQualityViewModel @Inject constructor(
         val now = System.currentTimeMillis()
         when (result) {
             is QualityLookup.Found -> {
-                val c = CachedQuality(CachedKind.FOUND, result.quality, now, TitleQualityPlanner.expiry(now, lookup.releaseDate, today, nextRefresh))
+                val c = CachedQuality(CachedKind.FOUND, result.quality, now, TitleQualityPlanner.expiry(now, lookup.releaseDate, today, nextRefresh, result.quality))
                 withContext(Dispatchers.IO) { repo.cache.put(lookup.cacheKey, c, t.id) }
                 publish(t, QualityLineState.Found(result.quality.labels))
                 // round 64: editions arrive a moment later, once the rest of the list was read (films only)
@@ -158,6 +161,7 @@ class NuvioCQualityViewModel @Inject constructor(
                 }
             }
             else -> {
+                if (staleFound != null) return // [fork] round 66: a failed refresh keeps the line it had
                 val info = NuvioCDetailInfoStore.current.value?.takeIf { it.metaId == t.id } ?: NuvioCDetailInfoStore.cached(t.id)
                 val label = TitleQualityPlanner.emptyLabel(result, t.isSeries, info?.theatricalDate ?: t.released, info?.homeReleaseDate, today)
                 if (label == QualityLineState.NOT_YET_ON_DIGITAL) {

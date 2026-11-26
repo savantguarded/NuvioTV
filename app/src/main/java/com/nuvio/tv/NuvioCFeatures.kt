@@ -1096,4 +1096,6 @@ object NuvioCFeatures {
     const val REEL_V66 = true
     /** Details left darkening uses official's proportions (78% wide, official stops), drawn uncut; the "scrolled past the hero" check (left darkening fade-out and the trailer's Pause on scroll) looks at how much of the hero is still on screen (under 45% = past), not at row indices, so removed or added rows can't shift it. Off = round 65 (86% fade cut at 78%, index check). */
     const val DETAIL_SCRIM_V66 = true
+    /** Details quality line on new releases: titles released in the last 120 days, or under a year old with no 4K found yet, are checked again after 12 h; an expired result (up to 30 days old) still shows at once while a fresh lookup runs in the background, then the line updates. Older titles keep 7 days. Off = round 65 (1 day near release, 7 days else, expired = blank until looked up). */
+    const val QUALITY_REFRESH_V66 = true
 }
