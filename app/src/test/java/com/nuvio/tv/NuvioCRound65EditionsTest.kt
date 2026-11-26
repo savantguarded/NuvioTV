@@ -14,7 +14,9 @@ import org.junit.Test
 
 /** Round 65: editions need 2+ releases and 10+ seeders, ordered by seeders; fan edits and Criterion never count. */
 class NuvioCRound65EditionsTest {
-    private fun s(text: String, seeders: Int = 10) = QualityStreamText("Torrentio\n1080p", "$text\n👤 $seeders 💾 2 GB", null)
+    private var group = 0
+    // round 66: every release gets its own release group, as real ones do
+    private fun s(text: String, seeders: Int = 10) = QualityStreamText("Torrentio\n1080p", "$text-G${group++}\n👤 $seeders 💾 2 GB", null)
     private fun fixture(name: String): List<QualityStreamText> =
         TitleQualityParser.streamsOf(javaClass.classLoader!!.getResource("quality/$name.json")!!.readText())
 
@@ -28,7 +30,8 @@ class NuvioCRound65EditionsTest {
     @Test fun twoReleasesNeedTenSeedersBetweenThem() {
         val low = listOf(s("Some.Film.2010.Extended.1080p", 4), s("Some.Film.2010.Extended.2160p", 5))
         assertTrue(TitleQualityParser.editions(low, "Some Film", 2010).isEmpty())
-        val ok = listOf(s("Some.Film.2010.Extended.1080p", 4), s("Some.Film.2010.Extended.2160p", 6))
+        // round 66: 25+ seeders
+        val ok = listOf(s("Some.Film.2010.Extended.1080p", 12), s("Some.Film.2010.Extended.2160p", 13))
         assertEquals(listOf(QualityEdition.EXTENDED), TitleQualityParser.editions(ok, "Some Film", 2010))
     }
 
@@ -40,8 +43,8 @@ class NuvioCRound65EditionsTest {
         )
         assertEquals(listOf(QualityEdition.DIRECTORS_CUT, QualityEdition.IMAX), TitleQualityParser.editions(streams, "Some Film", 2010))
         val tie = listOf(
-            s("Some.Film.2010.Directors.Cut.1080p", 10), s("Some.Film.2010.Directors.Cut.2160p", 10),
-            s("Some.Film.2010.Extended.1080p", 10), s("Some.Film.2010.Extended.2160p", 10)
+            s("Some.Film.2010.Directors.Cut.1080p", 15), s("Some.Film.2010.Directors.Cut.2160p", 15),
+            s("Some.Film.2010.Extended.1080p", 15), s("Some.Film.2010.Extended.2160p", 15)
         )
         assertEquals(listOf(QualityEdition.EXTENDED, QualityEdition.DIRECTORS_CUT), TitleQualityParser.editions(tie, "Some Film", 2010))
     }
@@ -55,7 +58,8 @@ class NuvioCRound65EditionsTest {
 
     @Test fun mcuFanEditFixture() {
         // Extended only in fan edits, Criterion named twice, Director's Cut once: only IMAX survives
-        assertEquals(listOf(QualityEdition.IMAX), TitleQualityParser.editions(fixture("mcu_fan_edits"), "Avengers Endgame", 2019))
+        // round 66: Endgame is on the no-Extended list and the fixture's IMAX releases name no release group
+        assertEquals(if (NuvioCFeatures.EDITIONS_V66) emptyList() else listOf(QualityEdition.IMAX), TitleQualityParser.editions(fixture("mcu_fan_edits"), "Avengers Endgame", 2019))
     }
 
     @Test fun cacheEntriesBeforeRound65AreReadAgain() {

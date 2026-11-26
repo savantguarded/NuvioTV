@@ -55,8 +55,10 @@ class NuvioCRound64Test {
             s("Some.Film.2010.IMAX.Enhanced.2160p.WEB-DL.DDP5.1"),
             s("Some.Film.2010.Open.Matte.1080p.WEB-DL")
         )
-        // round 65: an edition needs two releases (10+ seeders between them), so each release is listed twice here
-        val twice = streams.flatMap { listOf(it, QualityStreamText(it.name, it.title!!.replace("\n", " x265\n"), null)) }
+        // round 65: an edition needs two releases (10+ seeders between them), so each release is listed twice here;
+        // round 66: from two release groups, with 25+ seeders and 15%+ of the film's seeders
+        fun grouped(st: QualityStreamText, g: String) = QualityStreamText(st.name, st.title!!.replace("\n👤 10", "-$g\n👤 30"), null)
+        val twice = streams.flatMap { listOf(grouped(it, "GRPA"), grouped(QualityStreamText(it.name, it.title!!.replace("\n", " x265\n"), null), "GRPB")) }
         assertEquals(listOf(QualityEdition.EXTENDED, QualityEdition.DIRECTORS_CUT), TitleQualityParser.editions(twice, "Some Film", 2010))
         assertEquals(listOf(QualityEdition.IMAX, QualityEdition.OPEN_MATTE), TitleQualityParser.editions(twice.drop(6), "Some Film", 2010))
         assertEquals(setOf(QualityEdition.DIRECTORS_CUT), TitleQualityParser.editionsOf(s("Some.Film.2010.Director's.Cut.1080p"), "Some Film", 2010))
@@ -80,11 +82,12 @@ class NuvioCRound64Test {
     @Test fun apocalypseNowFixture() {
         val all = TitleQualityParser.editions(fixture("apocalypse_now"), "Apocalypse Now", 1979, max = 10)
         assertTrue(QualityEdition.REDUX in all)
-        assertTrue(QualityEdition.FINAL_CUT in all)
+        // round 66: Final Cut holds 14% of this film's seeders, under the 15% share, so only Redux is left
+        assertEquals(!NuvioCFeatures.EDITIONS_V66, QualityEdition.FINAL_CUT in all)
         assertTrue(QualityEdition.CRITERION !in all) // only named by a pack of another film
         // round 65: ordered by seeders across releases; Redux has the most here
         assertEquals(QualityEdition.REDUX, TitleQualityParser.editions(fixture("apocalypse_now"), "Apocalypse Now", 1979).first())
-        assertEquals(2, TitleQualityParser.editions(fixture("apocalypse_now"), "Apocalypse Now", 1979).size)
+        assertEquals(if (NuvioCFeatures.EDITIONS_V66) 1 else 2, TitleQualityParser.editions(fixture("apocalypse_now"), "Apocalypse Now", 1979).size)
         // the live answer still gives one usable release, and the early read agrees with the full read
         val full = TitleQualityParser.best(fixture("apocalypse_now"), 1979)
         val early = TitleQualityParser.bestEarly(fixture("apocalypse_now").asSequence(), 1979)

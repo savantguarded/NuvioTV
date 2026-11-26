@@ -123,7 +123,8 @@ class NuvioCRound60Test {
         assertFalse(c.fresh(now + 5))
         assertNull(CachedQuality.decode("FOUND||||||1|2"))
         val day = TitleQualityPlanner.DAY_MS
-        assertEquals(now + day, TitleQualityPlanner.expiry(now, today.minusDays(10), today, null))
+        // round 66 quality_refresh_v66: a new release is checked again after 12 h
+        assertEquals(now + if (NuvioCFeatures.QUALITY_REFRESH_V66) day / 2 else day, TitleQualityPlanner.expiry(now, today.minusDays(10), today, null))
         assertEquals(now + 7 * day, TitleQualityPlanner.expiry(now, today.minusDays(400), today, null))
         assertEquals(now + 99, TitleQualityPlanner.expiry(now, null, today, now + 99))
     }

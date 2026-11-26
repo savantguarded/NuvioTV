@@ -2,22 +2,22 @@
 
 Rewrite this file at the end of every build session (do not append). History lives in git log.
 
-Updated: 2026-11-25 (round 65b)
+Updated: 2026-11-26 (round 66)
 
 ## Where things stand
-- Branch `nuvio-c` = round 65 on official `1.2.0-beta.3`, plus beta.4's trailer "audio without video" fix alone. The beta.4 merge (Usenet, Simkl rewatch runs, BDAV, subtitle auto-sync, stream ranking) was held back by the owner for a later build; plan item 1 in the project doc claude/round65-build-plan.md still applies.
-- Round 65 (plan items 2.1 to 2.15, all built, owner chose not to install over adb this time): README, Calendar zone line + steady side panel, filmography tab counts, YOU RATED THIS, ratings line everywhere, Roulette / Library reel spin, editions by seeders, series ratings graph (Ratings row gone; slimmer hero row and Play / Open pills app-wide: Featured, Roulette result, Library Random pick), Taste card pages, Featured and profile backdrops whole, profile background per profile + sync, Roulette settings sync, steady stream info, synopsis logo, lists menu Save jump.
-- Round 65b: profile screen background reworked after TV check (full height, small side crop, left fade only; no top / bottom fades or vignette). Compiled; owner installs and checks.
-- Tests: `NuvioC*` and `Calendar*` pass (588; `CalendarRefresherTest.aShowGoneFromASourceReadInFullLeavesTheCalendar` flaky again, passed on rerun). New: `NuvioCRound65Test` (graph model / window, stats rows, Roulette catalogs sync, reel window, Taste pages), `NuvioCRound65EditionsTest` (fixture `mcu_fan_edits`); `NuvioCRound64Test` editions updated to the round 65 rules (Apocalypse Now now leads with Redux).
-- Local builds: Maven Central answers 429 for minutes at a time; the compile / test scripts retry every 2 to 3 minutes.
+- Branch `nuvio-c` = round 66 on official `1.2.0-beta.4` (merged in full; all 15 conflicting files decided by the owner, list in the merge commit "Merge official 1.2.0-beta.4 into Nuvio C"). Usenet kept as official. CI builds without a `release` pin again.
+- Round 66 (plan: project doc claude/round66-build-plan.md), all built in one build: series graph fixes (`GRAPH_V66`), reel spin on later shuffles and stronger blur (`REEL_V66`), Featured carousel option A (`FEATURED_V66`, includes the flicker fix and the lighter picture), official details left darkening and hero-on-screen check for Pause on scroll (`DETAIL_SCRIM_V66`), profile background one box / no grey / splash match (`PROFILE_BG_V66`), quality line 12 h recheck for new releases (`QUALITY_REFRESH_V66`), editions share / groups / MCU blocklist (`EDITIONS_V66`), Taste fixes (`TASTE_V66`), details-to-details trailer view (`TRAILER_HANDOVER_V66`), undated filmography first (`FILMO_UNDATED_FIRST`), narrower Modern pills (`CLEAN_PILLS_NARROW`), Sync to audio now (`SYNC_AUDIO_NOW`), subtitle format tag (`SUB_FORMAT_TAG`), Customize ASS in Settings (`SUB_ASS_IN_SETTINGS`).
+- Dropped by the owner at build start: per-title "Hide this edition".
+- Choices made during the build (owner to confirm on the TV): Taste cards lose the drawn "Open ›" hint (the accent edge stays) instead of moving it into each label row; Sync to audio now is in the Modern subtitles panel only (Default style keeps official's panel); the profile picture preload of neighbours was not added (pictures are already files on the TV).
+- Tests: `NuvioC*` and `Calendar*`, new `NuvioCRound66Test` (graph layout / ticks, reel landing, 12 h TTL, Avengers fixture `avengers_2012`, share / group rules, blocklist, 12-hour clock, Wrapped key, filmography order, hero check, carousel keys, sync checks).
+- Local builds: Maven Central answers 429 for minutes at a time; `/home/claude/gradle-retry.sh` style loops (retry on 429 and on a vanished Gradle daemon, `-Xmx4g`).
 
 ## Still to check on the TV
-- Round 65: trailer picture + sound on details; series page focus Cast -> Collection -> More like this and back up; graph open / Back to its button, a 30+ season show, Mine toggle on a Trakt profile, OK opening an episode; hero row width on a running show; Featured / Roulette / Library pills; Roulette and Library spin (blur, "?", landing); Taste card focus, each page type, Back to the card, a title opened from a page and Back; stream info steady with mpv and ExoPlayer; lists menu Left / Right / Up; profile screen picture; Featured picture; an MCU film's editions; Calendar side panel art.
-- Round 64c and earlier: see git history of this file (items carried over unchanged: DTS + DD+ start track, Back out of the player, series scroll up, Search rows, OSD Atmos logo).
+- Round 66: graph on a 7+ season show (no overlap, years visible, long-show ticks, OK lands on the episode card); Roulette second / third shuffle spins; blur strength; Featured carousel (tags, logo size, badges, Starring, Watchlist / Trailer, Left / Right between titles, no flicker, speed into Continue watching); details left darkening and Pause on scroll; profile switching and Add Profile, splash hand-over; Taste lists held Down / Up, 12-hour labels, Wrapped cards; Home > details > More like this > details trailer picture; Sync to audio now with ExoPlayer and mpv; Modern pills; an MCU film's editions; filmography of an actor with announced films.
+- After the beta.4 merge: Simkl rewatch, subtitle font / HDR dim / lift with official's new ASS styles on mpv, Disc titles button on a Blu-ray folder, Usenet.
+- Round 65 list (not reported yet): see git history of this file.
 
 ## Open ideas (not approved for building)
-- Official 1.2.0-beta.4 merge (deferred by the owner at round 65).
-- Featured carousel quality badges (on hold, option A).
 - Optional focus prefetch for the quality line (spec: ship off; not built).
 - Seek thumbnails on the device, no external API. Investigating only.
 - On-the-fly episode ordering per show (Miami Vice S1, Kengan Ashura) with correct scrobbling.
@@ -26,7 +26,7 @@ Updated: 2026-11-25 (round 65b)
 
 ## Start of every build session
 1. Read `docs/ARCHITECTURE.md`, `docs/FORK_CHANGES.md` and this file.
-2. Upstream check: `git ls-remote --tags https://github.com/NuvioMedia/NuvioTV`. Newer than `1.2.0-beta.3`? Scan it for new servers / hosts / secrets, then merge it first. Ask the owner before keeping or dropping any fork or official feature.
+2. Upstream check: `git ls-remote --tags https://github.com/NuvioMedia/NuvioTV`. Newer than `1.2.0-beta.4`? Scan it for new servers / hosts / secrets, then merge it first. Every conflict goes to the owner before anything is kept or dropped.
 3. Environment and commands: `docs/ARCHITECTURE.md` section 7. Attach the repo with push access, clone `nuvio-c`. Tests need `--max-workers=1` and `-Xmx4g`. Maven Central often answers 429 on a cold cache: wait a few minutes and retry.
 
 ## End of every build session
