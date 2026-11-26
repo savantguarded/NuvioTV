@@ -4,8 +4,8 @@ How Nuvio C differs from official NuvioTV, grouped by area: what you see, the sw
 Per-switch detail: every switch in `app/src/main/java/com/nuvio/tv/NuvioCFeatures.kt` has a one-line comment. This file is the overview, not a copy of that list.
 Paths below are relative to `app/src/main/java/com/nuvio/tv/` unless they start with `app/`, `.github/` or `scripts/`.
 
-Base: official `1.2.0-beta.3` (`552cacf5`). Fork footprint vs that tag (round 59): 404 files added, 175 official files edited, about 62,800 lines added; round 60 adds 6 files, round 61 adds 4 (one Kotlin file, three logo drawables), round 64 adds 2 logo drawables, round 65 adds 7 Kotlin files. 478 switches, 1 off.
-Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream merge).
+Base: official `1.2.0-beta.4` (`77cc0bb5`, merged round 66; every conflict decided by the owner, list in the merge commit). Fork footprint (round 59 vs beta.3): 404 files added, 175 official files edited, about 62,800 lines added; rounds 60-65 add 19 files, round 66 adds 2 Kotlin files. 492 switches, 1 off.
+Check: `git diff --stat 77cc0bb5 HEAD` (swap in the new tag after each upstream merge).
 
 ## Build and distribution
 - App "Nuvio C", package `com.nuvio.tv.c`, `armeabi-v7a` only, beside the official app. Set at build time in `.github/workflows/nuvio-c.yml`, not in source.
@@ -24,6 +24,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 ## Subtitles
 - Lift above the controls (bottom subtitles only), drawn renderer kept, SDH preference and hide, subtitle font picker, Outline width row, plain language names, one safety re-check after start.
 - Modern Subtitles panel: one list, no tabs, every row two lines (source pill; language, with SDH / Forced / CC on built-in tracks) (`SUB_PANEL_NO_TABS`). Subtitle delay opens from the More sheet (`SUB_DELAY_IN_MORE`); size, font and style live in Settings > Subtitles. Modern Audio panel keeps Tracks / Sound tabs (`TRACK_PANELS_V2`, `PANEL_*`). Modern style only.
+- Round 66 (after official beta.4's plain / ASS styles and audio sync): fork font, HDR dim and lift rebuilt on official's mpv styling; `SUB_FORMAT_TAG` (format at the end of line two), `SYNC_AUDIO_NOW` ("Sync to audio now" row under the tracks for an add-on subtitle, `PlayerRuntimeControllerNuvioCAudioSync.kt`), `SUB_ASS_IN_SETTINGS` (Customize ASS in Settings > Subtitles).
 - Files: `player/NuvioCSubtitle*.kt`, `NuvioCStyledLift.kt`, `NuvioCSdh.kt`, `NuvioCTrackNames.kt`, `SubtitleSelectionOverlay.kt`, `ui/screens/settings/NuvioCSubtitleSettings.kt`.
 
 ## Audio
@@ -42,6 +43,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Loading screen: provider line, filename, ratings and synopsis in a bottom band; quiet version (`LOADING_QUIET`): lower and dimmer, synopsis 11 sp / 3 lines, filename on one line cut in the middle under a FILENAME label. Netflix-style pause screen. Placeholder-clip detection opens Sources.
 - Stream info HUD on the right (ysosrs123 style), fixed box, larger text.
 - Files: `player/NuvioCLoading*.kt`, `NuvioCPauseScreen.kt`, `NuvioCPlaceholder.kt`, `NuvioCStatsPanel.kt`, `NuvioCPlayerInfo.kt`, `NuvioCPlaybackStats.kt`.
+- Round 66: `CLEAN_PILLS_NARROW` (Modern left pills 3 dp narrower per side). Official beta.4's Disc titles button sits after the Default row's buttons.
 - Round 65 `STATS_STEADY`: stream info rows fixed per engine from the start ("—" / "OK"), scale worked out once, tabular digits.
 
 ## Playback flow
@@ -53,6 +55,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Hero spec (logo box, facts line above, wider synopsis, tagline), round Shuffle / Rate / Bell buttons with focus labels, Information ledger with fixed slots (Awards wins via OMDb), collection on its own row (episode Find was removed in round 56: it caused the lost focus on series pages), smoother scrolling and focus.
 - Files: `ui/screens/detail/NuvioCDetail*.kt`, `NuvioCCredits.kt`, `HeroSection.kt`, `MetaDetailsScreen.kt`, `EpisodesSection.kt`, `ui/screens/calendar/NuvioCDetailBell.kt`.
 - Round 65: `SERIES_GRAPH` (no Ratings row; a round Ratings graph hero button after Rate opens a full-screen season x episode grid like the synopsis, IMDb / Mine (Trakt + this TV's episode ratings), watched / next marks, season averages; ratings load when it opens; `NuvioCSeriesGraph.kt`), `HERO_ROW_V65` (pill 44 dp, 16 dp sides, round buttons 44 dp, 8 dp gaps; also Featured, Roulette, Library Random pick; `NuvioCHeroRow65.kt`), `SYNOPSIS_LOGO`, `EDITIONS_BY_SEEDERS` (2+ releases, 10+ seeders, by seeders; no fan edits, no Criterion; cache marked `e65`).
+- Round 66: `GRAPH_V66` (panel after the grid's real edge, two-line season header, overlay ticks, focused season bar only, no hint lines, one-line empty state, OK focuses the episode card), `DETAIL_SCRIM_V66` (official left darkening; hero-on-screen check for scrim and Pause on scroll), `QUALITY_REFRESH_V66` (12 h recheck for new releases, old line shown while refreshing), `EDITIONS_V66` (15% share, 25+ seeders, 2+ release groups, `NuvioCEditionBlocklist.kt`, cache `e66`).
 - Round 61 hero lines (`HERO_LINES_V61`): under the buttons `[age rating] • genres • N seasons`; the quality line under the synopsis starts with `year • duration` (a show's episode length), a dot, then the badges. Without MDBList, IMDb / TMDB take the ratings row; the next-episode badge sits at the end of the ratings row either way. Dolby Vision, Dolby Atmos and DTS (any DTS) are white logos (`res/drawable/nuvio_c_logo_*.xml`, from Wikimedia Commons; Atmos and DTS traced from bitmaps), the whole line 17 dp (`QUALITY_LOGOS`).
 - Round 62 (`QUALITY_LINE_V62`, `HERO_RHYTHM_V62`, `RATINGS_ROW_V62`, `DETAIL_OPEN_FAST`): quality line back to 15 dp with 10 sp pills, Dolby logos 12 dp inside; `year • duration`, a hairline, then resolution, source (REMUX reads BLURAY), TrueHD, visual, Atmos (one sound label per release as before; DTS / DD / DD+ not shown); show years read `2023` (running) or `2019–2023`. No dot after the age rating chip; one 12 dp gap between facts, ratings, synopsis and the quality line. Ratings row: square marks 16 dp, IMDb 26 x 13 dp, even-width digits, TMDB whole, 16 dp between sources; the empty-space hold gives up after 2.5 s; no empty fallback row. Opening: the MDBList user-rating lookup reuses one media index per sync (`data/mdblist/MdbListUserRatings.kt`; it rebuilt one over the whole watch history per lookup, ~180 ms on the main thread at open), the unused official rating pill lookup is skipped, the fork's MDBList score read runs off the main thread, and the picture stays under the placeholder while the page fades in.
 - Round 63: quality line runtime reads `1 hr 49 min` / `24 min`, 7 dp either side of the dot between year and runtime, 6 dp between badges, Dolby Vision / Atmos in an outlined box the badges' height (`QUALITY_LINE_V63`). Opening: Home rows and Continue Watching hand their picture to the details page like the hero does (`DETAIL_OPEN_PICTURE`, `ui/screens/home/HomeScreen.kt`); held-back loads start 200 ms apart and the facts line no longer listens to the info store (`DETAIL_TRIM_63`). Information Awards: one award body per line (`AWARDS_BY_LINE`).
@@ -71,13 +74,13 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 ## Trailers
 - Layer on official background trailers: sound toggle, one Back exits, skip watched titles, resume after Sources, keep focus. Trailer screen gets the seek bar and a logo. IMDb backup when YouTube rate-limits.
 - Optional patches (see CI): file lists in `nuvio-c.yml` `TRAILER_PATHS` and `IMDB_PATHS`.
-- Round 65: official 1.2.0-beta.4's trailer "audio without video" fix taken alone (`TrailerPlayer.kt`, `BackgroundTrailerLayer.kt`); the rest of beta.4 is not merged.
+- Round 65: official 1.2.0-beta.4's trailer "audio without video" fix taken alone (`TrailerPlayer.kt`, `BackgroundTrailerLayer.kt`); beta.4 is merged in full since round 66. Round 66 `TRAILER_HANDOVER_V66`: one player view per trailer link (details-to-details).
 - Files: `ui/components/BackgroundTrailerLayer.kt`, `NuvioCTrailerHold.kt`, `NuvioCTrailerResume.kt`, `data/trailer/NuvioCImdbTrailerResolver.kt`, `NuvioCTrailerBackup.kt`, `ui/screens/settings/NuvioCTrailerSettings.kt`.
 
 ## Cast page
 - Acting credits only with the character under each title, director / writer job lines, All / Movies / Shows chips, Back jumps to first. Optional patch `FILMOGRAPHY_PATHS`.
 - Files: `ui/screens/cast/NuvioCCast*.kt`, `core/tmdb/NuvioCFilmography.kt`.
-- Round 65 `FILMOGRAPHY_TABS_NO_COUNT`: no counts inside the Movies / Series tabs.
+- Round 65 `FILMOGRAPHY_TABS_NO_COUNT`: no counts inside the Movies / Series tabs. Round 66 `FILMO_UNDATED_FIRST`: titles with no date first.
 
 ## Home
 - Continue Watching / Upcoming landscape cards: title and episode name scroll on focus, taking turns (`CW_TURN_MARQUEE`, `ui/components/ContinueWatchingSection.kt`).
@@ -85,6 +88,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Fourth layout "Featured" (full-screen carousel, contextual tags, split arrows, top-3 ratings), hero pool shuffle, auto-advance, synopsis fit, Extra large card size, Grid hidden, offline card, clock, poster glow.
 - Switches: `HOME_FEATURED`, `FEATURED_*`, `HERO_*`, `CARD_SIZE_XL`, `NO_GRID_LAYOUT`, `OFFLINE_*`, `BROWSE_CLOCK`, `POSTER_GLOW*`.
 - Round 65: `FEATURED_BACKDROP_WHOLE` (whole 16:9 picture ~78% wide, top right, fading left / bottom), `FEATURED_YOU_RATED` ("YOU RATED THIS 5/10"), `RATINGS_LINE_EVERYWHERE` (details ratings-line look on every ratings line).
+- Round 66 `FEATURED_V66` (option A): picture full height ~91% wide, soft left darkening; tag chips, fixed logo box, certificate / genres / year / length / cached quality badges, 2-line synopsis, Starring (3), Play / Details / Watchlist / Trailer, Left / Right between titles (no arrows), slides keyed by title (no reload flicker).
 - Files: `ui/screens/home/NuvioC*.kt`, `ModernHomeHero.kt`, `ModernHomeContent.kt`, `ui/components/NuvioCCardSize.kt`, `NuvioCHeroSpec.kt`, `NuvioCClock.kt`, `NuvioCPosterGlow.kt`, `core/nuvioc/NuvioCFeaturedTags.kt`, `core/di/NuvioCFeaturedModule.kt`.
 
 ## Look and feel (app-wide)
@@ -96,7 +100,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Profile screen: no "Who's watching", centred block, greeting, check badge, built-in TMDB background (optionally from catalogs).
 - Start-up: no Nuvio logo on a cold start to profiles (the start-up logo is held back while the profile screen is still ahead); the profile list saved on the last run draws the profile screen from the first frame (`STARTUP_PROFILES_FIRST`, `data/local/ProfileDataStore.kt` mirror, `core/profile/ProfileManager.kt`); still logo only on the Home path, waits for profiles, sync and Home to settle, background job queue.
 - Files: `ui/components/SidebarNavigation.kt`, `NuvioCSidebarSettle.kt`, `ui/screens/profile/NuvioCProfile*.kt`, `ProfileSelectionScreen.kt`, `ui/components/NuvioCProfileBg.kt`, `NuvioCOpening.kt`, `core/nuvioc/NuvioCStartup*.kt`, `MainActivity.kt`.
-- Round 65: `PROFILE_BG_WHOLE` (picture ~85% wide, full height, right; left fade only, 65b), `PROFILE_BG_PER_PROFILE` (from catalogs / catalogs per profile, own pool file).
+- Round 65: `PROFILE_BG_WHOLE` (picture ~85% wide, full height, right; left fade only, 65b), `PROFILE_BG_PER_PROFILE` (from catalogs / catalogs per profile, own pool file). Round 66 `PROFILE_BG_V66`: same box for every profile, page colour (no grey) without a picture, Add Profile keeps the last picture, splash drawn identically (`NuvioCProfileShade`).
 
 ## Library
 - Watched tab, Random pick, list picker with your source first, poster fallback, Back keeps focus.
@@ -114,7 +118,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - On the reel / result, changing filters never spins; an amber dot sits on Shuffle again (`ROULETTE_HOLD`). Unwatched / Watched / All titles is a dropdown (`ROULETTE_WATCH_DROPDOWN`). Movies / Shows cards have no glow or fill on focus (`ROULETTE_TILE_NO_GLOW`). Mood-screen backdrop decoded larger and softly blurred (`BACKDROP_SMOOTH`).
 - Movies / Shows mood screen over a large raw TMDB pool, Refine dialog (popularity, decade, region, theme…), watched cycle, ratings line, backdrop.
 - Files: `ui/screens/shuffle/`, `data/nuvioc/NuvioCShuffle*.kt`, `NuvioCRoulette*.kt`, `ui/screens/settings/NuvioCShuffleSettings.kt`.
-- Round 65 `ROULETTE_SPIN_V65`: the reel moves at once over posters in memory, eases onto the pick; spinning posters blurred (1/8 decode) and dimmed, pulsing "?", the pick sharpens with YOUR PICK; Library Random pick too (`ui/components/NuvioCPosterReelV65.kt`).
+- Round 65 `ROULETTE_SPIN_V65`: the reel moves at once over posters in memory, eases onto the pick; spinning posters blurred (1/8 decode) and dimmed, pulsing "?", the pick sharpens with YOUR PICK; Library Random pick too (`ui/components/NuvioCPosterReelV65.kt`). Round 66 `REEL_V66`: later shuffles always spin, 1/16 blur, ~33% brightness, desaturated.
 
 ## Taste page
 - Per-profile stats and discovery: Overview / Discover / Stats / Wrapped tabs.
@@ -124,7 +128,7 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 - Round 61 (`TASTE_TOP_STACK`): list cards stack fixed 40 dp rows from the top (one or two entries no longer spread apart); Faces start at the first position with a 24 dp gap when the row isn't full.
 - Round 59 (`TASTE_V59`): long names get two lines: Top show name wraps (note one line); Biggest day / New releases put the date / oldest year beside the number and the title gets two lines below; list rows (Recently finished, Binges, Top shows, Top films) are title line + details line. Wrapped chart keeps a line above the bars for the peak number; Wrapped dates read "11 Nov". Stats bottom strip is four cards lined up under the four cards above; Avg episode notes how many shows.
 - Files: `ui/screens/taste/`, `data/nuvioc/NuvioCTaste*.kt`. Rule: strictly per profile.
-- Round 65 `TASTE_CARDS_OPEN`: every card with data focuses and opens a page (breakdown + titles, timeline, ranked list) for the page's scope; Firsts / Highlights lines open their target; Back lands on the card (`NuvioCTastePages65.kt`, `data/nuvioc/NuvioCTasteCards.kt`).
+- Round 65 `TASTE_CARDS_OPEN`: every card with data focuses and opens a page (breakdown + titles, timeline, ranked list) for the page's scope; Firsts / Highlights lines open their target; Back lands on the card (`NuvioCTastePages65.kt`, `data/nuvioc/NuvioCTasteCards.kt`). Round 66 `TASTE_V66`: list focus room, no Open hint, header baseline, held keys stay in lists, 12-hour clock, Wrapped year only.
 
 ## Trackers and sync
 - Simkl AUTH V2 device login (`SIMKL_V2`, `data/simkl/SimklAuthRepository.kt`), Trakt keeps login on soft refresh failures (`TRAKT_KEEP_LOGIN`), MDBList rating batching.
@@ -140,8 +144,6 @@ Check: `git diff --stat 552cacf5 HEAD` (swap in the new tag after each upstream 
 
 ## Switched off (reverted, code still present: cleanup candidates)
 - `DETAIL_FOCUS_LOG`: diagnostics only ("NuvioCFocus" log lines for the details focus restore). Off since round 58 once the restore was confirmed; turn on to trace a focus bug over adb.
-
-Before that, none. The 2026-11-20 cleanups removed every reverted tweak, every switch nothing read, and the older versions kept as fallbacks behind newer ones (start-up loader / halo, Calendar Week view, Taste rounds 39 to 52, round 52 panels, round 46 controls, the old HDR dim layer): 47 switches in all.
 
 ## Keeping this file true
 Add, change or remove a line here in the same commit as any feature that is added, reworked or removed. Removed tweaks leave this file entirely. Update the Base line after each upstream merge.

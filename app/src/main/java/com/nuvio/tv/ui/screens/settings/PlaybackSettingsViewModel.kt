@@ -303,6 +303,10 @@ class PlaybackSettingsViewModel @Inject constructor(
         playerSettingsDataStore.setSubtitleStripSdh(enabled)
     }
 
+    suspend fun setSubtitleCustomizeAss(enabled: Boolean) { // [fork] round 66 sub_ass_in_settings
+        playerSettingsDataStore.setSubtitleCustomizeAss(enabled)
+    }
+
     suspend fun setSubtitleSize(size: Int) {
         playerSettingsDataStore.setSubtitleSize(size)
     }

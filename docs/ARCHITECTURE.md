@@ -4,7 +4,7 @@ Read this first in every session. It tells you where things are so you open only
 Fork-specific behaviour (what each tweak does, its switch, its screen) lives in `docs/FORK_CHANGES.md`.
 Current state, last build and open issues live in `docs/STATUS.md`.
 
-Last verified against: branch `nuvio-c` round 65, official base `1.2.0-beta.3` (`552cacf5`) plus beta.4's trailer fix, 2026-11-25.
+Last verified against: branch `nuvio-c` round 66, official base `1.2.0-beta.4` (`77cc0bb5`), 2026-11-26.
 
 ## 1. What this is
 
@@ -118,7 +118,7 @@ Official gives the local (Nuvio Sync) source no list tabs. `LibraryViewModel` sw
 CI does not run unit tests. Run them locally before pushing.
 
 Manual build: `gh workflow run nuvio-c.yml -R savantguarded/NuvioTV --ref nuvio-c -f force=true`
-Pinned base (round 65, while the beta.4 merge waits): add `-f release=1.2.0-beta.3`; scheduled runs still take the highest version and stop on its conflicts (issue #58).
+Pinned base (optional): `-f release=<official tag>` builds on that tag instead of the highest one (added round 65; not needed since the round 66 beta.4 merge).
 
 **Local compile in a Claude session (about 7 GB RAM)**
 - SDK into `/home/claude/android-sdk` (`platforms;android-36`, `build-tools;36.0.0`, `platform-tools`), `local.properties`: `sdk.dir=...`. Dummy `TRAKT_CLIENT_ID` / `TRAKT_CLIENT_SECRET` needed for Trakt tests. Keys list: `local.example.properties`.
@@ -145,7 +145,8 @@ Pinned base (round 65, while the beta.4 merge waits): add `-f release=1.2.0-beta
 | Task | Open first |
 |---|---|
 | Player controls (OSD), badges, buttons | `ui/screens/player/NuvioCOsd*.kt`, then `PlayerScreen.kt` (`PlayerControlsOverlay`) |
-| Subtitles (lift, font, SDH, style) | `player/NuvioCSubtitle*.kt`, `NuvioCSdh.kt`, `SubtitleSelectionOverlay.kt`, `PlayerRuntimeControllerTracks.kt` |
+| Subtitles (lift, font, SDH, style) | `player/NuvioCSubtitle*.kt`, `NuvioCSdh.kt`, `SubtitleSelectionOverlay.kt`, `PlayerRuntimeControllerTracks.kt`; mpv styling `NuvioMpvSurfaceView.kt` (official plain / ASS styles since beta.4) |
+| Subtitle sync (official auto sync, audio sync, Sync to audio now) | `player/autosync/`, `player/audiosync/`, `PlayerRuntimeControllerAutomaticSubtitleSync.kt`, `PlayerRuntimeControllerNuvioCAudioSync.kt` |
 | Audio, passthrough, night mode | `player/NuvioCPassthrough.kt`, `NuvioCNightMode.kt`, `AudioSelectionOverlay.kt`, `GainAudioProcessor.kt` |
 | HDR / Dolby Vision dim or detection | `player/NuvioCHdrDim.kt`, `NuvioCDecodedColor.kt`, `NuvioCSpsColor.kt` |
 | Playback start, sources, engine | `PlayerRuntimeControllerStreams.kt`, `…Initialization.kt`, `StreamSourcesSidePanel.kt`, `ui/screens/stream/` |
@@ -154,7 +155,7 @@ Pinned base (round 65, while the beta.4 merge waits): add `-f release=1.2.0-beta
 | Card sizes, posters | `ui/components/NuvioCCardSize.kt`, `ContentCard.kt`, `PosterCardDefaults.kt` |
 | Details page | `ui/screens/detail/MetaDetailsScreen.kt`, `HeroSection.kt`, `NuvioCDetail*.kt` (opening placeholder / fade: `NuvioCDetailOpen.kt`) |
 | Series ratings graph (layer over details) | `ui/screens/detail/NuvioCSeriesGraph.kt`, hero button in `HeroSection.kt`, data `data/repository/ImdbEpisodeRatingsRepository.kt`, Mine in `data/nuvioc/NuvioCRatingService.kt` |
-| Details quality badges, editions | `data/quality/` (parser incl. editions, plan, cache, Torrentio / QualiCache), `ui/screens/detail/NuvioCQualityLine.kt`, logos `res/drawable/nuvio_c_logo_*.xml` (OSD reuses them) |
+| Details quality badges, editions | `data/quality/` (parser incl. editions, plan, cache, Torrentio / QualiCache, `NuvioCEditionBlocklist.kt`), `ui/screens/detail/NuvioCQualityLine.kt`, logos `res/drawable/nuvio_c_logo_*.xml` (OSD reuses them) |
 | Background trailers | `ui/components/BackgroundTrailerLayer.kt`, `NuvioCTrailer*.kt`, `core/player/BackgroundTrailerController.kt`, `data/trailer/` |
 | Ratings dialog / sync to trackers | `data/nuvioc/NuvioCRatingService.kt`, `core/tracking/TrackingRatings.kt` |
 | Calendar / Upcoming row | `core/calendar/`, `ui/screens/calendar/`, `ui/screens/home/HomeComingUp.kt` |
