@@ -236,6 +236,10 @@ fun PlayerScreen(
     onOpenPartyMedia: (PartyMedia) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    if (com.nuvio.tv.NuvioCFeatures.SYNC_AUDIO_NOW) DisposableEffect(viewModel) { // [fork] round 66: "Sync to audio now" reaches this player
+        NuvioCAudioSyncHook.run = { viewModel.controller.nuvioCSyncToAudioNow() }
+        onDispose { NuvioCAudioSyncHook.run = null }
+    }
     val playerBadges = rememberPlayerBadges(viewModel, uiState)
     val nuvioCAutoSkipOn by viewModel.nuvioCAutoSkipIntro.collectAsState() // [fork] round 39 osd_auto_skip
     val nuvioCAutoSkip = remember(nuvioCAutoSkipOn) { NuvioCAutoSkipState(nuvioCAutoSkipOn) { viewModel.nuvioCToggleAutoSkipIntro() } }

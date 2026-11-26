@@ -2561,6 +2561,24 @@ private fun NuvioCSubtitleTabsPanel(
                         }
                     )
                 }
+                // [fork] round 66 sync_audio_now: the add-on subtitle on screen, synced to the film's audio now
+                val nuvioCSyncUrl = if (com.nuvio.tv.NuvioCFeatures.SYNC_AUDIO_NOW && !off) allOptions.firstOrNull { it.second.id == selectedId }?.second?.addonSubtitle?.url else null
+                if (nuvioCSyncUrl != null && NuvioCAudioSyncHook.run != null) item(key = "nuvioc_sync_audio") {
+                    var why by remember(nuvioCSyncUrl) { mutableStateOf<NuvioCAudioSyncNow?>(null) }
+                    NuvioCPanelRow(
+                        title = stringResource(R.string.nuvio_c_sync_audio_now),
+                        detail = when (why) {
+                            NuvioCAudioSyncNow.SETTING_OFF -> stringResource(R.string.nuvio_c_sync_audio_setting_off)
+                            NuvioCAudioSyncNow.MPV_SAMPLING_OFF -> stringResource(R.string.nuvio_c_sync_audio_sampling_off)
+                            NuvioCAudioSyncNow.UNAVAILABLE, NuvioCAudioSyncNow.NO_ADDON_SUBTITLE -> stringResource(R.string.nuvio_c_sync_audio_unavailable)
+                            else -> null
+                        },
+                        selected = false,
+                        focusRequester = null,
+                        onClick = { why = NuvioCAudioSyncHook.run?.invoke() },
+                        trailing = { com.nuvio.tv.ui.screens.player.autosync.AutoSyncStatusIndicator(nuvioCSyncUrl) }
+                    )
+                }
             }
             tab == 1 -> Box(
                 Modifier.onPreviewKeyEvent { e ->

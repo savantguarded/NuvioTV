@@ -423,4 +423,9 @@
     <string name="nuvio_c_graph_below">%1$s below its season</string>
     <string name="nuvio_c_graph_best_of">Best of season %1$d</string>
     <string name="nuvio_c_graph_lowest_of">Lowest of season %1$d</string>
+    <!-- round 66 sync_audio_now -->
+    <string name="nuvio_c_sync_audio_now">Sync to audio now</string>
+    <string name="nuvio_c_sync_audio_setting_off">Turn on Sync subtitles to audio in Settings first</string>
+    <string name="nuvio_c_sync_audio_sampling_off">With mpv, set Audio sampling to Low or High first</string>
+    <string name="nuvio_c_sync_audio_unavailable">Audio sync isn\'t available for this subtitle</string>
 </resources>

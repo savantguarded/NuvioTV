@@ -1110,4 +1110,6 @@ object NuvioCFeatures {
     const val PROFILE_BG_V66 = true
     /** Background trailer layer: a new trailer (another details page opened from More like this, a filmography, etc.) gets a fresh player view keyed on its link; the old view lets go of the shared player before the new one takes it, so the new page always gets picture and its own first-frame signal (no black screen with sound). The Home-to-details hand-over (same link) is unchanged. Off = one view reused across links. */
     const val TRAILER_HANDOVER_V66 = true
+    /** Modern subtitles panel: a "Sync to audio now" row under the tracks while an add-on subtitle is on, running official's audio-based sync for that subtitle on this episode only, with official's progress / result line under it, or the reason it can't run (setting off, mpv with audio sampling off). Official automatic sync unchanged. Off = no row. */
+    const val SYNC_AUDIO_NOW = true
 }
