@@ -1098,4 +1098,6 @@ object NuvioCFeatures {
     const val DETAIL_SCRIM_V66 = true
     /** Details quality line on new releases: titles released in the last 120 days, or under a year old with no 4K found yet, are checked again after 12 h; an expired result (up to 30 days old) still shows at once while a fresh lookup runs in the background, then the line updates. Older titles keep 7 days. Off = round 65 (1 day near release, 7 days else, expired = blank until looked up). */
     const val QUALITY_REFRESH_V66 = true
+    /** Details editions also need a fair share of the title's releases: the edition's releases hold 15%+ of all seeders seen for the film and 25+ seeders, from 2+ different release groups; a built-in list of films with no official Extended / Director's Cut (MCU first, `NuvioCEditionBlocklist`) never shows those two. Cache mark e66. Off = round 65 rules. */
+    const val EDITIONS_V66 = true
 }

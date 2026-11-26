@@ -19,17 +19,19 @@ data class CachedQuality(val kind: CachedKind, val quality: TitleQuality?, val f
         kind.name, quality?.resolution?.name.orEmpty(), quality?.range?.name.orEmpty(), quality?.audio?.name.orEmpty(),
         quality?.source?.name.orEmpty(), fetchedAt.toString(), expiresAt.toString(),
         quality?.editions.orEmpty().joinToString(",") { it.name } // round 64
-    ).let { if (com.nuvio.tv.NuvioCFeatures.EDITIONS_BY_SEEDERS) it + EDITIONS_V65 else it }.joinToString("|") // round 65: version mark
+    ).let { if (com.nuvio.tv.NuvioCFeatures.EDITIONS_BY_SEEDERS) it + EDITIONS_MARK else it }.joinToString("|") // round 65: version mark
 
     companion object {
         private const val EDITIONS_V65 = "e65"
+        /** [fork] round 66: new edition rules, older entries are read again once. */
+        private val EDITIONS_MARK get() = if (com.nuvio.tv.NuvioCFeatures.EDITIONS_V66) "e66" else EDITIONS_V65
         const val STALE_GRACE_MS = 30L * 24 * 60 * 60_000L
 
         fun decode(raw: String?): CachedQuality? = runCatching {
             val p = raw!!.split("|")
             // round 64: 8 fields (editions last); a round 60-63 entry (7 fields) is read again once
             // round 65 editions_by_seeders: a 9th field marks the new edition rules; older entries are read again once
-            if (com.nuvio.tv.NuvioCFeatures.EDITIONS_BY_SEEDERS) { if (p.size != 9 || p[8] != EDITIONS_V65) return null }
+            if (com.nuvio.tv.NuvioCFeatures.EDITIONS_BY_SEEDERS) { if (p.size != 9 || p[8] != EDITIONS_MARK) return null }
             else if (p.size != 8) return null
             val kind = CachedKind.valueOf(p[0])
             val q = p[1].takeIf { it.isNotEmpty() }?.let { r ->

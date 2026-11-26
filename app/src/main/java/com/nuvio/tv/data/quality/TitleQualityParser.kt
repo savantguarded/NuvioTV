@@ -307,19 +307,47 @@ object TitleQualityParser {
     fun editionsBySeeders(streams: Iterable<QualityStreamText>, title: String? = null, year: Int? = null, max: Int = 2): List<QualityEdition> {
         val releases = HashMap<QualityEdition, HashSet<String>>()
         val seeds = HashMap<QualityEdition, Int>()
+        val groups = HashMap<QualityEdition, HashSet<String>>() // [fork] round 66
+        val seenIds = HashSet<String>()
+        var total = 0 // [fork] round 66: every release's seeders, once per release
+        val v66 = com.nuvio.tv.NuvioCFeatures.EDITIONS_V66
+        val blocked = if (v66) NuvioCEditionBlocklist.blocked(title) else emptySet()
         streams.forEach { s ->
             val (found, seeders) = editionHit(s, title, year)
-            if (found.isEmpty()) return@forEach
             val id = words(listOfNotNull(s.title?.substringBefore('\n'), s.filename).joinToString(" "))
+            if (seenIds.add(id)) total += seeders
+            if (found.isEmpty()) return@forEach
+            val group = releaseGroup(s)
             found.forEach { e ->
-                if (releases.getOrPut(e) { HashSet() }.add(id)) seeds[e] = (seeds[e] ?: 0) + seeders
+                if (e in blocked) return@forEach
+                if (releases.getOrPut(e) { HashSet() }.add(id)) {
+                    seeds[e] = (seeds[e] ?: 0) + seeders
+                    group?.let { groups.getOrPut(e) { HashSet() }.add(it) }
+                }
             }
         }
         return releases.keys
             .filter { (releases[it]?.size ?: 0) >= EDITION_MIN_RELEASES && (seeds[it] ?: 0) >= EDITION_MIN_SEEDERS }
+            .filter { e -> !v66 || nuvioCEditionHoldsShare(seeds[e] ?: 0, total, groups[e]?.size ?: 0) }
             .sortedWith(compareByDescending<QualityEdition> { seeds[it] ?: 0 }.thenBy { it.ordinal })
             .take(max)
     }
+
+    /** [fork] round 66: 15%+ of the film's seeders, 25+ seeders, from 2+ release groups. Pure, for tests. */
+    fun nuvioCEditionHoldsShare(editionSeeders: Int, allSeeders: Int, groups: Int): Boolean =
+        editionSeeders >= EDITION_V66_MIN_SEEDERS && groups >= 2 && allSeeders > 0 && editionSeeders * 100 >= allSeeders * EDITION_V66_SHARE_PERCENT
+
+    const val EDITION_V66_MIN_SEEDERS = 25
+    const val EDITION_V66_SHARE_PERCENT = 15
+
+    private val GROUP = Regex("""-([a-z0-9]{2,15})(?:\.(?:mkv|mp4|avi|m2ts|ts))?\s*$""", RegexOption.IGNORE_CASE)
+
+    /** [fork] round 66: the release group, the word after the last '-' of the release name (null when there is none). */
+    fun releaseGroup(stream: QualityStreamText): String? {
+        val name = listOfNotNull(stream.filename, stream.title?.substringBefore('\n')).firstOrNull { GROUP.containsMatchIn(it.trim()) } ?: return null
+        return GROUP.find(name.trim())?.groupValues?.get(1)?.lowercase()?.takeIf { it !in NOT_GROUPS }
+    }
+    private val NOT_GROUPS = setOf("dl", "hd", "uhd", "web", "x264", "x265", "h264", "h265", "hevc", "avc", "dts", "ac3", "aac", "hdr", "sdr", "dv")
 
     /** Round 64: editions across all [streams], in priority order, at most [max]. */
     fun editions(streams: Iterable<QualityStreamText>, title: String? = null, year: Int? = null, max: Int = 2): List<QualityEdition> {
