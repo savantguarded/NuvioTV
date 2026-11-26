@@ -412,7 +412,6 @@
     <string name="nuvio_c_graph_loading">Loading ratings…</string>
     <string name="nuvio_c_graph_window">Seasons %1$d–%2$d of %3$d · Episodes %4$d–%5$d of %6$d · Left / Right and Up / Down past the edge scroll</string>
     <string name="nuvio_c_graph_aired">Aired %1$s</string>
-    <string name="nuvio_c_graph_ok_opens">OK opens this episode · Back returns to the details page</string>
     <string name="nuvio_c_graph_best">Best: %1$s</string>
     <string name="nuvio_c_graph_lowest">Lowest: %1$s</string>
     <string name="nuvio_c_graph_marks">● watched · dashed = up next</string>

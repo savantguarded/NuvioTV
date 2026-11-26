@@ -36,7 +36,9 @@ data class NuvioCFeaturedInfo(
     val contextTag: String? = null,
     /** [fork] round 66 featured_v66: up to three lead actors, and the age certificate. */
     val starring: List<String> = emptyList(),
-    val certificate: String? = null
+    val certificate: String? = null,
+    /** [fork] round 66b: the last aired episode (season, episode, air date), so a show's quality can be looked up without its episode list. */
+    val lastAired: Triple<Int, Int, String>? = null
 )
 
 @Module

@@ -164,8 +164,12 @@ private val credentialProfileSettingsKeys = mapOf(
     "animeskip_settings" to setOf("animeskip_client_id")
 )
 
+/** [fork] round 66b calendar_sync: the Calendar's time zone override belongs to the device, not the profile. */
+internal val localOnlyCalendarProfileSettingsKeys = setOf("calendar_zone_override")
+
 internal fun shouldExcludePreferenceFromProfileSettingsSync(feature: String, keyName: String): Boolean {
     return when {
+        feature == "calendar_settings" && keyName in localOnlyCalendarProfileSettingsKeys -> true // [fork] round 66b
         feature == "layout_settings" && keyName in catalogKeysExcludedFromProfileSettingsBlob -> true
         feature == "layout_settings" && keyName in localOnlyLayoutProfileSettingsKeys -> true
         feature == "layout_settings" && keyName == "search_discover_enabled" -> true
@@ -216,7 +220,7 @@ class ProfileSettingsSyncService @Inject constructor(
         "animeskip_settings",
         "track_preference",
         AmbientModeDataStore.FEATURE
-    )
+    ) + (if (com.nuvio.tv.NuvioCFeatures.CALENDAR_SYNC) listOf("calendar_settings") else emptyList()) // [fork] round 66b calendar_sync
 
     init {
         observeLocalSettingsChangesAndSync()
@@ -698,6 +702,7 @@ class ProfileSettingsSyncService @Inject constructor(
             "layout_settings" -> catalogKeysExcludedFromProfileSettingsBlob + localOnlyLayoutProfileSettingsKeys
             PLAYER_SETTINGS_FEATURE -> localOnlyPlayerProfileSettingsKeys
             "trailer_settings" -> localOnlyTrailerProfileSettingsKeys
+            "calendar_settings" -> localOnlyCalendarProfileSettingsKeys // [fork] round 66b
             else -> credentialProfileSettingsKeys[feature].orEmpty()
         }
         if (keyNames.isEmpty()) return emptyMap()

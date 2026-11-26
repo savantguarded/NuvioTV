@@ -29,6 +29,8 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.withStyle
@@ -131,6 +133,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -206,8 +209,69 @@ internal object NuvioCFeaturedRules {
 class NuvioCHomeFeaturedViewModel @Inject constructor(
     private val layoutStore: LayoutPreferenceDataStore,
     private val mdbListRepository: MDBListRepository,
-    private val taglineSources: Set<@JvmSuppressWildcards NuvioCFeaturedTagline>
+    private val taglineSources: Set<@JvmSuppressWildcards NuvioCFeaturedTagline>,
+    private val qualityRepo: com.nuvio.tv.data.quality.TitleQualityRepository, // [fork] round 66b
+    private val qualityTmdb: com.nuvio.tv.core.tmdb.TmdbService
 ) : ViewModel() {
+
+    // ---- [fork] round 66b featured_v66b: quality badges for every carousel title ----
+    private val _quality = MutableStateFlow<Map<String, List<String>>>(emptyMap())
+    /** Title id -> its quality labels (cache first, then one quiet background check per title). */
+    val quality: StateFlow<Map<String, List<String>>> = _quality.asStateFlow()
+    private val qualityAsked = HashSet<String>()
+    private val qualityLock = kotlinx.coroutines.sync.Mutex()
+
+    /** Once per title per visit, one at a time, after Home has settled: never while you scroll through slides. */
+    fun prefetchQuality(items: List<MetaPreview>) {
+        if (!com.nuvio.tv.NuvioCFeatures.FEATURED_V66B || !com.nuvio.tv.NuvioCFeatures.DETAIL_QUALITY_LINE) return
+        val fresh = items.filter { qualityAsked.add(it.id) }
+        if (fresh.isEmpty()) return
+        // what the cache already knows shows at once
+        val cached = fresh.mapNotNull { item -> qualityRepo.cache.peekMetaStale(item.id)?.quality?.labels?.takeIf { it.isNotEmpty() }?.let { item.id to it } }
+        if (cached.isNotEmpty()) _quality.update { it + cached }
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(4_000)
+            qualityLock.withLock {
+                fresh.forEach { item -> runCatching { qualityOne(item) } }
+            }
+        }
+    }
+
+    private suspend fun qualityOne(item: MetaPreview) {
+        val info = _infos.value[item.id] ?: taglineSource?.let { src -> runCatching { src.infoFor(item) }.getOrNull() }
+        val isSeries = item.apiType.equals("series", true) || item.apiType.equals("tv", true)
+        val t = com.nuvio.tv.data.quality.QualityTitle(
+            id = item.id,
+            imdbId = item.imdbId,
+            isSeries = isSeries,
+            released = info?.releaseDate,
+            episodes = info?.lastAired?.let { (s, e, d) -> listOf(com.nuvio.tv.data.quality.QualityEpisode(s, e, d)) }.orEmpty(),
+            name = item.name
+        )
+        if (isSeries && t.episodes.isEmpty()) return
+        val today = java.time.LocalDate.now()
+        var plan = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { com.nuvio.tv.data.quality.TitleQualityPlanner.plan(t, today) }
+        val needs = plan as? com.nuvio.tv.data.quality.QualityPlan.NeedsImdb
+        if (needs != null) {
+            val imdb = kotlinx.coroutines.withTimeoutOrNull(5_000) { runCatching { qualityTmdb.tmdbToImdb(needs.tmdbId, if (isSeries) "series" else "movie") }.getOrNull() }
+                ?: return
+            plan = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { com.nuvio.tv.data.quality.TitleQualityPlanner.plan(t, today, imdbOverride = imdb) }
+        }
+        val lookup = plan as? com.nuvio.tv.data.quality.QualityPlan.Lookup ?: return
+        val hit = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { qualityRepo.cache.get(lookup.cacheKey) }
+        if (hit != null) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { qualityRepo.cache.link(item.id, lookup.cacheKey) }
+            hit.quality?.labels?.takeIf { it.isNotEmpty() }?.let { l -> _quality.update { it + (item.id to l) } }
+            return
+        }
+        val (result, nextRefresh) = qualityRepo.lookup(lookup.targets, lookup.year, movieTitle = item.name)
+        val found = result as? com.nuvio.tv.data.quality.QualityLookup.Found ?: return
+        val now = System.currentTimeMillis()
+        val c = com.nuvio.tv.data.quality.CachedQuality(com.nuvio.tv.data.quality.CachedKind.FOUND, found.quality, now,
+            com.nuvio.tv.data.quality.TitleQualityPlanner.expiry(now, lookup.releaseDate, today, nextRefresh, found.quality))
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { qualityRepo.cache.put(lookup.cacheKey, c, item.id) }
+        found.quality.labels.takeIf { it.isNotEmpty() }?.let { l -> _quality.update { it + (item.id to l) } }
+    }
 
     /** null until the store has answered, so Home never flashes plain Modern first. */
     val featured: StateFlow<Boolean?> = layoutStore.nuvioCHomeFeatured
@@ -327,7 +391,7 @@ internal fun NuvioCFeaturedGate(
     }
 }
 
-private val SLIDE_MS = if (com.nuvio.tv.NuvioCFeatures.CAROUSEL_CW_FADE) 300 else if (com.nuvio.tv.NuvioCFeatures.FEATURED_FAST_FOCUS) 260 else 380
+private val SLIDE_MS = if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) 380 else if (com.nuvio.tv.NuvioCFeatures.CAROUSEL_CW_FADE) 300 else if (com.nuvio.tv.NuvioCFeatures.FEATURED_FAST_FOCUS) 260 else 380
 
 /** [fork] round 52 carousel_cw_fade: how far (share of its height) the carousel rises while it fades. */
 private const val CAROUSEL_FADE_LIFT = 0.18f
@@ -508,6 +572,8 @@ private fun NuvioCFeaturedHome(
     val ratingsDone by viewModel.ratingsDone.collectAsStateWithLifecycle() // [fork] featured_cold_start
     val taglines by viewModel.taglines.collectAsStateWithLifecycle()
     val infos by viewModel.infos.collectAsStateWithLifecycle()
+    val nuvioCQuality by viewModel.quality.collectAsStateWithLifecycle() // [fork] round 66b
+    LaunchedEffect(items) { if (items.isNotEmpty()) viewModel.prefetchQuality(items) }
 
     val atRest0 by remember { derivedStateOf { progress.value == 0f } }
     // [fork] round 50 idle_quiet: no slide changes or timers while the app is in the background or the screen is off
@@ -663,8 +729,10 @@ private fun NuvioCFeaturedHome(
                             // [fork] round 52 carousel_cw_fade: a short lift and a fade instead of sliding the whole
                             // carousel off the top; gone at 70 % of the move so the two never sit at half strength
                             val p = progress.value
-                            translationY = -p * carouselHeightPx * CAROUSEL_FADE_LIFT
-                            alpha = reveal.value * (1f - p / 0.7f).coerceIn(0f, 1f)
+                            // [fork] round 66b: a smaller lift and a fade over the whole move, so the picture crossfades
+                            // straight into the Continue watching picture (never through plain background)
+                            translationY = -p * carouselHeightPx * (if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) 0.08f else CAROUSEL_FADE_LIFT)
+                            alpha = reveal.value * (if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) (1f - p) else (1f - p / 0.7f)).coerceIn(0f, 1f)
                         } else {
                             translationY = -progress.value * carouselHeightPx
                             alpha = reveal.value // [fork] featured_cold_start: 1 except during the one first fade-in
@@ -713,7 +781,9 @@ private fun NuvioCFeaturedHome(
                         lastButton = 0
                         runCatching { playRequester.requestFocus() }
                     },
-                    timer = featuredTimer.takeIf { com.nuvio.tv.NuvioCFeatures.FEATURED_POLISH && com.nuvio.tv.NuvioCFeatures.IDLE_TIMER_LIGHT }
+                    timer = featuredTimer.takeIf { com.nuvio.tv.NuvioCFeatures.FEATURED_POLISH && com.nuvio.tv.NuvioCFeatures.IDLE_TIMER_LIGHT },
+                    quality = nuvioCQuality,
+                    textAlpha = { if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) (1f - progress.value / 0.4f).coerceIn(0f, 1f) else 1f }
                 ) else if (!com.nuvio.tv.NuvioCFeatures.FEATURED_ROWS_LIGHT || shown || sliding) NuvioCFeaturedSlide(
                     items = items,
                     index = index.coerceIn(0, items.size - 1),
@@ -934,6 +1004,9 @@ private fun NuvioCFeaturedSlide(
                     label.season, label.episode
                 )
                 label.resume -> stringResource(R.string.nuvio_c_featured_resume)
+                // [fork] round 66b: an unstarted show names its first episode, like the details page
+                com.nuvio.tv.NuvioCFeatures.FEATURED_V66B && (item.apiType.equals("series", true) || item.apiType.equals("tv", true)) ->
+                    stringResource(R.string.nuvio_c_featured_play_episode, 1, 1)
                 else -> stringResource(R.string.nuvio_c_featured_play)
             }
             val latestNext by rememberUpdatedState(onNext)
@@ -1633,7 +1706,9 @@ private fun NuvioCFeaturedSlideV66(
     onButtonFocused: (Int) -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
-    timer: NuvioCFeaturedTimer?
+    timer: NuvioCFeaturedTimer?,
+    quality: Map<String, List<String>> = emptyMap(), // [fork] round 66b
+    textAlpha: () -> Float = { 1f } // [fork] round 66b: the text leaves first when moving to the rows
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -1656,10 +1731,17 @@ private fun NuvioCFeaturedSlideV66(
             next.logo?.let { context.imageLoader.enqueue(logoRequest(context, it)) }
         }
     }
-    LaunchedEffect(item.id) { actions?.onRefreshWatchlist?.invoke(item) }
+    if (!com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) LaunchedEffect(item.id) { actions?.onRefreshWatchlist?.invoke(item) }
 
     Box(Modifier.fillMaxSize().background(bg)) {
-        Box(Modifier.align(Alignment.TopEnd).width(picW).fillMaxHeight()) {
+        Box(Modifier.align(Alignment.TopEnd).width(picW).fillMaxHeight().then(
+            // [fork] round 66b: the picture's own left edge fades in, so no hard bar where it starts
+            if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) Modifier.graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                .drawWithCache {
+                    val mask = Brush.horizontalGradient(0f to Color.Transparent, 0.22f to Color.Black, endX = size.width)
+                    onDrawWithContent { drawContent(); drawRect(mask, blendMode = androidx.compose.ui.graphics.BlendMode.DstIn) }
+                } else Modifier
+        )) {
             // Keyed by the title itself: a reloaded list can't make the outgoing picture show another title.
             Crossfade(targetState = item, animationSpec = tween(420), label = "nuvioCFeaturedBackdrop66") { slide ->
                 val model = remember(slide.backdropUrl, pw, ph) { backdropRequest(context, slide.backdropUrl, pw, ph) }
@@ -1677,11 +1759,13 @@ private fun NuvioCFeaturedSlideV66(
         })
 
         Column(
-            modifier = Modifier.align(Alignment.BottomStart).padding(start = margin, bottom = 18.dp).fillMaxWidth(0.46f),
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = margin, bottom = 18.dp).fillMaxWidth(0.46f)
+                .graphicsLayer { alpha = textAlpha() },
             verticalArrangement = Arrangement.Bottom
         ) {
             NuvioCFadeThrough(target = item, key = { it.id }, contentAlignment = Alignment.BottomStart) { slide ->
-                NuvioCFeaturedTextV66(slide, infos[slide.id], actions?.inWatchlist?.invoke(slide))
+                if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) NuvioCFeaturedTextV66b(slide, infos[slide.id], quality[slide.id].orEmpty())
+                else NuvioCFeaturedTextV66(slide, infos[slide.id], actions?.inWatchlist?.invoke(slide))
             }
             Spacer(Modifier.height(12.dp))
             val label = NuvioCFeaturedRules.labelFor(cw)
@@ -1697,7 +1781,7 @@ private fun NuvioCFeaturedSlideV66(
             var focusedButton by remember { mutableIntStateOf(-1) }
             var leftArmed by remember { mutableStateOf(false) }
             val hasTrailer = item.trailerYtIds.isNotEmpty() || item.trailers.isNotEmpty()
-            val watch = actions?.onToggleWatchlist
+            val watch = if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) null else actions?.onToggleWatchlist
             val lastButton = when { hasTrailer -> 3; watch != null -> 2; else -> 1 }
             fun focused(i: Int) { focusedButton = i; onButtonFocused(if (i == 0) 0 else 1) }
             Row(
@@ -1725,19 +1809,37 @@ private fun NuvioCFeaturedSlideV66(
                     focusRequester = playRequester,
                     modifier = Modifier.onFocusChanged { if (it.isFocused) focused(0) else if (focusedButton == 0) focusedButton = -1 }
                 )
-                NuvioCFeaturedRoundButton(
+                if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) com.nuvio.tv.ui.screens.detail.PlayButton( // [fork] round 66b: Details as a pill, icon and text
+                    text = stringResource(R.string.nuvio_c_featured_details),
+                    enabled = focusable,
+                    onClick = onDetails,
+                    focusRequester = detailsRequester,
+                    nuvioCIcon = androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Outlined.Info),
+                    nuvioCSecondary = true,
+                    modifier = Modifier.onFocusChanged { if (it.isFocused) focused(1) else if (focusedButton == 1) focusedButton = -1 }
+                ) else NuvioCFeaturedRoundButton(
                     icon = Icons.Outlined.Info, description = stringResource(R.string.nuvio_c_featured_details), enabled = focusable, onClick = onDetails,
                     modifier = Modifier.focusRequester(detailsRequester).onFocusChanged { if (it.isFocused) focused(1) else if (focusedButton == 1) focusedButton = -1 }
                 )
                 if (watch != null) {
-                    val inList = actions.inWatchlist(item) == true
+                    val inList = actions?.inWatchlist?.invoke(item) == true
                     NuvioCFeaturedRoundButton(
                         icon = if (inList) Icons.Filled.Check else Icons.Filled.Add,
                         description = stringResource(R.string.nuvio_c_featured_watchlist), enabled = focusable, onClick = { watch(item) },
                         modifier = Modifier.onFocusChanged { if (it.isFocused) focused(2) else if (focusedButton == 2) focusedButton = -1 }
                     )
                 }
-                if (hasTrailer) {
+                if (hasTrailer && com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) {
+                    // [fork] round 66b: the details page's own trailer button; opens details straight into the trailer
+                    com.nuvio.tv.ui.screens.detail.NuvioCDetailTrailerButton(
+                        onClick = {
+                            com.nuvio.tv.ui.screens.detail.NuvioCOpenTrailer.pendingId = item.id
+                            onDetails()
+                        },
+                        onFocused = { focused(3) },
+                        enabled = focusable
+                    )
+                } else if (hasTrailer) {
                     NuvioCFeaturedRoundButton(
                         icon = Icons.Outlined.Movie, description = stringResource(R.string.nuvio_c_featured_trailer), enabled = focusable,
                         onClick = {
@@ -1846,6 +1948,67 @@ private fun NuvioCFeaturedTextV66(item: MetaPreview, info: com.nuvio.tv.core.di.
                 color = Color.White.copy(alpha = 0.88f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+/**
+ * [fork] round 66b featured_v66b: one context line in the round 65 style, 10 dp above the logo's real top (the logo
+ * is sized to fit 300 x 74 dp and the box hugs it, so the gap is the same for wide and tall logos); genres; then the
+ * details page's year • length | rating and badges line (max 4); two-line synopsis.
+ */
+@Composable
+private fun NuvioCFeaturedTextV66b(item: MetaPreview, info: com.nuvio.tv.core.di.NuvioCFeaturedInfo?, labels: List<String>) {
+    val context = LocalContext.current
+    Column(verticalArrangement = Arrangement.Bottom) {
+        val tag = info?.contextTag?.takeIf { it.isNotBlank() && com.nuvio.tv.NuvioCFeatures.FEATURED_CONTEXT_TAGS }
+        if (tag != null) {
+            NuvioCFeaturedContextLine(tag)
+            Spacer(Modifier.height(10.dp))
+        }
+        var logoFailed by remember(item.logo) { mutableStateOf(false) }
+        if (!item.logo.isNullOrBlank() && !logoFailed) {
+            val model = remember(item.logo) { logoRequest(context, item.logo) }
+            AsyncImage(
+                model = model, contentDescription = item.name, contentScale = ContentScale.Fit, alignment = Alignment.BottomStart,
+                onState = { if (it is AsyncImagePainter.State.Error) logoFailed = true },
+                modifier = Modifier.sizeIn(maxWidth = FEATURED_V66_LOGO_W, maxHeight = FEATURED_V66_LOGO_H)
+            )
+        } else {
+            Text(item.name, style = MaterialTheme.typography.headlineLarge, color = NuvioTheme.colors.TextPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = FEATURED_V66_LOGO_W * 1.4f))
+        }
+        val isSeries = item.apiType.equals("series", true) || item.apiType.equals("tv", true)
+        val genres = remember(item.id, item.genres, item.seasonCount) {
+            listOfNotNull(
+                item.genres.take(3).filter { it.isNotBlank() }.joinToString(" · ") { localizedGenreLabel(context, it) }.takeIf { it.isNotBlank() },
+                if (isSeries) item.seasonCount?.takeIf { it > 0 }?.let { context.resources.getQuantityString(R.plurals.nuvio_c_featured_seasons, it, it) } else null
+            ).joinToString(" · ")
+        }
+        if (genres.isNotBlank()) {
+            Spacer(Modifier.height(10.dp))
+            Text(genres, style = MaterialTheme.typography.labelMedium, color = NuvioTheme.colors.TextPrimary.copy(alpha = 0.78f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        val lead = remember(item.id, item.releaseInfo, item.runtime) {
+            listOfNotNull(com.nuvio.tv.ui.screens.detail.nuvioCYearText(item.releaseInfo), com.nuvio.tv.ui.screens.detail.nuvioCRuntimeHrMin(item.runtime))
+                .joinToString(" \u2022 ").takeIf { it.isNotBlank() }
+        }
+        val rating = info?.certificate ?: item.ageRating?.takeIf { it.isNotBlank() }
+        if (lead != null || labels.isNotEmpty() || rating != null) {
+            Spacer(Modifier.height(8.dp))
+            com.nuvio.tv.ui.screens.detail.NuvioCQualityLineStatic(lead = lead, labels = labels, max = 4, rating = rating)
+        }
+        val synopsis = item.description?.let { NuvioCHeroSpec.homeSynopsis(it) }
+        if (!synopsis.isNullOrBlank()) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = synopsis,
+                style = NuvioCHeroSpec.detailSynopsisStyle(MaterialTheme.typography.bodyMedium),
+                color = NuvioTheme.colors.TextPrimary.copy(alpha = NuvioCHeroSpec.DETAIL_SYNOPSIS_ALPHA),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth(0.95f)
             )
         }
     }

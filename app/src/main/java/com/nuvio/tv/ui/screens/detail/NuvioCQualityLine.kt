@@ -13,6 +13,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -451,6 +452,45 @@ private fun BadgeRow(content: @Composable () -> Unit) {
         layout(width(count).coerceAtMost(constraints.maxWidth), h) {
             var x = 0
             placeables.take(count).forEach { p -> p.place(x, (h - p.height) / 2); x += p.width + gap }
+        }
+    }
+}
+
+/**
+ * [fork] round 66b featured_v66b: the details quality line drawn from known values (the Featured carousel): the
+ * same lead (year • length), hairline and badges (Dolby / DTS logos in outlined boxes, other labels as pills),
+ * at most [max] badges in the details order. Nothing is looked up here.
+ */
+@Composable
+internal fun NuvioCQualityLineStatic(lead: String?, labels: List<String>, modifier: Modifier = Modifier, max: Int = 4, rating: String? = null) {
+    val color = com.nuvio.tv.ui.theme.NuvioTheme.colors.TextPrimary
+    val textStyle = androidx.tv.material3.MaterialTheme.typography.labelMedium.copy(
+        fontSize = QL_TEXT_SP.sp, lineHeight = (QL_TEXT_SP * 1.2f).sp, fontWeight = FontWeight.SemiBold,
+        letterSpacing = 0.2.sp, color = color
+    )
+    val quality = remember(labels) {
+        (if (NuvioCFeatures.QUALITY_LINE_V64) nuvioCLabels64(labels) else if (NuvioCFeatures.QUALITY_LINE_V62) nuvioCLabels62(labels) else labels).take(max)
+    }
+    val leadText = lead?.takeIf { it.isNotBlank() }
+    val ratingText = rating?.trim()?.takeIf { it.isNotBlank() }
+    if (leadText == null && quality.isEmpty() && ratingText == null) return
+    Row(modifier.height(QL_HEIGHT), verticalAlignment = Alignment.CenterVertically) {
+        if (leadText != null) {
+            leadText.split(" • ").forEachIndexed { i, part ->
+                if (i > 0) Text(text = "•", style = leadStyle(color).copy(color = color.copy(alpha = QL_DOT_ALPHA)), modifier = Modifier.padding(horizontal = QL_LEAD_DOT_63))
+                Text(text = part, style = leadStyle(color), maxLines = 1, softWrap = false)
+            }
+        }
+        if (quality.isNotEmpty() || ratingText != null) {
+            if (leadText != null) {
+                Spacer(Modifier.width(QL_SEP_SPACE))
+                Box(Modifier.width(1.dp).height(QL_SEP_HEIGHT).background(color.copy(alpha = QL_SEP_ALPHA)))
+                Spacer(Modifier.width(QL_SEP_SPACE))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(QL_GAP_63), verticalAlignment = Alignment.CenterVertically) {
+                if (ratingText != null) Pill(ratingText, textStyle, color, QL_HEIGHT)
+                quality.forEach { label -> Badge61(label, textStyle, color, if (NuvioCFeatures.QUALITY_LINE_V62) QL_LOGO_62 else QL_HEIGHT) }
+            }
         }
     }
 }

@@ -93,12 +93,13 @@ class NuvioCRound66Test {
 
     // ---- 10.8 / 10.9 Taste ----
     @Test fun twelveHourClock() {
-        assertEquals("12 AM", nuvioCHour12(0))
-        assertEquals("9 AM", nuvioCHour12(9))
-        assertEquals("12 PM", nuvioCHour12(12))
-        assertEquals("9 PM", nuvioCHour12(21))
-        assertEquals(listOf("12a", "3a", "6a", "9a", "12p", "3p", "6p", "9p"), (0 until 24).map(::nuvioCHourTick).filter { it.isNotEmpty() })
-        assertTrue((0 until 24).map(::nuvioCHourTick).all { it.length <= 3 })
+        // round 66b: "9pm"
+        assertEquals("12am", nuvioCHour12(0))
+        assertEquals("9am", nuvioCHour12(9))
+        assertEquals("12pm", nuvioCHour12(12))
+        assertEquals("9pm", nuvioCHour12(21))
+        assertEquals(listOf("12am", "3am", "6am", "9am", "12pm", "3pm", "6pm", "9pm"), (0 until 24).map(::nuvioCHourTick).filter { it.isNotEmpty() })
+        assertTrue((0 until 24).map(::nuvioCHourTick).all { it.length <= 4 })
     }
 
     @Test fun wrappedIsAlwaysAYear() {

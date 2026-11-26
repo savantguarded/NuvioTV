@@ -18,7 +18,7 @@ class NuvioCRound51TagsTest {
     @Test fun airsToday_withTime() {
         val ms = Instant.parse("2026-11-19T21:00:00Z").toEpochMilli()
         val f = NuvioCTagFacts(isSeries = true, next = NuvioCTagEpisode(2, 4, today, instantMs = ms))
-        assertEquals("NEW EPISODE TODAY · 9:00 PM", tag(f))
+        assertEquals(if (com.nuvio.tv.NuvioCFeatures.TAGS_V66B) "NEW EPISODE TONIGHT · 9:00 PM" else "NEW EPISODE TODAY · 9:00 PM", tag(f)) // round 66b: evening reads TONIGHT
     }
 
     @Test fun airsToday_withoutTime() {

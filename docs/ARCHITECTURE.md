@@ -4,7 +4,7 @@ Read this first in every session. It tells you where things are so you open only
 Fork-specific behaviour (what each tweak does, its switch, its screen) lives in `docs/FORK_CHANGES.md`.
 Current state, last build and open issues live in `docs/STATUS.md`.
 
-Last verified against: branch `nuvio-c` round 66, official base `1.2.0-beta.4` (`77cc0bb5`), 2026-11-26.
+Last verified against: branch `nuvio-c` round 66b, official base `1.2.0-beta.4` (`77cc0bb5`), 2026-11-26.
 
 ## 1. What this is
 
@@ -96,7 +96,7 @@ NuvioCFeatures : read from anywhere a fork tweak branches
 Details then `ui/screens/stream/StreamScreen.kt` (`StreamRepositoryImpl` asks add-ons, debrid in `core/debrid/`) then `Screen.Player` then `PlayerViewModel`/`PlayerRuntimeController` picks ExoPlayer or mpv (`NuvioMpvSurfaceView.kt`). OSD drawn in `PlayerScreen.kt` plus fork `NuvioCOsd*.kt`. Progress and scrobbles go to `core/tracking/` providers.
 
 **Tracking / sync**
-`core/tracking/Tracking*Provider.kt` abstract Trakt (`data/repository/Trakt*`), Simkl (`data/simkl/`), MDBList (`data/mdblist/`). Nuvio account sync (library, progress, settings, profiles) in `core/sync/*SyncService.kt` over Supabase (`data/remote/supabase/`). Profiles: `core/profile/ProfileManager.kt`; per-profile stores are profile-scoped.
+`core/tracking/Tracking*Provider.kt` abstract Trakt (`data/repository/Trakt*`), Simkl (`data/simkl/`), MDBList (`data/mdblist/`). Nuvio account sync (library, progress, settings incl. Calendar settings since round 66b, profiles) in `core/sync/*SyncService.kt` over Supabase (`data/remote/supabase/`). Profiles: `core/profile/ProfileManager.kt`; per-profile stores are profile-scoped.
 
 **Calendar / Upcoming**
 `core/calendar/` (refresh, merge, reminders, TVDB/TVMaze/MDBList/TMDB sources) feeds `ui/screens/calendar/` and the Home Upcoming row (`ui/screens/home/HomeComingUp.kt`). Originally ported from ysosrs123; since 2026-11-20 it is fully Nuvio C code (no longer synced with his fork), edit it like any other fork file.

@@ -159,7 +159,6 @@ internal fun NuvioCSeriesGraphOverlay(
     mine: Map<Pair<Int, Int>, Int>,
     isWatched: (Pair<Int, Int>) -> Boolean,
     next: Pair<Int, Int>?,
-    onOpenEpisode: (Video) -> Unit,
     onDismiss: () -> Unit
 ) {
     var showMine by remember { mutableStateOf(false) }
@@ -220,8 +219,7 @@ internal fun NuvioCSeriesGraphOverlay(
                         Key.DirectionUp -> { move(0, -1); true }
                         Key.DirectionDown -> { move(0, 1); true }
                         Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
-                            if (onToggle) showMine = !showMine
-                            else focused?.let { c -> videos.firstOrNull { it.season == c.season && it.episode == c.episode } }?.let(onOpenEpisode)
+                            if (onToggle) showMine = !showMine // OK on an episode does nothing
                             true
                         }
                         else -> false
@@ -344,7 +342,6 @@ internal fun NuvioCSeriesGraphOverlay(
                         }
                         Text(c?.let { compareLine(it, seasons) } ?: "", fontSize = 12.sp, color = Mid, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    if (!com.nuvio.tv.NuvioCFeatures.GRAPH_V66) Text(stringResource(R.string.nuvio_c_graph_ok_opens), fontSize = 12.sp, color = Color(0xFF8A8A92), maxLines = 1)
                     if (com.nuvio.tv.NuvioCFeatures.GRAPH_V66) Row(Modifier.padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) { // [fork] round 66: no separators, no marks legend
                         model.best?.let { Text(stringResource(R.string.nuvio_c_graph_best, "S${it.season} E${it.episode} · ${fmt(it.rating!!)}"), fontSize = 11.sp, color = Light, maxLines = 1) }
                         model.lowest?.let { Text(stringResource(R.string.nuvio_c_graph_lowest, "S${it.season} E${it.episode} · ${fmt(it.rating!!)}"), fontSize = 11.sp, color = Light, maxLines = 1) }

@@ -2,6 +2,8 @@ package com.nuvio.tv.ui.screens.profile
 
 // [fork] Nuvio C profile screen tweaks (choosing a profile; "Manage profiles" stays official).
 
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -311,6 +313,29 @@ internal fun Modifier.nuvioCProfileBgWhole(): Modifier = this
 @androidx.compose.runtime.Composable
 internal fun NuvioCProfileShade() {
     if (!NuvioCFeatures.PROFILE_BG_TEXT_V2) return
+    if (NuvioCFeatures.PROFILE_SHADE_V66B) {
+        // [fork] round 66b: ~10% darker, more stops, drawn dithered so the dark steps never band
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().drawWithCache {
+            val w = size.width; val h = size.height
+            fun shade(a: Float) = android.graphics.Color.argb((a * 255f).toInt(), 5, 5, 7)
+            val left = android.graphics.Paint().apply {
+                isDither = true
+                shader = android.graphics.LinearGradient(0f, 0f, w, 0f,
+                    intArrayOf(shade(0.95f), shade(0.91f), shade(0.86f), shade(0.64f), shade(0.42f), shade(0.44f), shade(0.48f)),
+                    floatArrayOf(0f, 0.19f, 0.38f, 0.54f, 0.70f, 0.85f, 1f), android.graphics.Shader.TileMode.CLAMP)
+            }
+            val bottom = android.graphics.Paint().apply {
+                isDither = true
+                shader = android.graphics.LinearGradient(0f, 0f, 0f, h,
+                    intArrayOf(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT, android.graphics.Color.argb(115, 0, 0, 0), android.graphics.Color.argb(204, 0, 0, 0)),
+                    floatArrayOf(0f, 0.55f, 0.8f, 1f), android.graphics.Shader.TileMode.CLAMP)
+            }
+            onDrawBehind {
+                drawIntoCanvas { c -> c.nativeCanvas.drawRect(0f, 0f, w, h, left); c.nativeCanvas.drawRect(0f, 0f, w, h, bottom) }
+            }
+        })
+        return
+    }
     androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(
         0f to Color(0xFF050507).copy(alpha = 0.92f), 0.38f to Color(0xFF050507).copy(alpha = 0.78f),
         0.7f to Color(0xFF050507).copy(alpha = 0.25f), 1f to Color(0xFF050507).copy(alpha = 0.35f))))

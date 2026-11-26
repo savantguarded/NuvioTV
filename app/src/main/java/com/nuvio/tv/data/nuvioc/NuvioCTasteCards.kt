@@ -383,16 +383,16 @@ private fun timeline(c: Ctx, card: NuvioCTasteCard, hint: String?, window: LongR
     return NuvioCTasteCardPage(card, card.title, summary, barsTitle = title, bars = bars, focusBar = focus.coerceIn(0, (bars.size - 1).coerceAtLeast(0)))
 }
 
-/** [fork] round 66 taste_v66: an hour of the day in 12-hour time, "12 AM", "9 PM". */
+/** [fork] round 66 taste_v66: an hour of the day in 12-hour time, "12am", "9pm" (round 66b; "12 AM" before). */
 fun nuvioCHour12(hour: Int): String {
     val h = ((hour % 24) + 24) % 24
     val twelve = if (h % 12 == 0) 12 else h % 12
-    return "$twelve ${if (h < 12) "AM" else "PM"}"
+    return if (com.nuvio.tv.NuvioCFeatures.TASTE_HOURS_PM) "$twelve${if (h < 12) "am" else "pm"}" else "$twelve ${if (h < 12) "AM" else "PM"}" // round 66b: 9pm
 }
 
 /** [fork] round 66: chart tick under an hour bar, every 3 hours ("12a", "3a" ... "9p"), blank otherwise. */
 fun nuvioCHourTick(hour: Int): String {
     if (hour % 3 != 0) return ""
     val twelve = if (hour % 12 == 0) 12 else hour % 12
-    return "$twelve${if (hour < 12) "a" else "p"}"
+    return "$twelve${if (hour < 12) "a" else "p"}${if (com.nuvio.tv.NuvioCFeatures.TASTE_HOURS_PM) "m" else ""}" // round 66b: 9pm
 }

@@ -78,7 +78,9 @@ internal object NuvioCFeaturedTagRules {
                 todayEp.premiere && todayEp.season > 1 -> "SEASON ${todayEp.season} PREMIERE"
                 else -> "NEW EPISODE"
             }
-            return "$what TODAY" + timeSuffix(todayEp, zone, locale)
+            // [fork] round 66b tags_v66b: an evening air time reads TONIGHT
+            val evening = com.nuvio.tv.NuvioCFeatures.TAGS_V66B && todayEp.instantMs?.let { Instant.ofEpochMilli(it).atZone(zone).hour >= 17 } == true
+            return "$what " + (if (evening) "TONIGHT" else "TODAY") + timeSuffix(todayEp, zone, locale)
         }
         // 2. a finale within the week
         if (next != null && next.finale && daysUntil(next.date, today) in 1..SOON_DAYS) {
@@ -112,8 +114,40 @@ internal object NuvioCFeaturedTagRules {
             f.userRating?.let { return nuvioCYourRating(it) }
             if (f.ended && !f.started && (f.seasons ?: 0) > 0) return "COMPLETE · ${f.seasons} SEASON" + (if (f.seasons == 1) "" else "S")
         }
+        if (com.nuvio.tv.NuvioCFeatures.TAGS_V66B) seriesFallback66b(f, today)?.let { return it }
         return null
     }
+
+    /**
+     * [fork] round 66b tags_v66b: when nothing time-bound applies, still a true, varied fact about the show (no
+     * request of its own; everything comes from the TMDB answer already fetched).
+     */
+    internal fun seriesFallback66b(f: NuvioCTagFacts, today: LocalDate): String? {
+        val ls = f.latestSeason
+        val sAir = f.latestSeasonAirDate
+        if (ls != null && ls > 1 && sAir != null) {
+            val out = ChronoUnit.DAYS.between(sAir, today)
+            if (out in 0..6) return "SEASON $ls OUT THIS WEEK"
+            if (out in 7..NEW_SEASON_DAYS) return "SEASON $ls OUT NOW"
+        }
+        val last = f.last
+        if (last != null && ChronoUnit.DAYS.between(last.date, today) in 0..6) return "NEW EPISODE OUT · S${last.season} E${last.episode}"
+        val first = f.releaseDate
+        if (first != null) {
+            val years = today.year - first.year
+            val shifted = runCatching { first.withYear(today.year) }.getOrNull()
+            if (years >= 5 && years % 5 == 0 && shifted != null && kotlin.math.abs(ChronoUnit.DAYS.between(shifted, today)) <= 3) return "PREMIERED $years YEARS AGO THIS WEEK"
+        }
+        val seasons = f.seasons ?: ls ?: f.seasonEpisodes.keys.filter { it > 0 }.maxOrNull()
+        val episodes = f.seasonEpisodes.filterKeys { it > 0 }.values.sum()
+        if (f.ended && seasons != null && seasons > 0) return "COMPLETE SERIES · $seasons SEASON" + (if (seasons == 1) "" else "S")
+        if (f.returning && f.next == null) return "MORE SEASONS COMING"
+        if (seasons != null && seasons > 0 && episodes > 0) return "$seasons SEASON" + (if (seasons == 1) "" else "S") + " · $episodes EPISODES"
+        return null
+    }
+
+    const val NEW_SEASON_DAYS = 60L
+    const val FILM_NEW_66B_DAYS = 90L
 
     private fun filmTag(f: NuvioCTagFacts, today: LocalDate): String? {
         if (com.nuvio.tv.NuvioCFeatures.FEATURED_TAGS_V2) return filmTagV2(f, today, Locale.getDefault())
@@ -153,6 +187,10 @@ internal object NuvioCFeaturedTagRules {
             if (years >= 10 && years % 5 == 0 && shifted != null && kotlin.math.abs(ChronoUnit.DAYS.between(shifted, today)) <= 3) {
                 return "$years YEARS AGO THIS WEEK"
             }
+        }
+        if (com.nuvio.tv.NuvioCFeatures.TAGS_V66B) { // [fork] round 66b: more films get a true line
+            if (release != null && ChronoUnit.DAYS.between(release, today) in 0..FILM_NEW_66B_DAYS) return "NEW RELEASE"
+            f.collectionSeen?.let { (seen, total, name) -> if (seen == 0 && total > 1) return "PART OF ${name.uppercase(locale)}" }
         }
         return null
     }

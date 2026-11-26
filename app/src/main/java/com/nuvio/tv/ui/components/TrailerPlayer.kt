@@ -195,19 +195,22 @@ fun TrailerPlayer(
         }
     }
 
+    // [fork] round 66b trailer_load_paused: a trailer that becomes ready while the page asks for paused stays paused
+    val nuvioCPausedNow = androidx.compose.runtime.rememberUpdatedState(isPaused)
+    val nuvioCStart = { !(com.nuvio.tv.NuvioCFeatures.TRAILER_LOAD_PAUSED && nuvioCPausedNow.value) }
     LaunchedEffect(isPlaying, trailerUrl, trailerAudioUrl, trailerPlayer) { // [fork] no `muted` key: unmuting must not reload
         val player = trailerPlayer ?: return@LaunchedEffect
         player.volume = if (muted || (nuvioCFadeInOnStart && isPlaying)) 0f else 1f // [fork] fade-in starts silent
         if (isPlaying && trailerUrl != null) {
             if (resolvedPool?.isLoadedBy(ownerToken, trailerUrl) == true && player.currentMediaItem != null) {
-                player.playWhenReady = true
+                player.playWhenReady = nuvioCStart()
                 return@LaunchedEffect
             }
             val claimedHandoff = resolvedPool?.claimHandoff(ownerToken, trailerUrl)
             if (claimedHandoff != null) {
                 letterboxZoom = claimedHandoff.letterboxZoom ?: 1f
                 letterboxZoomLocked = claimedHandoff.letterboxZoom != null
-                player.playWhenReady = true
+                player.playWhenReady = nuvioCStart()
                 return@LaunchedEffect
             }
             hasRenderedFirstFrame = false
@@ -228,7 +231,7 @@ fun TrailerPlayer(
             player.prepare()
             resolvedPool?.onMediaLoaded(ownerToken, trailerUrl)
             lastBounds[0]?.let { resolvedPool?.onOwnerBounds(ownerToken, it) }
-            player.playWhenReady = true
+            player.playWhenReady = nuvioCStart()
         } else {
             hasRenderedFirstFrame = false
             if (resolvedPool?.isHandoffPending() == true) return@LaunchedEffect
@@ -373,7 +376,7 @@ fun TrailerPlayer(
                             player.prepare()
                             resolvedPool?.onMediaLoaded(ownerToken, currentTrailerUrl!!)
                         }
-                        player.playWhenReady = true
+                        player.playWhenReady = nuvioCStart() // [fork] round 66b
                     }
                 }
                 Lifecycle.Event.ON_PAUSE,

@@ -1090,7 +1090,7 @@ object NuvioCFeatures {
     // ---- Round 66 ----
     /** Modern subtitle panel: official beta.4's format tag (SRT / ASS / VTT...) at the end of each row's second line, after the language and the SDH / Forced / CC tag. Off = no format tag. */
     const val SUB_FORMAT_TAG = true
-    /** Series ratings graph polish: the side panel starts 24 dp after the grid's real right edge (no overlap at any season count), season year on its own two-line header, long-show season bars labelled from an overlay row, only the focused season's bar bright, no hint lines, empty state as one centred line, OK on an episode closes the graph and focuses that episode card (no playback). Off = round 65 graph. */
+    /** Series ratings graph polish: the side panel starts 24 dp after the grid's real right edge (no overlap at any season count), season year on its own two-line header, long-show season bars labelled from an overlay row, only the focused season's bar bright, no hint lines, empty state as one centred line; OK on an episode does nothing. Off = round 65 graph. */
     const val GRAPH_V66 = true
     /** Roulette / Library reel: a landing whose pending spin was never drawn (fast pick, second and later shuffles) still spins in full over fillers and eases onto the pick (1.8 s), and Roulette keeps the pending spin on screen at least 600 ms; spinning posters blurred harder (1/16 decode), dimmed to ~33% and slightly desaturated. Off = round 65 reel. */
     const val REEL_V66 = true
@@ -1116,4 +1116,18 @@ object NuvioCFeatures {
     const val FEATURED_V66 = true
     /** Settings > Subtitles: official beta.4's "Customize ASS/SSA styling" switch beside the other subtitle options (the Modern subtitles panel has no style list, so it was only reachable from the Default style's panel). Off = panel only. */
     const val SUB_ASS_IN_SETTINGS = true
+
+    // ---- Round 66b ----
+    /** Featured carousel 66b: one context line in the round 65 style (no chips, no rank line) sitting 10 dp above the logo's real top edge; picture's left edge fades in (no bar); genres line, then year • length (hr / min) and the details page's own quality badges (max 4) on their own line; badges looked up quietly in the background once per title; no Starring, no Watchlist; Play names the episode (Play S1 E1 for an unstarted show), Details is a pill with icon and text, Trailer is the details page's trailer button; 380 ms move into Continue watching with the picture crossfading straight into it. Off = round 66 carousel. */
+    const val FEATURED_V66B = true
+    /** Featured context line: more kinds of true facts when nothing time-bound applies (tonight / this week wording, new season out, final season, returning series, season and episode count, new release, part of a collection, anniversaries for shows). Off = round 52 tags. */
+    const val TAGS_V66B = true
+    /** Background trailers load paused when the page has asked for paused (Pause on scroll with focus at Cast or lower, a covering page): they never start with sound low on the page; they play once you're back at the top. Off = loading always starts playback. */
+    const val TRAILER_LOAD_PAUSED = true
+    /** Profile background shade about 10% darker, drawn as a dithered gradient with more stops (no banding). Off = round 53 shade. */
+    const val PROFILE_SHADE_V66B = true
+    /** Calendar settings (bells, hidden titles, followed services, days shown) sync with the profile's other settings on the Nuvio account, so other devices get them; the time zone override stays on each device. Off = Calendar settings stay on the TV. */
+    const val CALENDAR_SYNC = true
+    /** Taste hours read "9pm" / ticks "12am 3am … 9pm" (lowercase, no space). Off = "9 PM" / "9p". */
+    const val TASTE_HOURS_PM = true
 }

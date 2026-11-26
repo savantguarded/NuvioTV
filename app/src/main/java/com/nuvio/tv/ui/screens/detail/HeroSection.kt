@@ -605,7 +605,9 @@ internal fun PlayButton(
     focusRequester: FocusRequester? = null,
     restoreFocusToken: Int = 0,
     nuvioCTokenSeen: androidx.compose.runtime.MutableIntState? = null,
-    onFocusRestored: () -> Unit = {}
+    onFocusRestored: () -> Unit = {},
+    nuvioCIcon: Painter? = null, // [fork] round 66b: another glyph (the carousel's Details pill)
+    nuvioCSecondary: Boolean = false // [fork] round 66b: dark fill like the round buttons, light when focused
 ) {
     var longPressTriggered by remember { mutableStateOf(false) }
     val longPressKeyTracker = rememberLongPressKeyTracker()
@@ -685,7 +687,12 @@ internal fun PlayButton(
                     Modifier
                 }
             ),
-        colors = ButtonDefaults.colors(
+        colors = if (nuvioCSecondary) ButtonDefaults.colors(
+            containerColor = NuvioTheme.colors.BackgroundCard,
+            focusedContainerColor = NuvioTheme.colors.Secondary,
+            contentColor = NuvioTheme.colors.TextPrimary,
+            focusedContentColor = NuvioTheme.colors.OnSecondary
+        ) else ButtonDefaults.colors(
             containerColor = androidx.compose.ui.graphics.Color.White,
             focusedContainerColor = androidx.compose.ui.graphics.Color.White,
             contentColor = androidx.compose.ui.graphics.Color.Black,
@@ -714,7 +721,7 @@ internal fun PlayButton(
             )
         ) {
             Icon(
-                painter = playPainter,
+                painter = nuvioCIcon ?: playPainter,
                 contentDescription = null,
                 modifier = Modifier.size(18.dp)
             )
@@ -1380,3 +1387,24 @@ private fun NuvioCNextEpisodeChip(meta: Meta, modifier: Modifier = Modifier) {
     val text = info?.takeIf { it.metaId == meta.id }?.next?.let { nuvioCNextEpisodeBadge(it) } ?: return
     Box(modifier) { HeroMetaBadge(text = text, contentColor = NuvioTheme.colors.Secondary, nuvioCSmall = com.nuvio.tv.NuvioCFeatures.HERO_META_SMALL) }
 }
+
+/** [fork] round 66b featured_v66b: the details page's own trailer button, for the Featured carousel. */
+@Composable
+internal fun NuvioCDetailTrailerButton(onClick: () -> Unit, onFocused: () -> Unit, enabled: Boolean = true) {
+    val painter = rememberRawSvgPainter(rawIconRes = com.nuvio.tv.R.raw.trailer_play_button)
+    ActionIconButtonPainter(
+        painter = painter,
+        contentDescription = stringResource(R.string.hero_play_trailer),
+        onClick = onClick,
+        onFocused = onFocused,
+        enabled = enabled
+    )
+}
+
+/** [fork] round 66b: details' runtime text (1 hr 49 min) for a raw runtime string, or null. */
+internal fun nuvioCRuntimeHrMin(raw: String?): String? =
+    raw?.let { formatRuntime(it) }?.takeIf { it.isNotBlank() }?.let { if (com.nuvio.tv.NuvioCFeatures.QUALITY_LINE_V63) nuvioCHrMin(it) else it }
+
+/** [fork] round 66b: details' year text (2019, 2019–2023, 2023 while running) for a raw releaseInfo. */
+internal fun nuvioCYearText(releaseInfo: String?): String? =
+    formatYearRange(releaseInfo)?.let { if (com.nuvio.tv.NuvioCFeatures.QUALITY_LINE_V62) nuvioCYears62(it) else it }?.takeIf { it.isNotBlank() }

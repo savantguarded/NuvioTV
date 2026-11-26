@@ -43,7 +43,8 @@ class NuvioCRound52TagsTest {
         assertEquals("UP NEXT · S2 E4", tag(NuvioCTagFacts(true, upNext = 2 to 4)))
         assertEquals("YOU RATED THIS 8/10", tag(NuvioCTagFacts(true, userRating = 8)))
         assertEquals("COMPLETE · 4 SEASONS", tag(NuvioCTagFacts(true, ended = true, seasons = 4)))
-        assertNull(tag(NuvioCTagFacts(true, ended = true, started = true, seasons = 4)))
+        // round 66b: a started, ended show still gets a true line
+        assertEquals(if (com.nuvio.tv.NuvioCFeatures.TAGS_V66B) "COMPLETE SERIES · 4 SEASONS" else null, tag(NuvioCTagFacts(true, ended = true, started = true, seasons = 4)))
     }
 
     @Test fun airingBeatsPersonal() =
