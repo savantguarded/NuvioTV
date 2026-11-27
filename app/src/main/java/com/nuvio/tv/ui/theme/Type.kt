@@ -69,6 +69,8 @@ private val NuvioCOutfitFamily by lazy { nuvioCVariableFamily(R.font.nuvio_c_out
 private val NuvioCAtkinsonHyperlegibleNextFamily by lazy { nuvioCVariableFamily(R.font.nuvio_c_atkinson_hyperlegible_next) }
 private val NuvioCGeistFamily by lazy { nuvioCVariableFamily(R.font.nuvio_c_geist) }
 private val NuvioCSpaceGroteskFamily by lazy { nuvioCVariableFamily(R.font.nuvio_c_space_grotesk) }
+/** [fork] round 67b: Service health counts and status words, in Space Grotesk whatever the app font is. */
+internal val NuvioCStatusFontFamily: FontFamily get() = NuvioCSpaceGroteskFamily
 private val NuvioCLexendFamily by lazy { nuvioCVariableFamily(R.font.nuvio_c_lexend) }
 private val NuvioCSourceSerif4Family by lazy { nuvioCVariableFamily(R.font.nuvio_c_source_serif_4) }
 

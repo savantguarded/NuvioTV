@@ -107,10 +107,14 @@ class NuvioCHealthSecurityTest {
         val start = AddonHealth(addonUrl, "Torrentio", NuvioCHealthRules.hostOnly(addonUrl), TvCheck.RUNNING, viaTorBox = NuvioCHealthRules.usesTorBox(addonUrl))
         val reading = SourceReading("https://uptime.ibbylabs.dev", "IbbyLabs", "IbbyLabs status",
             NuvioCHealthParsers.parseIbbyLabs(fixture("ibbylabs_status.json"))!!.services, 0L)
+        val used = listOf(UsedService("torbox", ServiceGroup.DEBRID, "TorBox", null, listOf("torbox.app")))
         val tv = mapOf(addonUrl to Triple(TvCheck.NO_ANSWER, 6000, "Timed out"))
-        val state = NuvioCHealthCombine.combine(listOf(start), tv, listOf(reading), TorBoxHealth(true, "Pro", 23, 120), hasKey = true)
+        val viaTv = NuvioCHealthCombine.combine(listOf(start), used, tv, null, TorBoxHealth(false, unwell = true))
+        val state = NuvioCHealthCombine.combine(listOf(start), used, tv, reading, TorBoxHealth(true, "Pro", 23, 120))
         val texts = buildList {
             add(state.toString().replace(addonUrl, "")) // the state keeps the card's own address (its key); nothing else may
+            add(viaTv.toString().replace(addonUrl, ""))
+            viaTv.addons.forEach { add(it.tvReason.orEmpty()) }
             state.addons.forEach { add(it.host); add(it.name); add(it.tvReason.orEmpty()); add(it.sourceName.orEmpty()) }
             add(NuvioCHealthRules.hostOnly(addonUrl))
             add(NuvioCHealthHttp.reasonFor(403).orEmpty())

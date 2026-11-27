@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -73,38 +74,45 @@ internal object NuvioCHealthNav {
 }
 
 internal object NuvioCHealthColors {
-    val green = Color(0xFF4CAF7D)
-    val amber = Color(0xFFE8A93B)
-    val red = Color(0xFFE5534B)
-    val grey = Color(0xFF8A8A92)
+    // [fork] round 67b: the app's own success / warning / error family; dots strong, words a light tint of the same hue
+    val green = Color(0xFF4CAF50)
+    val amber = Color(0xFFFFB74D)
+    val red = Color(0xFFFF5252)
+    val grey = Color(0xFF6F6F6F)
     fun of(t: HealthTone) = when (t) { HealthTone.GREEN -> green; HealthTone.AMBER -> amber; HealthTone.RED -> red; HealthTone.GREY -> grey }
+    fun text(t: HealthTone) = when (t) { HealthTone.GREEN -> Color(0xFF7FD39A); HealthTone.AMBER -> Color(0xFFFFB74D); HealthTone.RED -> Color(0xFFFF8A80); HealthTone.GREY -> Color(0xFF9E9E9E) }
+    /** Row background behind a problem in the summary. */
+    fun wash(t: HealthTone) = when (t) { HealthTone.AMBER -> Color(0xFF2A2114); HealthTone.RED -> Color(0xFF2A1616); else -> Color.Transparent }
 }
 
-/** Texts of Service health, pure, for tests. */
+/** Texts of Service health, pure, for tests. Never an address and never a response time (round 67b). */
 internal object NuvioCHealthText {
-    fun state(a: AddonHealth): String = when (a.verdict) {
+    fun state(v: HealthVerdict): String = when (v) {
         HealthVerdict.CHECKING -> "Checking…"
         HealthVerdict.WORKING, HealthVerdict.WORKING_SOURCE_DISAGREES -> "Working"
         HealthVerdict.CANT_REACH -> "Can't reach it from here"
         HealthVerdict.RATE_LIMITED -> "Rate-limited"
         HealthVerdict.BLOCKED -> "Blocked"
-        HealthVerdict.DOWN -> "Down for everyone"
+        HealthVerdict.DOWN -> "Down"
+        HealthVerdict.TROUBLE -> "Having trouble"
+        HealthVerdict.MAINTENANCE -> "Maintenance"
+        HealthVerdict.NOT_TRACKED -> "Not tracked"
         HealthVerdict.OFF -> "Off"
     }
 
-    /** The part after " · ": latency, the reason, or what the source says. Never an address. */
+    fun state(a: AddonHealth): String = state(a.verdict)
+
+    /** The short reason after " · " (Timed out, Blocked (403), TorBox is having trouble), or null. */
     fun detail(a: AddonHealth): String? = when (a.verdict) {
-        HealthVerdict.WORKING -> a.tvLatencyMs?.let { latency(it) }
-        HealthVerdict.WORKING_SOURCE_DISAGREES -> listOfNotNull(a.tvLatencyMs?.let { latency(it) }, "${a.sourceName ?: "a source"} says down").joinToString(" · ")
-        HealthVerdict.DOWN -> a.sourceName?.let { "$it agrees" } ?: a.tvReason
-        HealthVerdict.CANT_REACH -> listOfNotNull(a.tvReason, if (a.source == com.nuvio.tv.core.nuvioc.health.SourceState.UP) "${a.sourceName ?: "source"} says up" else null).joinToString(" · ").ifBlank { null }
-        HealthVerdict.RATE_LIMITED, HealthVerdict.BLOCKED -> a.tvReason
-        HealthVerdict.CHECKING, HealthVerdict.OFF -> null
-    }
+        HealthVerdict.CANT_REACH, HealthVerdict.RATE_LIMITED, HealthVerdict.BLOCKED, HealthVerdict.DOWN, HealthVerdict.TROUBLE -> a.tvReason
+        HealthVerdict.NOT_TRACKED -> a.sourceName?.let { "not on $it" }
+        else -> null
+    }?.takeUnless { it == state(a) }
 
     fun line(a: AddonHealth): String = state(a) + (detail(a)?.let { " · $it" } ?: "")
 
-    fun latency(ms: Int): String = if (ms < 1000) "$ms ms" else String.format(java.util.Locale.US, "%.1f s", ms / 1000.0)
+    /** Summary row line under a name: the instance (e.g. ElfHosted) and the reason, never an address. */
+    fun sub(a: AddonHealth): String? = listOfNotNull(NuvioCHealthRules.instanceName(a.host), detail(a)).joinToString(" · ").ifBlank { null }
 
     fun ago(ms: Long?, now: Long): String {
         if (ms == null) return "not checked yet"
@@ -116,27 +124,33 @@ internal object NuvioCHealthText {
         }
     }
 
-    /** "1 problem · 9 working · TorBox online, Pro · 23 days left · checked just now". */
-    fun summary(s: HealthState, now: Long): String {
-        if (s.running && s.checkedAtMs == null) return "Checking your add-ons…"
-        val bad = s.problems + s.down
-        val parts = mutableListOf<String>()
-        if (bad > 0) parts += if (bad == 1) "1 problem" else "$bad problems"
-        parts += "${s.working} working"
+    /** One piece of the summary line; [tone] set = a count, drawn bold in its colour. */
+    data class Part(val text: String, val tone: HealthTone? = null)
+
+    /** "1 PROBLEM · 9 WORKING · TorBox online, Pro · 23 days left · checked just now". */
+    fun summaryParts(s: HealthState, now: Long): List<Part> {
+        if (s.running && s.checkedAtMs == null) return listOf(Part("Checking…"))
+        val parts = mutableListOf<Part>()
+        if (s.down > 0) parts += Part("${s.down} DOWN", HealthTone.RED)
+        if (s.problems > 0) parts += Part(if (s.problems == 1) "1 PROBLEM" else "${s.problems} PROBLEMS", HealthTone.AMBER)
+        parts += Part("${s.working} WORKING", HealthTone.GREEN)
         s.torBox?.let { t ->
-            parts += buildString {
-                append(if (t.unwell) "TorBox having trouble" else "TorBox online")
+            parts += Part(buildString {
+                append(if (t.unwell) "TorBox having trouble" else if (t.reachable) "TorBox online" else "TorBox key refused")
                 t.plan?.let { append(", ").append(it) }
-            }
-            t.daysLeft?.let { parts += if (it == 1) "1 day left" else "$it days left" }
+            })
+            t.daysLeft?.let { parts += Part(if (it == 1) "1 day left" else "$it days left") }
         }
-        parts += if (s.running) "checking…" else "checked " + ago(s.checkedAtMs, now)
-        return parts.joinToString(" · ")
+        parts += Part(if (s.running) "checking…" else "checked " + ago(s.checkedAtMs, now))
+        return parts
     }
+
+    fun summary(s: HealthState, now: Long): String = summaryParts(s, now).joinToString(" · ") { it.text }
 
     /** Up to five dots for the entry card, problems first. */
     fun dots(s: HealthState): List<HealthTone> =
-        s.addons.filter { it.verdict != HealthVerdict.OFF }.sortedBy { NuvioCHealthCombine.order(it.verdict) }.take(5).map { NuvioCHealthRules.tone(it.verdict) }
+        (s.addons.map { it.verdict } + s.services.map { it.verdict }).filter { it != HealthVerdict.OFF && it != HealthVerdict.NOT_TRACKED }
+            .sortedBy { NuvioCHealthCombine.order(it) }.take(5).map { NuvioCHealthRules.tone(it) }
 }
 
 @Composable
@@ -152,9 +166,14 @@ internal fun NuvioCAddonHealthStatus(baseUrl: String, enabled: Boolean, modifier
         verdict = if (enabled) HealthVerdict.CHECKING else HealthVerdict.OFF)
     if (h.verdict == HealthVerdict.OFF) return // the official "Disabled" label already says it
     Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        NuvioCHealthDot(NuvioCHealthRules.tone(h.verdict), 7.dp)
+        NuvioCHealthDot(NuvioCHealthRules.tone(h.verdict), 8.dp)
         Text(
-            text = NuvioCHealthText.line(h),
+            text = androidx.compose.ui.text.buildAnnotatedString {
+                withStyle(androidx.compose.ui.text.SpanStyle(fontFamily = com.nuvio.tv.ui.theme.NuvioCStatusFontFamily, fontWeight = FontWeight.Bold, color = NuvioCHealthColors.text(NuvioCHealthRules.tone(h.verdict)))) {
+                    append(NuvioCHealthText.state(h))
+                }
+                NuvioCHealthText.detail(h)?.let { append("  ·  "); append(it) }
+            },
             style = MaterialTheme.typography.bodySmall,
             color = NuvioTheme.colors.TextSecondary,
             maxLines = 1,
@@ -192,7 +211,7 @@ internal fun ServiceHealthEntryCard(state: HealthState, onClick: () -> Unit, mod
                     color = NuvioTheme.colors.TextPrimary
                 )
                 Text(
-                    text = NuvioCHealthText.summary(state, now),
+                    text = nuvioCSummaryText(NuvioCHealthText.summaryParts(state, now)),
                     style = MaterialTheme.typography.bodySmall,
                     color = NuvioTheme.colors.TextSecondary,
                     maxLines = 1,
@@ -213,3 +232,13 @@ internal fun ServiceHealthEntryCard(state: HealthState, onClick: () -> Unit, mod
         }
     }
 }
+
+/** [fork] round 67b: the summary with its counts in the status font, bold and coloured. */
+internal fun nuvioCSummaryText(parts: List<NuvioCHealthText.Part>): androidx.compose.ui.text.AnnotatedString =
+    androidx.compose.ui.text.buildAnnotatedString {
+        parts.forEachIndexed { i, p ->
+            if (i > 0) withStyle(androidx.compose.ui.text.SpanStyle(color = Color(0xFF6F6F6F))) { append("  ·  ") }
+            if (p.tone != null) withStyle(androidx.compose.ui.text.SpanStyle(fontFamily = com.nuvio.tv.ui.theme.NuvioCStatusFontFamily, fontWeight = FontWeight.Bold, color = NuvioCHealthColors.text(p.tone))) { append(p.text) }
+            else append(p.text)
+        }
+    }

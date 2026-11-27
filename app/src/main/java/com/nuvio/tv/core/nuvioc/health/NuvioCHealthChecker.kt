@@ -39,7 +39,13 @@ class NuvioCHealthChecker @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val addons: AddonRepository,
     private val debrid: DebridSettingsDataStore,
-    private val profiles: ProfileManager
+    private val profiles: ProfileManager,
+    // [fork] round 67b: what this profile uses
+    private val trakt: com.nuvio.tv.data.local.TraktAuthDataStore,
+    private val simkl: com.nuvio.tv.data.simkl.SimklAuthRepository,
+    private val mdblist: com.nuvio.tv.data.local.MDBListSettingsDataStore,
+    private val auth: com.nuvio.tv.core.auth.AuthManager,
+    private val server: com.nuvio.tv.domain.model.ServerConfiguration
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _state = MutableStateFlow(HealthState())
@@ -61,25 +67,54 @@ class NuvioCHealthChecker @Inject constructor(
     private suspend fun run() {
         val p = profile
         val installed = addons.getInstalledAddons().first()
+        // [fork] round 67b: one source decides per run: the active status source, or (none on) this TV's own checks
+        val active = sources().firstOrNull { it.enabled }
+        val usedServices = usedServices()
         // the space for each card's status is held from the first frame: everything starts as Checking (or Off)
         val start = installed.map { a ->
             val host = NuvioCHealthRules.hostOnly(a.baseUrl)
             val tv = if (a.enabled) TvCheck.RUNNING else TvCheck.OFF
-            AddonHealth(a.baseUrl, NuvioCHealthRules.cleanText(a.displayName) ?: host, host, tv, viaTorBox = NuvioCHealthRules.usesTorBox(a.baseUrl), verdict = NuvioCHealthRules.verdict(tv, null))
+            AddonHealth(a.baseUrl, NuvioCHealthRules.cleanText(a.displayName) ?: host, host, tv, viaTorBox = NuvioCHealthRules.usesTorBox(a.baseUrl), verdict = NuvioCHealthRules.verdictFromTv(tv))
         }
-        _state.update { it.copy(running = true, addons = start) }
+        _state.update { it.copy(running = true, addons = start, services = usedServices.map { u -> ServiceHealth(u.key, u.group, u.name) }) }
         val gate = Semaphore(NuvioCHealthRules.PARALLEL)
         val key = runCatching { debrid.settings.first().torboxApiKey }.getOrNull()?.trim()?.takeIf { it.isNotEmpty() }
-        val (readings, tv, account) = kotlinx.coroutines.coroutineScope {
-            val src = sources().filter { it.enabled }.map { s -> async { readSource(s.address) } }
-            val tvJobs = start.filter { it.tv == TvCheck.RUNNING }.map { a -> async { gate.withPermit { a.baseUrl to tvCheck(a.baseUrl) } } }
+        val (reading, tv, account) = kotlinx.coroutines.coroutineScope {
+            val src = active?.let { a -> async { readSource(a.address) } }
+            val tvJobs = if (active != null) emptyList() else
+                start.filter { it.tv == TvCheck.RUNNING }.map { a -> async { gate.withPermit { a.baseUrl to tvCheck(a.baseUrl) } } } +
+                usedServices.filter { it.probe != null }.map { u -> async { gate.withPermit { "svc:" + u.key to serviceCheck(u.probe!!) } } }
             val acc = async { key?.let { torBoxAccount(it) } }
-            Triple(src.awaitAll(), tvJobs.awaitAll().toMap(), acc.await())
+            Triple(src?.await(), tvJobs.awaitAll().toMap(), acc.await())
         }
         if (profile != p) { _state.update { it.copy(running = false) }; return } // profile switched mid-run: drop it
-        _state.value = withContext(Dispatchers.Default) { combine(start, tv, readings, account, key != null) }
-            .let { s -> val t = s.torBox; if (t != null && t.unwell) s.copy(torBox = torBoxIncident(t)) else s }
+        _state.value = withContext(Dispatchers.Default) { NuvioCHealthCombine.combine(start, usedServices, tv, reading, account) }
             .copy(running = false, checkedAtMs = System.currentTimeMillis())
+    }
+
+    /** [fork] round 67b: what this profile uses besides add-ons: TorBox (key saved), signed-in trackers and sync, the sites the app calls. */
+    private suspend fun usedServices(): List<UsedService> = buildList {
+        val tb = runCatching { debrid.settings.first().torboxApiKey }.getOrNull()?.isNotBlank() == true
+        if (tb) add(UsedService("torbox", ServiceGroup.DEBRID, "TorBox", null, listOf("torbox.app")))
+        if (runCatching { trakt.isAuthenticated.first() }.getOrDefault(false))
+            add(UsedService("trakt", ServiceGroup.TRACKING, "Trakt", "https://api.trakt.tv/", listOf("trakt.tv")))
+        if (runCatching { simkl.state.value.isAuthenticated }.getOrDefault(false))
+            add(UsedService("simkl", ServiceGroup.TRACKING, "Simkl", "https://api.simkl.com/", listOf("simkl.com")))
+        if (runCatching { mdblist.settings.first().let { it.enabled && it.apiKey.isNotBlank() } }.getOrDefault(false))
+            add(UsedService("mdblist", ServiceGroup.TRACKING, "MDBList", "https://api.mdblist.com/", listOf("mdblist.com")))
+        if (runCatching { auth.isAuthenticated }.getOrDefault(false)) {
+            val backend = runCatching { server.backendUrl }.getOrNull()?.takeIf { it.startsWith("https://") }
+            add(UsedService("nuvio", ServiceGroup.TRACKING, "Nuvio sync", backend?.trimEnd('/')?.plus("/"), listOfNotNull(backend?.let { NuvioCHealthRules.hostOnly(it) }, "nuvio")))
+        }
+        add(UsedService("tmdb", ServiceGroup.WEBSITE, "TMDB", "https://api.themoviedb.org/3/", listOf("themoviedb.org", "tmdb")))
+        if (com.nuvio.tv.NuvioCFeatures.LIBRARY_CALENDAR)
+            add(UsedService("tvmaze", ServiceGroup.WEBSITE, "TVmaze", "https://api.tvmaze.com/", listOf("tvmaze.com")))
+    }
+
+    private suspend fun serviceCheck(url: String): Triple<TvCheck, Int?, String?> = withContext(Dispatchers.IO) {
+        val r = NuvioCHealthHttp.get(url, readBody = false)
+        val check = NuvioCHealthRules.tvCheckService(r.code)
+        Triple(check, r.latencyMs, if (check == TvCheck.OK) null else r.reason)
     }
 
     /** The TV's own check: GET the add-on's manifest, timed. */
@@ -155,71 +190,69 @@ class NuvioCHealthChecker @Inject constructor(
             unwell = r.code == null || (r.code ?: 0) >= 500)
     }
 
-    private suspend fun torBoxIncident(t: TorBoxHealth): TorBoxHealth = withContext(Dispatchers.IO) {
-        val r = NuvioCHealthHttp.get(NuvioCHealthRules.TORBOX_STATUS_URL)
-        val nowIso = java.time.Instant.now().toString()
-        val got = r.body?.takeIf { r.code in 200..299 }?.let { b -> withContext(Dispatchers.Default) { NuvioCHealthParsers.betterStackOverall(b, nowIso) } }
-            ?: return@withContext t
-        val incident = got.second.firstOrNull { !it.maintenance }
-        val maint = got.second.firstOrNull { it.maintenance }
-        t.copy(incident = incident?.title ?: maint?.title, incidentSince = incident?.startsAt, maintenanceUntil = maint?.endsAt)
-    }
-
-    // ---- combine -------------------------------------------------------------------------------------------------
-    private fun combine(
-        start: List<AddonHealth>, tv: Map<String, Triple<TvCheck, Int?, String?>>, readings: List<SourceReading>,
-        account: TorBoxHealth?, hasKey: Boolean
-    ): HealthState = NuvioCHealthCombine.combine(start, tv, readings, account, hasKey)
 }
 
-/** The merge of one run, pure, for tests. */
+/** [fork] round 67b: something this profile uses besides add-ons. [probe] = address this TV checks; [match] = host or name hints on a status source. */
+data class UsedService(val key: String, val group: ServiceGroup, val name: String, val probe: String?, val match: List<String>)
+
+/** The merge of one run, pure, for tests. One source decides: [reading] (a status source) or, when null, [tv]. */
 object NuvioCHealthCombine {
-    private val TRACKERS = listOf("trakt", "simkl", "mdblist", "nuvio")
-
-    fun isTracker(s: SourceService) = TRACKERS.any { s.name.contains(it, ignoreCase = true) || s.host?.contains(it) == true }
-    fun isTorBox(s: SourceService) = s.name.contains("torbox", ignoreCase = true) && (s.host == null || s.host.endsWith("torbox.app"))
-
     fun combine(
-        start: List<AddonHealth>, tv: Map<String, Triple<TvCheck, Int?, String?>>, readings: List<SourceReading>,
-        account: TorBoxHealth?, hasKey: Boolean
+        start: List<AddonHealth>, used: List<UsedService>, tv: Map<String, Triple<TvCheck, Int?, String?>>,
+        reading: SourceReading?, account: TorBoxHealth?
     ): HealthState {
-        val all = readings.flatMap { r -> r.services.map { r to it } }
-        val torBoxService = all.map { it.second }.filter { isTorBox(it) && !it.name.contains("manager", true) }
-        val torBoxSourceUnwell = torBoxService.any { it.state == SourceState.DOWN || it.state == SourceState.DEGRADED || it.state == SourceState.MAINTENANCE }
-        val torBox = when {
-            account != null -> account.copy(unwell = account.unwell || torBoxSourceUnwell)
-            torBoxSourceUnwell || torBoxService.isNotEmpty() -> TorBoxHealth(reachable = !torBoxSourceUnwell, unwell = torBoxSourceUnwell)
-            else -> null
-        }.takeIf { hasKey || torBoxService.isNotEmpty() }
-        val matched = HashSet<SourceService>()
-        val addons = start.map { a ->
-            val check = tv[a.baseUrl]
-            val t = check?.first ?: a.tv
-            val perSource = readings.mapNotNull { r -> NuvioCHealthRules.matchService(a.host, r.services)?.let { r to it } }
-            perSource.forEach { matched += it.second }
-            val src = NuvioCHealthRules.worst(perSource.map { it.second.state })
-            val srcName = perSource.firstOrNull { it.second.state == src }?.first?.name
-            val reason = when {
-                torBox?.unwell == true && a.viaTorBox && t != TvCheck.OK && t != TvCheck.OFF -> "TorBox is having trouble"
-                else -> check?.third
+        val services = reading?.services.orEmpty()
+        val torBoxTrouble: Boolean
+        val usedHealth = used.map { u ->
+            val (verdict, reason) = if (reading != null) {
+                NuvioCHealthRules.verdictFromSource(matchUsed(u, services)?.state) to null
+            } else if (u.key == "torbox") {
+                when {
+                    account == null -> HealthVerdict.NOT_TRACKED to null
+                    account.reachable -> HealthVerdict.WORKING to null
+                    account.unwell -> HealthVerdict.CANT_REACH to "No answer"
+                    else -> HealthVerdict.BLOCKED to "Key refused"
+                }
+            } else {
+                val c = tv["svc:" + u.key]
+                NuvioCHealthRules.verdictFromTv(c?.first ?: TvCheck.RUNNING) to c?.third
             }
-            a.copy(tv = t, tvLatencyMs = check?.second, tvReason = reason, source = src, sourceName = srcName, verdict = NuvioCHealthRules.verdict(t, src))
+            val sub = if (u.key == "torbox") account?.let { a -> listOfNotNull(a.plan, a.daysLeft?.let { if (it == 1) "1 day left" else "$it days left" }).joinToString(" · ").ifBlank { null } } else null
+            ServiceHealth(u.key, u.group, u.name, sub, verdict, reason)
         }
-        val others = all.map { it.second }.filter { it !in matched && !isTracker(it) && !isTorBox(it) }.distinctBy { it.name to it.host }
-        val problems = others.filter { it.state == SourceState.DOWN || it.state == SourceState.DEGRADED || it.state == SourceState.MAINTENANCE }
+        torBoxTrouble = usedHealth.any { it.key == "torbox" && NuvioCHealthRules.tone(it.verdict).let { t -> t == HealthTone.AMBER || t == HealthTone.RED } }
+        val addons = start.map { a ->
+            if (a.tv == TvCheck.OFF) return@map a.copy(verdict = HealthVerdict.OFF)
+            if (reading != null) {
+                val svc = NuvioCHealthRules.matchService(a.host, services)
+                a.copy(tv = TvCheck.OK, source = svc?.state, sourceName = reading.name, tvReason = if (torBoxTrouble && a.viaTorBox) "TorBox is having trouble" else null,
+                    verdict = NuvioCHealthRules.verdictFromSource(svc?.state))
+            } else {
+                val check = tv[a.baseUrl]
+                val t = check?.first ?: a.tv
+                val reason = if (torBoxTrouble && a.viaTorBox && t != TvCheck.OK) "TorBox is having trouble" else check?.third
+                a.copy(tv = t, tvLatencyMs = check?.second, tvReason = reason, verdict = NuvioCHealthRules.verdictFromTv(t))
+            }
+        }
         return HealthState(
             addons = addons, // card order; the summary sorts problems first with [order]
-            sources = readings,
-            torBox = torBox,
-            trackers = all.map { it.second }.filter { isTracker(it) }.distinctBy { it.name },
-            elsewhere = problems.take(20),
-            elsewhereWorking = others.size - problems.size
+            sources = listOfNotNull(reading),
+            torBox = account,
+            services = usedHealth,
+            sourceName = reading?.name
         )
     }
+
+    /** A used service on a status source: by host first, then by name. */
+    fun matchUsed(u: UsedService, services: List<SourceService>): SourceService? =
+        services.firstOrNull { s -> s.host != null && u.match.any { m -> s.host == m || s.host.endsWith(".$m") } }
+            ?: services.firstOrNull { s -> u.match.any { m -> s.name.contains(m.substringBefore('.'), ignoreCase = true) } || s.name.equals(u.name, ignoreCase = true) }
 
     /** Problems first in the summary. */
     fun order(v: HealthVerdict): Int = when (v) {
         HealthVerdict.DOWN -> 0; HealthVerdict.BLOCKED -> 1; HealthVerdict.RATE_LIMITED -> 2; HealthVerdict.CANT_REACH -> 3
-        HealthVerdict.CHECKING -> 4; HealthVerdict.WORKING_SOURCE_DISAGREES -> 5; HealthVerdict.WORKING -> 6; HealthVerdict.OFF -> 7
+        HealthVerdict.TROUBLE -> 3; HealthVerdict.MAINTENANCE -> 3
+        HealthVerdict.CHECKING -> 4; HealthVerdict.WORKING_SOURCE_DISAGREES -> 5; HealthVerdict.WORKING -> 6
+        HealthVerdict.NOT_TRACKED -> 7; HealthVerdict.OFF -> 8
     }
 }

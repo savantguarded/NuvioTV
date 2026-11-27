@@ -18,7 +18,7 @@ object NuvioCHealthSources {
         NuvioCHealthRules.decodeSources(prefs(context).getString(key(profile), null))
 
     fun save(context: Context, profile: Int, list: List<HealthSourceSetting>) {
-        prefs(context).edit { putString(key(profile), NuvioCHealthRules.encodeSources(list.distinctBy { it.address }.take(NuvioCHealthRules.MAX_SOURCES))) }
+        prefs(context).edit { putString(key(profile), NuvioCHealthRules.encodeSources(NuvioCHealthRules.oneActive(list.distinctBy { it.address }.take(NuvioCHealthRules.MAX_SOURCES)))) } // [fork] round 67b: one on at most
     }
 
     /** The synced form (same string as stored). */
@@ -27,12 +27,12 @@ object NuvioCHealthSources {
     /** From the cloud or the phone page: only valid addresses survive (each is checked again). */
     fun applyEncoded(context: Context, profile: Int, raw: String) = save(context, profile, NuvioCHealthRules.decodeSources(raw))
 
-    /** From the phone page: a plain list of addresses (all on); invalid ones are dropped, existing on / off kept. */
+    /** From the phone page: a plain list of addresses (new ones off); invalid ones are dropped, existing on / off kept. */
     fun applyFromPhone(context: Context, profile: Int, addresses: List<String>) {
         val old = load(context, profile).associateBy { it.address }
         val list = addresses.mapNotNull { (NuvioCHealthRules.checkSourceAddress(it) as? NuvioCHealthRules.Checked.Ok)?.address }
             .distinct().take(NuvioCHealthRules.MAX_SOURCES)
-            .map { HealthSourceSetting(it, old[it]?.enabled ?: true) }
+            .map { HealthSourceSetting(it, old[it]?.enabled ?: false) } // [fork] round 67b: new ones start off; you pick the one on the TV
         save(context, profile, list)
     }
 

@@ -1,13 +1,17 @@
 package com.nuvio.tv.ui.screens.addon
 
-// [fork] Nuvio C round 67 `ADDON_HEALTH`, board 5c: Status sources. Up to 4; each row shows the source's own name,
-// host · services · matches · age, an on / off switch and Remove. The TorBox status page is built in. "Add a status
-// source" opens a field with Test and add, which reads the page once and shows what it found, or why it refused.
+// [fork] Nuvio C round 67 `ADDON_HEALTH`, board 5c; round 67b: Status sources. This TV (built in) plus up to 4 you add;
+// each row is only the name, when it was checked and an on / off switch (Remove on the ones you added). Only one is on at a
+// time: switching one on switches the others off; switching yours off hands back to This TV. "Add a status source" opens
+// a field with Test and add, which reads the page once and shows what it found, or why it refused.
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -71,46 +75,53 @@ fun NuvioCHealthSourcesScreen(viewModel: NuvioCHealthViewModel = hiltViewModel()
     val keyboard = LocalSoftwareKeyboardController.current
     val fieldRequester = remember { FocusRequester() }
     val addRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) { runCatching { addRequester.requestFocus() } }
+    val tvRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { tvRequester.requestFocus() } }
     LaunchedEffect(adding) { if (adding) runCatching { fieldRequester.requestFocus() } }
-    val hosts = remember(state.addons) { state.addons.map { it.host.lowercase() } }
     val now = remember(state.checkedAtMs) { System.currentTimeMillis() }
+    val tvOn = sources.none { it.enabled }
 
-    fun save(list: List<HealthSourceSetting>) { sources = list; checker.saveSources(list) }
+    fun save(list: List<HealthSourceSetting>) {
+        sources = NuvioCHealthRules.oneActive(list)
+        checker.saveSources(sources)
+        viewModel.checkNow() // the newly chosen source decides from the next check
+    }
 
     Column(
-        Modifier.fillMaxSize().background(NuvioTheme.colors.Background).padding(horizontal = 40.dp, vertical = 28.dp).verticalScroll(rememberScrollState()),
+        Modifier.fillMaxSize().background(NuvioTheme.colors.Background).padding(horizontal = 36.dp, vertical = 28.dp).verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(stringResource(R.string.nuvio_c_health_sources), style = MaterialTheme.typography.headlineMedium, color = NuvioTheme.colors.TextPrimary)
-        Text(stringResource(R.string.nuvio_c_health_sources_hint), style = MaterialTheme.typography.bodySmall, color = NuvioTheme.colors.TextSecondary)
+        Text(stringResource(R.string.nuvio_c_health_sources), style = MaterialTheme.typography.headlineMedium, color = NuvioTheme.colors.TextPrimary, modifier = Modifier.padding(bottom = 6.dp))
+
+        // built in: this TV's own checks; on whenever none of yours is
+        NuvioCSourceRow(
+            on = tvOn,
+            title = stringResource(R.string.nuvio_c_health_this_tv),
+            line = if (tvOn) nuvioCCheckedLine(state.checkedAtMs.takeIf { state.sourceName == null }, now) else "Off"
+        ) {
+            NuvioCHealthSwitch(tvOn, Modifier.focusRequester(tvRequester)) { if (!tvOn) save(sources.map { it.copy(enabled = false) }) }
+        }
 
         sources.forEach { src ->
             val reading = state.sources.firstOrNull { it.address == src.address }
-            val matches = reading?.let { r -> hosts.count { h -> NuvioCHealthRules.matchService(h, r.services) != null } }
-            val line = listOfNotNull(
-                NuvioCHealthRules.hostOnly(src.address),
-                reading?.takeIf { it.error == null }?.let { "${it.services.size} services" },
-                matches?.takeIf { reading?.error == null }?.let { if (it == 1) "1 match" else "$it matches" },
-                reading?.error,
-                reading?.let { NuvioCHealthText.ago(it.fetchedAtMs, now) }
-            ).joinToString(" · ")
             NuvioCSourceRow(
-                tone = when { !src.enabled -> HealthTone.GREY; reading == null -> HealthTone.GREY; reading.error != null -> HealthTone.AMBER; else -> HealthTone.GREEN },
+                on = src.enabled,
                 title = reading?.name ?: NuvioCHealthRules.hostOnly(src.address),
-                line = line
+                line = when {
+                    !src.enabled -> "Off"
+                    reading?.error != null -> reading.error
+                    reading != null -> nuvioCCheckedLine(reading.fetchedAtMs, now)
+                    else -> "Checking…"
+                }
             ) {
-                Switch(checked = src.enabled, onCheckedChange = { on -> save(sources.map { if (it.address == src.address) it.copy(enabled = on) else it }) })
+                NuvioCHealthSwitch(src.enabled, Modifier) { save(NuvioCHealthRules.select(sources, src.address, !src.enabled)) }
                 Spacer(Modifier.width(14.dp))
                 NuvioCHealthPill(stringResource(R.string.nuvio_c_health_remove), Modifier) {
                     save(sources.filterNot { it.address == src.address })
-                    runCatching { addRequester.requestFocus() }
+                    runCatching { tvRequester.requestFocus() }
                 }
             }
         }
-
-        // built in: TorBox's own status page, read only when TorBox seems unwell
-        NuvioCSourceRow(HealthTone.GREEN, stringResource(R.string.nuvio_c_health_torbox_page), NuvioCHealthRules.TORBOX_STATUS_HOST + " · " + stringResource(R.string.nuvio_c_health_built_in)) {}
 
         if (sources.size < NuvioCHealthRules.MAX_SOURCES) {
             if (!adding) {
@@ -131,7 +142,7 @@ fun NuvioCHealthSourcesScreen(viewModel: NuvioCHealthViewModel = hiltViewModel()
                             .border(if (fieldFocused) 2.dp else 1.dp, if (fieldFocused) NuvioTheme.colors.FocusRing else NuvioTheme.colors.Border, RoundedCornerShape(12.dp))
                             .padding(horizontal = 14.dp, vertical = 12.dp),
                         decorationBox = { inner ->
-                            if (text.isEmpty()) Text("https://uptime.example.com", style = MaterialTheme.typography.bodyMedium, color = NuvioTheme.colors.TextTertiary)
+                            if (text.isEmpty()) Text("https://", style = MaterialTheme.typography.bodyMedium, color = NuvioTheme.colors.TextTertiary)
                             inner()
                         }
                     )
@@ -143,10 +154,9 @@ fun NuvioCHealthSourcesScreen(viewModel: NuvioCHealthViewModel = hiltViewModel()
                             testing = false
                             result = nuvioCHealthTestLine(r)
                             if (r.ok && r.address != null) {
-                                save(sources + HealthSourceSetting(r.address, true))
+                                save(sources + HealthSourceSetting(r.address, false)) // added off: switch it on to use it
                                 text = ""
                                 adding = false
-                                viewModel.checkNow()
                             }
                         }
                     }
@@ -157,18 +167,51 @@ fun NuvioCHealthSourcesScreen(viewModel: NuvioCHealthViewModel = hiltViewModel()
     }
 }
 
+/** "Checked 2 min ago" or "Not checked yet". Pure, for tests. */
+internal fun nuvioCCheckedLine(at: Long?, now: Long): String = if (at == null) "Not checked yet" else "Checked " + NuvioCHealthText.ago(at, now)
+
 @Composable
-private fun NuvioCSourceRow(tone: HealthTone, title: String, line: String, actions: @Composable () -> Unit) {
+private fun NuvioCSourceRow(on: Boolean, title: String, line: String, actions: @Composable () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().background(NuvioTheme.colors.BackgroundCard, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().background(NuvioTheme.colors.BackgroundCard, RoundedCornerShape(12.dp)).padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        NuvioCHealthDot(tone)
-        Spacer(Modifier.width(12.dp))
+        NuvioCHealthDot(if (on) HealthTone.GREEN else HealthTone.GREY)
+        Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold), color = NuvioTheme.colors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold), color = NuvioTheme.colors.TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(line, style = MaterialTheme.typography.bodySmall, color = NuvioTheme.colors.TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Row(verticalAlignment = Alignment.CenterVertically) { actions() }
+    }
+}
+
+/** [fork] round 67b: an on / off switch you can see focus on: accent ring, focus background, a slight lift, ON / OFF beside it. */
+@OptIn(androidx.tv.material3.ExperimentalTvMaterial3Api::class)
+@Composable
+internal fun NuvioCHealthSwitch(checked: Boolean, modifier: Modifier, onToggle: () -> Unit) {
+    androidx.tv.material3.Surface(
+        onClick = onToggle,
+        modifier = modifier.semantics {
+            role = androidx.compose.ui.semantics.Role.Switch
+            toggleableState = if (checked) androidx.compose.ui.state.ToggleableState.On else androidx.compose.ui.state.ToggleableState.Off
+        },
+        colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent, focusedContainerColor = NuvioTheme.colors.FocusBackground),
+        border = androidx.tv.material3.ClickableSurfaceDefaults.border(focusedBorder = androidx.tv.material3.Border(border = NuvioTheme.focusRing.border(3.dp), shape = RoundedCornerShape(16.dp))),
+        shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(16.dp)),
+        scale = androidx.tv.material3.ClickableSurfaceDefaults.scale(focusedScale = 1.06f)
+    ) {
+        Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(if (checked) "ON" else "OFF", style = MaterialTheme.typography.labelMedium.copy(fontFamily = com.nuvio.tv.ui.theme.NuvioCStatusFontFamily, fontWeight = FontWeight.Bold),
+                color = if (checked) NuvioTheme.colors.TextPrimary else NuvioTheme.colors.TextTertiary)
+            Switch(
+                checked = checked,
+                onCheckedChange = null,
+                colors = androidx.tv.material3.SwitchDefaults.colors(
+                    checkedThumbColor = NuvioTheme.colors.Secondary,
+                    checkedTrackColor = NuvioTheme.colors.Secondary.copy(alpha = 0.3f)
+                )
+            )
+        }
     }
 }

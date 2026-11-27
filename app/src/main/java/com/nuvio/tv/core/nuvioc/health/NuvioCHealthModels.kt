@@ -13,7 +13,24 @@ enum class TvCheck { RUNNING, OK, RATE_LIMITED, BLOCKED, NO_ANSWER, OFF }
 enum class SourceState { UP, DEGRADED, DOWN, MAINTENANCE, UNKNOWN }
 
 /** What an add-on card and the summary show. */
-enum class HealthVerdict { CHECKING, WORKING, WORKING_SOURCE_DISAGREES, CANT_REACH, RATE_LIMITED, BLOCKED, DOWN, OFF }
+enum class HealthVerdict {
+    CHECKING, WORKING, WORKING_SOURCE_DISAGREES, CANT_REACH, RATE_LIMITED, BLOCKED, DOWN, OFF,
+    // [fork] round 67b: a status source alone decides (one source at a time)
+    TROUBLE, MAINTENANCE, NOT_TRACKED
+}
+
+/** [fork] round 67b: the non-add-on things you use, in the summary's second and third columns. */
+enum class ServiceGroup { DEBRID, TRACKING, WEBSITE }
+
+/** [fork] round 67b: one debrid / tracker / sync / website you use. [sub] is never an address or a timing. */
+data class ServiceHealth(
+    val key: String,
+    val group: ServiceGroup,
+    val name: String,
+    val sub: String? = null,
+    val verdict: HealthVerdict = HealthVerdict.CHECKING,
+    val reason: String? = null
+)
 
 /** Dot colour of a verdict. */
 enum class HealthTone { GREEN, AMBER, RED, GREY }
@@ -73,15 +90,15 @@ data class HealthState(
     val addons: List<AddonHealth> = emptyList(),
     val sources: List<SourceReading> = emptyList(),
     val torBox: TorBoxHealth? = null,
-    /** Trakt, Simkl, MDBList, Nuvio sync as found on the sources (only the ones this profile uses). */
-    val trackers: List<SourceService> = emptyList(),
-    /** Problems elsewhere on the sources (down, degraded, maintenance), services you don't use. */
-    val elsewhere: List<SourceService> = emptyList(),
-    val elsewhereWorking: Int = 0
+    /** [fork] round 67b: TorBox, trackers and sync, websites: only the ones this profile uses. */
+    val services: List<ServiceHealth> = emptyList(),
+    /** [fork] round 67b: the status source that decided this run, null = this TV's own checks. */
+    val sourceName: String? = null
 ) {
-    val working: Int get() = addons.count { it.verdict == HealthVerdict.WORKING || it.verdict == HealthVerdict.WORKING_SOURCE_DISAGREES }
-    val problems: Int get() = addons.count { it.verdict == HealthVerdict.CANT_REACH || it.verdict == HealthVerdict.RATE_LIMITED || it.verdict == HealthVerdict.BLOCKED }
-    val down: Int get() = addons.count { it.verdict == HealthVerdict.DOWN }
+    private val verdicts: List<HealthVerdict> get() = addons.map { it.verdict } + services.map { it.verdict }
+    val working: Int get() = verdicts.count { it == HealthVerdict.WORKING || it == HealthVerdict.WORKING_SOURCE_DISAGREES }
+    val problems: Int get() = verdicts.count { NuvioCHealthRules.tone(it) == HealthTone.AMBER }
+    val down: Int get() = verdicts.count { it == HealthVerdict.DOWN }
 }
 
 /** A saved status source: the normalised address and whether it's used. */
@@ -95,9 +112,7 @@ object NuvioCHealthRules {
     const val TIMEOUT_MS = 6_000L
     const val PARALLEL = 3
     const val TORBOX_API_HOST = "api.torbox.app"
-    const val TORBOX_STATUS_HOST = "status.torbox.app"
     const val TORBOX_ME_URL = "https://api.torbox.app/v1/api/user/me"
-    const val TORBOX_STATUS_URL = "https://status.torbox.app/index.json"
 
     /** The verdict table (board 5b). Pure, for tests. */
     fun verdict(tv: TvCheck, source: SourceState?): HealthVerdict = when (tv) {
@@ -111,10 +126,61 @@ object NuvioCHealthRules {
 
     fun tone(v: HealthVerdict): HealthTone = when (v) {
         HealthVerdict.WORKING, HealthVerdict.WORKING_SOURCE_DISAGREES -> HealthTone.GREEN
-        HealthVerdict.CANT_REACH, HealthVerdict.RATE_LIMITED, HealthVerdict.BLOCKED -> HealthTone.AMBER
+        HealthVerdict.CANT_REACH, HealthVerdict.RATE_LIMITED, HealthVerdict.BLOCKED,
+        HealthVerdict.TROUBLE, HealthVerdict.MAINTENANCE -> HealthTone.AMBER
         HealthVerdict.DOWN -> HealthTone.RED
-        HealthVerdict.CHECKING, HealthVerdict.OFF -> HealthTone.GREY
+        HealthVerdict.CHECKING, HealthVerdict.OFF, HealthVerdict.NOT_TRACKED -> HealthTone.GREY
     }
+
+    // ---- [fork] round 67b: one source at a time ----------------------------------------------------------------
+    /** This TV's own check decides alone. Pure, for tests. */
+    fun verdictFromTv(tv: TvCheck): HealthVerdict = when (tv) {
+        TvCheck.RUNNING -> HealthVerdict.CHECKING
+        TvCheck.OFF -> HealthVerdict.OFF
+        TvCheck.OK -> HealthVerdict.WORKING
+        TvCheck.RATE_LIMITED -> HealthVerdict.RATE_LIMITED
+        TvCheck.BLOCKED -> HealthVerdict.BLOCKED
+        TvCheck.NO_ANSWER -> HealthVerdict.CANT_REACH
+    }
+
+    /** A status source decides alone; null = it doesn't watch this one. Pure, for tests. */
+    fun verdictFromSource(state: SourceState?): HealthVerdict = when (state) {
+        null, SourceState.UNKNOWN -> HealthVerdict.NOT_TRACKED
+        SourceState.UP -> HealthVerdict.WORKING
+        SourceState.DEGRADED -> HealthVerdict.TROUBLE
+        SourceState.MAINTENANCE -> HealthVerdict.MAINTENANCE
+        SourceState.DOWN -> HealthVerdict.DOWN
+    }
+
+    /** This TV's check of a website or service (not a manifest): any answer below 500 means it's up. Pure, for tests. */
+    fun tvCheckService(code: Int?): TvCheck = when {
+        code == null -> TvCheck.NO_ANSWER
+        code == 429 -> TvCheck.RATE_LIMITED
+        code < 500 -> TvCheck.OK
+        else -> TvCheck.NO_ANSWER
+    }
+
+    private val HOSTING = linkedMapOf(
+        "elfhosted.com" to "ElfHosted", "baby-beamup.club" to "BeamUp", "beamup.dev" to "BeamUp", "koyeb.app" to "Koyeb",
+        "hf.space" to "Hugging Face", "vercel.app" to "Vercel", "onrender.com" to "Render", "fly.dev" to "Fly.io",
+        "railway.app" to "Railway", "herokuapp.com" to "Heroku"
+    )
+
+    /** The instance an add-on runs on, by name (e.g. ElfHosted), never the address; null when unknown. Pure, for tests. */
+    fun instanceName(host: String?): String? {
+        val h = host?.lowercase() ?: return null
+        return HOSTING.entries.firstOrNull { (d, _) -> h == d || h.endsWith(".$d") }?.value
+    }
+
+    /** At most one status source on: the first one switched on wins. Pure, for tests. */
+    fun oneActive(list: List<HealthSourceSetting>): List<HealthSourceSetting> {
+        val first = list.indexOfFirst { it.enabled }
+        return list.mapIndexed { i, s -> if (s.enabled && i != first) s.copy(enabled = false) else s }
+    }
+
+    /** Switch [address] on (all others off) or off (this TV takes over). Pure, for tests. */
+    fun select(list: List<HealthSourceSetting>, address: String, on: Boolean): List<HealthSourceSetting> =
+        list.map { s -> if (s.address == address) s.copy(enabled = on) else if (on) s.copy(enabled = false) else s }
 
     /** TV check from an HTTP answer. [validManifest] = a 2xx body that parsed as a manifest. Pure, for tests. */
     fun tvCheck(code: Int?, validManifest: Boolean): TvCheck = when {
@@ -243,5 +309,5 @@ object NuvioCHealthRules {
             val on = line.startsWith("1|"); val off = line.startsWith("0|")
             if (!on && !off) return@mapNotNull null
             (checkSourceAddress(line.drop(2)) as? Checked.Ok)?.let { HealthSourceSetting(it.address, on) }
-        }.distinctBy { it.address }.take(MAX_SOURCES)
+        }.distinctBy { it.address }.take(MAX_SOURCES).let { oneActive(it) }
 }
