@@ -355,9 +355,9 @@ jobs:
           sed -i -E 's#isUniversalApk = true#isUniversalApk = false#' app/build.gradle.kts
           # Faster CI builds: reuse unchanged work between runs (build cache, saved by setup-gradle),
           # build modules side by side, and give R8 (the slowest step, ~8 min) more memory.
-          # The runner has 16 GB: 8 GB Gradle (R8 runs here) + 3 GB Kotlin compiler.
-          sed -i -E 's#^org\.gradle\.jvmargs=.*#org.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1024m -XX:+UseParallelGC -Dfile.encoding=UTF-8#' gradle.properties
-          printf '\norg.gradle.caching=true\norg.gradle.parallel=true\nkotlin.daemon.jvmargs=-Xmx3g\n' >> gradle.properties
+          # The runner has 16 GB: 6 GB Gradle (R8 runs here) + 6 GB Kotlin compiler (round 67: 3 GB ran out of memory).
+          sed -i -E 's#^org\.gradle\.jvmargs=.*#org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1024m -XX:+UseParallelGC -Dfile.encoding=UTF-8#' gradle.properties
+          printf '\norg.gradle.caching=true\norg.gradle.parallel=true\nkotlin.daemon.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1024m\n' >> gradle.properties
           echo "Branding diff:"; git --no-pager diff --stat
 
       - name: Apply feature switches
