@@ -148,6 +148,8 @@ class FolderDetailViewModel @Inject constructor(
     private var enrichFocusJob: Job? = null
     private val enrichedItemIds = java.util.Collections.synchronizedSet(mutableSetOf<String>())
     private val backgroundMetaPrefetchedIds = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+    /** [fork] round 67 collection_meta_order: the background add-on meta prefetch per title, reused by the merge. */
+    private val nuvioCMetaPrefetch = java.util.concurrent.ConcurrentHashMap<String, kotlinx.coroutines.Deferred<com.nuvio.tv.core.network.NetworkResult<com.nuvio.tv.domain.model.Meta>>>()
     private val _enrichingItemId = MutableStateFlow<String?>(null)
     val enrichingItemId: StateFlow<String?> = _enrichingItemId.asStateFlow()
     private val _enrichedPreviews = MutableStateFlow<Map<String, MetaPreview>>(emptyMap())
@@ -1319,7 +1321,8 @@ class FolderDetailViewModel @Inject constructor(
 
             // Background-prefetch meta from addons so detail screen opens instantly.
             if (backgroundMetaPrefetchedIds.add(item.id)) {
-                viewModelScope.launch {
+                // [fork] round 67 collection_meta_order: kept as a Deferred so the merge below reuses it (no extra call)
+                nuvioCMetaPrefetch[item.id] = viewModelScope.async {
                     metaRepository.getMetaFromAllAddons(
                         type = item.apiType,
                         id = item.id
@@ -1350,6 +1353,10 @@ class FolderDetailViewModel @Inject constructor(
                 return@launch
             }
 
+            // [fork] round 67 collection_meta_order: Home's order, the add-on meta (the prefetch above) and TMDB at once,
+            // add-on meta applied first and TMDB on top for the fields its settings allow
+            val nuvioCAddonMeta = if (NuvioCFolderMetaOrder.on && externalMetaEnabled) nuvioCMetaPrefetch[item.id] else null
+            var nuvioCAddonApplied = false
             var enrichment: com.nuvio.tv.core.tmdb.TmdbEnrichment? = null
             if (tmdbEnabled) {
                 val tmdbId = runCatching { tmdbService.ensureTmdbId(item.id, item.apiType) }.getOrNull()
@@ -1364,6 +1371,13 @@ class FolderDetailViewModel @Inject constructor(
                 }
             }
 
+            if (nuvioCAddonMeta != null) {
+                val meta = (runCatching { nuvioCAddonMeta.await() }.getOrNull() as? NetworkResult.Success)?.data
+                if (meta != null) {
+                    updateItemInTabs(item.id) { merged -> NuvioCFolderMetaOrder.mergeAddon(merged, meta) }
+                    nuvioCAddonApplied = true
+                }
+            }
             if (enrichment == null && !externalMetaEnabled) {
                 // Mark as failed so the UI can show addon data immediately.
                 if (item.id !in _enrichedPreviews.value) {
@@ -1446,7 +1460,7 @@ class FolderDetailViewModel @Inject constructor(
             val artworkStillMissing = enrichment != null && !tmdbSettings.useArtwork &&
                 item.logo.isNullOrBlank()
             val needsExternalAddon = enrichment == null || artworkStillMissing
-            if (needsExternalAddon && externalMetaEnabled) {
+            if (needsExternalAddon && externalMetaEnabled && !nuvioCAddonApplied) { // [fork] round 67: already applied first
                 val metaResult = metaRepository.getMetaFromAllAddons(item.apiType, item.id, item.sourceAddonBaseUrl)
                     .first { it is NetworkResult.Success || it is NetworkResult.Error }
                 when {
