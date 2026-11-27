@@ -25,4 +25,10 @@ internal object NuvioCHeroRow65 {
     val glyph: Dp get() = if (on) 20.dp else 22.dp
     val vectorGlyph: Dp @Composable get() = if (on) 22.dp else NuvioTheme.spacing.xl
     val gap: Dp @Composable get() = if (on) 8.dp else NuvioTheme.spacing.md
+
+    /** [fork] round 67 PILL_GAP_V67: two or more pills side by side (Roulette result, Library Random pick) sit 14 dp apart; round buttons next to a pill keep [gap]. */
+    val pillGap: Dp @Composable get() = if (com.nuvio.tv.NuvioCFeatures.PILL_GAP_V67) PILL_GAP_67 else gap
 }
+
+/** [fork] round 67: the gap between side-by-side pills (the carousel's Play / Details gap since round 66c). */
+internal val PILL_GAP_67: Dp = 14.dp

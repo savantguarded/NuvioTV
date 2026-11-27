@@ -195,7 +195,7 @@ internal fun NuvioCRandomPickDialog(
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.gap, Alignment.CenterHorizontally) // [fork] round 65
+            horizontalArrangement = Arrangement.spacedBy(com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.pillGap, Alignment.CenterHorizontally) // [fork] round 65, round 67 pill gap
         ) {
             val nuvioCPill = if (com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.on) com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.buttonPadding else ButtonDefaults.ContentPadding
             Button(

@@ -63,6 +63,7 @@ import coil3.imageLoader
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import coil3.request.transformations
 import com.nuvio.tv.ui.theme.NuvioTheme
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -80,7 +81,13 @@ private const val REEL_LAND_STEPS = 5
 /** Spinning posters are drawn at this brightness. */
 private const val REEL_DIM_ALPHA = 0.55f
 /** Tiny decode for the blur: 1/8 of the card (round 66 REEL_V66: 1/16). */
-private val REEL_BLUR_DIVISOR get() = if (com.nuvio.tv.NuvioCFeatures.REEL_V66) 16 else 8
+private val REEL_BLUR_DIVISOR get() = when {
+    com.nuvio.tv.NuvioCFeatures.REEL_BLUR_V67 -> 4 // [fork] round 67: 1/4 decode plus a one-off stack blur (no blocky pixels)
+    com.nuvio.tv.NuvioCFeatures.REEL_V66 -> 16
+    else -> 8
+}
+/** [fork] round 67 REEL_BLUR_V67: stack blur radius on the 1/4 bitmap, run once per poster by Coil off the main thread. */
+internal const val REEL_BLUR_RADIUS_67 = 6
 /** [fork] round 66: spinning posters at ~33% brightness, slightly desaturated. */
 private val REEL_DIM get() = if (com.nuvio.tv.NuvioCFeatures.REEL_V66) 0.67f else REEL_DIM_ALPHA
 private val ReelDesaturate = androidx.compose.ui.graphics.ColorFilter.colorMatrix(androidx.compose.ui.graphics.ColorMatrix().apply { setToSaturation(0.55f) })
@@ -111,9 +118,25 @@ fun nuvioCReelLanding(token: Int, pick: String?, others: List<String?>): NuvioCR
 internal fun nuvioCReelWindow(cycle: List<String?>, from: Int, count: Int): List<String?> =
     if (cycle.isEmpty()) List(count) { null } else List(count) { cycle[(from + it).mod(cycle.size)] }
 
+/** [fork] round 67: memory cache key of a blurred reel poster. Pure, for tests. */
+internal fun nuvioCReelBlurKey(w: Int, h: Int, url: String): String = "nuvioc_reel_blur_${REEL_BLUR_RADIUS_67}_${w}x${h}_$url"
+
 private fun tinyRequest(context: android.content.Context, url: String, w: Int, h: Int): ImageRequest {
     val tw = (w / REEL_BLUR_DIVISOR).coerceAtLeast(8)
     val th = (h / REEL_BLUR_DIVISOR).coerceAtLeast(12)
+    if (com.nuvio.tv.NuvioCFeatures.REEL_BLUR_V67) {
+        // [fork] round 67: blurred once by Coil and kept in the memory cache under its own key; no per-frame work
+        return ImageRequest.Builder(context.applicationContext)
+            .data(url)
+            .size(width = tw, height = th)
+            .transformations(com.nuvio.tv.ui.util.BlurTransformation(REEL_BLUR_RADIUS_67))
+            .memoryCacheKey(nuvioCReelBlurKey(tw, th, url))
+            .diskCacheKey(url)
+            .memoryCachePolicy(CachePolicy.ENABLED)
+            .diskCachePolicy(CachePolicy.ENABLED)
+            .crossfade(false)
+            .build()
+    }
     return ImageRequest.Builder(context.applicationContext)
         .data(url)
         .size(width = tw, height = th)

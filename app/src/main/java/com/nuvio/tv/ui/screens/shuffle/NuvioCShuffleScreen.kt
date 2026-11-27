@@ -316,7 +316,7 @@ private fun ShuffleTile(
         ),
         border = CardDefaults.border(
             border = Border(androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.07f)), shape = shape),
-            focusedBorder = Border(androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)), shape = shape)
+            focusedBorder = Border(if (com.nuvio.tv.NuvioCFeatures.ROULETTE_TILE_ACCENT) NuvioTheme.focusRing.border(2.dp) else androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)), shape = shape) // [fork] round 67: theme accent ring
         ),
         glow = if (com.nuvio.tv.NuvioCFeatures.POSTER_GLOW_EVERYWHERE && !com.nuvio.tv.NuvioCFeatures.ROULETTE_TILE_NO_GLOW) com.nuvio.tv.ui.components.nuvioCPosterCardGlow() else CardDefaults.glow() // [fork] round 53d: Roulette cards glow like posters
     ) {
@@ -651,7 +651,7 @@ private fun ShuffleStage(
                 }
                 // [fork] round 65 hero_row_v65: the details hero's pill size (44 dp, 16 dp sides, 8 dp apart)
                 val nuvioCPill = if (com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.on) com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.buttonPadding else ButtonDefaults.ContentPadding
-                Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.gap)) {
+                Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.pillGap)) { // [fork] round 67: pills 14 dp apart
                     if (pick.episode != null) {
                         // [fork] round 37 roulette_episodes: Play follows the app's playback rule; hold = pick the source
                         Button(
