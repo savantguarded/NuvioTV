@@ -1154,4 +1154,24 @@ object NuvioCFeatures {
     const val TAGS_SECOND_PART = true
     /** Carousel to Continue watching, same look: the Continue watching picture fades with its alpha applied per draw (no full-screen copy per frame), the carousel stays built (hidden) for 20 s after moving into the rows so Up has nothing to rebuild, and the move up starts on the first frame. Off = round 66c behaviour. */
     const val CW_TRANSITION_V66E = true
+
+    // ---- Round 67 ----
+    /** Profile screen shade, Netflix style, in the page colour (#0B0B0D), three dithered layers built once per size: the whole picture dimmed 38%; a left ramp 100% / 97% / 90% / 70% / 42% / 16% / clear at 0 / 14 / 24 / 34 / 44 / 54 / 62% of the screen width; a top fade 40% to clear by 18% of the height and a bottom fade clear at 55%, 50% at 80%, 85% at the bottom. Same 85.4% box; the splash draws the same shade. Off = round 66c shade. */
+    const val PROFILE_SHADE_V67 = true
+    /** Roulette and Library Random pick reel: posters decoded at 1/4 (was 1/16) and stack-blurred once by Coil (radius 6 px on the small bitmap), kept in the memory cache as nuvioc_reel_blur_…; no live RenderEffect, no per-frame work; 33% dim and desaturation kept. Off = round 66 1/16 decode. */
+    const val REEL_BLUR_V67 = true
+    /** Two or more pills side by side get 14 dp between them (Roulette result: Play episode / Open show / Shuffle; Library Random pick: Open / Shuffle), like the carousel since 66c; round buttons next to a pill keep 8 dp. Off = 8 dp. */
+    const val PILL_GAP_V67 = true
+    /** Roulette Movies / Shows cards: focus border in the theme accent (focus ring style) instead of a fixed 85% white; 1.04 lift and no glow kept. Off = white border. */
+    const val ROULETTE_TILE_ACCENT = true
+    /** Featured carousel Play pill text from data already held (Continue watching entry, progress, watched list): Play first episode / Resume S2 E4 · 18 min left / Play next · S2 E5 / Start season 3 / Play new episode / Play / Resume · 42 min left / Watch again. A next episode that isn't out yet keeps Play. One line: the part after " · " drops first when it doesn't fit. Off = round 66c text. */
+    const val FEATURED_PLAY_TEXT_V67 = true
+    /** Quality badges wait for digital: a film whose cinema date is in the last 365 days and that has no digital (TMDB type 4) or disc (type 5) date on or before today in ANY country shows the dim NOT YET ON DIGITAL label and makes no Torrentio or QualiCache call; cached badges for it are ignored until the digital date passes. Checked before the lookup (details: waits within the settle and the Information fetch; carousel: one TMDB release-dates call per recent film, kept 12 h). Series unchanged. Off = the check only runs after Torrentio finds nothing (US dates). */
+    const val QUALITY_DIGITAL_GATE = true
+    /** Details episode cards show their ratings from the start (since round 65 they only loaded when the Series graph opened): loaded behind the opening gate (1.2 s, or at once on scroll) in its own slot after the others, fetched and parsed off the main thread, delivered in a small leaf state that only the episodes row reads (no page state update, the hero doesn't recompose); the rating sits on the length line, so cards keep their height; the graph reuses the result. Off = ratings load when the graph opens. */
+    const val EPISODE_RATINGS_EARLY = true
+    /** Collections (follow Home's layout) get their title info in Home's order: the meta add-on (the collection's own background prefetch, no extra call) and TMDB fetched at the same time, the add-on meta applied first, then TMDB only for the fields the TMDB settings allow (basic info, artwork, details). No switch to other info when the details page opens. Off = TMDB first, the add-on only when TMDB fails. */
+    const val COLLECTION_META_ORDER = true
+    /** Add-ons page Service health: a "Service health" card after Refresh add-ons (summary line, five dots) opening a summary page (Check again, Status sources, counters, three columns); each add-on card ends its second line with dot, state and detail (space held from the first frame). Checks only when the page opens and on Check again: the TV GETs each enabled add-on's own manifest (3 at a time, 6 s), up to 4 status sources you add (IbbyLabs, Gatus, Uptime Kuma, Better Stack, Statuspage, Instatus; same host only; per profile, synced) are read once per run and matched by hostname, and TorBox's account (plan, days left) and status page. Separate locked-down HTTP client, https only, 2 MB cap, no redirects off the host; the TorBox key only ever goes to api.torbox.app; addresses shown as hostnames only. Off = no card, no checks. */
+    const val ADDON_HEALTH = true
 }

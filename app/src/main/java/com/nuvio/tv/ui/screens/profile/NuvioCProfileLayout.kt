@@ -289,6 +289,7 @@ internal fun Modifier.nuvioCProfileBgWhole(): Modifier = this
     .fillMaxHeight()
     .drawWithContent {
         drawContent()
+        if (NuvioCFeatures.PROFILE_SHADE_V67) return@drawWithContent // [fork] round 67: the shade's own left ramp covers the box edge
         val base = NUVIO_C_PROFILE_BG_BASE
         val fadeW = size.width * 0.5f
         drawRect(
@@ -313,6 +314,33 @@ internal fun Modifier.nuvioCProfileBgWhole(): Modifier = this
 @androidx.compose.runtime.Composable
 internal fun NuvioCProfileShade() {
     if (!NuvioCFeatures.PROFILE_BG_TEXT_V2) return
+    if (NuvioCFeatures.PROFILE_SHADE_V67) {
+        // [fork] round 67: Netflix-style shade in three dithered layers, page colour, built once per size
+        val boxStart = if (NuvioCFeatures.PROFILE_BG_WHOLE && nuvioCProfileLeft()) NUVIO_C_PROFILE_BOX_START else 0f
+        val base = NUVIO_C_PROFILE_BG_BASE
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxSize().drawWithCache {
+            val w = size.width; val h = size.height
+            val r = (base.red * 255f).toInt(); val g = (base.green * 255f).toInt(); val b = (base.blue * 255f).toInt()
+            fun shade(a: Float) = android.graphics.Color.argb((a.coerceIn(0f, 1f) * 255f + 0.5f).toInt(), r, g, b)
+            fun paint(stops: List<Pair<Float, Float>>, horizontal: Boolean) = android.graphics.Paint().apply {
+                isDither = true
+                shader = android.graphics.LinearGradient(0f, 0f, if (horizontal) w else 0f, if (horizontal) 0f else h,
+                    stops.map { shade(it.second) }.toIntArray(), stops.map { it.first }.toFloatArray(), android.graphics.Shader.TileMode.CLAMP)
+            }
+            val dim = android.graphics.Paint().apply { color = shade(NUVIO_C_PROFILE_DIM_67) }
+            val left = paint(nuvioCProfileShadeStops67(boxStart), true)
+            val top = paint(nuvioCProfileTopStops67(), false)
+            val bottom = paint(nuvioCProfileBottomStops67(), false)
+            onDrawBehind {
+                drawIntoCanvas { c ->
+                    val n = c.nativeCanvas
+                    n.drawRect(0f, 0f, w, h, dim); n.drawRect(0f, 0f, w, h, left)
+                    n.drawRect(0f, 0f, w, h, top); n.drawRect(0f, 0f, w, h, bottom)
+                }
+            }
+        })
+        return
+    }
     if (NuvioCFeatures.PROFILE_SHADE_V66C) {
         // [fork] round 66c: page colour, S-curve ending at 30% of the width, dithered; the picture past it untouched
         val base = NUVIO_C_PROFILE_BG_BASE
@@ -382,3 +410,49 @@ object NuvioCProfileBgBox { fun Modifier.box(): Modifier = nuvioCProfileBgWhole(
 internal fun nuvioCProfileShadeStops66c(end: Float = 0.30f): List<Pair<Float, Float>> =
     listOf(0f to 0.97f, 0.20f to 0.96f, 0.40f to 0.90f, 0.55f to 0.76f, 0.68f to 0.56f, 0.79f to 0.34f, 0.88f to 0.16f, 0.95f to 0.05f, 1f to 0f)
         .map { (x, a) -> x * end to a } + (1f to 0f)
+
+// ---- [fork] round 67 PROFILE_SHADE_V67 -------------------------------------------------------------------------
+/** Where the background box starts, as a fraction of the screen width (the box is 85.4% wide, right-aligned). */
+internal const val NUVIO_C_PROFILE_BOX_START = 1f - 0.854f
+/** Round 67: whole-picture dim in the page colour. */
+internal const val NUVIO_C_PROFILE_DIM_67 = 0.38f
+
+/** Round 67 left ramp in screen-width fractions: (position, alpha). */
+internal val NUVIO_C_PROFILE_LEFT_67: List<Pair<Float, Float>> =
+    listOf(0f to 1f, 0.14f to 0.97f, 0.24f to 0.90f, 0.34f to 0.70f, 0.44f to 0.42f, 0.54f to 0.16f, 0.62f to 0f)
+
+/** Alpha of the round 67 left ramp at [x] (screen fraction), linear between the stops. Pure, for tests. */
+internal fun nuvioCProfileLeftAlpha67(x: Float): Float {
+    val s = NUVIO_C_PROFILE_LEFT_67
+    if (x <= s.first().first) return s.first().second
+    if (x >= s.last().first) return 0f
+    for (i in 1 until s.size) {
+        val (x1, a1) = s[i]
+        if (x <= x1) { val (x0, a0) = s[i - 1]; return a0 + (a1 - a0) * (x - x0) / (x1 - x0) }
+    }
+    return 0f
+}
+
+/**
+ * Round 67 left ramp as gradient stops in the coordinates of a box starting at [boxStart] of the screen width and
+ * running to the right edge: the screen-space stops mapped into the box, the value at the box's own left edge
+ * first, then a 1.5% feather to full page colour so the box edge never shows. Pure, for tests.
+ */
+internal fun nuvioCProfileShadeStops67(boxStart: Float = 0f): List<Pair<Float, Float>> {
+    val span = 1f - boxStart
+    val out = mutableListOf<Pair<Float, Float>>()
+    if (boxStart > 0f) { out += 0f to 1f; out += 0.015f to nuvioCProfileLeftAlpha67(boxStart + 0.015f * span) }
+    else out += 0f to 1f
+    for ((x, a) in NUVIO_C_PROFILE_LEFT_67) {
+        val bx = (x - boxStart) / span
+        if (bx > out.last().first) out += bx to a
+    }
+    if (out.last().first < 1f) out += 1f to 0f
+    return out
+}
+
+/** Round 67 top fade: 40% at the top, clear by 18% of the height. */
+internal fun nuvioCProfileTopStops67(): List<Pair<Float, Float>> = listOf(0f to 0.40f, 0.18f to 0f, 1f to 0f)
+
+/** Round 67 bottom fade: clear until 55% of the height, 50% at 80%, 85% at the bottom. */
+internal fun nuvioCProfileBottomStops67(): List<Pair<Float, Float>> = listOf(0f to 0f, 0.55f to 0f, 0.80f to 0.50f, 1f to 0.85f)
