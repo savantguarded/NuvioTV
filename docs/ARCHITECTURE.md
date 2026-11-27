@@ -4,7 +4,7 @@ Read this first in every session. It tells you where things are so you open only
 Fork-specific behaviour (what each tweak does, its switch, its screen) lives in `docs/FORK_CHANGES.md`.
 Current state, last build and open issues live in `docs/STATUS.md`.
 
-Last verified against: branch `nuvio-c` round 66e, official base `1.2.0-beta.4` (`77cc0bb5`), 2026-11-26.
+Last verified against: branch `nuvio-c` round 67, official base `1.2.0-beta.4` (`77cc0bb5`), 2026-11-27.
 
 ## 1. What this is
 
@@ -53,7 +53,7 @@ Inside `src/`:
 | `MainActivity.kt` | App start, startup splash / loading, profile gate, key handling, hosts `NuvioNavHost`. 2,900 lines, heavily forked. |
 | `NuvioApplication.kt` | Application class, Hilt entry. |
 | `NuvioCFeatures.kt` | **All fork switches** (`const val X = true/false`), grouped by round. |
-| `ui/navigation/Screen.kt` | Every route (Home, Detail, Stream, Player, Calendar, Shuffle, Taste, Settings…). |
+| `ui/navigation/Screen.kt` | Every route (Home, Detail, Stream, Player, Calendar, Shuffle, Taste, Settings, ServiceHealth / ServiceHealthSources since round 67…). |
 | `ui/navigation/NuvioNavHost.kt` | Route to screen wiring. |
 | `ui/screens/<feature>/` | One folder per screen: `home`, `detail`, `stream`, `player`, `calendar`, `cast`, `library`, `profile`, `search`, `settings`, `collection`, `shuffle` (Roulette), `taste`, `ambient`, `party`, `account`, `addon`, `plugin`, `tmdb`. |
 | `ui/components/` | Shared composables (cards, hero carousel, sidebar, trailer player, badges). Fork ones start `NuvioC`. |
@@ -155,14 +155,16 @@ Pinned base (optional): `-f release=<official tag>` builds on that tag instead o
 | Card sizes, posters | `ui/components/NuvioCCardSize.kt`, `ContentCard.kt`, `PosterCardDefaults.kt` |
 | Details page | `ui/screens/detail/MetaDetailsScreen.kt`, `HeroSection.kt`, `NuvioCDetail*.kt` (opening placeholder / fade: `NuvioCDetailOpen.kt`) |
 | Series ratings graph (layer over details) | `ui/screens/detail/NuvioCSeriesGraph.kt`, hero button in `HeroSection.kt`, data `data/repository/ImdbEpisodeRatingsRepository.kt`, Mine in `data/nuvioc/NuvioCRatingService.kt` |
-| Details quality badges, editions | `data/quality/` (parser incl. editions, plan, cache, Torrentio / QualiCache, `NuvioCEditionBlocklist.kt`), `ui/screens/detail/NuvioCQualityLine.kt`, logos `res/drawable/nuvio_c_logo_*.xml` (OSD reuses them) |
+| Add-ons page Service health (round 67) | `core/nuvioc/health/` (rules, own HTTP client, parsers, checker, per-profile sources), `ui/screens/addon/NuvioCHealth*.kt`, hooks in `AddonManagerScreen.kt`; phone field in `core/server/AddonWebPage.kt` + `AddonConfigChangeSanitizer.kt` |
+| Details quality badges, editions | `data/quality/` (parser incl. editions, plan, cache, Torrentio / QualiCache, `NuvioCEditionBlocklist.kt`), `ui/screens/detail/NuvioCQualityLine.kt`, digital gate `data/quality/NuvioCDigitalGate.kt` (round 67), logos `res/drawable/nuvio_c_logo_*.xml` (OSD reuses them) |
 | Background trailers | `ui/components/BackgroundTrailerLayer.kt`, `NuvioCTrailer*.kt`, `core/player/BackgroundTrailerController.kt`, `data/trailer/` |
 | Ratings dialog / sync to trackers | `data/nuvioc/NuvioCRatingService.kt`, `core/tracking/TrackingRatings.kt` |
 | Calendar / Upcoming row | `core/calendar/`, `ui/screens/calendar/`, `ui/screens/home/HomeComingUp.kt` |
 | Cast page / filmography | `ui/screens/cast/`, `core/tmdb/NuvioCFilmography.kt` |
+| Collections (folder pages, title info order) | `ui/screens/collection/FolderDetailViewModel.kt` (`onItemFocused`), `NuvioCFolderMetaOrder.kt` (round 67) |
 | Roulette | `ui/screens/shuffle/`, `data/nuvioc/NuvioCShuffle*.kt`, `NuvioCRoulette*.kt` |
 | Taste page | `ui/screens/taste/`, `data/nuvioc/NuvioCTaste*.kt`; card pages `NuvioCTastePages65.kt` + `data/nuvioc/NuvioCTasteCards.kt` |
-| Profile screen | `ui/screens/profile/` (`NuvioCProfile*.kt`), `ui/components/NuvioCProfileBg.kt` |
+| Profile screen | `ui/screens/profile/` (`NuvioCProfile*.kt`; shade stops in `NuvioCProfileLayout.kt`), `ui/components/NuvioCProfileBg.kt` |
 | Details opening speed (traces) | `ui/screens/detail/NuvioCDetailOpen.kt`, `MetaDetailsViewModel.kt` (`nuvioCDeferGate`), `data/mdblist/MdbListUserRatings.kt` (index cache) |
 | Startup / splash / jank | `MainActivity.kt`, `core/nuvioc/NuvioCStartup*.kt`, `ui/components/StartupSplashScreen.kt`, `NuvioCOpening.kt`, `core/NuvioCPerf.kt` |
 | Sidebar | `ui/components/SidebarNavigation.kt`, `NuvioCSidebarSettle.kt`, `src/ModernSidebarBlurPanel.kt` |

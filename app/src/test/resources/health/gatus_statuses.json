@@ -1,0 +1,86 @@
+[
+ {
+  "name": "blog-article-43",
+  "group": "core",
+  "key": "core_blog-article-43",
+  "results": [
+   {
+    "status": 200,
+    "hostname": "blog.default.svc.cluster.local",
+    "duration": 965355,
+    "conditionResults": [
+     {
+      "condition": "[STATUS] == 200",
+      "success": true
+     },
+     {
+      "condition": "[BODY].id == 43",
+      "success": true
+     },
+     {
+      "condition": "[BODY].title == Writing a Simple Reverse Proxy in Go",
+      "success": true
+     },
+     {
+      "condition": "[BODY].creationDate == 2020-04-18",
+      "success": true
+     },
+     {
+      "condition": "len([BODY].tags) == 3",
+      "success": true
+     }
+    ],
+    "success": true,
+    "timestamp": "2026-11-27T17:15:01.539812431Z"
+   }
+  ]
+ },
+ {
+  "name": "blog-external",
+  "group": "core",
+  "key": "core_blog-external",
+  "results": [
+   {
+    "status": 200,
+    "hostname": "twin.sh",
+    "duration": 25514970,
+    "conditionResults": [
+     {
+      "condition": "[STATUS] == 200",
+      "success": true
+     },
+     {
+      "condition": "[BODY].status == UP",
+      "success": true
+     },
+     {
+      "condition": "[CERTIFICATE_EXPIRATION] > 72h",
+      "success": true
+     }
+    ],
+    "success": true,
+    "timestamp": "2026-11-27T17:17:02.419779849Z"
+   }
+  ]
+ },
+ {
+  "name": "blog-home",
+  "group": "core",
+  "key": "core_blog-home",
+  "results": [
+   {
+    "status": 200,
+    "hostname": "blog.default.svc.cluster.local",
+    "duration": 7411508,
+    "conditionResults": [
+     {
+      "condition": "[STATUS] == 200",
+      "success": true
+     }
+    ],
+    "success": true,
+    "timestamp": "2026-11-27T17:15:02.479821758Z"
+   }
+  ]
+ }
+]

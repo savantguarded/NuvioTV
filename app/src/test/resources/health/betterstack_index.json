@@ -1,0 +1,270 @@
+{
+ "data": {
+  "id": "214994",
+  "type": "status_page",
+  "attributes": {
+   "company_name": "TorBox",
+   "company_url": "https://torbox.app",
+   "aggregate_state": "operational"
+  }
+ },
+ "included": [
+  {
+   "id": "8563667",
+   "type": "status_page_resource",
+   "attributes": {
+    "status_page_section_id": 262947,
+    "resource_id": 3208974,
+    "resource_type": "Monitor",
+    "public_name": "API",
+    "explanation": "",
+    "position": 0,
+    "availability": 0.99965,
+    "status": "operational",
+    "status_not_updated_since": null,
+    "status_history": [
+     {
+      "day": "2026-11-26",
+      "status": "operational",
+      "downtime_duration": 0,
+      "maintenance_duration": 0
+     },
+     {
+      "day": "2026-11-27",
+      "status": "operational",
+      "downtime_duration": 0,
+      "maintenance_duration": 0
+     }
+    ]
+   }
+  },
+  {
+   "id": "8563668",
+   "type": "status_page_resource",
+   "attributes": {
+    "status_page_section_id": 262947,
+    "resource_id": 3208973,
+    "resource_type": "Monitor",
+    "public_name": "Database",
+    "explanation": "",
+    "position": 1,
+    "availability": 0.999674,
+    "status": "operational",
+    "status_not_updated_since": null,
+    "status_history": [
+     {
+      "day": "2026-11-26",
+      "status": "operational",
+      "downtime_duration": 0,
+      "maintenance_duration": 0
+     },
+     {
+      "day": "2026-11-27",
+      "status": "operational",
+      "downtime_duration": 0,
+      "maintenance_duration": 0
+     }
+    ]
+   }
+  },
+  {
+   "id": "8563670",
+   "type": "status_page_resource",
+   "attributes": {
+    "status_page_section_id": 262947,
+    "resource_id": 3209009,
+    "resource_type": "Monitor",
+    "public_name": "Webhook API",
+    "explanation": "",
+    "position": 2,
+    "availability": 0.999682,
+    "status": "operational",
+    "status_not_updated_since": null,
+    "status_history": [
+     {
+      "day": "2026-11-26",
+      "status": "operational",
+      "downtime_duration": 0,
+      "maintenance_duration": 0
+     },
+     {
+      "day": "2026-11-27",
+      "status": "operational",
+      "downtime_duration": 0,
+      "maintenance_duration": 0
+     }
+    ]
+   }
+  },
+  {
+   "id": "8563669",
+   "type": "status_page_resource",
+   "attributes": {
+    "status_page_section_id": 262947,
+    "resource_id": 3208907,
+    "resource_type": "Monitor",
+    "public_name": "Website",
+    "explanation": "",
+    "position": 3,
+    "availability": 0.999998,
+    "status": "operational",
+    "status_not_updated_since": null,
+    "status_history": [
+     {
+      "day": "2026-11-26",
+      "status": "operational",
+      "downtime_duration": 0,
+      "maintenance_duration": 0
+     },
+     {
+      "day": "2026-11-27",
+      "status": "operational",
+      "downtime_duration": 0,
+      "maintenance_duration": 0
+     }
+    ]
+   }
+  },
+  {
+   "id": "1131699",
+   "type": "status_report",
+   "attributes": {
+    "title": "Update Services Maintenance",
+    "report_type": "maintenance",
+    "starts_at": "2026-11-23T07:00:00.000Z",
+    "ends_at": "2026-11-23T10:00:00.000Z",
+    "affected_resources": [
+     {
+      "status_page_resource_id": "8563667",
+      "status": "maintenance"
+     },
+     {
+      "status_page_resource_id": "8563668",
+      "status": "maintenance"
+     },
+     {
+      "status_page_resource_id": "8719526",
+      "status": "maintenance"
+     },
+     {
+      "status_page_resource_id": "8719527",
+      "status": "maintenance"
+     },
+     {
+      "status_page_resource_id": "8719529",
+      "status": "maintenance"
+     },
+     {
+      "status_page_resource_id": "8719530",
+      "status": "maintenance"
+     },
+     {
+      "status_page_resource_id": "8719532",
+      "status": "maintenance"
+     },
+     {
+      "status_page_resource_id": "8719533",
+      "status": "maintenance"
+     },
+     {
+      "status_page_resource_id": "8719534",
+      "status": "maintenance"
+     },
+     {
+      "status_page_resource_id": "8719535",
+      "status": "maintenance"
+     },
+     {
+      "status_page_resource_id": "8719536",
+      "status": "maintenance"
+     },
+     {
+      "status_page_resource_id": "8719538",
+      "status": "maintenance"
+     },
+     {
+      "status_page_resource_id": "8719539",
+      "status": "maintenance"
+     },
+     {
+      "status_page_resource_id": "8719540",
+      "status": "maintenance"
+     },
+     {
+      "status_page_resource_id": "8719543",
+      "status": "maintenance"
+     },
+     {
+      "status_page_resource_id": "8719544",
+      "status": "maintenance"
+     },
+     {
+      "status_page_resource_id": "8859048",
+      "status": "maintenance"
+     },
+     {
+      "status_page_resource_id": "8859049",
+      "status": "maintenance"
+     },
+     {
+      "status_page_resource_id": "8859061",
+      "status": "maintenance"
+     },
+     {
+      "status_page_resource_id": "9032459",
+      "status": "maintenance"
+     }
+    ],
+    "aggregate_state": "resolved"
+   },
+   "relationships": {
+    "status_updates": {
+     "data": [
+      {
+       "id": "6136402",
+       "type": "status_update"
+      },
+      {
+       "id": "6125530",
+       "type": "status_update"
+      },
+      {
+       "id": "6135811",
+       "type": "status_update"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "1129254",
+   "type": "status_report",
+   "attributes": {
+    "title": "Emergency CDN patching scheduled",
+    "report_type": "maintenance",
+    "starts_at": "2026-11-18T16:30:00.000Z",
+    "ends_at": "2026-11-18T18:07:10.722Z",
+    "affected_resources": [],
+    "aggregate_state": "resolved"
+   },
+   "relationships": {
+    "status_updates": {
+     "data": [
+      {
+       "id": "6111917",
+       "type": "status_update"
+      },
+      {
+       "id": "6111915",
+       "type": "status_update"
+      },
+      {
+       "id": "6111383",
+       "type": "status_update"
+      }
+     ]
+    }
+   }
+  }
+ ]
+}
