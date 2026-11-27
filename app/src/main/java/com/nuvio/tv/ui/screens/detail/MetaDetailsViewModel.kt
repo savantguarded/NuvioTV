@@ -58,6 +58,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.coroutineScope
@@ -1173,6 +1174,7 @@ class MetaDetailsViewModel @Inject constructor(
         if (!isServerItem) {
             // [fork] round 65 series_graph: episode ratings load when the graph opens, not during the details opening
             if (!com.nuvio.tv.NuvioCFeatures.SERIES_GRAPH) loadEpisodeRatingsAsync(enriched) else nuvioCGraphMeta = enriched
+            if (com.nuvio.tv.NuvioCFeatures.SERIES_GRAPH && com.nuvio.tv.NuvioCFeatures.EPISODE_RATINGS_EARLY) nuvioCLoadEarlyRatings(enriched) // [fork] round 67
             viewModelScope.launch { loadMDBListRatings(enriched) }
         }
 
@@ -1596,7 +1598,53 @@ class MetaDetailsViewModel @Inject constructor(
         val meta = nuvioCGraphMeta ?: _uiState.value.meta ?: return
         if (nuvioCGraphLoadedFor == meta.id) return
         nuvioCGraphLoadedFor = meta.id
+        // [fork] round 67: the episode cards already loaded them; the graph (a covering layer) takes that result as is
+        val early = _nuvioCEarlyRatings.value?.takeIf { it.first == meta.id && com.nuvio.tv.NuvioCFeatures.EPISODE_RATINGS_EARLY }
+        if (early != null) {
+            _uiState.update { st -> if (st.meta != null && st.meta.id != meta.id) st else st.copy(episodeImdbRatings = early.second, isEpisodeRatingsLoading = false, episodeRatingsError = null) }
+            return
+        }
         loadEpisodeRatingsAsync(meta, nuvioCNoGate = true)
+    }
+
+    // ---- [fork] round 67 EPISODE_RATINGS_EARLY ----
+    // Episode card ratings from the start, without touching the page state: a small leaf state that only the
+    // episodes row reads (like the quality line), so the hero never recomposes for it.
+    private val _nuvioCEarlyRatings = MutableStateFlow<Pair<String, Map<Pair<Int, Int>, Double>>?>(null)
+    /** (metaId, ratings): the episodes row ignores a value for another title. */
+    val nuvioCEarlyEpisodeRatings: StateFlow<Pair<String, Map<Pair<Int, Int>, Double>>?> = _nuvioCEarlyRatings.asStateFlow()
+    private var nuvioCEarlyJob: Job? = null
+
+    private fun nuvioCLoadEarlyRatings(meta: Meta) {
+        val isSeries = meta.type == ContentType.SERIES || meta.type == ContentType.TV || meta.apiType in listOf("series", "tv")
+        nuvioCEarlyJob?.cancel()
+        if (_nuvioCEarlyRatings.value?.first != meta.id) _nuvioCEarlyRatings.value = null
+        if (!isSeries) return
+        nuvioCEarlyJob = viewModelScope.launch {
+            nuvioCDeferGate(5) // after the other held-back loads, 200 ms after the last of them
+            if (!_uiState.value.detailImdbRatingsVisibility.showEpisodeRatings) return@launch // cards show none anyway
+            val ratings = withContext(Dispatchers.Default) {
+                val addon = meta.videos.mapNotNull { v ->
+                    val se = v.season ?: return@mapNotNull null
+                    val ep = v.episode ?: return@mapNotNull null
+                    (se to ep) to (v.rating ?: return@mapNotNull null)
+                }.toMap()
+                val fetched: Map<Pair<Int, Int>, Double> = runCatching<Map<Pair<Int, Int>, Double>> {
+                    val type = resolveTmdbContentType(meta)
+                    if (type !in listOf(ContentType.SERIES, ContentType.TV)) return@runCatching emptyMap<Pair<Int, Int>, Double>()
+                    val tmdbId = (tmdbService.ensureTmdbId(meta.id, type.toApiString(), fallbackImdbId = meta.imdbId)
+                        ?: tmdbService.ensureTmdbId(itemId, itemType, fallbackImdbId = meta.imdbId))?.toIntOrNull()
+                    val imdbId = extractImdbId(meta.id) ?: extractImdbId(itemId) ?: meta.imdbId
+                    if (tmdbId == null && imdbId == null) emptyMap<Pair<Int, Int>, Double>()
+                    else withContext(Dispatchers.IO) {
+                        imdbEpisodeRatingsRepository.getEpisodeRatings(imdbId = imdbId, tmdbId = tmdbId,
+                            addonEpisodes = meta.videos.map { AddonEpisodeAirDate(it.season, it.episode, it.released) })
+                    }
+                }.getOrElse { e -> if (e is CancellationException) throw e; emptyMap<Pair<Int, Int>, Double>() }
+                addon + fetched
+            }
+            if (ratings.isNotEmpty()) _nuvioCEarlyRatings.value = meta.id to ratings
+        }
     }
 
     /** Your own episode ratings for this show (Trakt, and those sent from this TV), per profile. Empty = Mine hidden. */

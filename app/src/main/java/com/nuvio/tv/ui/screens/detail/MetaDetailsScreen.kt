@@ -42,6 +42,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -938,6 +939,7 @@ fun MetaDetailsScreen(
                     nuvioCStageRows = nuvioCStageRows, // [fork] round 61
                     nuvioCLoadGraph = viewModel::nuvioCLoadGraphRatings, // [fork] round 65
                     nuvioCMyEpisodeScores = viewModel::nuvioCMyEpisodeScores, // [fork] round 65
+                    nuvioCEarlyEpisodeRatings = if (com.nuvio.tv.NuvioCFeatures.EPISODE_RATINGS_EARLY) viewModel.nuvioCEarlyEpisodeRatings else null, // [fork] round 67
                     nuvioCOnScrolled = { viewModel.nuvioCOpenDeferGate() }, // [fork] round 61 detail_defer_loads
                     drawBackground = playOnLoad && !playOnLoadReturnContentRevealed,
                     heroBackdropUrl = heroBackdropUrl,
@@ -1312,6 +1314,7 @@ private fun MetaDetailsContent(
     nuvioCStageRows: Boolean = false, // [fork] round 61 detail_open_smooth
     nuvioCLoadGraph: () -> Unit = {}, // [fork] round 65 series_graph: episode ratings load when the graph opens
     nuvioCMyEpisodeScores: suspend () -> Map<Pair<Int, Int>, Int> = { emptyMap() }, // [fork] round 65 series_graph: Mine
+    nuvioCEarlyEpisodeRatings: kotlinx.coroutines.flow.StateFlow<Pair<String, Map<Pair<Int, Int>, Double>>?>? = null, // [fork] round 67 episode_ratings_early: leaf state, read only by the episodes row
     nuvioCOnScrolled: () -> Unit = {}, // [fork] round 61 detail_defer_loads
     drawBackground: Boolean = false,
     heroBackdropUrl: String? = null,
@@ -2879,12 +2882,17 @@ private fun MetaDetailsContent(
                     } else {
                         null
                     }
+                    // [fork] round 67 episode_ratings_early: the early ratings are read here only, so the hero never recomposes
+                    val nuvioCEarly = nuvioCEarlyEpisodeRatings?.let { flow -> val v by flow.collectAsState(); v }?.takeIf { it.first == meta.id }?.second
+                    val nuvioCRowRatings = if (nuvioCEarly != null && episodeImdbRatings.isEmpty()) remember(nuvioCEarly, detailImdbRatingsVisibility, episodeProgressMap, watchedEpisodes) {
+                        nuvioCEarly.filterKeys { key -> detailImdbRatingsVisibility.showEpisodeRating(episodeProgressMap[key]?.isCompleted() == true || watchedEpisodes.contains(key)) }
+                    } else visibleEpisodeImdbRatings
                     Box(modifier = Modifier.bringIntoViewResponder(episodeRowStayVerticalResponder)) {
                         if (NuvioCDetailSmooth.enabled) NuvioCEpisodeEntry(nuvioCEpisodeEntry, candidates = { nuvioCEntryCandidates() }) { nuvioCResolveEpisode() } // [fork]
                         EpisodesRow(
                             episodes = episodesForSeason,
                             episodeProgressMap = episodeProgressMap,
-                            episodeRatings = visibleEpisodeImdbRatings,
+                            episodeRatings = nuvioCRowRatings,
                             watchedEpisodes = watchedEpisodes,
                             rewatchedEpisodes = rewatchEpisodes,
                             episodeWatchedPendingKeys = episodeWatchedPendingKeys,
