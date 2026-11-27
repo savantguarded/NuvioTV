@@ -13,4 +13,15 @@
     <string name="nuvio_c_featured_new">New</string>
     <string name="nuvio_c_featured_new_season">New season</string>
     <string name="nuvio_c_featured_previous">Previous title</string>
+    <!-- [fork] round 67 FEATURED_PLAY_TEXT_V67 -->
+    <string name="nuvio_c_featured_play_first_episode">Play first episode</string>
+    <string name="nuvio_c_featured_play_next">Play next</string>
+    <string name="nuvio_c_featured_se">S%1$d E%2$d</string>
+    <string name="nuvio_c_featured_start_season">Start season %1$d</string>
+    <string name="nuvio_c_featured_play_new_episode">Play new episode</string>
+    <string name="nuvio_c_featured_watch_again">Watch again</string>
+    <string name="nuvio_c_featured_left">%1$s left</string>
+    <string name="nuvio_c_featured_min">%1$d min</string>
+    <string name="nuvio_c_featured_hr">%1$d hr</string>
+    <string name="nuvio_c_featured_hr_min">%1$d hr %2$d min</string>
 </resources>

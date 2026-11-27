@@ -194,6 +194,46 @@ internal object NuvioCFeaturedRules {
         is ContinueWatchingItem.NextUp -> Label(false, cw.info.season, cw.info.episode)
     }
 
+    // ---- [fork] round 67 FEATURED_PLAY_TEXT_V67: what the Play pill says, from data already held ----
+    enum class PlayKind67 { PLAY, PLAY_FIRST_EPISODE, RESUME_EPISODE, PLAY_NEXT, START_SEASON, PLAY_NEW_EPISODE, RESUME_FILM, WATCH_AGAIN }
+
+    /** The Play pill's case: [minutesLeft] only for the Resume cases, null when unknown or under a minute. */
+    data class PlayText67(val kind: PlayKind67, val season: Int? = null, val episode: Int? = null, val minutesLeft: Int? = null)
+
+    /** Whole minutes left (rounded up), null when the length is unknown or nothing is left. Pure, for tests. */
+    fun minutesLeft67(positionMs: Long, durationMs: Long): Int? {
+        if (durationMs <= 0L || positionMs < 0L || positionMs >= durationMs) return null
+        val left = durationMs - positionMs
+        return ((left + 59_999L) / 60_000L).toInt().takeIf { it >= 1 }
+    }
+
+    /**
+     * Round 67 Play pill case. Only Continue watching data and the watched list: no new lookups. A next episode that
+     * isn't out yet keeps a plain Play. Pure, for tests.
+     */
+    fun playText67(cw: ContinueWatchingItem?, isShow: Boolean, filmWatched: Boolean): PlayText67 = when (cw) {
+        null -> when {
+            isShow -> PlayText67(PlayKind67.PLAY_FIRST_EPISODE)
+            filmWatched -> PlayText67(PlayKind67.WATCH_AGAIN)
+            else -> PlayText67(PlayKind67.PLAY)
+        }
+        is ContinueWatchingItem.InProgress -> {
+            val p = cw.progress
+            val left = minutesLeft67(p.position, p.duration)
+            if (p.season != null && p.episode != null) PlayText67(PlayKind67.RESUME_EPISODE, p.season, p.episode, left)
+            else PlayText67(PlayKind67.RESUME_FILM, minutesLeft = left)
+        }
+        is ContinueWatchingItem.NextUp -> {
+            val i = cw.info
+            when {
+                !i.hasAired -> PlayText67(PlayKind67.PLAY)
+                i.isNewSeasonRelease || (i.episode == 1 && i.season > 1) -> PlayText67(PlayKind67.START_SEASON, i.season, i.episode)
+                i.isReleaseAlert -> PlayText67(PlayKind67.PLAY_NEW_EPISODE, i.season, i.episode)
+                else -> PlayText67(PlayKind67.PLAY_NEXT, i.season, i.episode)
+            }
+        }
+    }
+
     fun year(releaseInfo: String?): String? = releaseInfo?.let { YEAR.find(it)?.value }
 
     fun nextIndex(index: Int, count: Int): Int = if (count <= 0) 0 else (index + 1) % count
@@ -209,8 +249,15 @@ class NuvioCHomeFeaturedViewModel @Inject constructor(
     private val mdbListRepository: MDBListRepository,
     private val taglineSources: Set<@JvmSuppressWildcards NuvioCFeaturedTagline>,
     private val qualityRepo: com.nuvio.tv.data.quality.TitleQualityRepository, // [fork] round 66b
-    private val qualityTmdb: com.nuvio.tv.core.tmdb.TmdbService
+    private val qualityTmdb: com.nuvio.tv.core.tmdb.TmdbService,
+    private val watchProgress: com.nuvio.tv.domain.repository.WatchProgressRepository, // [fork] round 67
+    private val digitalDates: com.nuvio.tv.data.quality.NuvioCDigitalDatesSource // [fork] round 67 quality_digital_gate
 ) : ViewModel() {
+
+    // ---- [fork] round 67 featured_play_text_v67: watched films (Nuvio or the active tracker), for "Watch again" ----
+    val watchedMovieIds: StateFlow<Set<String>> =
+        (if (com.nuvio.tv.NuvioCFeatures.FEATURED_PLAY_TEXT_V67) watchProgress.observeWatchedMovieIds() else kotlinx.coroutines.flow.flowOf(emptySet()))
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
 
     // ---- [fork] round 66b featured_v66b: quality badges for every carousel title ----
     private val _quality = MutableStateFlow<Map<String, List<String>>>(emptyMap())
@@ -232,7 +279,8 @@ class NuvioCHomeFeaturedViewModel @Inject constructor(
         val fresh = items.filter { qualityAsked.add(it.id) }
         if (fresh.isEmpty()) return
         // what the cache already knows shows at once
-        val cached = fresh.mapNotNull { item -> qualityRepo.cache.peekMetaStale(item.id)?.quality?.labels?.takeIf { it.isNotEmpty() }?.let { item.id to it } }
+        val cached = fresh.filterNot { nuvioCGateUnknown(it) } // [fork] round 67: a recent film waits for the gate
+            .mapNotNull { item -> qualityRepo.cache.peekMetaStale(item.id)?.quality?.labels?.takeIf { it.isNotEmpty() }?.let { item.id to it } }
         fresh.forEach { item -> keepEditions(item.id, qualityRepo.cache.peekMetaStale(item.id)?.quality) }
         if (cached.isNotEmpty()) _quality.update { it + cached }
         viewModelScope.launch {
@@ -243,9 +291,31 @@ class NuvioCHomeFeaturedViewModel @Inject constructor(
         }
     }
 
+    /** [fork] round 67: a film that may be gated and whose dates aren't known yet (no cached badges shown for it). */
+    private fun nuvioCGateUnknown(item: MetaPreview): Boolean {
+        if (!com.nuvio.tv.NuvioCFeatures.QUALITY_DIGITAL_GATE) return false
+        val isSeries = item.apiType.equals("series", true) || item.apiType.equals("tv", true)
+        if (!com.nuvio.tv.data.quality.NuvioCDigitalGate.mayBeGated(isSeries, _infos.value[item.id]?.releaseDate ?: item.releaseInfo, java.time.LocalDate.now())) return false
+        return nuvioCKnownDates(item.id) == null
+    }
+
+    private fun nuvioCKnownDates(id: String): com.nuvio.tv.data.quality.NuvioCDigitalDates? =
+        com.nuvio.tv.ui.screens.detail.NuvioCDetailInfoStore.cached(id)?.takeIf { it.theatricalDate != null || it.anyHomeReleaseDate != null }
+            ?.let { com.nuvio.tv.data.quality.NuvioCDigitalDates(it.theatricalDate, it.anyHomeReleaseDate) }
+            ?: digitalDates.peek(id)
+
     private suspend fun qualityOne(item: MetaPreview) {
         val info = _infos.value[item.id] ?: taglineSource?.let { src -> runCatching { src.infoFor(item) }.getOrNull() }
         val isSeries = item.apiType.equals("series", true) || item.apiType.equals("tv", true)
+        // [fork] round 67 QUALITY_DIGITAL_GATE: same rule as the details page, before any cache or lookup
+        if (com.nuvio.tv.NuvioCFeatures.QUALITY_DIGITAL_GATE &&
+            com.nuvio.tv.data.quality.NuvioCDigitalGate.mayBeGated(isSeries, info?.releaseDate ?: item.releaseInfo, java.time.LocalDate.now())) {
+            val dates = nuvioCKnownDates(item.id) ?: digitalDates.datesFor(item.id, item.imdbId)
+            if (dates != null && com.nuvio.tv.data.quality.NuvioCDigitalGate.gated(isSeries, dates.theatrical ?: info?.releaseDate, dates.anyHomeRelease, java.time.LocalDate.now())) {
+                _quality.update { it - item.id }
+                return
+            }
+        }
         val t = com.nuvio.tv.data.quality.QualityTitle(
             id = item.id,
             imdbId = item.imdbId,
@@ -602,6 +672,7 @@ private fun NuvioCFeaturedHome(
     val infos by viewModel.infos.collectAsStateWithLifecycle()
     val nuvioCQuality by viewModel.quality.collectAsStateWithLifecycle() // [fork] round 66b
     val nuvioCEditions by viewModel.editions.collectAsStateWithLifecycle() // [fork] round 66e
+    val nuvioCWatchedFilms by viewModel.watchedMovieIds.collectAsStateWithLifecycle() // [fork] round 67
     LaunchedEffect(items) { if (items.isNotEmpty()) viewModel.prefetchQuality(items) }
 
     val atRest0 by remember { derivedStateOf { progress.value == 0f } }
@@ -791,6 +862,7 @@ private fun NuvioCFeaturedHome(
                     index = nuvioCShownIndex.coerceIn(0, items.size - 1),
                     cw = activeCw,
                     infos = infos,
+                    watchedFilms = nuvioCWatchedFilms, // [fork] round 67
                     focusable = shown || sliding,
                     playRequester = playRequester,
                     detailsRequester = detailsRequester,
@@ -1734,6 +1806,7 @@ private fun NuvioCFeaturedSlideV66(
     index: Int,
     cw: ContinueWatchingItem?,
     infos: Map<String, com.nuvio.tv.core.di.NuvioCFeaturedInfo>,
+    watchedFilms: Set<String> = emptySet(), // [fork] round 67
     focusable: Boolean,
     playRequester: FocusRequester,
     detailsRequester: FocusRequester,
@@ -1825,6 +1898,9 @@ private fun NuvioCFeaturedSlideV66(
                 // [fork] round 66c: an unstarted show names its first episode, like the details page
                 isShow && com.nuvio.tv.NuvioCFeatures.FEATURED_V66B -> stringResource(R.string.nuvio_c_featured_play_episode, 1, 1)
                 else -> stringResource(R.string.nuvio_c_featured_play)
+            }.let { old ->
+                if (!com.nuvio.tv.NuvioCFeatures.FEATURED_PLAY_TEXT_V67) old
+                else nuvioCPlayText67(NuvioCFeaturedRules.playText67(cw, isShow, item.id in watchedFilms || (item.imdbId != null && item.imdbId in watchedFilms)))
             }
             val latestNext by rememberUpdatedState(onNext)
             val latestPrevious by rememberUpdatedState(onPrevious)
@@ -1832,6 +1908,8 @@ private fun NuvioCFeaturedSlideV66(
             var leftArmed by remember { mutableStateOf(false) }
             val lastButton = 1 // Play, Details
             fun focused(i: Int) { focusedButton = i; onButtonFocused(i) }
+            // [fork] round 67: one line, never two; the part after " · " drops first when the pill doesn't fit
+            val nuvioCPlayShown = if (com.nuvio.tv.NuvioCFeatures.FEATURED_PLAY_TEXT_V67) nuvioCFitPlayText67(playText, stringResource(R.string.nuvio_c_featured_details)) else playText
             Row(
                 horizontalArrangement = Arrangement.spacedBy(if (com.nuvio.tv.NuvioCFeatures.FEATURED_V66B) 14.dp else com.nuvio.tv.ui.screens.detail.NuvioCHeroRow65.gap),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1850,7 +1928,7 @@ private fun NuvioCFeaturedSlideV66(
                     }
             ) {
                 com.nuvio.tv.ui.screens.detail.PlayButton(
-                    text = playText,
+                    text = nuvioCPlayShown,
                     enabled = focusable,
                     onClick = onPlay,
                     onLongPress = onPlayLongPress,
@@ -2130,5 +2208,59 @@ private fun NuvioCFeaturedTextV66e(
             Spacer(Modifier.height(10.dp))
             com.nuvio.tv.ui.screens.detail.NuvioCQualityLineStatic(lead = lead, labels = labels, max = 4, compact = true)
         }
+    }
+}
+
+// ---- [fork] round 67 FEATURED_PLAY_TEXT_V67 ------------------------------------------------------------------------
+/** Separator between the Play text's main part and the part that drops first. */
+internal const val NUVIO_C_PLAY_SEP = " · "
+
+@Composable
+private fun nuvioCMinutesLeft67(minutes: Int): String {
+    val time = when {
+        minutes < 60 -> stringResource(R.string.nuvio_c_featured_min, minutes)
+        minutes % 60 == 0 -> stringResource(R.string.nuvio_c_featured_hr, minutes / 60)
+        else -> stringResource(R.string.nuvio_c_featured_hr_min, minutes / 60, minutes % 60)
+    }
+    return stringResource(R.string.nuvio_c_featured_left, time)
+}
+
+/** The pill text for a [NuvioCFeaturedRules.PlayText67], main part and an optional " · " tail. */
+@Composable
+private fun nuvioCPlayText67(t: NuvioCFeaturedRules.PlayText67): String {
+    val tail = t.minutesLeft?.let { nuvioCMinutesLeft67(it) }
+    return when (t.kind) {
+        NuvioCFeaturedRules.PlayKind67.PLAY -> stringResource(R.string.nuvio_c_featured_play)
+        NuvioCFeaturedRules.PlayKind67.PLAY_FIRST_EPISODE -> stringResource(R.string.nuvio_c_featured_play_first_episode)
+        NuvioCFeaturedRules.PlayKind67.RESUME_EPISODE -> stringResource(R.string.nuvio_c_featured_resume_episode, t.season ?: 1, t.episode ?: 1) + (tail?.let { NUVIO_C_PLAY_SEP + it } ?: "")
+        NuvioCFeaturedRules.PlayKind67.PLAY_NEXT -> stringResource(R.string.nuvio_c_featured_play_next) + NUVIO_C_PLAY_SEP + stringResource(R.string.nuvio_c_featured_se, t.season ?: 1, t.episode ?: 1)
+        NuvioCFeaturedRules.PlayKind67.START_SEASON -> stringResource(R.string.nuvio_c_featured_start_season, t.season ?: 1)
+        NuvioCFeaturedRules.PlayKind67.PLAY_NEW_EPISODE -> stringResource(R.string.nuvio_c_featured_play_new_episode)
+        NuvioCFeaturedRules.PlayKind67.RESUME_FILM -> stringResource(R.string.nuvio_c_featured_resume) + (tail?.let { NUVIO_C_PLAY_SEP + it } ?: "")
+        NuvioCFeaturedRules.PlayKind67.WATCH_AGAIN -> stringResource(R.string.nuvio_c_featured_watch_again)
+    }
+}
+
+/** [text] without its " · " tail. Pure, for tests. */
+internal fun nuvioCPlayTextShort67(text: String): String = text.substringBefore(NUVIO_C_PLAY_SEP)
+
+/**
+ * Keeps the Play text on one line beside the Details pill: measured against the carousel's text column (46% of the
+ * screen) less the Details pill, the gap and the Play pill's own icon and padding; too wide = the tail drops.
+ */
+@Composable
+private fun nuvioCFitPlayText67(text: String, detailsText: String): String {
+    if (!text.contains(NUVIO_C_PLAY_SEP)) return text
+    val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val style = MaterialTheme.typography.labelLarge
+    val density = LocalDensity.current
+    val columnPx = with(density) { (LocalConfiguration.current.screenWidthDp.dp * 0.46f).toPx() }
+    // pill chrome: 16 dp sides x2, 18 dp icon, 8 dp icon gap; focus growth room 6 dp; 14 dp between the pills
+    val chromePx = with(density) { (16.dp * 2 + 18.dp + 8.dp + 6.dp).toPx() }
+    val gapPx = with(density) { 14.dp.toPx() }
+    return remember(text, detailsText, style, columnPx) {
+        val full = measurer.measure(text, style, maxLines = 1).size.width
+        val details = measurer.measure(detailsText, style, maxLines = 1).size.width
+        if (full + chromePx + gapPx + details + chromePx <= columnPx) text else nuvioCPlayTextShort67(text)
     }
 }

@@ -69,6 +69,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -101,6 +102,15 @@ class NuvioCQualityViewModel @Inject constructor(
      */
     fun initial(t: QualityTitle): QualityLineState {
         if (TitleQualityPlanner.imdbOf(t) == null && TitleQualityPlanner.tmdbOf(t) == null) return QualityLineState.Absent
+        if (NuvioCFeatures.QUALITY_DIGITAL_GATE && !t.isSeries) {
+            // [fork] round 67: the gate decides first when the dates are already known; a recent film whose dates
+            // aren't known yet shows nothing (space held) rather than a cached result the gate may take away
+            val today = LocalDate.now()
+            val info = NuvioCDetailInfoStore.cached(t.id)
+            if (info != null && com.nuvio.tv.data.quality.NuvioCDigitalGate.gated(false, info.theatricalDate ?: t.released, info.anyHomeReleaseDate, today))
+                return QualityLineState.Dim(QualityLineState.NOT_YET_ON_DIGITAL)
+            if (info == null && com.nuvio.tv.data.quality.NuvioCDigitalGate.mayBeGated(false, t.released, today)) return QualityLineState.Checking
+        }
         return (if (NuvioCFeatures.QUALITY_REFRESH_V66) repo.cache.peekMetaStale(t.id) else repo.cache.peekMeta(t.id))?.toState() ?: QualityLineState.Checking
     }
 
@@ -128,13 +138,26 @@ class NuvioCQualityViewModel @Inject constructor(
         // planning walks the episode list: off the main thread
         var plan = withContext(Dispatchers.Default) { TitleQualityPlanner.plan(t, today) }
         if (plan == QualityPlan.NotYetReleased) { publish(t, QualityLineState.Dim(QualityLineState.NOT_YET_RELEASED)); return }
+        // [fork] round 67 QUALITY_DIGITAL_GATE: before any cache or lookup, a recent film waits (within the settle, plus
+        // the Information block's own fetch) for its release dates; no digital / disc date anywhere = no lookup at all
+        var waited = 0L
+        if (NuvioCFeatures.QUALITY_DIGITAL_GATE && com.nuvio.tv.data.quality.NuvioCDigitalGate.mayBeGated(t.isSeries, t.released, today)) {
+            val started = android.os.SystemClock.elapsedRealtime()
+            val info = NuvioCDetailInfoStore.cached(t.id)?.takeIf { it.hasDates() } ?: withTimeoutOrNull(SETTLE_MS + GATE_EXTRA_MS) {
+                NuvioCDetailInfoStore.current.first { it != null && it.metaId == t.id && it.hasDates() }
+            }
+            waited = android.os.SystemClock.elapsedRealtime() - started
+            if (info != null && com.nuvio.tv.data.quality.NuvioCDigitalGate.gated(t.isSeries, info.theatricalDate ?: t.released, info.anyHomeReleaseDate, today)) {
+                publish(t, QualityLineState.Dim(QualityLineState.NOT_YET_ON_DIGITAL)); return
+            }
+        }
         val cachedHit = (plan as? QualityPlan.Lookup)?.let { l -> withContext(Dispatchers.IO) { repo.cache.get(l.cacheKey) } }
         if (cachedHit != null) { withContext(Dispatchers.IO) { repo.cache.link(t.id, (plan as QualityPlan.Lookup).cacheKey) }; publish(t, cachedHit.toState()); return }
         // [fork] round 66 quality_refresh_v66: an expired result stays on screen while the new lookup runs
         val staleFound = if (NuvioCFeatures.QUALITY_REFRESH_V66) (plan as? QualityPlan.Lookup)?.let { l -> repo.cache.peekStale(l.cacheKey) }
             ?.takeIf { it.kind == CachedKind.FOUND }?.also { publish(t, it.toState()) } else null
         // a layer like the ratings: nothing goes out until the page has opened and settled
-        delay(SETTLE_MS)
+        delay((SETTLE_MS - waited).coerceAtLeast(0L)) // [fork] round 67: the gate's wait counts toward the settle
         val needs = plan as? QualityPlan.NeedsImdb
         if (needs != null) {
             val imdb = withTimeoutOrNull(5_000) {
@@ -178,6 +201,8 @@ class NuvioCQualityViewModel @Inject constructor(
 
     private companion object {
         const val SETTLE_MS = 1_200L // same settle as the Information block
+        /** [fork] round 67: the Information block fetches its dates after the same settle; give that fetch time too. */
+        const val GATE_EXTRA_MS = 3_000L
         const val EDITIONS_WAIT_MS = 20_000L
     }
 
@@ -186,6 +211,9 @@ class NuvioCQualityViewModel @Inject constructor(
         CachedKind.NOT_ON_DIGITAL -> QualityLineState.Dim(QualityLineState.NOT_YET_ON_DIGITAL)
     }
 }
+
+/** [fork] round 67: the Information answer has its release dates (a placeholder published before the fetch has not). */
+private fun NuvioCDetailInfo.hasDates(): Boolean = loaded || theatricalDate != null || anyHomeReleaseDate != null
 
 private fun com.nuvio.tv.data.quality.TitleQuality.toFound() = QualityLineState.Found(
     labels, if (NuvioCFeatures.QUALITY_EDITIONS) editions.map { it.label } else emptyList()

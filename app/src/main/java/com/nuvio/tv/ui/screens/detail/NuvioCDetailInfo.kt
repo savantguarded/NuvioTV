@@ -114,7 +114,9 @@ data class NuvioCDetailInfo(
     val imdbFromTmdb: String? = null,
     // [fork] round 60 detail_quality_line: US theatrical and digital-or-physical (TMDB types 4, 5) dates, ISO
     val theatricalDate: String? = null,
-    val homeReleaseDate: String? = null
+    val homeReleaseDate: String? = null,
+    // [fork] round 67 QUALITY_DIGITAL_GATE: earliest digital or disc date (types 4, 5) in any country, ISO
+    val anyHomeReleaseDate: String? = null
 )
 
 /** The info of the details page on screen; consumers check [NuvioCDetailInfo.metaId] against their title. */
@@ -234,7 +236,8 @@ class NuvioCDetailInfoViewModel @Inject constructor(
             if (NuvioCFeatures.DETAIL_INFO_SLOTS) addAll(slotExtras(meta, o, show = false))
         }
         return NuvioCDetailInfo(meta.id, rows, imdbFromTmdb = o.str("imdb_id") ?: o.obj("external_ids")?.str("imdb_id"),
-            theatricalDate = theatrical?.take(10), homeReleaseDate = earliest(4, 5)) // [fork] round 60 detail_quality_line
+            theatricalDate = theatrical?.take(10), homeReleaseDate = earliest(4, 5), // [fork] round 60 detail_quality_line
+            anyHomeReleaseDate = com.nuvio.tv.data.quality.NuvioCDigitalGate.earliestAnyCountry(o.obj("release_dates"), 4, 5)) // [fork] round 67
     }
 
     private suspend fun showInfo(meta: Meta, o: JsonObject): NuvioCDetailInfo {
