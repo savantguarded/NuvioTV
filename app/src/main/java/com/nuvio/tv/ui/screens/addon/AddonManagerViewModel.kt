@@ -479,7 +479,8 @@ class AddonManagerViewModel @Inject constructor(
                     collections = collectionsToServerFormat(currentCollections),
                     disabledCollectionKeys = disabledHomeCatalogKeys
                         .filter { it.startsWith("collection_") },
-                    followAddonsOrder = followAddonsOrderEnabled
+                    followAddonsOrder = followAddonsOrderEnabled,
+                    healthSources = if (com.nuvio.tv.NuvioCFeatures.ADDON_HEALTH) com.nuvio.tv.core.nuvioc.health.NuvioCHealthSources.load(context, profileManager.activeProfileId.value).map { it.address } else emptyList() // [fork] round 67
                 )
             },
             onChangeProposed = { change -> handleChangeProposed(change) },
@@ -683,6 +684,7 @@ class AddonManagerViewModel @Inject constructor(
                     proposedCollectionCount = proposedCollectionCount,
                     proposedDisabledCollectionKeys = proposedDisabledCollectionKeys,
                     proposedFollowAddonsOrder = change.proposedFollowAddonsOrder,
+                    proposedHealthSources = change.proposedHealthSources, // [fork] round 67
                     trackingConsentUrls = change.trackingConsentUrls
                 )
             )
@@ -797,6 +799,8 @@ class AddonManagerViewModel @Inject constructor(
             if (pending.proposedFollowAddonsOrder != null) {
                 layoutPreferenceDataStore.setFollowAddonsOrder(pending.proposedFollowAddonsOrder)
             }
+            // [fork] round 67 addon_health: status sources from the phone (already checked by the sanitizer)
+            pending.proposedHealthSources?.let { com.nuvio.tv.core.nuvioc.health.NuvioCHealthSources.applyFromPhone(context, profileManager.activeProfileId.value, it) }
             server?.confirmChange(pending.changeId)
 
             _uiState.update { it.copy(pendingChange = null) }

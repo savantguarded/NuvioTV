@@ -103,6 +103,16 @@ ${tabButtons}
     <div class="section-label">${context.getString(R.string.web_installed_addons)}</div>
     <ul class="addon-list" id="addonList"></ul>
     <div class="empty-state" id="emptyState">${context.getString(R.string.web_no_addons)}</div>
+${if (com.nuvio.tv.NuvioCFeatures.ADDON_HEALTH) """
+    <div class="section-label">${context.getString(R.string.nuvio_c_health_phone_title)}</div>
+    <div class="add-section" id="healthSources">
+      <div class="catalog-meta" style="margin-bottom:0.5rem">${context.getString(R.string.nuvio_c_health_phone_hint)}</div>
+      <input type="url" class="health-src" maxlength="300" placeholder="https://" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%;margin-bottom:0.4rem">
+      <input type="url" class="health-src" maxlength="300" placeholder="https://" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%;margin-bottom:0.4rem">
+      <input type="url" class="health-src" maxlength="300" placeholder="https://" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%;margin-bottom:0.4rem">
+      <input type="url" class="health-src" maxlength="300" placeholder="https://" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%">
+    </div>
+""" else ""}
   </div>
 """
         } else {
@@ -1670,6 +1680,19 @@ async function fetchWithTimeout(url, options, timeoutMs) {
   }
 }
 
+// [fork] round 67 addon_health: status source boxes (values set as text, never as HTML)
+function renderHealthSources(list) {
+  var boxes = document.querySelectorAll('.health-src');
+  for (var i = 0; i < boxes.length; i++) boxes[i].value = (list[i] || '').slice(0, 300);
+}
+function readHealthSources() {
+  var boxes = document.querySelectorAll('.health-src');
+  if (!boxes.length) return undefined;
+  var out = [];
+  for (var i = 0; i < boxes.length; i++) { var v = (boxes[i].value || '').trim(); if (v) out.push(v.slice(0, 300)); }
+  return out;
+}
+
 async function loadState() {
   try {
     var res = await fetchWithTimeout('/api/state', {}, 5000);
@@ -1679,6 +1702,7 @@ async function loadState() {
     collections = normalizeCollectionsForEditing(state.collections || []);
     disabledCollectionKeys = (state.disabledCollectionKeys || []).slice();
     followAddonsOrder = state.followAddonsOrder || false;
+    renderHealthSources(state.healthSources || []); // [fork] round 67 addon_health
     originalAddons = JSON.parse(JSON.stringify(addons));
     originalCatalogs = JSON.parse(JSON.stringify(catalogs));
     originalCollections = JSON.parse(JSON.stringify(collections));
@@ -2083,6 +2107,7 @@ async function saveChanges() {
         collections: collections,
         disabledCollectionKeys: disabledCollectionKeys,
         followAddonsOrder: followAddonsOrder,
+        healthSources: readHealthSources(), // [fork] round 67 addon_health
         trackingConsentUrls: addons
           .filter(function(a) { return a.trackingConsent; })
           .map(function(a) { return a.url; })

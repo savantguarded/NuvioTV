@@ -158,6 +158,8 @@ sealed class Screen(val route: String) {
     data object LicensesAttributions : Screen("licenses_attributions")
     data object AddonManager : Screen("addon_manager")
     data object CatalogOrder : Screen("catalog_order")
+    data object ServiceHealth : Screen("nuvio_c_health") // [fork] round 67 addon_health
+    data object ServiceHealthSources : Screen("nuvio_c_health_sources") // [fork] round 67 addon_health
     data object Plugins : Screen("plugins")
     data object ExperienceModeSelection : Screen("experience_mode_selection")
     data object LayoutSelection : Screen("layout_selection")

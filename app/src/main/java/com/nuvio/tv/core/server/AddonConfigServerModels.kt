@@ -154,7 +154,9 @@ data class PageState(
     val catalogs: List<CatalogInfo>,
     val collections: List<CollectionInfo> = emptyList(),
     val disabledCollectionKeys: List<String> = emptyList(),
-    val followAddonsOrder: Boolean = false
+    val followAddonsOrder: Boolean = false,
+    /** [fork] round 67 addon_health: this profile's status source addresses (shown on the phone page). */
+    val healthSources: List<String> = emptyList()
 )
 
 data class PendingAddonChange(
@@ -166,6 +168,8 @@ data class PendingAddonChange(
     val proposedDisabledCollectionKeys: List<String> = emptyList(),
     val proposedFollowAddonsOrder: Boolean? = null,
     val trackingConsentUrls: List<String> = emptyList(),
+    /** [fork] round 67 addon_health: status source addresses from the phone; null = unchanged. Checked by the sanitizer. */
+    val proposedHealthSources: List<String>? = null,
     var status: AddonChangeStatus = AddonChangeStatus.PENDING
 )
 

@@ -1478,8 +1478,20 @@ private fun PlaybackNavHost(
                 showBuiltInHeader = !hideBuiltInHeaders,
                 onBackPress = { navController.popBackStack() },
                 onNavigateToCatalogOrder = { navController.navigate(Screen.CatalogOrder.route) },
-                onNavigateToCollections = { navController.navigate(Screen.Collections.route) }
+                onNavigateToCollections = { navController.navigate(Screen.Collections.route) },
+                onNavigateToHealth = { navController.navigate(Screen.ServiceHealth.route) } // [fork] round 67
             )
+        }
+
+        // [fork] round 67 addon_health: Service health summary and its status sources
+        composable(Screen.ServiceHealth.route) {
+            com.nuvio.tv.ui.screens.addon.NuvioCHealthScreen(
+                onBack = { navController.popBackStack() },
+                onOpenSources = { navController.navigate(Screen.ServiceHealthSources.route) }
+            )
+        }
+        composable(Screen.ServiceHealthSources.route) {
+            com.nuvio.tv.ui.screens.addon.NuvioCHealthSourcesScreen()
         }
 
         composable(Screen.CatalogOrder.route) {

@@ -130,7 +130,8 @@ private sealed interface AddonExperienceModeState {
 
 private enum class AddonManagerFocusTarget {
     CatalogOrder,
-    Collections
+    Collections,
+    ServiceHealth // [fork] round 67 addon_health
 }
 
 private sealed interface AddonDeleteFocusRestore {
@@ -197,7 +198,8 @@ fun AddonManagerScreen(
     showBuiltInHeader: Boolean = true,
     onBackPress: () -> Unit = {},
     onNavigateToCatalogOrder: () -> Unit = {},
-    onNavigateToCollections: () -> Unit = {}
+    onNavigateToCollections: () -> Unit = {},
+    onNavigateToHealth: () -> Unit = {} // [fork] round 67 addon_health
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val addonToggleFocusRequesters = remember { mutableMapOf<String, FocusRequester>() }
@@ -209,6 +211,13 @@ fun AddonManagerScreen(
     val refreshAddonsFocusRequester = remember { FocusRequester() }
     val catalogOrderFocusRequester = remember { FocusRequester() }
     val collectionsFocusRequester = remember { FocusRequester() }
+    // [fork] round 67 addon_health: Service health card, its shared result, one check per page open
+    val nuvioCHealthOn = com.nuvio.tv.NuvioCFeatures.ADDON_HEALTH
+    val nuvioCHealthRequester = remember { FocusRequester() }
+    val nuvioCHealthVm: NuvioCHealthViewModel? = if (nuvioCHealthOn) hiltViewModel() else null
+    val nuvioCHealthState = nuvioCHealthVm?.state?.collectAsState()?.value
+    var nuvioCHealthRan by rememberSaveable { mutableStateOf(false) }
+    if (nuvioCHealthVm != null) LaunchedEffect(Unit) { if (!nuvioCHealthRan) { nuvioCHealthRan = true; nuvioCHealthVm.checkNow() } }
     var pendingFocusRestore by rememberSaveable { mutableStateOf<AddonManagerFocusTarget?>(null) }
     val experienceModeState by remember(viewModel) {
         viewModel.experienceMode.map<ExperienceMode?, AddonExperienceModeState> {
@@ -395,6 +404,7 @@ fun AddonManagerScreen(
         val earlyFocusRequester = when (pendingFocusRestore) {
             AddonManagerFocusTarget.CatalogOrder -> catalogOrderFocusRequester
             AddonManagerFocusTarget.Collections -> collectionsFocusRequester
+            AddonManagerFocusTarget.ServiceHealth -> nuvioCHealthFocusTarget(addonOrderKeysForHealth(uiState), ::toggleFocusRequesterFor) ?: nuvioCHealthRequester
             null -> return@LaunchedEffect
         }
         repeat(2) { withFrameNanos { } }
@@ -427,12 +437,14 @@ fun AddonManagerScreen(
                 val focusRequester = when (pendingFocusRestore) {
                     AddonManagerFocusTarget.CatalogOrder -> catalogOrderFocusRequester
                     AddonManagerFocusTarget.Collections -> collectionsFocusRequester
+                    AddonManagerFocusTarget.ServiceHealth -> nuvioCHealthFocusTarget(addonOrderKeysForHealth(uiState), ::toggleFocusRequesterFor) ?: nuvioCHealthRequester // [fork] round 67
                     else -> null
                 }
                 if (focusRequester != null) {
                     coroutineScope.launch {
                         repeat(2) { withFrameNanos { } }
                         if (focusRequester.requestFocus()) {
+                            NuvioCHealthNav.focusAddon = null // [fork] round 67
                             pendingFocusRestore = null
                         }
                     }
@@ -485,6 +497,7 @@ fun AddonManagerScreen(
             .fillMaxSize()
             .background(NuvioTheme.colors.Background)
     ) {
+        CompositionLocalProvider(LocalNuvioCAddonHealth provides nuvioCHealthState?.addons?.associateBy { it.baseUrl }) { // [fork] round 67
         TvReorderList(
             items = addonOrderKeys,
             key = { it },
@@ -500,6 +513,7 @@ fun AddonManagerScreen(
                     pendingRequester = when (pendingFocusRestore) {
                         AddonManagerFocusTarget.CatalogOrder -> catalogOrderFocusRequester
                         AddonManagerFocusTarget.Collections -> collectionsFocusRequester
+                        AddonManagerFocusTarget.ServiceHealth -> nuvioCHealthFocusTarget(addonOrderKeys, ::toggleFocusRequesterFor) ?: nuvioCHealthRequester // [fork] round 67
                         null -> null
                     },
                     fallbackRequester = deleteRestoreFallback ?: surfaceFocusRequester
@@ -706,7 +720,7 @@ fun AddonManagerScreen(
                         modifier = Modifier
                             .focusRequester(refreshAddonsFocusRequester)
                             .then(
-                                if (firstAddonToggleRequester != null) {
+                                if (firstAddonToggleRequester != null && !nuvioCHealthOn) {
                                     Modifier.focusProperties {
                                         down = firstAddonToggleRequester
                                     }
@@ -715,6 +729,27 @@ fun AddonManagerScreen(
                                 }
                             )
                     )
+
+                    if (nuvioCHealthOn && nuvioCHealthState != null) {
+                        // [fork] round 67 addon_health: after Refresh; Down goes to the first add-on, as Refresh's did
+                        ServiceHealthEntryCard(
+                            state = nuvioCHealthState,
+                            onClick = {
+                                restoreManageFromPhoneFocus = false
+                                pendingFocusRestore = AddonManagerFocusTarget.ServiceHealth
+                                onNavigateToHealth()
+                            },
+                            modifier = Modifier
+                                .focusRequester(nuvioCHealthRequester)
+                                .then(
+                                    if (firstAddonToggleRequester != null) {
+                                        Modifier.focusProperties { down = firstAddonToggleRequester }
+                                    } else {
+                                        Modifier
+                                    }
+                                )
+                        )
+                    }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -782,6 +817,8 @@ fun AddonManagerScreen(
                 )
             }
         }
+
+        } // [fork] round 67 LocalNuvioCAddonHealth
 
         SettingsVerticalScrollIndicators(
             state = addonOrderScrollState,
@@ -1734,6 +1771,7 @@ private fun AddonCardContent(
                             color = NuvioTheme.colors.TextSecondary
                         )
                     }
+                    NuvioCAddonHealthStatus(addon.baseUrl, addon.enabled, Modifier.weight(1f, fill = false)) // [fork] round 67 addon_health
                 }
             }
             if (!isReadOnly) {
@@ -1964,4 +2002,13 @@ private fun BuiltInUsenetCard(
             )
         }
     }
+}
+
+// ---- [fork] round 67 ADDON_HEALTH ---------------------------------------------------------------------------------
+private fun addonOrderKeysForHealth(state: AddonManagerUiState): List<String> = state.addonOrderKeys
+
+/** Back from the summary after OK on an add-on: that add-on's card (its toggle); else null (the health card). */
+private fun nuvioCHealthFocusTarget(keys: List<String>, requesterFor: (String) -> FocusRequester): FocusRequester? {
+    val url = NuvioCHealthNav.focusAddon ?: return null // cleared once focus landed (ON_RESUME)
+    return if (url in keys) requesterFor(url) else null
 }

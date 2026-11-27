@@ -85,7 +85,7 @@ class NuvioCCloudSettings @Inject constructor(
                         calendar.settings,
                         prefsTicks(prefs),
                         prefsTicks(viewPrefs),
-                        combine(prefsTicks(osdPrefs), prefsTicks(audioPrefs), prefsTicks(keyPrefs), prefsTicks(shufflePrefs), prefsTicks(trendingPrefs)) { _, _, _, _, _ -> } // [fork] round 52: + Roulette; round 65: + profile background
+                        combine(prefsTicks(osdPrefs), prefsTicks(audioPrefs), prefsTicks(keyPrefs), prefsTicks(shufflePrefs), combine(prefsTicks(trendingPrefs), prefsTicks(healthPrefs)) { _, _ -> }) { _, _, _, _, _ -> } // [fork] round 52: + Roulette; round 65: + profile background
                     ) { remote, _, _, _, _ -> profile to remote }
                 }.debounce(400).collect { (profile, remote) -> reconcile(profile, remote) }
             }.onFailure { Log.w(TAG, "stopped", it) }
@@ -225,11 +225,17 @@ class NuvioCCloudSettings @Inject constructor(
             "roulette_menu" to JsonPrimitive(shufflePrefs.getBoolean(rk("menu"), true)),
             "roulette_catalogs" to JsonPrimitive(encodeRouletteCatalogs(shufflePrefs.getStringSet(rk("catalogs"), null))),
             "roulette_weights" to JsonPrimitive(com.nuvio.tv.data.nuvioc.NuvioCShuffleSource.entries.joinToString(",") { "${it.key}=${shufflePrefs.getInt(rk("w_${it.key}"), it.defaultWeight)}" })
-        )
+        ) + (if (NuvioCFeatures.ADDON_HEALTH) mapOf( // [fork] round 67: status source addresses and on / off only
+            "health_sources" to JsonPrimitive(com.nuvio.tv.core.nuvioc.health.NuvioCHealthSources.encoded(context, p))
+        ) else emptyMap())
     }
+
+    // [fork] round 67 addon_health: Service health status sources (per profile)
+    private val healthPrefs: SharedPreferences by lazy { context.getSharedPreferences(com.nuvio.tv.core.nuvioc.health.NuvioCHealthSources.PREFS, Context.MODE_PRIVATE) }
 
     private fun applySynced65(v: Map<String, JsonPrimitive>) {
         val p = profiles.activeProfileId.value
+        if (NuvioCFeatures.ADDON_HEALTH) v["health_sources"]?.contentOrNull?.let { com.nuvio.tv.core.nuvioc.health.NuvioCHealthSources.applyEncoded(context, p, it) } // [fork] round 67
         com.nuvio.tv.ui.components.NuvioCTrendingBg.applySynced(
             context, p,
             v["profile_bg_catalogs_on"]?.booleanOrNull,
@@ -373,7 +379,7 @@ class NuvioCCloudSettings @Inject constructor(
 
         private fun prefsTicks(p: SharedPreferences) = callbackFlow {
             val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-                if (key == null || !(key.startsWith("cloud_last_") || key.startsWith("local_p") || key == MIGRATED)) trySend(Unit)
+                if (key == null || !(key.startsWith("cloud_last_") || key.startsWith("local_p") || key.startsWith("fmt:") || key == MIGRATED)) trySend(Unit)
             }
             p.registerOnSharedPreferenceChangeListener(listener)
             awaitClose { p.unregisterOnSharedPreferenceChangeListener(listener) }

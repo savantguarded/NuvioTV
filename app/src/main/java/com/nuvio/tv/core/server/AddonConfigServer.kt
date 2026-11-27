@@ -174,6 +174,10 @@ class AddonConfigServer(
             val disabledCollectionKeys = parseStringList(parsed["disabledCollectionKeys"])
             val followAddonsOrder = parsed["followAddonsOrder"] as? Boolean
             val trackingConsentUrls = parseStringList(parsed["trackingConsentUrls"])
+            // [fork] round 67 addon_health: absent = unchanged; at most 8 strings read, each checked by the sanitizer
+            val healthSources = if (com.nuvio.tv.NuvioCFeatures.ADDON_HEALTH && parsed.containsKey("healthSources"))
+                (parsed["healthSources"] as? List<*>)?.asSequence()?.mapNotNull { (it as? String)?.trim()?.take(400) }?.take(8)?.toList() ?: emptyList()
+            else null
             sanitizePendingAddonChange(
                 mode = webConfigMode,
                 proposedChange = PendingAddonChange(
@@ -183,7 +187,8 @@ class AddonConfigServer(
                     proposedCollectionsJson = collectionsJson,
                     proposedDisabledCollectionKeys = disabledCollectionKeys,
                     proposedFollowAddonsOrder = followAddonsOrder,
-                    trackingConsentUrls = trackingConsentUrls
+                    trackingConsentUrls = trackingConsentUrls,
+                    proposedHealthSources = healthSources
                 ),
                 currentState = currentPageStateProvider()
             )

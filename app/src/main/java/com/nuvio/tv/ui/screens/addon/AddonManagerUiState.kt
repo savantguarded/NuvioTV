@@ -53,6 +53,7 @@ data class PendingChangeInfo(
     val proposedCollectionCount: Int = 0,
     val proposedDisabledCollectionKeys: List<String> = emptyList(),
     val proposedFollowAddonsOrder: Boolean? = null,
+    val proposedHealthSources: List<String>? = null, // [fork] round 67 addon_health
     val isApplying: Boolean = false,
     val trackingAddonNames: List<String>? = null,
     val trackingConsentUrls: List<String> = emptyList(),
