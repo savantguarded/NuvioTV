@@ -2,20 +2,25 @@
 
 Rewrite this file at the end of every build session (do not append). History lives in git log.
 
-Updated: 2026-11-27 (round 67b)
+Updated: 2026-11-28 (round 68)
 
 ## Where things stand
-- Branch `nuvio-c` = round 67b on official `1.2.0-beta.4` (merged in full in round 66). No newer official release (checked 2026-11-27).
-- Round 67 (plan: project doc claude/round67-build-plan.md): profile shade, Roulette blur, pill gap, accent ring, carousel Play text, digital gate, early episode ratings, collection meta order, Service health. Details in FORK_CHANGES.md.
-- Round 67b `HEALTH_V67B` (canvas "Nuvio C: Service health redesign", Round 4): today's Service health layout kept, with colour and font tweaks (counts and status words in Space Grotesk, green / amber / red, amber and red washes on problem rows); no addresses or response times anywhere; columns are your add-ons / debrid, trackers and sync / websites (the "Elsewhere" column is gone); only what this profile uses is tracked; no built-in TorBox status page (TorBox account line kept). Status sources: This TV (built in) plus up to 4 you add, each row only name, checked time and a switch (Remove on yours); exactly one is on at a time, switching yours off hands back to This TV; switch focus now shows a ring and lift.
+- Branch `nuvio-c` = round 68 on official `1.2.0-beta.4`. No newer official release (checked 2026-11-28).
+- Round 68 (plan: project doc claude/round68-build-plan.md, canvas "Nuvio C: Round 68"): Service Health copy / hold / check order (`HEALTH_V68`, `HEALTH_HOLD_5MIN`, `HEALTH_CHAIN_V68`), OSD About (`OSD_ABOUT_V68`), reel and Roulette halo (`REEL_GLOW_V68`), Taste faces and 12-hour axis (`TASTE_V68`), Calendar List view (`CALENDAR_V68`). Details in FORK_CHANGES.md.
+- Built: forced GitHub build of 2026-11-28 compiled and released `1.2.0-beta.4+nuvioc`; no optional patch dropped.
+- Not yet run: `NuvioC*` / `Calendar*` unit tests. Maven Central answered 429 all session, so the local compile never got its dependencies; the owner chose to push and let GitHub compile. New `NuvioCRound68Test` and the updated `NuvioCRound67bTest` must be run in the next session before anything else.
+- OSD About: only the safe parts were built (loaded flag, per-title lookup cache, trace slice); no perfetto trace yet, so no before / after frame times.
+- A status source switched, moved, added or removed checks at once, past the 5-minute hold (the hold only stops page opens and Check Again).
 - Choices left for the owner: Editions share (Apocalypse Now Final Cut, 14.2% under the 15% rule; one constant in TitleQualityParser.kt).
-- Tests: all 659 `NuvioC*` and `Calendar*` tests pass (round 67b adds `NuvioCRound67bTest`: one source on, single-source verdicts, website checks, instance names, This TV vs a source deciding, no addresses or timings in texts, toned summary, checked line; `NuvioCHealthSecurityTest` updated to the new merge).
-- Local builds: one Gradle run at a time (two at once get one killed by the 8 GB memory limit); `-Xmx4g` is enough; Maven Central answers 429 now and then, `/home/claude/gradle-retry.sh` style loops.
+- Local builds: one Gradle run at a time; `-Xmx4g` is enough; Maven Central 429s can last a whole session.
+
+## Requests audit (round 68, item 3)
+- Service Health: no background runs; page open (after the hold) or Check Again only; with 2 sources on a run is 2 source GETs + TorBox account + TV checks for leftovers only (debug log line `NuvioCHealth run:`); a 429 from a source ends it for that run.
+- TMDB background callers: Taste enrichment one details call (credits appended) per new title, 4 at a time, up to 1,500 per build, 60-day cache (a first build on a big history is the only burst that could near ~50/s); Calendar TMDB Coming soon up to 10 discover pages + 70 / 300 detail checks one at a time, 24 h check cache; Roulette pool 3 at a time, 12 h pool, totals cached 24 h; profile background pool once a day; digital gate one release-dates call per recent film, 12 h; Featured quality checks start 4 s after open, one at a time. No repeat-without-cache found; nothing changed.
 
 ## Still to check on the TV
-- Round 67b: Service health columns and colours, This TV and a source switching (only one on), switch focus ring visible, new source starts off, Checked X ago lines, TorBox line with plan and days.
-- Round 67: profile shade on a bright picture, splash match, no banding; Roulette / Library Random smooth blur, 14 dp pill gap, accent ring on Movies / Shows; each carousel Play text (unstarted show, mid-episode, next up, new season, watched film); a film in cinemas shows NOT YET ON DIGITAL and no badges, a Nollywood film with only a Nigerian digital date shows badges; episode ratings on the cards ~1.2 s after opening, page opening speed unchanged (perfetto or `dumpsys gfxinfo`), graph opens with ratings; a collection title keeps the add-on info when its details open; Add-ons page focus and delete / move return spots, dots fill in without rows moving, summary focus and Back, OK on an add-on returns to its card, add IbbyLabs and a Gatus page, then a bad address (http, user:pass, a non-status page), the TorBox account line.
-- Round 66e and earlier: carousel order and ratings line, seasons, filled resolution badges, two-part context lines, CW move up / down; 66d badge readability; 66c graph averages, More panel sync entry; 66b Taste "9pm", Calendar bells on a second device; 66 graph on 7+ seasons, Roulette later spins, details darkening and Pause on scroll, Sync to audio now; after the beta.4 merge: Simkl rewatch, subtitle styles on mpv, Disc titles, Usenet.
+- Round 68: Add-ons row shield, no dots, "Checked … ago"; Service Health capitals, Uptime Tracker header, hosts under names with the dot on the name line, columns to the bottom, Check Again greyed with "Available in N min", reopening within 5 min doesn't re-check; Status Sources: two on, Move Up / Down, This TV last, missing item handed to source 2, bad source skipped; OSD About no gap without ratings, no jump with them; reel ring and halo through the spin and YOUR PICK (halo not cut top / bottom), Movies / Shows cards halo; Taste 12-hour axis, no "Titles together", face list (one-title face too), Back to row then face; Calendar rows without bell, Right / Left with the side card, side card sizes, no rating, no clipping at the top or bottom of the list or card.
+- Round 67b and earlier: see git history of this file (67b Service health columns, 67 profile shade, Roulette blur, carousel Play texts, digital gate, episode ratings timing, collection meta order).
 
 ## Open ideas (not approved for building)
 - Optional focus prefetch for the quality line (spec: ship off; not built).
