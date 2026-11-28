@@ -4,7 +4,7 @@ Read this first in every session. It tells you where things are so you open only
 Fork-specific behaviour (what each tweak does, its switch, its screen) lives in `docs/FORK_CHANGES.md`.
 Current state, last build and open issues live in `docs/STATUS.md`.
 
-Last verified against: branch `nuvio-c` round 67, official base `1.2.0-beta.4` (`77cc0bb5`), 2026-11-27.
+Last verified against: branch `nuvio-c` round 68, official base `1.2.0-beta.4` (`77cc0bb5`), 2026-11-28.
 
 ## 1. What this is
 
@@ -155,11 +155,11 @@ Pinned base (optional): `-f release=<official tag>` builds on that tag instead o
 | Card sizes, posters | `ui/components/NuvioCCardSize.kt`, `ContentCard.kt`, `PosterCardDefaults.kt` |
 | Details page | `ui/screens/detail/MetaDetailsScreen.kt`, `HeroSection.kt`, `NuvioCDetail*.kt` (opening placeholder / fade: `NuvioCDetailOpen.kt`) |
 | Series ratings graph (layer over details) | `ui/screens/detail/NuvioCSeriesGraph.kt`, hero button in `HeroSection.kt`, data `data/repository/ImdbEpisodeRatingsRepository.kt`, Mine in `data/nuvioc/NuvioCRatingService.kt` |
-| Add-ons page Service health (round 67, 67b one source at a time) | `core/nuvioc/health/` (rules incl. `oneActive` / `select`, own HTTP client, parsers, checker with `usedServices()` and `NuvioCHealthCombine`, per-profile sources), `ui/screens/addon/NuvioCHealth*.kt`, hooks in `AddonManagerScreen.kt`; phone field in `core/server/AddonWebPage.kt` + `AddonConfigChangeSanitizer.kt` |
+| Add-ons page Service health (round 67; round 68 hold, check order) | `core/nuvioc/health/` (rules incl. `holdLeft` / `move` / `toggle` / `usable`, own HTTP client, parsers, checker with `runNow(force)`, `usedServices()` and `NuvioCHealthCombine.combineChain`, per-profile sources), `ui/screens/addon/NuvioCHealth*.kt` (round 68 pages `NuvioCHealthScreen68.kt`, `NuvioCHealthSources68.kt`), hooks in `AddonManagerScreen.kt`; phone field in `core/server/AddonWebPage.kt` + `AddonConfigChangeSanitizer.kt` |
 | Details quality badges, editions | `data/quality/` (parser incl. editions, plan, cache, Torrentio / QualiCache, `NuvioCEditionBlocklist.kt`), `ui/screens/detail/NuvioCQualityLine.kt`, digital gate `data/quality/NuvioCDigitalGate.kt` (round 67), logos `res/drawable/nuvio_c_logo_*.xml` (OSD reuses them) |
 | Background trailers | `ui/components/BackgroundTrailerLayer.kt`, `NuvioCTrailer*.kt`, `core/player/BackgroundTrailerController.kt`, `data/trailer/` |
 | Ratings dialog / sync to trackers | `data/nuvioc/NuvioCRatingService.kt`, `core/tracking/TrackingRatings.kt` |
-| Calendar / Upcoming row | `core/calendar/`, `ui/screens/calendar/`, `ui/screens/home/HomeComingUp.kt` |
+| Calendar / Upcoming row | `core/calendar/`, `ui/screens/calendar/` (List rows / side card `CalendarScreen.kt`, round 68 sizes and focus room `NuvioCCalendarRound68.kt`), `ui/screens/home/HomeComingUp.kt` |
 | Cast page / filmography | `ui/screens/cast/`, `core/tmdb/NuvioCFilmography.kt` |
 | Collections (folder pages, title info order) | `ui/screens/collection/FolderDetailViewModel.kt` (`onItemFocused`), `NuvioCFolderMetaOrder.kt` (round 67) |
 | Roulette | `ui/screens/shuffle/`, `data/nuvioc/NuvioCShuffle*.kt`, `NuvioCRoulette*.kt` |
