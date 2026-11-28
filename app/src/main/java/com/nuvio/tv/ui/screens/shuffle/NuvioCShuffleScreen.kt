@@ -1,5 +1,7 @@
 package com.nuvio.tv.ui.screens.shuffle
 
+import com.nuvio.tv.ui.components.nuvioCAccentHalo
+
 // [fork] Nuvio C round 28 `shuffle_page`: the Shuffle page in the sidebar.
 // Mood screen (three tiles + mood chips) -> poster reel -> result (backdrop, logo, synopsis, Open / Shuffle again).
 // Only graphicsLayer values animate (alpha, scale, translation), so nothing is laid out again while it moves.
@@ -305,7 +307,8 @@ private fun ShuffleTile(
     val shape = RoundedCornerShape(24.dp)
     Card(
         onClick = onClick,
-        modifier = modifier.focusRequester(requester).onFocusChanged { focused = it.isFocused },
+        modifier = modifier.focusRequester(requester).onFocusChanged { focused = it.isFocused }
+            .then(if (com.nuvio.tv.NuvioCFeatures.REEL_GLOW_V68) Modifier.nuvioCAccentHalo(NuvioTheme.colors.FocusRing, 24.dp, visible = focused, zoom = 1.04f) else Modifier), // [fork] round 68: halo, fill stays off
         shape = CardDefaults.shape(shape),
         scale = CardDefaults.scale(focusedScale = 1.04f),
         colors = CardDefaults.colors(

@@ -262,7 +262,7 @@ internal fun NuvioCPosterReelV65(
         }
     }
 
-    BoxWithConstraints(modifier.height(cardHeight + frameRoom * 2).clipToBounds()) {
+    BoxWithConstraints(modifier.height(cardHeight + frameRoom * 2).then(if (com.nuvio.tv.NuvioCFeatures.REEL_GLOW_V68) Modifier.nuvioCClipSidesOnly() else Modifier.clipToBounds())) { // [fork] round 68: room above / below for the halo
         val startPx = with(density) { (maxWidth - cardWidth).toPx() / 2f }
         Row(
             modifier = Modifier
@@ -310,7 +310,8 @@ internal fun NuvioCPosterReelV65(
                 .align(Alignment.Center)
                 .size(cardWidth + frameRoom, cardHeight + frameRoom)
                 .then(
-                    if (com.nuvio.tv.NuvioCFeatures.POSTER_GLOW_EVERYWHERE && com.nuvio.tv.NuvioCFeatures.POSTER_GLOW) Modifier.drawBehind {
+                    if (com.nuvio.tv.NuvioCFeatures.REEL_GLOW_V68) Modifier.nuvioCAccentHalo(glowColor, 14.dp) // [fork] round 68: visible accent halo
+                    else if (com.nuvio.tv.NuvioCFeatures.POSTER_GLOW_EVERYWHERE && com.nuvio.tv.NuvioCFeatures.POSTER_GLOW) Modifier.drawBehind {
                         val r = 14.dp.toPx()
                         drawIntoCanvas { canvas ->
                             val paint = androidx.compose.ui.graphics.Paint().apply {
@@ -323,7 +324,10 @@ internal fun NuvioCPosterReelV65(
                         }
                     } else Modifier
                 )
-                .border(2.dp, Color.White.copy(alpha = 0.85f), RoundedCornerShape(14.dp))
+                .then(
+                    if (com.nuvio.tv.NuvioCFeatures.REEL_GLOW_V68) Modifier.border(NuvioTheme.focusRing.border(2.dp), RoundedCornerShape(14.dp)) // accent, focus ring width
+                    else Modifier.border(2.dp, Color.White.copy(alpha = 0.85f), RoundedCornerShape(14.dp))
+                )
         ) {
             val pulse by rememberInfiniteTransition(label = "reelQ").animateFloat(
                 initialValue = 0.35f,
