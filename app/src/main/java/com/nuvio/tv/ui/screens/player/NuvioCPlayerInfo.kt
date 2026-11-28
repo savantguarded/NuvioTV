@@ -28,7 +28,9 @@ data class NuvioCPlayerRatings(
     val order: List<String> = MDBListSettings.DEFAULT_RATING_ORDER,
     val episodeRatings: Map<Pair<Int, Int>, Double> = emptyMap(),
     /** [fork] round 33: ratings the meta add-on gave on its episode list (used where IMDb has none). */
-    val addonEpisodeRatings: Map<Pair<Int, Int>, Double> = emptyMap()
+    val addonEpisodeRatings: Map<Pair<Int, Int>, Double> = emptyMap(),
+    /** [fork] round 68 osd_about_v68: the lookup for [key] has finished (with or without ratings). */
+    val loaded: Boolean = false
 ) {
     /** Add-on ratings under the IMDb ones (IMDb wins), as on the details page. */
     val allEpisodeRatings: Map<Pair<Int, Int>, Double>
@@ -44,6 +46,8 @@ class NuvioCPlayerInfoViewModel @Inject constructor(
 ) : ViewModel() {
     private val _state = MutableStateFlow(NuvioCPlayerRatings())
     val state: StateFlow<NuvioCPlayerRatings> = _state.asStateFlow()
+    /** [fork] round 68: finished lookups by title for this playback, so reopening About never asks again. */
+    private val done = HashMap<String, NuvioCPlayerRatings>()
 
     /** [contentId] like "tt0133093" or "tmdb:603"; [type] "movie" or "series". */
     fun bind(contentIdOrNull: String?, type: String?) {
@@ -51,10 +55,14 @@ class NuvioCPlayerInfoViewModel @Inject constructor(
         val id = contentId.substringBefore(':').takeIf { it.isNotBlank() } ?: contentId
         val key = "$contentId|$type"
         if (_state.value.key == key) return
+        if (com.nuvio.tv.NuvioCFeatures.OSD_ABOUT_V68) done[key]?.let { cached ->
+            _state.value = cached.copy(addonEpisodeRatings = _state.value.addonEpisodeRatings)
+            return
+        }
         _state.value = NuvioCPlayerRatings(key = key, addonEpisodeRatings = _state.value.addonEpisodeRatings)
         val isSeries = type.equals("series", true) || type.equals("tv", true)
         viewModelScope.launch {
-            withContext(Dispatchers.IO) {
+            try { withContext(Dispatchers.IO) {
                 if (isSeries) {
                     var imdb = id.takeIf { it.startsWith("tt") }
                     if (com.nuvio.tv.NuvioCFeatures.PLAYER_EPISODE_RATINGS_FIX && imdb == null) {
@@ -85,6 +93,12 @@ class NuvioCPlayerInfoViewModel @Inject constructor(
                     val ratings = mdbList.nuvioCRatingsForItem(contentId, "movie")
                     val order = runCatching { mdbList.nuvioCRatingOrder() }.getOrDefault(MDBListSettings.DEFAULT_RATING_ORDER)
                     _state.update { if (it.key == key) it.copy(ratings = ratings, order = order) else it }
+                }
+            } } finally {
+                // [fork] round 68: mark the lookup finished even when it failed, so About drops the held space
+                if (com.nuvio.tv.NuvioCFeatures.OSD_ABOUT_V68) {
+                    _state.update { if (it.key == key) it.copy(loaded = true) else it }
+                    _state.value.takeIf { it.key == key && it.loaded }?.let { done[key] = it }
                 }
             }
         }

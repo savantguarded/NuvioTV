@@ -157,7 +157,9 @@ private fun NuvioCTabPill(label: String, selected: Boolean, requester: FocusRequ
 @Composable
 private fun NuvioCAboutContent(about: NuvioCAboutInfo) {
     val info: NuvioCPlayerInfoViewModel = hiltViewModel()
-    LaunchedEffect(about.contentId, about.type) { info.bind(about.contentId, about.type) }
+    LaunchedEffect(about.contentId, about.type) {
+        com.nuvio.tv.core.NuvioCPerf.section("osd about") { info.bind(about.contentId, about.type) } // [fork] round 68 trace slice
+    }
     val ratings by info.state.collectAsState()
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
@@ -212,7 +214,8 @@ private fun NuvioCAboutContent(about: NuvioCAboutInfo) {
             }
         } else if (filmRatings != null && about.season == null) {
             MDBListRatingsRow(ratings = filmRatings, order = ratings.order, maxItems = 3)
-        } else if (com.nuvio.tv.NuvioCFeatures.OSD_ABOUT_SCROLL && about.contentId != null) {
+        } else if (com.nuvio.tv.NuvioCFeatures.OSD_ABOUT_SCROLL && about.contentId != null &&
+            !nuvioCAboutRatingsGone(ratings, about.contentId, about.type)) {
             // [fork] round 39: the ratings line's room is kept while they load, so the synopsis never jumps under you.
             Spacer(Modifier.height(22.dp))
         }
@@ -220,8 +223,9 @@ private fun NuvioCAboutContent(about: NuvioCAboutInfo) {
             Text(it, style = MaterialTheme.typography.bodyMedium, color = NuvioTheme.colors.TextSecondary)
         }
         if (about.genres.isNotEmpty()) {
+            val genreLine = remember(about.genres) { about.genres.joinToString(" · ") } // [fork] round 68: built once
             Text(
-                about.genres.joinToString(" · "),
+                genreLine,
                 style = MaterialTheme.typography.bodySmall,
                 color = NuvioTheme.colors.TextSecondary.copy(alpha = 0.75f),
                 maxLines = 1,
@@ -230,6 +234,13 @@ private fun NuvioCAboutContent(about: NuvioCAboutInfo) {
         }
     }
 }
+
+/**
+ * [fork] round 68 osd_about_v68: true once this title's ratings lookup has finished, so the held ratings space can
+ * go. With nothing to show the line simply isn't drawn; while loading the space stays so the synopsis doesn't jump.
+ */
+internal fun nuvioCAboutRatingsGone(ratings: NuvioCPlayerRatings, contentId: String?, type: String?): Boolean =
+    com.nuvio.tv.NuvioCFeatures.OSD_ABOUT_V68 && ratings.loaded && ratings.key == "${contentId?.takeIf { it.isNotBlank() }}|$type"
 
 /** [fork] round 39 osd_about_scroll: steady scrolling for the About tab (see NuvioCAboutContent). */
 internal class NuvioCAboutGlide {
