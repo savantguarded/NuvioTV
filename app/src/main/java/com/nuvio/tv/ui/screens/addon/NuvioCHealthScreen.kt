@@ -59,6 +59,7 @@ fun NuvioCHealthScreen(
     onOpenSources: () -> Unit,
     viewModel: NuvioCHealthViewModel = hiltViewModel()
 ) {
+    if (com.nuvio.tv.NuvioCFeatures.HEALTH_V68) { NuvioCHealthScreen68(onBack, onOpenSources, viewModel); return } // [fork] round 68
     val s by viewModel.state.collectAsState()
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { first.requestFocus() } }

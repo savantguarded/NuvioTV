@@ -20,4 +20,21 @@
     <string name="nuvio_c_health_testing">Testing…</string>
     <string name="nuvio_c_health_phone_title">Status sources (Service health)</string>
     <string name="nuvio_c_health_phone_hint">Up to 4 status page addresses, https only. Leave a box empty to remove it.</string>
+    <!-- [fork] round 68 HEALTH_V68 / HEALTH_CHAIN_V68: capitalised copy, Uptime Tracker header, hold, check order -->
+    <string name="nuvio_c_health_title_v68">Service Health</string>
+    <string name="nuvio_c_health_check_again_v68">Check Again</string>
+    <string name="nuvio_c_health_sources_v68">Status Sources</string>
+    <string name="nuvio_c_health_working_v68">Working</string>
+    <string name="nuvio_c_health_problem_v68">Problem</string>
+    <string name="nuvio_c_health_problems_v68">Problems</string>
+    <string name="nuvio_c_health_down_v68">Down</string>
+    <string name="nuvio_c_health_col_addons_v68">Your Add-ons</string>
+    <string name="nuvio_c_health_col_services_v68">Debrid, Trackers &amp; Sync</string>
+    <string name="nuvio_c_health_add_source_v68">Add a Status Source</string>
+    <string name="nuvio_c_health_test_add_v68">Test and Add</string>
+    <string name="nuvio_c_health_phone_title_v68">Status Sources (Service Health)</string>
+    <string name="nuvio_c_health_uptime_tracker">Uptime Tracker</string>
+    <string name="nuvio_c_health_check_order">Check Order</string>
+    <string name="nuvio_c_health_move_up">Move Up</string>
+    <string name="nuvio_c_health_move_down">Move Down</string>
 </resources>

@@ -104,7 +104,7 @@ ${tabButtons}
     <ul class="addon-list" id="addonList"></ul>
     <div class="empty-state" id="emptyState">${context.getString(R.string.web_no_addons)}</div>
 ${if (com.nuvio.tv.NuvioCFeatures.ADDON_HEALTH) """
-    <div class="section-label">${context.getString(R.string.nuvio_c_health_phone_title)}</div>
+    <div class="section-label">${context.getString(if (com.nuvio.tv.NuvioCFeatures.HEALTH_V68) R.string.nuvio_c_health_phone_title_v68 else R.string.nuvio_c_health_phone_title)}</div>
     <div class="add-section" id="healthSources">
       <div class="catalog-meta" style="margin-bottom:0.5rem">${context.getString(R.string.nuvio_c_health_phone_hint)}</div>
       <input type="url" class="health-src" maxlength="300" placeholder="https://" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:100%;margin-bottom:0.4rem">

@@ -64,6 +64,7 @@ internal fun nuvioCHealthTestLine(r: SourceTestResult): String =
 
 @Composable
 fun NuvioCHealthSourcesScreen(viewModel: NuvioCHealthViewModel = hiltViewModel()) {
+    if (com.nuvio.tv.NuvioCFeatures.HEALTH_CHAIN_V68) { NuvioCHealthSources68(viewModel); return } // [fork] round 68 check order
     val checker = viewModel.checker
     val state by viewModel.state.collectAsState()
     var sources by remember { mutableStateOf(checker.sources()) }
@@ -84,7 +85,7 @@ fun NuvioCHealthSourcesScreen(viewModel: NuvioCHealthViewModel = hiltViewModel()
     fun save(list: List<HealthSourceSetting>) {
         sources = NuvioCHealthRules.oneActive(list)
         checker.saveSources(sources)
-        viewModel.checkNow() // the newly chosen source decides from the next check
+        viewModel.checkForced() // the newly chosen source decides from the next check (round 68: past the hold)
     }
 
     Column(

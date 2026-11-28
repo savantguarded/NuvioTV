@@ -29,7 +29,11 @@ data class ServiceHealth(
     val name: String,
     val sub: String? = null,
     val verdict: HealthVerdict = HealthVerdict.CHECKING,
-    val reason: String? = null
+    val reason: String? = null,
+    /** [fork] round 68: hostname shown under the name (never a path), e.g. api.trakt.tv. */
+    val host: String? = null,
+    /** [fork] round 68: the status source that decided, null = This TV (logs and tests only, never shown). */
+    val decidedBy: String? = null
 )
 
 /** Dot colour of a verdict. */
@@ -309,5 +313,39 @@ object NuvioCHealthRules {
             val on = line.startsWith("1|"); val off = line.startsWith("0|")
             if (!on && !off) return@mapNotNull null
             (checkSourceAddress(line.drop(2)) as? Checked.Ok)?.let { HealthSourceSetting(it.address, on) }
-        }.distinctBy { it.address }.take(MAX_SOURCES).let { oneActive(it) }
+        }.distinctBy { it.address }.take(MAX_SOURCES).let { if (com.nuvio.tv.NuvioCFeatures.HEALTH_CHAIN_V68) it else oneActive(it) }
+
+    // ---- [fork] round 68: hold of 5 minutes and check order --------------------------------------------------------
+    const val HOLD_MS = 5 * 60_000L
+
+    /** How long a finished check is still held (0 = a new check may run). Pure, for tests. */
+    fun holdLeft(now: Long, checkedAt: Long?): Long {
+        if (checkedAt == null) return 0L
+        val left = checkedAt + HOLD_MS - now
+        return if (left > 0 && left <= HOLD_MS) left else 0L // a clock that went back never holds longer than 5 min
+    }
+
+    /** Move [address] one place up ([up]) or down in the check order; ends stay put. Pure, for tests. */
+    fun move(list: List<HealthSourceSetting>, address: String, up: Boolean): List<HealthSourceSetting> {
+        val i = list.indexOfFirst { it.address == address }
+        val j = if (up) i - 1 else i + 1
+        if (i < 0 || j !in list.indices) return list
+        return list.toMutableList().also { val t = it[i]; it[i] = it[j]; it[j] = t }
+    }
+
+    /** Switch one source on or off, leaving the others as they are (any number can be on). Pure, for tests. */
+    fun toggle(list: List<HealthSourceSetting>, address: String, on: Boolean): List<HealthSourceSetting> =
+        list.map { if (it.address == address) it.copy(enabled = on) else it }
+
+    /** Position in the check order of each switched-on source (1, 2…), null for one that's off. Pure, for tests. */
+    fun positions(list: List<HealthSourceSetting>): List<Int?> {
+        var n = 0
+        return list.map { if (it.enabled) ++n else null }
+    }
+
+    /** A reading that can decide anything this run: answered, readable, not stale, not rate-limited. Pure, for tests. */
+    fun usable(r: SourceReading): Boolean = r.error == null && !r.stale && r.services.isNotEmpty()
+
+    /** A clear state from a source (UNKNOWN hands the item to the next source). */
+    fun decisive(state: SourceState?): Boolean = state != null && state != SourceState.UNKNOWN
 }

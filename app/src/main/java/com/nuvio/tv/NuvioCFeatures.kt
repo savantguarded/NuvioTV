@@ -1178,4 +1178,20 @@ object NuvioCFeatures {
     // ---- Round 67b ----
     /** Service health polish (needs ADDON_HEALTH): one source decides at a time (This TV's own checks, built in, or one status source you added, picked with switches on the Status sources page); only what this profile uses (add-ons with their instance by name, TorBox with a saved key, signed-in Trakt / Simkl / MDBList / Nuvio sync, TMDB and TVmaze) in three columns (add-ons; debrid, trackers and sync; websites); counts and status words in Space Grotesk, coloured; no addresses and no response times anywhere; Status sources rows are only name, when checked and the switch (Remove on yours), with a visible focus ring on the switch; no built-in TorBox status page (the TorBox account line stays).  This replaced the round 67 Service health code, so it has no off state of its own: ADDON_HEALTH turns the whole feature off. */
     const val HEALTH_V67B = true
+
+    // ---- Round 68 ----
+    /** Service Health copy and look (needs ADDON_HEALTH): capitalised titles and buttons, Add-ons row with an outline shield icon and no dots, "Checked 2 minutes ago" texts, an "Uptime Tracker" header with no tracker or source names, each row's host (never a path) under its name in 12 sp with the dot on the name line, columns down to the bottom margin. Off = round 67b copy and look. */
+    const val HEALTH_V68 = true
+    /** Service Health keeps a finished check for 5 minutes per profile (memory only): opening the Add-ons page or the summary doesn't re-check, Check Again is greyed with "Available in N min". Off = a check on every open. */
+    const val HEALTH_HOLD_5MIN = true
+    /** Service Health check order: any number of status sources on, read once each per run; for every item the first source in order with a clear state decides, an unknown or missing item goes to the next, an unreachable / unreadable / stale / 429 source is skipped for the run, and This TV checks whatever is left. Move Up / Move Down on the Status Sources page; This TV is always last. Off = round 67b one source at a time. */
+    const val HEALTH_CHAIN_V68 = true
+    /** Modern OSD About panel: the ratings line's space is held only while loading and dropped once loaded with no ratings; ratings looked up once per title per playback (player-scoped cache); synopsis layout remembered across scroll steps; a "NuvioC osd about" trace slice. Off = round 67 panel. */
+    const val OSD_ABOUT_V68 = true
+    /** Roulette / Library Random reel frame: border in the theme accent at focus ring width plus a soft ~14 dp accent halo outside it (drawn once per size), for the whole spin and on YOUR PICK; Roulette Movies / Shows cards get the same halo (fill stays off). Off = 2 dp white border, round 67 cards. */
+    const val REEL_GLOW_V68 = true
+    /** Taste: Viewing hours axis in 12-hour form (12am · 6am · 12pm · 6pm · 11pm), no "Titles together" label on Faces you watch most, OK on a face opens a Taste list of the titles they were in for the page's scope (from this profile's saved cast / directors, no new lookup). Off = round 67 behaviour (face opens the cast page). */
+    const val TASTE_V68 = true
+    /** Calendar List view: no bell / tick slot on rows (watched rows stay at 60%), Right from a row goes to the side card's buttons; side card with a 170 dp picture, no rating on the meta line, synopsis up to 6 / 9 lines, even 6 dp line gaps, scrolls for long content. Off = round 67 layout. */
+    const val CALENDAR_V68 = true
 }

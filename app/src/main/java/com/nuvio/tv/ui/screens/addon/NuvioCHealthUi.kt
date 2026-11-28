@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.MonitorHeart
+import androidx.compose.material.icons.outlined.GppGood
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
@@ -62,7 +63,11 @@ import javax.inject.Inject
 @HiltViewModel
 class NuvioCHealthViewModel @Inject constructor(val checker: NuvioCHealthChecker) : ViewModel() {
     val state = checker.state
+    /** Page open and Check Again: respects the 5-minute hold (round 68). */
     fun checkNow() = checker.runNow()
+    /** A status source was switched, moved, added or removed: check at once. */
+    fun checkForced() = checker.runNow(force = true)
+    fun holdLeft(now: Long = System.currentTimeMillis()): Long = checker.holdLeft(now)
 }
 
 /** Status per add-on address, for the cards. Null = health off (nothing drawn, no space). */
@@ -105,7 +110,7 @@ internal object NuvioCHealthText {
     /** The short reason after " · " (Timed out, Blocked (403), TorBox is having trouble), or null. */
     fun detail(a: AddonHealth): String? = when (a.verdict) {
         HealthVerdict.CANT_REACH, HealthVerdict.RATE_LIMITED, HealthVerdict.BLOCKED, HealthVerdict.DOWN, HealthVerdict.TROUBLE -> a.tvReason
-        HealthVerdict.NOT_TRACKED -> a.sourceName?.let { "not on $it" }
+        HealthVerdict.NOT_TRACKED -> a.sourceName?.takeUnless { com.nuvio.tv.NuvioCFeatures.HEALTH_V68 }?.let { "not on $it" } // round 68: no tracker names
         else -> null
     }?.takeUnless { it == state(a) }
 
@@ -117,12 +122,34 @@ internal object NuvioCHealthText {
     fun ago(ms: Long?, now: Long): String {
         if (ms == null) return "not checked yet"
         val s = ((now - ms) / 1000).coerceAtLeast(0)
+        if (com.nuvio.tv.NuvioCFeatures.HEALTH_V68) return ago68(s) // [fork] round 68
         return when {
             s < 60 -> "just now"
             s < 3600 -> "${s / 60} min ago"
             else -> "${s / 3600} h ago"
         }
     }
+
+    /** [fork] round 68: "just now" under 30 s, "N seconds ago", "1 minute ago" / "N minutes ago", "1 hour ago" / "N hours ago". */
+    fun ago68(seconds: Long): String = when {
+        seconds < 30 -> "just now"
+        seconds < 60 -> "$seconds seconds ago"
+        seconds < 3600 -> (seconds / 60).let { if (it == 1L) "1 minute ago" else "$it minutes ago" }
+        else -> (seconds / 3600).let { if (it == 1L) "1 hour ago" else "$it hours ago" }
+    }
+
+    /** [fork] round 68: "Checked 2 minutes ago" at the start of a line. */
+    fun checked(ms: Long?, now: Long): String = if (ms == null) "Not checked yet" else "Checked " + ago(ms, now)
+
+    /** [fork] round 68: the line under the greyed Check Again, whole minutes rounded up ("Available in 4 min"). */
+    fun availableIn(leftMs: Long): String? = if (leftMs <= 0) null else "Available in ${((leftMs + 59_999) / 60_000).coerceAtLeast(1)} min"
+
+    /** [fork] round 68: summary row line two for an add-on: its host (never a path), then the short reason. */
+    fun hostLine(a: AddonHealth): String = listOfNotNull(a.host, detail(a)).joinToString(" · ")
+
+    /** [fork] round 68: summary row line two for a service: host · plan · days left · reason. */
+    fun hostLine(v: com.nuvio.tv.core.nuvioc.health.ServiceHealth): String? =
+        listOfNotNull(v.host, v.sub, v.reason).joinToString(" · ").ifBlank { null }
 
     /** One piece of the summary line; [tone] set = a count, drawn bold in its colour. */
     data class Part(val text: String, val tone: HealthTone? = null)
@@ -141,7 +168,8 @@ internal object NuvioCHealthText {
             })
             t.daysLeft?.let { parts += Part(if (it == 1) "1 day left" else "$it days left") }
         }
-        parts += Part(if (s.running) "checking…" else "checked " + ago(s.checkedAtMs, now))
+        parts += Part(if (s.running) (if (com.nuvio.tv.NuvioCFeatures.HEALTH_V68) "Checking…" else "checking…")
+            else if (com.nuvio.tv.NuvioCFeatures.HEALTH_V68) checked(s.checkedAtMs, now) else "checked " + ago(s.checkedAtMs, now))
         return parts
     }
 
@@ -198,7 +226,7 @@ internal fun ServiceHealthEntryCard(state: HealthState, onClick: () -> Unit, mod
     ) {
         Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                imageVector = Icons.Default.MonitorHeart,
+                imageVector = if (com.nuvio.tv.NuvioCFeatures.HEALTH_V68) androidx.compose.material.icons.Icons.Outlined.GppGood else Icons.Default.MonitorHeart, // [fork] round 68: shield with a tick
                 contentDescription = null,
                 modifier = Modifier.size(28.dp),
                 tint = if (isFocused) NuvioTheme.colors.Secondary else NuvioTheme.colors.TextSecondary
@@ -206,7 +234,7 @@ internal fun ServiceHealthEntryCard(state: HealthState, onClick: () -> Unit, mod
             Spacer(Modifier.width(NuvioTheme.spacing.lg))
             Column(Modifier.weight(1f)) {
                 Text(
-                    text = stringResource(R.string.nuvio_c_health_title),
+                    text = stringResource(if (com.nuvio.tv.NuvioCFeatures.HEALTH_V68) R.string.nuvio_c_health_title_v68 else R.string.nuvio_c_health_title),
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = NuvioTheme.colors.TextPrimary
                 )
@@ -219,10 +247,12 @@ internal fun ServiceHealthEntryCard(state: HealthState, onClick: () -> Unit, mod
                 )
             }
             Spacer(Modifier.width(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
-                NuvioCHealthText.dots(state).forEach { NuvioCHealthDot(it) }
+            if (!com.nuvio.tv.NuvioCFeatures.HEALTH_V68) { // [fork] round 68: no dots before the arrow
+                Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
+                    NuvioCHealthText.dots(state).forEach { NuvioCHealthDot(it) }
+                }
+                Spacer(Modifier.width(10.dp))
             }
-            Spacer(Modifier.width(10.dp))
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = null,

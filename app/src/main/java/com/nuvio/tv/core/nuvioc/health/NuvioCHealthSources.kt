@@ -18,7 +18,7 @@ object NuvioCHealthSources {
         NuvioCHealthRules.decodeSources(prefs(context).getString(key(profile), null))
 
     fun save(context: Context, profile: Int, list: List<HealthSourceSetting>) {
-        prefs(context).edit { putString(key(profile), NuvioCHealthRules.encodeSources(NuvioCHealthRules.oneActive(list.distinctBy { it.address }.take(NuvioCHealthRules.MAX_SOURCES)))) } // [fork] round 67b: one on at most
+        prefs(context).edit { putString(key(profile), NuvioCHealthRules.encodeSources(list.distinctBy { it.address }.take(NuvioCHealthRules.MAX_SOURCES).let { if (com.nuvio.tv.NuvioCFeatures.HEALTH_CHAIN_V68) it else NuvioCHealthRules.oneActive(it) })) } // [fork] round 67b: one on at most; round 68: any number, list order = check order
     }
 
     /** The synced form (same string as stored). */

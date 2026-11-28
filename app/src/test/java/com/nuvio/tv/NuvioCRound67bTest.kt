@@ -31,7 +31,8 @@ class NuvioCRound67bTest {
     @Test fun onlyOneSourceOn() {
         assertEquals(listOf(a, b.copy(enabled = false), c), NuvioCHealthRules.oneActive(listOf(a, b, c)))
         val decoded = NuvioCHealthRules.decodeSources("1|https://a.example.com\n1|https://b.example.com")
-        assertEquals(1, decoded.count { it.enabled })
+        // round 68 HEALTH_CHAIN_V68: any number can be on (check order); before it, one at most
+        assertEquals(if (NuvioCFeatures.HEALTH_CHAIN_V68) 2 else 1, decoded.count { it.enabled })
         // switching one on switches the others off; switching it off leaves none on (This TV takes over)
         val picked = NuvioCHealthRules.select(listOf(a.copy(enabled = false), b.copy(enabled = false), c), c.address, true)
         assertEquals(listOf(false, false, true), picked.map { it.enabled })
@@ -135,12 +136,12 @@ class NuvioCRound67bTest {
         val parts = NuvioCHealthText.summaryParts(s, 0L)
         assertEquals(HealthTone.AMBER, parts.first().tone)
         assertEquals("1 PROBLEM", parts.first().text)
-        assertEquals("checked just now", parts.last().text)
+        assertEquals(if (NuvioCFeatures.HEALTH_V68) "Checked just now" else "checked just now", parts.last().text) // round 68 capital C
         assertTrue(parts.any { it.text == "TorBox online, Pro" })
     }
 
     @Test fun checkedLine() {
-        assertEquals("Checked 2 min ago", nuvioCCheckedLine(0L, 125_000L))
+        assertEquals(if (NuvioCFeatures.HEALTH_V68) "Checked 2 minutes ago" else "Checked 2 min ago", nuvioCCheckedLine(0L, 125_000L)) // round 68 texts
         assertEquals("Not checked yet", nuvioCCheckedLine(null, 0L))
     }
 }
