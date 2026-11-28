@@ -87,6 +87,9 @@ import java.util.Locale
 internal val LocalTasteOpen65 = staticCompositionLocalOf<((NuvioCTasteCard, String?, String) -> Unit)?> { null }
 internal val LocalTasteAccent65 = staticCompositionLocalOf { Color(0xFF7AA2FF) }
 /** Opens a cast page (Wrapped "Most seen face"). */
+/** [fork] round 68: the scope in words for a face page's summary ("this month", "of all time"). */
+internal val LocalTasteScopeWords68 = staticCompositionLocalOf { "" }
+
 internal val LocalTastePerson65 = staticCompositionLocalOf<((Int, String, Boolean) -> Unit)?> { null }
 
 private val P_CARD = Color(0xD915161B) // #15161B at ~85%
@@ -159,6 +162,7 @@ internal fun NuvioCTastePage65(viewModel: NuvioCTasteViewModel, onOpenTitle: (St
         if (com.nuvio.tv.NuvioCFeatures.TASTE_V66) Row(Modifier.fillMaxWidth().height(32.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             // [fork] round 66: crumb, title, summary and the scope chip share one baseline, centred in the row
             Text("${open.crumb} ›", fontSize = 12.sp, color = P_MUTE, maxLines = 1, modifier = Modifier.alignByBaseline())
+            page?.photo?.takeIf { com.nuvio.tv.NuvioCFeatures.TASTE_V68 }?.let { FacePhoto68(it) } // [fork] round 68: the face's photo
             Text(page?.title ?: open.card.title, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1, modifier = Modifier.alignByBaseline())
             Text(page?.summary.orEmpty(), fontSize = 12.sp, color = P_MUTE, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 style = TextStyle(fontFeatureSettings = "tnum"), modifier = Modifier.weight(1f).alignByBaseline())
@@ -473,7 +477,7 @@ private fun Ranked65(p: NuvioCTasteCardPage, onOpen: (String, String, String) ->
                                 Text(String.format(Locale.US, "%.1f", crowd), fontSize = 13.sp, color = P_MUTE, textAlign = TextAlign.End, modifier = Modifier.width(44.dp))
                                 GapBar(you - crowd, Modifier.width(220.dp))
                             } else {
-                                Text(item.value.orEmpty(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1, style = TextStyle(fontFeatureSettings = "tnum"))
+                                Text(item.value.orEmpty(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = p.valueTint?.let { Color(it) } ?: Color.White, maxLines = 1, style = TextStyle(fontFeatureSettings = "tnum"))
                             }
                         }
                     }
@@ -495,4 +499,14 @@ private fun GapBar(gap: Double, modifier: Modifier) {
         drawRoundRect(if (gap >= 0) Color(0xFF4FD1C5) else Color(0xFFF6B44B), topLeft = Offset(left, top), size = Size(w, h), cornerRadius = CornerRadius(h / 2))
         drawRect(Color.White.copy(alpha = 0.25f), topLeft = Offset(size.width / 2, 0f), size = Size(1.dp.toPx(), size.height))
     })
+}
+
+
+/** [fork] round 68: a face's round photo in the page header, the header row's height. */
+@Composable
+private fun FacePhoto68(url: String) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val r = remember(url) { coil3.request.ImageRequest.Builder(context).data(url).size(96, 96).build() }
+    coil3.compose.AsyncImage(r, null, contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+        modifier = Modifier.size(32.dp).clip(androidx.compose.foundation.shape.CircleShape).background(P_INNER))
 }

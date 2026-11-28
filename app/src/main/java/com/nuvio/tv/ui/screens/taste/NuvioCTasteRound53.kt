@@ -234,6 +234,7 @@ internal fun NuvioCTasteTabsV2(
         }
         androidx.compose.runtime.CompositionLocalProvider(
             LocalTasteOpen65 provides nuvioCOpenCard,
+            LocalTasteScopeWords68 provides com.nuvio.tv.data.nuvioc.tasteScopeWords(nuvioCScopeLabel),
             LocalTasteAccent65 provides accent,
             LocalTastePerson65 provides onOpenPerson
         ) {
@@ -665,7 +666,8 @@ private fun Stats53(s: NuvioCTasteStats, f: com.nuvio.tv.data.nuvioc.NuvioCTaste
                     Column(Modifier.weight(3f).fillMaxHeight()) {
                         Bars53(f.byHour, peakHour, null, Modifier.fillMaxWidth().weight(1f), C_TEAL)
                         Row(Modifier.fillMaxWidth().padding(top = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                            listOf("00", "06", "12", "18", "23").forEach { Text(it, style = MaterialTheme.typography.labelSmall, color = C_MUTE) }
+                            (if (com.nuvio.tv.NuvioCFeatures.TASTE_V68) listOf(0, 6, 12, 18, 23).map { com.nuvio.tv.data.nuvioc.nuvioCHour12(it) } // [fork] round 68: 12am 6am 12pm 6pm 11pm
+                                else listOf("00", "06", "12", "18", "23")).forEach { Text(it, style = MaterialTheme.typography.labelSmall, color = C_MUTE) }
                         }
                     }
                     Bars53(f.byWeekday, f.byWeekday.indices.maxByOrNull { f.byWeekday[it] }, listOf("M", "T", "W", "T", "F", "S", "S"), Modifier.weight(2f).fillMaxHeight(), C_TEAL)
@@ -831,10 +833,19 @@ private fun Discover53(
     val leftScope = androidx.compose.runtime.rememberCoroutineScope()
     val requesters = remember { HashMap<String, FocusRequester>() }
     fun req(key: String) = requesters.getOrPut(key) { if (key == "spin") spinFocus else FocusRequester() }
+    // [fork] round 68 TASTE_V68: OK on a face opens its Taste list for the page's scope; Back lands on the face again
+    val tasteOpen = LocalTasteOpen65.current
+    val scopeWords = LocalTasteScopeWords68.current
+    val faceOpen68: ((com.nuvio.tv.data.nuvioc.NuvioCTastePersonStat) -> Unit)? = tasteOpen?.let { open -> { p: com.nuvio.tv.data.nuvioc.NuvioCTastePersonStat ->
+        open(com.nuvio.tv.data.nuvioc.NuvioCTasteCard.FACE, com.nuvio.tv.data.nuvioc.tasteFaceHint(p.person.id, p.director, scopeWords), "FACE")
+    } }
     LaunchedEffect(row?.id, people.size) {
         val key = viewModel.discoverFocusKey ?: return@LaunchedEffect
         val r = requesters[key]
-        if (r != null && runCatching { r.requestFocusAfterFrames() }.getOrDefault(false)) viewModel.discoverFocusKey = null
+        if (r != null && runCatching { r.requestFocusAfterFrames() }.getOrDefault(false)) {
+            viewModel.discoverFocusKey = null
+            if (NuvioCTasteReturn.key == "card|FACE") NuvioCTasteReturn.key = null // [fork] round 68: back on the face
+        }
     }
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // top: a compact Spin card beside the picks; bottom: the faces across the full width
@@ -911,7 +922,7 @@ private fun Discover53(
             }
         }
         if (people.isNotEmpty()) Card53(Modifier.fillMaxWidth().weight(1f)) {
-            Title53("Faces you watch most", C_ROSE, "Titles together")
+            Title53("Faces you watch most", C_ROSE, if (com.nuvio.tv.NuvioCFeatures.TASTE_V68) null else "Titles together") // [fork] round 68: no sub-label
             // even spacing across the full width, room around every circle so none is cut
             androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
             val fits = (maxWidth / 108.dp).toInt().coerceAtLeast(1)
@@ -924,7 +935,9 @@ private fun Discover53(
                     val last = i == shown.lastIndex
                     Face53(p, accent, Modifier.focusRequester(req(key)).focusProperties { if (row == null) up = upTarget; if (last) right = FocusRequester.Cancel; if (i == 0 && com.nuvio.tv.NuvioCFeatures.TASTE_SPIN_FLOURISH) left = FocusRequester.Cancel }) {
                         viewModel.discoverFocusKey = key
-                        onOpenPerson(p.person.id, p.person.name, p.director)
+                        val openFace = faceOpen68
+                        if (com.nuvio.tv.NuvioCFeatures.TASTE_V68 && openFace != null) openFace(p) // [fork] round 68: a Taste list, not the cast page
+                        else onOpenPerson(p.person.id, p.person.name, p.director)
                     }
                 }
             }

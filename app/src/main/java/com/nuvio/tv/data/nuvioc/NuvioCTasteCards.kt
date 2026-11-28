@@ -40,7 +40,9 @@ enum class NuvioCTasteCard(val title: String, val kind: NuvioCTastePageKind) {
     YOUR_YEAR("Your year", NuvioCTastePageKind.BREAKDOWN),
     HOURS_BY_MONTH("Hours by month", NuvioCTastePageKind.TIMELINE),
     NEW_SHOWS("New shows", NuvioCTastePageKind.BREAKDOWN),
-    NEW_DIRECTORS("New directors", NuvioCTastePageKind.BREAKDOWN)
+    NEW_DIRECTORS("New directors", NuvioCTastePageKind.BREAKDOWN),
+    /** [fork] round 68 TASTE_V68: the titles a face from "Faces you watch most" was in (hint "p:<id>" / "d:<id>"). */
+    FACE("Faces you watch most", NuvioCTastePageKind.RANKED)
 }
 
 /** One title row: [name] then [sub] (details line), optional right-hand [value]; [you] / [crowd] for vs TMDB. */
@@ -70,7 +72,10 @@ data class NuvioCTasteCardPage(
     val bars: List<NuvioCTasteBar> = emptyList(),
     val focusBar: Int = 0,
     val columns: List<String> = emptyList(),
-    val ranked: List<NuvioCTasteItem> = emptyList()
+    val ranked: List<NuvioCTasteItem> = emptyList(),
+    /** [fork] round 68: a face page's photo in the header, and the colour of its hours column (ARGB). */
+    val photo: String? = null,
+    val valueTint: Long? = null
 ) {
     val kind: NuvioCTastePageKind get() = card.kind
     val empty: Boolean get() = groups.isEmpty() && bars.isEmpty() && ranked.isEmpty()
@@ -278,6 +283,7 @@ internal fun computeTasteCardPage(
             NuvioCTasteCardPage(k, k.title, if (v66) "Peak ${nuvioCHour12(peak)} · uses finish time" else "Peak %02d:00 · uses finish time".format(peak), barsTitle = "BY HOUR OF THE DAY", bars = bars,
                 focusBar = hint?.toIntOrNull()?.coerceIn(0, 23) ?: peak)
         }
+        NuvioCTasteCard.FACE -> tasteFacePage68(c, hint)
         NuvioCTasteCard.NEW_RELEASES -> {
             val rows = c.aggs.values.mapNotNull { a ->
                 val y = titles[a.key]?.year ?: return@mapNotNull null
@@ -395,4 +401,60 @@ fun nuvioCHourTick(hour: Int): String {
     if (hour % 3 != 0) return ""
     val twelve = if (hour % 12 == 0) 12 else hour % 12
     return "$twelve${if (hour < 12) "a" else "p"}${if (com.nuvio.tv.NuvioCFeatures.TASTE_HOURS_PM) "m" else ""}" // round 66b: 9pm
+}
+
+
+// ---- [fork] round 68 TASTE_V68: a face's Taste list ------------------------------------------------------------------
+
+/** The Faces card's colour (C_ROSE on the Discover tab), used for the hours column. */
+internal const val TASTE_FACE_TINT = 0xFFF47C8CL
+
+/** Hint for a face page: "p:<id>" (cast) or "d:<id>" (director), then a separator and the scope words. Pure, for tests. */
+fun tasteFaceHint(id: Int, director: Boolean, scopeWords: String): String = (if (director) "d:" else "p:") + id + "\u0001" + scopeWords
+
+/** "this month", "of all time", "in 2025", "in Oct 2026" from the page's scope label. Pure, for tests. */
+fun tasteScopeWords(scopeLabel: String): String = when {
+    scopeLabel.equals("This month", true) -> "this month"
+    scopeLabel.equals("This year", true) -> "this year"
+    scopeLabel.equals("All time", true) -> "of all time"
+    scopeLabel.isBlank() -> ""
+    else -> "in $scopeLabel"
+}
+
+/** Hours together in the face header: "12 h", "1.5 h", "40 min" under an hour. */
+internal fun tasteHoursShort68(minutes: Int): String = when {
+    minutes < 60 -> "$minutes min"
+    minutes % 60 == 0 || minutes >= 600 -> "${(minutes + 30) / 60} h"
+    else -> String.format(Locale.US, "%.1f h", minutes / 60.0)
+}
+
+private fun tasteFacePage68(c: Ctx, hint: String?): NuvioCTasteCardPage {
+    val raw = hint.orEmpty()
+    val ref = raw.substringBefore('\u0001')
+    val words = raw.substringAfter('\u0001', "")
+    val director = ref.startsWith("d:")
+    val id = ref.drop(2).toIntOrNull()
+    // only this profile's titles in the page's scope whose saved cast (or directors) hold this person; no new lookup
+    val keys = if (id == null) emptyList() else c.aggs.keys.filter { k ->
+        val t = c.titles[k] ?: return@filter false
+        (if (director) t.directors else t.cast).any { it.id == id }
+    }
+    val person = keys.firstNotNullOfOrNull { k -> c.titles[k]?.let { t -> (if (director) t.directors else t.cast).firstOrNull { it.id == id } } }
+    val ordered = keys.sortedWith(compareByDescending<String> { c.aggs[it]?.minutes ?: 0 }.thenByDescending { c.aggs[it]?.last ?: Long.MIN_VALUE }).take(TASTE_PAGE_CAP)
+    val minutes = keys.sumOf { c.aggs[it]?.minutes ?: 0 }
+    val rows = ordered.map { k ->
+        val a = c.aggs[k]
+        val sub = if (c.isShow(k)) {
+            val n = a?.eps?.size ?: 0
+            "Show · " + (if (n == 1) "1 episode watched" else "$n episodes watched")
+        } else listOfNotNull("Film", c.titles[k]?.year?.toString()).joinToString(" · ")
+        c.item(k, value = tasteHm65(a?.minutes ?: 0), sub = sub)
+    }
+    val count = keys.size
+    val summary = (if (count == 1) "1 title you watched" else "$count titles you watched") +
+        (if (words.isNotBlank()) " $words" else "") + " · ${tasteHoursShort68(minutes)} together"
+    return NuvioCTasteCardPage(
+        NuvioCTasteCard.FACE, person?.name ?: NuvioCTasteCard.FACE.title, summary,
+        columns = listOf("TITLES", "HOURS"), ranked = rows, photo = person?.photo, valueTint = TASTE_FACE_TINT
+    )
 }
