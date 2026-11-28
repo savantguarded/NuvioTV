@@ -113,8 +113,8 @@ internal data class CalendarMetrics(
 
 @Composable
 internal fun calendarMetrics(): CalendarMetrics =
-    if (LocalV2Appearance.current != null) CalendarMetrics(64.dp, 88.dp, 50.dp, 132.dp, 44.dp, 140.dp)
-    else CalendarMetrics(58.dp, 80.dp, 45.dp, 112.dp, 36.dp, 140.dp)
+    if (LocalV2Appearance.current != null) CalendarMetrics(64.dp, 88.dp, 50.dp, 132.dp, 44.dp, if (NuvioCFeatures.CALENDAR_V68) NuvioCCalendar68.panelArt else 140.dp) // [fork] round 68
+    else CalendarMetrics(58.dp, 80.dp, 45.dp, 112.dp, 36.dp, if (NuvioCFeatures.CALENDAR_V68) NuvioCCalendar68.panelArt else 140.dp)
 
 @Composable
 internal fun rememberCalendarFormats(): CalendarFormats {
@@ -402,6 +402,7 @@ private fun CalendarListView(
     val list = uiState.list
     val listState = rememberLazyListState()
     val targetRequester = remember { FocusRequester() }
+    val nuvioCPanelButtons = remember { FocusRequester() } // [fork] round 68: Right from a row lands here
     val pendingKey by viewModel.pendingListKey.collectAsState()
     var targetKey by remember { mutableStateOf<String?>(null) }
     var placed by remember { mutableStateOf(false) }
@@ -439,7 +440,8 @@ private fun CalendarListView(
             onUserKey = { userMoved[0] = true },
             onOpen = onOpen,
             onBell = viewModel::toggleBell,
-            onOptions = onOptions
+            onOptions = onOptions,
+            panelRequester = nuvioCPanelButtons
         )
         Spacer(Modifier.width(NuvioTheme.spacing.xl))
         CalendarSidePanel(
@@ -451,7 +453,8 @@ private fun CalendarListView(
             onWatch = onWatch,
             onOpen = onOpen,
             onBell = viewModel::toggleBell,
-            modifier = Modifier.weight(0.38f).fillMaxHeight().padding(bottom = NuvioTheme.spacing.xxl)
+            modifier = Modifier.weight(0.38f).fillMaxHeight().padding(bottom = NuvioTheme.spacing.xxl),
+            buttonsRequester = nuvioCPanelButtons
         )
     }
 }
@@ -469,7 +472,8 @@ private fun CalendarList(
     onUserKey: () -> Unit,
     onOpen: (CalendarRow) -> Unit,
     onBell: (CalendarRow) -> Unit,
-    onOptions: (CalendarRow) -> Unit
+    onOptions: (CalendarRow) -> Unit,
+    panelRequester: FocusRequester? = null
 ) {
     val lastKeyRepeat = remember { longArrayOf(0L) }
     LazyColumn(
@@ -502,7 +506,8 @@ private fun CalendarList(
                     onFocused = onFocused,
                     onOpen = onOpen,
                     onBell = onBell,
-                    onOptions = onOptions
+                    onOptions = onOptions,
+                    panelRequester = panelRequester
                 )
             }
         }
@@ -597,7 +602,8 @@ internal fun CalendarRowItem(
     onOpen: (CalendarRow) -> Unit,
     onBell: (CalendarRow) -> Unit,
     onOptions: (CalendarRow) -> Unit,
-    compact: Boolean = false
+    compact: Boolean = false,
+    panelRequester: FocusRequester? = null
 ) {
     val v2 = LocalV2Appearance.current != null
     val metrics = calendarMetrics()
@@ -624,6 +630,8 @@ internal fun CalendarRowItem(
                     if (it.isFocused) onFocused(row)
                 }
                 .calendarOptionsKeys(press) { onOptions(row) }
+                .nuvioCRightToPanel(panelRequester) // [fork] round 68
+                .nuvioCFocusRoomInView()
                 .nuvioV2Focus(focused, shape, stationary = true)
                 .then(if (v2 && focused) Modifier.nuvioGlass(GlassRole.CONTROL, focused = true, shape = shape) else Modifier),
             shape = CardDefaults.shape(shape),
@@ -748,7 +756,7 @@ internal fun CalendarRowItem(
                 if (!compact) CalendarTimeColumn(timePrimary, timeSecondary, notAnnounced, metrics.timeColumn)
             }
         }
-        Box(
+        if (!NuvioCFeatures.CALENDAR_V68 || compact) Box( // [fork] round 68: List rows lose the bell / tick slot
             Modifier
                 .width(metrics.statusSlot + NuvioTheme.spacing.sm)
                 .onFocusChanged { bellFocused = it.hasFocus },
@@ -946,7 +954,8 @@ private fun CalendarSidePanel(
     onWatch: (CalendarRow) -> Unit,
     onOpen: (CalendarRow) -> Unit,
     onBell: (CalendarRow) -> Unit,
-    modifier: Modifier
+    modifier: Modifier,
+    buttonsRequester: FocusRequester? = null
 ) {
     val v2 = LocalV2Appearance.current != null
     val shape = RoundedCornerShape(if (v2) NuvioTheme.radii.xxl else NuvioTheme.radii.md)
@@ -980,6 +989,10 @@ private fun CalendarSidePanel(
                     textStyle = MaterialTheme.typography.headlineSmall,
                     modifier = Modifier.align(Alignment.BottomStart).padding(NuvioTheme.spacing.md)
                 )
+            }
+            if (NuvioCFeatures.CALENDAR_V68) { // [fork] round 68 side card (board 4)
+                NuvioCCalendarPanelText68(row, details, formats, today, next, performance, onWatch, onOpen, onBell, buttonsRequester)
+                return@Column
             }
             Column(
                 Modifier.fillMaxWidth().padding(NuvioTheme.spacing.sidePanel.inner),
@@ -1060,16 +1073,115 @@ private fun CalendarSidePanel(
     }
 }
 
+/**
+ * [fork] round 68 side card text: when line (accent caps) > episode title (2 lines; turns to the scrolling line only
+ * when still cut) > meta (no rating) > synopsis (6 / 9 lines) > buttons > NEXT FROM > next rows. 6 dp between lines,
+ * 10 dp above the buttons, 12 dp above Next from; the card scrolls and keeps focus room clear at both edges.
+ */
+@Composable
+private fun NuvioCCalendarPanelText68(
+    row: CalendarRow,
+    details: CalendarRowDetails?,
+    formats: CalendarFormats,
+    today: LocalDate?,
+    next: List<CalendarRow>,
+    performance: Boolean,
+    onWatch: (CalendarRow) -> Unit,
+    onOpen: (CalendarRow) -> Unit,
+    onBell: (CalendarRow) -> Unit,
+    buttonsRequester: FocusRequester?
+) {
+    Column(
+        Modifier.fillMaxWidth().padding(NuvioTheme.spacing.sidePanel.inner),
+        verticalArrangement = Arrangement.spacedBy(NuvioCCalendar68.lineGap)
+    ) {
+        calendarWhenLine(row, formats, today)?.let {
+            Text(
+                text = it.uppercase(),
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = NuvioCCalendar68.whenSize),
+                color = NuvioTheme.colors.Secondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        val title = calendarRowLine(row).ifEmpty { row.name ?: stringResource(R.string.calendar_unknown_title) }
+        val titleStyle = MaterialTheme.typography.titleLarge.copy(fontSize = NuvioCCalendar68.titleSize, fontWeight = FontWeight.SemiBold)
+        var titleCut by remember(title) { mutableStateOf(false) }
+        if (titleCut && NuvioCFeatures.CALENDAR_PANEL_MARQUEE) {
+            com.nuvio.tv.ui.components.NuvioCTurnMarquee(
+                first = com.nuvio.tv.ui.components.NuvioCMarqueeSpec(title, titleStyle, NuvioTheme.colors.TextPrimary),
+                second = null,
+                focused = true
+            )
+        } else {
+            Text(
+                text = title,
+                style = titleStyle,
+                color = NuvioTheme.colors.TextPrimary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                onTextLayout = { if (it.hasVisualOverflow) titleCut = true }
+            )
+        }
+        val meta = listOfNotNull(
+            calendarLabelText(row.label),
+            row.network,
+            details?.let { calendarRuntimeText(it) },
+            row.genre ?: details?.genre
+        )
+        if (meta.isNotEmpty()) {
+            Text(
+                text = meta.joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = NuvioCCalendar68.metaSize),
+                color = NuvioTheme.colors.TextSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        details?.synopsis?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = NuvioCCalendar68.synopsisSize),
+                color = NuvioTheme.colors.TextSecondary,
+                maxLines = NuvioCCalendar68.synopsisLines(next.isNotEmpty()),
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        Spacer(Modifier.height(NuvioCCalendar68.aboveButtons - NuvioCCalendar68.lineGap))
+        Box(Modifier.nuvioCFocusRoomInView()) {
+            CalendarPanelActions(row, performance, onWatch, onOpen, onBell, buttonsRequester)
+        }
+        if (next.isNotEmpty()) {
+            Spacer(Modifier.height(NuvioCCalendar68.aboveNext - NuvioCCalendar68.lineGap))
+            Text(
+                text = stringResource(R.string.calendar_next_from, row.name ?: stringResource(R.string.calendar_unknown_title)).uppercase(),
+                style = MaterialTheme.typography.labelMedium.copy(fontSize = NuvioCCalendar68.nextHeaderSize),
+                color = NuvioTheme.colors.TextTertiary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            next.forEach { upcoming -> CalendarNextRow(upcoming, details, formats, today, performance, onOpen) }
+        }
+    }
+}
+
 @Composable
 private fun CalendarPanelAction(
     text: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector?,
     performance: Boolean,
+    requester: FocusRequester? = null,
     onClick: () -> Unit
 ) {
     val v2 = LocalV2Appearance.current != null
     val pill = RoundedCornerShape(NuvioTheme.radii.full)
-    CalendarFocusCard(onClick = onClick, shape = pill, performance = performance, focusedScale = 1.06f) { focused ->
+    CalendarFocusCard(
+        onClick = onClick,
+        shape = pill,
+        performance = performance,
+        focusedScale = 1.06f,
+        modifier = if (requester != null) Modifier.focusRequester(requester) else Modifier
+    ) { focused ->
         Row(
             Modifier
                 .then(if (v2 && focused) Modifier.nuvioGlass(GlassRole.CONTROL, focused = true, shape = pill) else Modifier)
@@ -1095,17 +1207,20 @@ private fun CalendarPanelActions(
     performance: Boolean,
     onWatch: (CalendarRow) -> Unit,
     onOpen: (CalendarRow) -> Unit,
-    onBell: (CalendarRow) -> Unit
+    onBell: (CalendarRow) -> Unit,
+    firstRequester: FocusRequester? = null
 ) {
     val out = row.status == CalendarRowStatus.WATCHED || row.status == CalendarRowStatus.NOT_WATCHED
+    val watch = out && row.kind != CalendarRowKind.FILM_CINEMA && row.kind != CalendarRowKind.SHOW
     Row(horizontalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.sm), verticalAlignment = Alignment.CenterVertically) {
-        if (out && row.kind != CalendarRowKind.FILM_CINEMA && row.kind != CalendarRowKind.SHOW) {
-            CalendarPanelAction(stringResource(R.string.calendar_reminder_watch_now), Icons.Default.PlayArrow, performance) { onWatch(row) }
+        if (watch) {
+            CalendarPanelAction(stringResource(R.string.calendar_reminder_watch_now), Icons.Default.PlayArrow, performance, firstRequester) { onWatch(row) }
         }
         CalendarPanelAction(
             stringResource(if (row.isFilm) R.string.calendar_action_open_film else R.string.calendar_action_open_show),
             null,
-            performance
+            performance,
+            firstRequester.takeIf { !watch } // [fork] round 68: Right from a row lands on the first button
         ) { onOpen(row) }
         if (row.status.hasBell) {
             val on = row.status == CalendarRowStatus.BELL_ON
@@ -1138,7 +1253,7 @@ private fun CalendarNextRow(
         shape = shape,
         performance = performance,
         focusedScale = 1.02f,
-        modifier = Modifier.fillMaxWidth().padding(top = NuvioTheme.spacing.xs)
+        modifier = Modifier.fillMaxWidth().padding(top = NuvioTheme.spacing.xs).nuvioCFocusRoomInView() // [fork] round 68
     ) { focused ->
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -1158,9 +1273,12 @@ private fun CalendarNextRow(
         Column(Modifier.weight(1f)) {
             val line = listOfNotNull(calendarWhenLine(row, formats, today), calendarLabelText(row.label)).joinToString(" · ")
             if (com.nuvio.tv.NuvioCFeatures.CALENDAR_PANEL_MARQUEE) { // [fork] round 34: title then date line scroll on focus
+                val v68 = NuvioCFeatures.CALENDAR_V68 // [fork] round 68: 14 / 12 sp
+                val topStyle = MaterialTheme.typography.bodyMedium.let { if (v68) it.copy(fontSize = NuvioCCalendar68.nextTitleSize) else it }
+                val bottomStyle = MaterialTheme.typography.bodySmall.let { if (v68) it.copy(fontSize = NuvioCCalendar68.nextLineSize) else it }
                 com.nuvio.tv.ui.components.NuvioCTurnMarquee(
-                    first = com.nuvio.tv.ui.components.NuvioCMarqueeSpec(calendarRowLine(row), MaterialTheme.typography.bodyMedium, NuvioTheme.colors.TextPrimary),
-                    second = line.takeIf { it.isNotEmpty() }?.let { com.nuvio.tv.ui.components.NuvioCMarqueeSpec(it, MaterialTheme.typography.bodySmall, NuvioTheme.colors.TextSecondary) },
+                    first = com.nuvio.tv.ui.components.NuvioCMarqueeSpec(calendarRowLine(row), topStyle, NuvioTheme.colors.TextPrimary),
+                    second = line.takeIf { it.isNotEmpty() }?.let { com.nuvio.tv.ui.components.NuvioCMarqueeSpec(it, bottomStyle, NuvioTheme.colors.TextSecondary) },
                     focused = focused
                 )
                 return@Column
